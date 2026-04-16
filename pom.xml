@@ -280,6 +280,14 @@
             </dependency>
 
             <dependency>
+                <groupId>io.projectreactor</groupId>
+                <artifactId>reactor-bom</artifactId>
+                <version>2025.0.5</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
                 <version>19.0.0</version>
@@ -909,18 +917,6 @@
                 <groupId>io.netty</groupId>
                 <artifactId>netty-tcnative-classes</artifactId>
                 <version>${dep.tcnative.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.projectreactor</groupId>
-                <artifactId>reactor-core</artifactId>
-                <version>3.8.5</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.projectreactor.netty</groupId>
-                <artifactId>reactor-netty-core</artifactId>
-                <version>1.3.5</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
