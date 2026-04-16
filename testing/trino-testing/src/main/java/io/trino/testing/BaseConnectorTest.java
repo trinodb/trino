@@ -4662,7 +4662,7 @@ public abstract class BaseConnectorTest
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
                 abort("Skipping since rename table is not supported at all");
             }
-            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.test_rename_table_" + randomNameSuffix(), "This connector does not support renaming tables across schemas");
             return;
         }
 
