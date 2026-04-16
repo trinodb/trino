@@ -136,6 +136,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private volatile long activeTasks;
     private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
@@ -315,6 +316,8 @@ public class SqlTaskManager
                 }
             }, 0, intervalSeconds, SECONDS);
         });
+
+        taskManagementExecutor.scheduleWithFixedDelay(() -> activeTasks = tasks.asMap().values().stream().filter(task -> task.getTaskEndTime() == null).count(), 0, 1, SECONDS);
     }
 
     @PreDestroy
@@ -354,6 +357,12 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Active tasks count")
+    public long getActiveTasksCount()
+    {
+        return activeTasks;
     }
 
     @Managed(description = "Tracked tasks count")
