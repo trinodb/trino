@@ -261,14 +261,15 @@ public class TestIgniteTypeMapping
     @Test
     public void testDecimalNegativeScale()
     {
-        // IgniteClient.toColumnMapping maps decimal(p, -s) to decimal(p+s, 0), but this
-        // code path was never tested. Trino does not support negative scale decimal types,
-        // so these cases can only be exercised by creating the table directly in Ignite.
+        // Ignite accepts negative scale in DDL but enforces the declared precision without
+        // adjustment, so decimal(p, -s) stores at most p digits and maps to decimal(p, 0).
+        // Trino does not support negative scale decimal types, so these cases can only be
+        // exercised by creating the table directly in Ignite.
         SqlDataTypeTest.create()
-                .addRoundTrip("decimal(5, -1)", "123450", createDecimalType(6, 0), "DECIMAL '123450'")
-                .addRoundTrip("decimal(5, -3)", "12345000", createDecimalType(8, 0), "DECIMAL '12345000'")
-                .addRoundTrip("decimal(9, -7)", "1234567890000000", createDecimalType(16, 0), "DECIMAL '1234567890000000'")
-                .addRoundTrip("decimal(27, -11)", "12345678901234567890123456700000000000", createDecimalType(38, 0), "DECIMAL '12345678901234567890123456700000000000'")
+                .addRoundTrip("decimal(5, -1)", "12340", createDecimalType(5, 0), "DECIMAL '12340'")
+                .addRoundTrip("decimal(5, -3)", "12000", createDecimalType(5, 0), "DECIMAL '12000'")
+                .addRoundTrip("decimal(9, -7)", "120000000", createDecimalType(9, 0), "DECIMAL '120000000'")
+                .addRoundTrip("decimal(27, -11)", "123456789012345670000000000", createDecimalType(27, 0), "DECIMAL '123456789012345670000000000'")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal_negative_scale"));
     }
 
