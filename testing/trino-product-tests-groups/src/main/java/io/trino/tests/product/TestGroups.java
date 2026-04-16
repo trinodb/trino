@@ -65,6 +65,7 @@ public final class TestGroups
     public static final String AZURE = "azure";
     public static final String EXASOL = "exasol";
     public static final String CASSANDRA = "cassandra";
+    public static final String DORIS = "doris";
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";
     public static final String LDAP = "ldap";
