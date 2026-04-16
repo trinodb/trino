@@ -19,6 +19,7 @@ import io.trino.spi.NodeVersion;
 import org.apache.iceberg.CatalogProperties;
 
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
@@ -50,6 +51,11 @@ public class IcebergRestCatalogPropertiesProvider
         if (restConfig.isVendedCredentialsEnabled()) {
             properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
         }
+
+        for (Entry<String, String> entry : restConfig.getHttpHeaders().entrySet()) {
+            properties.put("header.".concat(entry.getKey()), entry.getValue());
+        }
+
         catalogProperties = properties.buildOrThrow();
     }
 

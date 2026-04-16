@@ -536,6 +536,9 @@ following properties:
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
   - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
     and view names are cached. Defaults to `1m`.
+* - `iceberg.rest-catalog.http-headers`
+  - Additional *non-sensitive* HTTP headers to include with requests to the REST catalog.
+    Example: `Header-1: value 1, Header-2: value 2`.
   :::
 
 The following example shows a minimal catalog configuration using an Iceberg
