@@ -14,6 +14,11 @@
 package io.trino.plugin.redshift;
 
 import io.trino.operator.RetryPolicy;
+import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 
 public class TestRedshiftQueryFailureRecoveryTest
         extends BaseRedshiftFailureRecoveryTest
@@ -21,5 +26,17 @@ public class TestRedshiftQueryFailureRecoveryTest
     public TestRedshiftQueryFailureRecoveryTest()
     {
         super(RetryPolicy.QUERY);
+    }
+
+    @Test
+    void testCreateTableAsSelect()
+    {
+        assertThatQuery("CREATE TABLE <table> AS SELECT * FROM orders")
+                .withCleanupQuery(Optional.of("DROP TABLE <table>"))
+                .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
     }
 }
