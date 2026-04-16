@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.delete.DeleteFile;
@@ -33,133 +31,38 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergSplit
-        implements ConnectorSplit
+public record IcebergSplit(
+        String path,
+        long start,
+        long length,
+        long fileSize,
+        long fileRecordCount,
+        IcebergFileFormat fileFormat,
+        int specId,
+        List<Block> partitionValues,
+        List<DeleteFile> deletes,
+        SplitWeight splitWeight,
+        TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+        long dataSequenceNumber,
+        OptionalLong fileFirstRowId) implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(IcebergSplit.class);
 
-    private final String path;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final long fileRecordCount;
-    private final IcebergFileFormat fileFormat;
-    private final int specId;
-    private final List<Block> partitionValues;
-    private final List<DeleteFile> deletes;
-    private final SplitWeight splitWeight;
-    private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
-    private final long dataSequenceNumber;
-    private final OptionalLong fileFirstRowId;
-
-    @JsonCreator
-    public IcebergSplit(
-            @JsonProperty("path") String path,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileRecordCount") long fileRecordCount,
-            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("specId") int specId,
-            @JsonProperty("partitionValues") List<Block> partitionValues,
-            @JsonProperty("deletes") List<DeleteFile> deletes,
-            @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
-            @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId)
+    public IcebergSplit
     {
-        this.path = requireNonNull(path, "path is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileRecordCount = fileRecordCount;
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.specId = specId;
-        this.partitionValues = ImmutableList.copyOf(partitionValues);
-        this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
-        this.fileStatisticsDomain = requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
-        this.dataSequenceNumber = dataSequenceNumber;
-        this.fileFirstRowId = requireNonNull(fileFirstRowId, "fileFirstRowId is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(fileFormat, "fileFormat is null");
+        partitionValues = ImmutableList.copyOf(partitionValues);
+        deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
+        requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
+        requireNonNull(fileFirstRowId, "fileFirstRowId is null");
     }
 
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getLength()
-    {
-        return length;
-    }
-
-    @JsonProperty
-    public long getFileSize()
-    {
-        return fileSize;
-    }
-
-    @JsonProperty
-    public long getFileRecordCount()
-    {
-        return fileRecordCount;
-    }
-
-    @JsonProperty
-    public IcebergFileFormat getFileFormat()
-    {
-        return fileFormat;
-    }
-
-    @JsonProperty
-    public int getSpecId()
-    {
-        return specId;
-    }
-
-    @JsonProperty
-    public List<Block> getPartitionValues()
-    {
-        return partitionValues;
-    }
-
-    @JsonProperty
-    public List<DeleteFile> getDeletes()
-    {
-        return deletes;
-    }
-
-    @JsonProperty
     @Override
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
-    }
-
-    @JsonProperty
-    public TupleDomain<IcebergColumnHandle> getFileStatisticsDomain()
-    {
-        return fileStatisticsDomain;
-    }
-
-    @JsonProperty
-    public long getDataSequenceNumber()
-    {
-        return dataSequenceNumber;
-    }
-
-    @JsonProperty
-    public OptionalLong getFileFirstRowId()
-    {
-        return fileFirstRowId;
     }
 
     @Override

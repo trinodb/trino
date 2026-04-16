@@ -43,7 +43,7 @@ public class IcebergSplitAddressProvider
         switch (split) {
             case IcebergSplit icebergSplit -> {
                 return cachingHostAddressProvider.getHosts(
-                        getSplitKey(icebergSplit.getPath(), icebergSplit.getStart(), icebergSplit.getLength()),
+                        getSplitKey(icebergSplit.path(), icebergSplit.start(), icebergSplit.length()),
                         ImmutableList.of());
             }
             case TableChangesSplit tableChangesSplit -> {
