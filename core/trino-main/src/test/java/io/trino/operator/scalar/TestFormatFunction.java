@@ -24,7 +24,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -149,6 +148,78 @@ public class TestFormatFunction
         assertThat(format("%s", "cast('test' AS char(5))"))
                 .isEqualTo("test ");
 
+        assertThat(format("%s", "cast(row('hello', 'world') AS row(greeting varchar, planet varchar))"))
+                .isEqualTo("{\"greeting\": \"hello\", \"planet\": \"world\"}");
+
+        assertThat(format("%s", "row('hello', 'world')"))
+                .isEqualTo("[\"hello\", \"world\"]");
+
+        assertThat(format("%s", "cast(row('hello', array['world']) AS row(greeting varchar, planet array(varchar)))"))
+                .isEqualTo("{\"greeting\": \"hello\", \"planet\": [\"world\"]}");
+
+        assertThat(format("%s", "cast(row('hello', 1337) AS row(greeting varchar, planet integer))"))
+                .isEqualTo("{\"greeting\": \"hello\", \"planet\": 1337}");
+
+        assertThat(format("%s", "cast(row('hello', from_base64('d29ybGQ=')) AS row(greeting varchar, planet varbinary))"))
+                .isEqualTo("{\"greeting\": \"hello\", \"planet\": \"d29ybGQ=\"}");
+
+        assertThat(format("%s", "ARRAY['hello', 'world']"))
+                .isEqualTo("[\"hello\", \"world\"]");
+
+        assertThat(format("%s", "ARRAY['hel\"l\\o\nworld']"))
+                .isEqualTo("[\"hel\\\"l\\\\o\\nworld\"]");
+
+        assertThat(format("%s", "ARRAY[1, 2, 3]"))
+                .isEqualTo("[1, 2, 3]");
+
+        assertThat(format("%s", "ARRAY[TRUE, FALSE]"))
+                .isEqualTo("[true, false]");
+
+        assertThat(format("%s", "from_base64('d29ybGQ=')"))
+                .isEqualTo("d29ybGQ=");
+
+        assertThat(format("%s", "map(ARRAY['greeting', 'planet'], ARRAY['hello', 'world'])"))
+                .isEqualTo("{\"greeting\": \"hello\", \"planet\": \"world\"}");
+
+        assertThat(format("%s", "map(ARRAY['greeting', 'planet'], ARRAY[1, 2])"))
+                .isEqualTo("{\"greeting\": 1, \"planet\": 2}");
+
+        assertThat(format("%s", "ARRAY[null, 'world']"))
+                .isEqualTo("[null, \"world\"]");
+
+        assertThat(format("%s", "cast(row(null, 'world') AS row(greeting varchar, planet varchar))"))
+                .isEqualTo("{\"greeting\": null, \"planet\": \"world\"}");
+
+        assertThat(format("%s", "map(ARRAY['greeting'], ARRAY[null])"))
+                .isEqualTo("{\"greeting\": null}");
+
+        assertThat(format("%s", "ARRAY[cast('hello' AS char(5))]"))
+                .isEqualTo("[\"hello\"]");
+
+        assertThat(format("%s", "cast(row(cast('hi' AS char(3))) AS row(greeting char(3)))"))
+                .isEqualTo("{\"greeting\": \"hi \"}");
+
+        assertThat(format("%s", "ARRAY[ARRAY['a', 'b'], ARRAY['c']]"))
+                .isEqualTo("[[\"a\", \"b\"], [\"c\"]]");
+
+        assertThat(format("%s", "map(ARRAY['nums'], ARRAY[ARRAY[1, 2]])"))
+                .isEqualTo("{\"nums\": [1, 2]}");
+
+        assertThat(format("%s", "map(ARRAY[1, 2], ARRAY['hello', 'world'])"))
+                .isEqualTo("{1: \"hello\", 2: \"world\"}");
+
+        assertThat(format("%s", "ARRAY[uuid '03780fd9-76cf-4366-b720-0cfc6b957e8f']"))
+                .isEqualTo("[\"03780fd9-76cf-4366-b720-0cfc6b957e8f\"]");
+
+        assertThat(format("%s", "row(uuid '03780fd9-76cf-4366-b720-0cfc6b957e8f')"))
+                .isEqualTo("[\"03780fd9-76cf-4366-b720-0cfc6b957e8f\"]");
+
+        assertThat(format("%s", "cast(row(uuid '03780fd9-76cf-4366-b720-0cfc6b957e8f') AS row(id uuid))"))
+                .isEqualTo("{\"id\": \"03780fd9-76cf-4366-b720-0cfc6b957e8f\"}");
+
+        assertThat(format("%s", "map(ARRAY['id'], ARRAY[uuid '03780fd9-76cf-4366-b720-0cfc6b957e8f'])"))
+                .isEqualTo("{\"id\": \"03780fd9-76cf-4366-b720-0cfc6b957e8f\"}");
+
         assertTrinoExceptionThrownBy(format("%.4d", "8")::evaluate)
                 .hasMessage("Invalid format string: %.4d (IllegalFormatPrecision: 4)");
 
@@ -175,10 +246,6 @@ public class TestFormatFunction
 
         assertTrinoExceptionThrownBy(format("%tT", "current_time")::evaluate)
                 .hasMessage("Invalid format string: %tT (IllegalFormatConversion: T != java.lang.String)");
-
-        assertTrinoExceptionThrownBy(format("%s", "array[8]")::evaluate)
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:20: Type not supported for formatting: array(integer)");
 
         assertTrinoExceptionThrownBy(assertions.function("format", "5", "8")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
