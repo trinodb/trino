@@ -60,7 +60,7 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 
-    public class CouchbaseQueryRunner
+public class CouchbaseQueryRunner
 {
     private static final Logger log = Logger.get(CouchbaseQueryRunner.class);
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
