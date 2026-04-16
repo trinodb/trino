@@ -13,12 +13,14 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
@@ -28,21 +30,26 @@ import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Base64;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -124,7 +131,21 @@ public final class FormatFunction
                 type instanceof TimeType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
-                type instanceof CharType) {
+                type instanceof CharType ||
+                type instanceof VarbinaryType) {
+            return;
+        }
+        if (type instanceof ArrayType arrayType) {
+            addDependencies(builder, arrayType.getElementType());
+            return;
+        }
+        if (type instanceof MapType mapType) {
+            addDependencies(builder, mapType.getKeyType());
+            addDependencies(builder, mapType.getValueType());
+            return;
+        }
+        if (type instanceof RowType rowType) {
+            rowType.getTypeParameters().forEach(t -> addDependencies(builder, t));
             return;
         }
 
@@ -236,6 +257,18 @@ public final class FormatFunction
         if (type instanceof CharType charType) {
             return (block, position) -> padSpaces(charType.getSlice(block, position), charType).toStringUtf8();
         }
+        if (type instanceof RowType rowType) {
+            return (block, position) -> rowToString(functionDependencies, rowType, (SqlRow) rowType.getObject(block, position));
+        }
+        if (type instanceof MapType mapType) {
+            return (block, position) -> mapToString(functionDependencies, mapType, (SqlMap) mapType.getObject(block, position));
+        }
+        if (type instanceof ArrayType arrayType) {
+            return (block, position) -> arrayToString(functionDependencies, arrayType, (Block) arrayType.getObject(block, position));
+        }
+        if (type instanceof VarbinaryType varbinaryType) {
+            return (block, position) -> Base64.getEncoder().encodeToString(varbinaryType.getSlice(block, position).getBytes());
+        }
 
         BiFunction<Block, Integer, Object> function;
         if (type.getJavaType() == long.class) {
@@ -256,6 +289,63 @@ public final class FormatFunction
 
         MethodHandle handle = functionDependencies.getCastImplementation(type, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         return (block, position) -> convertToString(handle, function.apply(block, position));
+    }
+
+    private static Object quotedValue(FunctionDependencies functionDependencies, Type type, Block block, int position)
+    {
+        Object value = FormatFunction.converter(functionDependencies, type).apply(block, position);
+        if (value != null && (
+                type instanceof VarcharType ||
+                type instanceof CharType ||
+                type instanceof VarbinaryType ||
+                type instanceof UuidType)) {
+            return String.format("\"%s\"", new String(JsonStringEncoder.getInstance().quoteAsString((String) value)));
+        }
+        return value;
+    }
+
+    private static String rowToString(FunctionDependencies functionDependencies, RowType rowType, SqlRow row)
+    {
+        List<RowType.Field> fields = rowType.getFields();
+        boolean hasAllFieldNames = fields.stream().allMatch(field -> field.getName().isPresent());
+        StringBuilder builder = new StringBuilder(hasAllFieldNames ? "{" : "[");
+        int rawIndex = row.getRawIndex();
+        for (int i = 0; i < fields.size(); i++) {
+            builder.append(i == 0 ? "" : ", ");
+            if (hasAllFieldNames) {
+                String fieldName = fields.get(i).getName().get();
+                builder.append('"').append(new String(JsonStringEncoder.getInstance().quoteAsString(fieldName))).append("\": ");
+            }
+            builder.append(quotedValue(functionDependencies, fields.get(i).getType(), row.getRawFieldBlock(i), rawIndex));
+        }
+        return builder.append(hasAllFieldNames ? '}' : ']').toString();
+    }
+
+    private static String mapToString(FunctionDependencies functionDependencies, MapType mapType, SqlMap sqlMap)
+    {
+        StringBuilder builder = new StringBuilder("{");
+        Block keys = sqlMap.getRawKeyBlock();
+        Block values = sqlMap.getRawValueBlock();
+        int rawOffset = sqlMap.getRawOffset();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            builder
+                    .append(i == 0 ? "" : ", ")
+                    .append(quotedValue(functionDependencies, mapType.getKeyType(), keys, rawOffset + i))
+                    .append(": ")
+                    .append(quotedValue(functionDependencies, mapType.getValueType(), values, rawOffset + i));
+        }
+        return builder.append('}').toString();
+    }
+
+    private static String arrayToString(FunctionDependencies functionDependencies, ArrayType arrayType, Block elementBlock)
+    {
+        StringBuilder builder = new StringBuilder("[");
+        for (int i = 0; i < elementBlock.getPositionCount(); i++) {
+            builder
+                    .append(i == 0 ? "" : ", ")
+                    .append(quotedValue(functionDependencies, arrayType.getElementType(), elementBlock, i));
+        }
+        return builder.append(']').toString();
     }
 
     private static LocalTime toLocalTime(long value)
