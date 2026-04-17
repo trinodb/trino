@@ -40,7 +40,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.FILE_BASED_CONFLICT_DETECTION_ENABLED;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -372,13 +371,6 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
-        testConcurrentNonOverlappingUpdate(getSession());
-        testConcurrentNonOverlappingUpdate(withFileBasedConflictDetectionDisabledSession());
-    }
-
-    private void testConcurrentNonOverlappingUpdate(Session session)
-            throws InterruptedException
-    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -391,17 +383,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
                                 return null;
                             })
                             .build())
@@ -538,13 +530,6 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
             throws Exception
     {
-        testConcurrentNonOverlappingUpdateOnNestedPartition(getSession());
-        testConcurrentNonOverlappingUpdateOnNestedPartition(withFileBasedConflictDetectionDisabledSession());
-    }
-
-    private void testConcurrentNonOverlappingUpdateOnNestedPartition(Session session)
-            throws Exception
-    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -563,17 +548,17 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
+                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
                                 return null;
                             })
                             .build())
@@ -1402,12 +1387,5 @@ final class TestIcebergLocalConcurrentWrites
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-    }
-
-    private Session withFileBasedConflictDetectionDisabledSession()
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), FILE_BASED_CONFLICT_DETECTION_ENABLED, "false")
-                .build();
     }
 }
