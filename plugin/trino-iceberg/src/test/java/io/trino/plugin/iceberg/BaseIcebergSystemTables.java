@@ -432,6 +432,87 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testFilesTableDeleteFileDeduplication()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_files_delete_dedup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            Table icebergTable = loadTable(tableName);
+
+            // Verify initial state: only data files, no delete files
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                    .matches("VALUES BIGINT '5'"); // one data file per regionkey partition
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0"))
+                    .matches("VALUES BIGINT '0'");
+
+            // Write a position delete via MOR path
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+            // Write an equality delete file for regionkey=2
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Long[] {2L})),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.empty());
+
+            // Verify: each file path should appear exactly once (no duplicates)
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '1'"); // exactly 1 position delete file
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 2"))
+                    .matches("VALUES BIGINT '1'"); // exactly 1 equality delete file
+
+            // Verify no duplicate file paths exist
+            assertThat(query("SELECT count(file_path) - count(DISTINCT file_path) FROM \"" + tableName + "$files\""))
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    @Test
+    public void testFilesTableDeletionVectors()
+    {
+        try (TestTable testTable = newTrinoTable("test_files_dv_", "(id INTEGER) WITH (format_version = 3, format = 'PARQUET')")) {
+            String tableName = testTable.getName();
+
+            // Insert data across multiple data files
+            for (int i = 0; i < 3; i++) {
+                assertUpdate("INSERT INTO " + tableName + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            // Verify initial state: 3 data files, no delete files
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                    .matches("VALUES BIGINT '3'");
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0"))
+                    .matches("VALUES BIGINT '0'");
+
+            // Delete rows to create deletion vectors (stored in shared Puffin files)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id % 2 = 0", 150);
+
+            // In v3, deletion vectors for multiple data files are stored in a single Puffin file.
+            // The $files table shows one entry per DV (one per data file), all sharing the same file_path.
+            // content_offset and content_size_in_bytes distinguish individual DVs within the shared Puffin file.
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'"); // one DV entry per data file
+            assertThat(query("SELECT count_if(file_format = 'PUFFIN') FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'");
+            // All DV entries share the same Puffin file path
+            assertThat(query("SELECT count(DISTINCT file_path) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '1'");
+
+            // Each DV entry has distinct content_offset within the shared Puffin file
+            assertThat(query("SELECT count(DISTINCT content_offset) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                    .matches("VALUES BIGINT '3'");
+            // All DV entries have non-null content_offset and content_size_in_bytes
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1 AND content_offset IS NOT NULL AND content_size_in_bytes IS NOT NULL"))
+                    .matches("VALUES BIGINT '3'");
+            // Data files have null content_offset and content_size_in_bytes
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0 AND content_offset IS NULL AND content_size_in_bytes IS NULL"))
+                    .matches("VALUES BIGINT '3'");
+        }
+    }
+
+    @Test
     public void testFilesPartitionTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
