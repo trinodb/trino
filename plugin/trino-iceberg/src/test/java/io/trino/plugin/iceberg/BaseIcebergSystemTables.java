@@ -538,6 +538,7 @@ public abstract class BaseIcebergSystemTables
                         "('equality_ids', 'array(integer)', '', '')," +
                         "('sort_order_id', 'integer', '', '')," +
                         "('readable_metrics', 'json', '', '')," +
+                        "('added_snapshot_id', 'bigint', '', '')," +
                         "('file_sequence_number', 'bigint', '', '')," +
                         "('data_sequence_number', 'bigint', '', '')," +
                         "('referenced_data_file', 'varchar', '', '')," +
@@ -556,6 +557,18 @@ public abstract class BaseIcebergSystemTables
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .build());
+    }
+
+    @Test
+    public void testFilesTableAddedSnapshotId()
+    {
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" WHERE added_snapshot_id IS NOT NULL"))
+                .matches("VALUES BIGINT '4'");
+        assertThat(query("SELECT count(DISTINCT added_snapshot_id) FROM test_schema.\"test_table$files\""))
+                .matches("VALUES BIGINT '2'");
+        assertThat(query("SELECT count(*) FROM test_schema.\"test_table$files\" f " +
+                "WHERE f.added_snapshot_id IN (SELECT snapshot_id FROM test_schema.\"test_table$snapshots\")"))
+                .matches("VALUES BIGINT '4'");
     }
 
     @Test
