@@ -49,6 +49,7 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.branchPrivilege;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -179,6 +180,7 @@ public class TestColumnMask
                     }
                     throw new UnsupportedOperationException();
                 })
+                .withBranches(ImmutableList.of("dev"))
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_WITH_HIDDEN_COLUMN_DATA;
@@ -242,6 +244,32 @@ public class TestColumnMask
                         .expression("NULL")
                         .build());
         assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES CAST(NULL AS BIGINT)");
+    }
+
+    @Test
+    public void testSimpleMaskOnBranch()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "nationkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("-nationkey")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE name = 'ARGENTINA'")).matches("VALUES BIGINT '-1'");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "nationkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("NULL")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE name = 'ARGENTINA'")).matches("VALUES CAST(NULL AS BIGINT)");
     }
 
     @Test
@@ -931,6 +959,49 @@ public class TestColumnMask
                         .expression("(SELECT orderstatus FROM local.tiny.orders)")
                         .build());
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testNotReferencedAndDeniedColumnMaskingOnBranch()
+    {
+        // querying table, privilege on branch
+        accessControl.reset();
+        accessControl.deny(branchPrivilege("nation_with_hidden_column.name", "dev", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
+
+        // querying table branch, privilege on table
+        accessControl.reset();
+        accessControl.deny(privilege("nation_with_hidden_column.name", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
+
+        // querying table branch, privilege on branch
+        accessControl.reset();
+        accessControl.deny(branchPrivilege("nation_with_hidden_column.name", "dev", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("name")
+                        .build());
+        assertThat(assertions.query("SELECT nationkey FROM mock.tiny.nation_with_hidden_column FOR VERSION AS OF 'dev' WHERE nationkey = 1")).matches("VALUES BIGINT '1'");
     }
 
     @Test
