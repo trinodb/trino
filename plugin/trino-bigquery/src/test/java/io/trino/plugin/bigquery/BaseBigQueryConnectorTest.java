@@ -170,6 +170,16 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testRowLevelDelete);
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         testPredicatePushdown("true", "true", true);
