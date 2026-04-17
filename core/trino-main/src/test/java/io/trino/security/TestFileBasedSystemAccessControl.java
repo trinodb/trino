@@ -352,10 +352,10 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(aliceContext, aliceTable, Map.of());
                     accessControlManager.checkCanDropTable(aliceContext, aliceTable);
                     accessControlManager.checkCanTruncateTable(aliceContext, aliceTable);
-                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanInsertIntoTable(aliceContext, aliceTable);
-                    accessControlManager.checkCanDeleteFromTable(aliceContext, aliceTable);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(aliceContext, aliceTable, Optional.empty());
+                    accessControlManager.checkCanDeleteFromTable(aliceContext, aliceTable, Optional.empty());
                     accessControlManager.checkCanSetTableProperties(aliceContext, aliceTable, ImmutableMap.of());
                     accessControlManager.checkCanAddColumns(aliceContext, aliceTable);
                     accessControlManager.checkCanRenameColumn(aliceContext, aliceTable);
@@ -363,10 +363,10 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(aliceContext, staffTable, Map.of());
                     accessControlManager.checkCanDropTable(aliceContext, staffTable);
                     accessControlManager.checkCanTruncateTable(aliceContext, staffTable);
-                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanInsertIntoTable(aliceContext, staffTable);
-                    accessControlManager.checkCanDeleteFromTable(aliceContext, staffTable);
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(aliceContext, staffTable, Optional.empty());
+                    accessControlManager.checkCanDeleteFromTable(aliceContext, staffTable, Optional.empty());
                     accessControlManager.checkCanSetTableProperties(aliceContext, staffTable, ImmutableMap.of());
                     accessControlManager.checkCanAddColumns(aliceContext, staffTable);
                     accessControlManager.checkCanRenameColumn(aliceContext, staffTable);
@@ -380,16 +380,16 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanTruncateTable(bobContext, aliceTable))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(bobContext, aliceTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(bobContext, aliceTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(bobContext, aliceTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(bobContext, aliceTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(bobContext, aliceTable, ImmutableMap.of()))
@@ -405,10 +405,10 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateTable(bobContext, staffTable, Map.of());
                     accessControlManager.checkCanDropTable(bobContext, staffTable);
                     accessControlManager.checkCanTruncateTable(bobContext, staffTable);
-                    accessControlManager.checkCanSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanInsertIntoTable(bobContext, staffTable);
-                    accessControlManager.checkCanDeleteFromTable(bobContext, staffTable);
+                    accessControlManager.checkCanSelectFromColumns(bobContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanInsertIntoTable(bobContext, staffTable, Optional.empty());
+                    accessControlManager.checkCanDeleteFromTable(bobContext, staffTable, Optional.empty());
                     accessControlManager.checkCanSetTableProperties(bobContext, staffTable, ImmutableMap.of());
                     accessControlManager.checkCanAddColumns(bobContext, staffTable);
                     accessControlManager.checkCanRenameColumn(bobContext, staffTable);
@@ -422,16 +422,16 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanTruncateTable(nonAsciiContext, aliceTable))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, aliceTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, aliceTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, aliceTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, aliceTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(nonAsciiContext, aliceTable, ImmutableMap.of()))
@@ -453,16 +453,16 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanTruncateTable(nonAsciiContext, staffTable))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, staffTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(nonAsciiContext, staffTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, staffTable))
+                    assertThatThrownBy(() -> accessControlManager.checkCanDeleteFromTable(nonAsciiContext, staffTable, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetTableProperties(nonAsciiContext, staffTable, ImmutableMap.of()))
@@ -491,7 +491,7 @@ public class TestFileBasedSystemAccessControl
                     assertThat(accessControlManager.filterTables(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceTables)).isEqualTo(aliceTables);
                     assertThat(accessControlManager.filterTables(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceTables)).isEqualTo(ImmutableSet.of());
 
-                    accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable, Optional.empty(), ImmutableSet.of());
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
@@ -510,12 +510,12 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot truncate table alice-catalog.schema.table");
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable);
+            accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable, Optional.empty());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot insert into table alice-catalog.schema.table");
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanDeleteFromTable(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable);
+            accessControlManager.checkCanDeleteFromTable(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable, Optional.empty());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot delete from table alice-catalog.schema.table");
 
@@ -556,18 +556,18 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateView(aliceContext, aliceView);
                     accessControlManager.checkCanDropView(aliceContext, aliceView);
-                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, aliceView, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceView, Optional.empty(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
                     accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true);
 
                     accessControlManager.checkCanCreateView(aliceContext, staffView);
                     accessControlManager.checkCanDropView(aliceContext, staffView);
-                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(aliceContext, staffView, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffView, Optional.empty(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
                     accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
@@ -578,13 +578,13 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(bobContext, aliceView))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(bobContext, aliceView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, aliceView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "alice-catalog", "property"))
@@ -599,9 +599,9 @@ public class TestFileBasedSystemAccessControl
 
                     accessControlManager.checkCanCreateView(bobContext, staffView);
                     accessControlManager.checkCanDropView(bobContext, staffView);
-                    accessControlManager.checkCanSelectFromColumns(bobContext, staffView, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(bobContext, staffView, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, Optional.empty(), ImmutableSet.of());
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffView, Optional.empty(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "staff-catalog", "property");
                     accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
@@ -612,13 +612,13 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(nonAsciiContext, aliceView))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, aliceView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, aliceView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "alice-catalog", "property"))
@@ -637,13 +637,13 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(nonAsciiContext, staffView))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanSelectFromColumns(nonAsciiContext, staffView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffTable, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffView, ImmutableSet.of()))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateViewWithSelectFromColumns(nonAsciiContext, staffView, Optional.empty(), ImmutableSet.of()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "staff-catalog", "property"))
@@ -669,7 +669,7 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     SecurityContext context = new SecurityContext(transactionId, alice, queryId, queryStart);
-                    accessControlManager.checkCanSelectFromColumns(context, aliceView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(context, aliceView, Optional.empty(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(context, "alice-catalog", "property");
                 });
 
@@ -770,7 +770,7 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     SecurityContext context = new SecurityContext(transactionId, alice, queryId, queryStart);
-                    accessControlManager.checkCanSelectFromColumns(context, aliceMaterializedView, ImmutableSet.of());
+                    accessControlManager.checkCanSelectFromColumns(context, aliceMaterializedView, Optional.empty(), ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(context, "alice-catalog", "property");
                 });
 

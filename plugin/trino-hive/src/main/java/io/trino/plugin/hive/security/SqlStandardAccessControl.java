@@ -331,7 +331,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
         // TODO: Implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, false)) {
@@ -339,20 +339,41 @@ public class SqlStandardAccessControl
         }
     }
 
+    @Deprecated
     @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    {
+        checkCanSelectFromColumns(context, tableName, Optional.empty(), columnNames);
+    }
+
+    @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, INSERT, false)) {
             denyInsertTable(tableName.toString());
         }
     }
 
+    @Deprecated
     @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkCanInsertIntoTable(context, tableName, Optional.empty());
+    }
+
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString());
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkCanDeleteFromTable(context, tableName, Optional.empty());
     }
 
     @Override
@@ -364,11 +385,18 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
     {
         if (!checkTablePermission(context, tableName, UPDATE, false)) {
             denyUpdateTableColumns(tableName.toString(), updatedColumns);
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        checkCanUpdateTableColumns(context, tableName, Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -404,14 +432,21 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
-        checkCanSelectFromColumns(context, tableName, columnNames);
+        checkCanSelectFromColumns(context, tableName, branch, columnNames);
 
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, tableName, Optional.empty(), columnNames);
     }
 
     @Override

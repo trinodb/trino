@@ -1880,7 +1880,7 @@ public class IcebergMetadata
             throw new TrinoException(PERMISSION_DENIED, "add_files procedure is disabled");
         }
 
-        accessControl.checkCanInsertIntoTable(null, tableHandle.getSchemaTableName());
+        accessControl.checkCanInsertIntoTable(null, tableHandle.getSchemaTableName(), Optional.empty());
 
         String location = (String) requireProcedureArgument(executeProperties, "location");
         HiveStorageFormat format = (HiveStorageFormat) requireProcedureArgument(executeProperties, "format");
@@ -1916,7 +1916,7 @@ public class IcebergMetadata
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForAddFilesFromTable(ConnectorSession session, ConnectorAccessControl accessControl, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
-        accessControl.checkCanInsertIntoTable(null, tableHandle.getSchemaTableName());
+        accessControl.checkCanInsertIntoTable(null, tableHandle.getSchemaTableName(), Optional.empty());
 
         String schemaName = (String) requireProcedureArgument(executeProperties, "schema_name");
         String tableName = (String) requireProcedureArgument(executeProperties, "table_name");
@@ -1931,7 +1931,7 @@ public class IcebergMetadata
                 .createMetastore(Optional.of(session.getIdentity()));
         SchemaTableName sourceName = new SchemaTableName(schemaName, tableName);
         io.trino.metastore.Table sourceTable = metastore.getTable(schemaName, tableName).orElseThrow(() -> new TableNotFoundException(sourceName));
-        accessControl.checkCanSelectFromColumns(null, sourceName, Stream.concat(sourceTable.getDataColumns().stream(), sourceTable.getPartitionColumns().stream())
+        accessControl.checkCanSelectFromColumns(null, sourceName, Optional.empty(), Stream.concat(sourceTable.getDataColumns().stream(), sourceTable.getPartitionColumns().stream())
                 .map(Column::getName)
                 .collect(toImmutableSet()));
 

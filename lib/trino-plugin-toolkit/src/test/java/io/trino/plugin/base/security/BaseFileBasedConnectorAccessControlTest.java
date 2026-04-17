@@ -77,10 +77,10 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(ROLE, "some_role")));
         accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
 
-        accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), Optional.empty(), ImmutableSet.of());
         accessControl.checkCanShowColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"));
-        accessControl.checkCanInsertIntoTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
-        accessControl.checkCanDeleteFromTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
+        accessControl.checkCanInsertIntoTable(UNKNOWN, new SchemaTableName("unknown", "unknown"), Optional.empty());
+        accessControl.checkCanDeleteFromTable(UNKNOWN, new SchemaTableName("unknown", "unknown"), Optional.empty());
 
         accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"), Map.of());
         accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
@@ -297,25 +297,25 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         SchemaTableName bobTable = new SchemaTableName("bobschema", "bobtable");
 
         ConnectorAccessControl accessControl = createAccessControl("table.json");
-        accessControl.checkCanSelectFromColumns(ALICE, testTable, ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, bobTable, ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, bobTable, ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumns(ALICE, testTable, Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, bobTable, Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(ALICE, bobTable, Optional.empty(), ImmutableSet.of("bobcolumn"));
 
         accessControl.checkCanShowColumns(ALICE, bobTable);
         assertThat(accessControl.filterColumns(ALICE, Map.of(bobTable, ImmutableSet.of("a"))))
                 .isEqualTo(Map.of(bobTable, ImmutableSet.of("a")));
-        accessControl.checkCanSelectFromColumns(BOB, bobTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(BOB, bobTable, Optional.empty(), ImmutableSet.of());
         accessControl.checkCanShowColumns(BOB, bobTable);
         assertThat(accessControl.filterColumns(BOB, Map.of(bobTable, ImmutableSet.of("a"))))
                 .isEqualTo(Map.of(bobTable, ImmutableSet.of("a")));
 
-        accessControl.checkCanInsertIntoTable(BOB, bobTable);
-        accessControl.checkCanDeleteFromTable(BOB, bobTable);
+        accessControl.checkCanInsertIntoTable(BOB, bobTable, Optional.empty());
+        accessControl.checkCanDeleteFromTable(BOB, bobTable, Optional.empty());
         accessControl.checkCanTruncateTable(BOB, bobTable);
-        accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, ImmutableSet.of("bobcolumn"));
-        accessControl.checkCanInsertIntoTable(CHARLIE, bobTable);
-        accessControl.checkCanSelectFromColumns(JOE, bobTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, Optional.empty(), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanInsertIntoTable(CHARLIE, bobTable, Optional.empty());
+        accessControl.checkCanSelectFromColumns(JOE, bobTable, Optional.empty(), ImmutableSet.of());
 
         accessControl.checkCanCreateTable(ADMIN, new SchemaTableName("bob", "test"), Map.of());
         accessControl.checkCanCreateTable(ADMIN, testTable, Map.of());
@@ -347,16 +347,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSetTableProperties(ADMIN, bobTable, ImmutableMap.of());
         accessControl.checkCanSetTableProperties(ALICE, aliceTable, ImmutableMap.of());
 
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, bobTable));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, bobTable, Optional.empty()));
         assertDenied(() -> accessControl.checkCanDropTable(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, bobTable, new SchemaTableName("bobschema", "newbobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanSetViewComment(ALICE, new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanAlterColumn(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanSetTableProperties(BOB, bobTable, ImmutableMap.of()));
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, testTable, Optional.empty()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
@@ -392,18 +392,18 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         ConnectorSecurityContext userGroup2 = user("user_2", ImmutableSet.of("group2"));
 
         accessControl.checkCanCreateTable(userGroup1Group2, myTable, Map.of());
-        accessControl.checkCanInsertIntoTable(userGroup1Group2, myTable);
-        accessControl.checkCanDeleteFromTable(userGroup1Group2, myTable);
+        accessControl.checkCanInsertIntoTable(userGroup1Group2, myTable, Optional.empty());
+        accessControl.checkCanDeleteFromTable(userGroup1Group2, myTable, Optional.empty());
         accessControl.checkCanDropTable(userGroup1Group2, myTable);
-        accessControl.checkCanSelectFromColumns(userGroup1Group2, myTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(userGroup1Group2, myTable, Optional.empty(), ImmutableSet.of());
         assertThat(accessControl.getColumnMasks(userGroup1Group2, myTable, List.of(ColumnSchema.builder().setName("col_a").setType(VARCHAR).build()))).isEmpty();
         assertThat(accessControl.getRowFilters(userGroup1Group2, myTable)).isEqualTo(ImmutableList.of());
 
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup2, myTable, Map.of()));
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup2, myTable));
-        assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup2, myTable));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup2, myTable, Optional.empty()));
+        assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup2, myTable, Optional.empty()));
         assertDenied(() -> accessControl.checkCanDropTable(userGroup2, myTable));
-        accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(userGroup2, myTable, Optional.empty(), ImmutableSet.of());
         ColumnSchema colA = ColumnSchema.builder().setName("col_a").setType(VARCHAR).build();
         assertViewExpressionEquals(
                 accessControl.getColumnMasks(userGroup2, myTable, List.of(colA)).get(colA),
@@ -418,16 +418,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         ConnectorSecurityContext userGroup3 = user("user_3", ImmutableSet.of("group3"));
 
         accessControl.checkCanCreateTable(userGroup1Group3, myTable, Map.of());
-        accessControl.checkCanInsertIntoTable(userGroup1Group3, myTable);
-        accessControl.checkCanDeleteFromTable(userGroup1Group3, myTable);
+        accessControl.checkCanInsertIntoTable(userGroup1Group3, myTable, Optional.empty());
+        accessControl.checkCanDeleteFromTable(userGroup1Group3, myTable, Optional.empty());
         accessControl.checkCanDropTable(userGroup1Group3, myTable);
-        accessControl.checkCanSelectFromColumns(userGroup1Group3, myTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(userGroup1Group3, myTable, Optional.empty(), ImmutableSet.of());
         assertThat(accessControl.getColumnMasks(userGroup1Group3, myTable, List.of(ColumnSchema.builder().setName("col_a").setType(VARCHAR).build()))).isEmpty();
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup3, myTable, Map.of()));
-        assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup3, myTable));
-        assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup3, myTable));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup3, myTable, Optional.empty()));
+        assertDenied(() -> accessControl.checkCanDeleteFromTable(userGroup3, myTable, Optional.empty()));
         assertDenied(() -> accessControl.checkCanDropTable(userGroup3, myTable));
-        accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(userGroup3, myTable, Optional.empty(), ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMasks(userGroup3, myTable, List.of(colA)).get(colA),
                 ViewExpression.builder()

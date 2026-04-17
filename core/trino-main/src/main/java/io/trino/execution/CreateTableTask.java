@@ -257,6 +257,7 @@ public class CreateTableTask
                     accessControl.checkCanSelectFromColumns(
                             session.toSecurityContext(),
                             likeTableName,
+                            Optional.empty(),
                             likeTableMetadata.columns().stream()
                                     .map(ColumnMetadata::getName)
                                     .collect(toImmutableSet()));

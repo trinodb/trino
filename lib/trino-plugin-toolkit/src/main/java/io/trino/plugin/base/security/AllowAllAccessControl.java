@@ -115,17 +115,33 @@ public class AllowAllAccessControl
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal) {}
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames) {}
+
+    @Deprecated
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 
     @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch) {}
+
+    @Deprecated
+    @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch) {}
+
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
     public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumnNames) {}
+
+    @Deprecated
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumnNames) {}
 
@@ -144,6 +160,10 @@ public class AllowAllAccessControl
     @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName) {}
 
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames) {}
+
+    @Deprecated
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 

@@ -125,7 +125,7 @@ public class TableChangesFunction
                     .map(DeltaLakeColumnHandle.class::cast)
                     .filter(column -> column.columnType() != SYNTHESIZED)
                     .collect(toImmutableList());
-            accessControl.checkCanSelectFromColumns(null, schemaTableName, columnHandles.stream()
+            accessControl.checkCanSelectFromColumns(null, schemaTableName, Optional.empty(), columnHandles.stream()
                     // Lowercase column names because users don't know the original names
                     .map(column -> column.columnName().toLowerCase(ENGLISH))
                     .collect(toImmutableSet()));

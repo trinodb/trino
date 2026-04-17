@@ -230,31 +230,63 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), branch, columnNames);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
+        accessControl.checkCanSelectFromColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), columnNames);
     }
 
+    @Override
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), branch);
+    }
+
+    @Deprecated
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName));
+        accessControl.checkCanInsertIntoTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
     }
 
+    @Override
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), branch);
+    }
+
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName));
+        accessControl.checkCanDeleteFromTable(securityContext, getQualifiedObjectName(tableName), Optional.empty());
     }
 
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), branch, updatedColumns);
+    }
+
+    @Deprecated
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), updatedColumns);
+        accessControl.checkCanUpdateTableColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -293,10 +325,18 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), branch, columnNames);
+    }
+
+    @Deprecated
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
+        accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), Optional.empty(), columnNames);
     }
 
     @Override

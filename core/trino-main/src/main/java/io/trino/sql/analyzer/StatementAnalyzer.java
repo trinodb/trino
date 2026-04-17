@@ -606,11 +606,16 @@ class StatementAnalyzer
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, Optional.empty(), endVersion);
             Optional<TableHandle> targetTableHandle = redirection.tableHandle();
-            targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
-            accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
+            if (redirection.redirectedTableName().isPresent()) {
+                if (insert.getTable().getBranch().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, insert, "Inserting into a branch of a redirected table is not supported");
+                }
+                targetTable = redirection.redirectedTableName().get();
+            }
+            accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable, insert.getTable().getBranch().map(Identifier::getValue));
 
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle.get());
 
@@ -631,7 +636,7 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
             analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
             analyzeDefaultColumnValues(insert.getTable(), targetTableHandle.get(), columnHandles.values(), queryScope);
-            analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope, Optional.empty());
+            analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, insert.getTable().getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             List<String> tableColumns = columns.stream()
                     .map(ColumnSchema::getName)
@@ -861,11 +866,20 @@ class StatementAnalyzer
                 endVersion = Optional.of(toTableVersion(branch));
             }
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion);
-            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            QualifiedObjectName tableName;
+            if (redirection.redirectedTableName().isPresent()) {
+                if (table.getBranch().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Deleting from a branch of a redirected table is not supported");
+                }
+                tableName = redirection.redirectedTableName().get();
+            }
+            else {
+                tableName = originalName;
+            }
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
-            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
+            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName, table.getBranch().map(Identifier::getValue));
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
             if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableSchema.tableSchema().getColumns()).isEmpty()) {
@@ -888,7 +902,7 @@ class StatementAnalyzer
                     .build();
             analyzeFiltersAndMasks(table, tableName, analysis.getScope(table).getRelationType(), accessControlScope);
             analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.tableSchema().getCheckConstraints());
-            analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope, Optional.empty());
+            analysis.registerTable(table, Optional.of(handle), tableName, node.getTable().getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
 
@@ -929,11 +943,11 @@ class StatementAnalyzer
             analysis.addTableColumnReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                    ImmutableMultimap.<Analysis.TableAndBranch, String>builder()
+                            .putAll(new Analysis.TableAndBranch(tableName, Optional.empty()), metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
             try {
-                accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
+                accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName, Optional.empty());
             }
             catch (AccessDeniedException exception) {
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName), exception);
@@ -2361,7 +2375,7 @@ class StatementAnalyzer
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
-                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
                 if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
@@ -2382,15 +2396,24 @@ class StatementAnalyzer
             // This could be a reference to a logical view or a table
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
-                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
                 return createScopeForView(table, name, scope, optionalView.get());
             }
 
             // This can only be a table
             RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
             Optional<TableHandle> tableHandle = redirection.tableHandle();
-            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
+            QualifiedObjectName targetTableName;
+            if (redirection.redirectedTableName().isPresent()) {
+                if (getBranchName(table).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, table, "Table redirection is not supported for branch tables");
+                }
+                targetTableName = redirection.redirectedTableName().get();
+            }
+            else {
+                targetTableName = name;
+            }
+            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName, getBranchName(table));
 
             if (tableHandle.isEmpty()) {
                 getRequiredCatalogHandle(metadata, session, table, targetTableName.catalogName());
@@ -2422,7 +2445,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
                     .build();
             analyzeFiltersAndMasks(table, targetTableName, new RelationType(outputFields), accessControlScope);
-            analysis.registerTable(table, tableHandle, targetTableName, session.getIdentity().getUser(), accessControlScope, Optional.empty());
+            analysis.registerTable(table, tableHandle, targetTableName, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
@@ -2514,7 +2537,7 @@ class StatementAnalyzer
                         .setHidden(field.isHidden())
                         .build();
                 Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
-                    if (checkCanSelectFromColumn(name, columnSchema.getName())) {
+                    if (checkCanSelectFromColumn(name, getBranchName(table), columnSchema.getName())) {
                         analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask);
                     }
                 });
@@ -2558,10 +2581,10 @@ class StatementAnalyzer
             }
         }
 
-        private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
+        private boolean checkCanSelectFromColumn(QualifiedObjectName name, Optional<String> branch, String column)
         {
             try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), name, ImmutableSet.of(column));
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), name, branch, ImmutableSet.of(column));
                 return true;
             }
             catch (AccessDeniedException e) {
@@ -2727,7 +2750,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
                     .build();
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
-            analysis.registerTable(table, freshStorageTable, name, session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
+            analysis.registerTable(table, freshStorageTable, name, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             return createAndAssignScope(table, scope, viewFields);
         }
@@ -3592,7 +3615,16 @@ class StatementAnalyzer
                 endVersion = Optional.of(toTableVersion(branch));
             }
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), endVersion);
-            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            QualifiedObjectName tableName;
+            if (redirection.redirectedTableName().isPresent()) {
+                if (update.getTable().getBranch().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, update, "Updating a branch of a redirected table is not supported");
+                }
+                tableName = redirection.redirectedTableName().get();
+            }
+            else {
+                tableName = originalName;
+            }
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
@@ -3612,7 +3644,7 @@ class StatementAnalyzer
             Set<String> assignmentTargets = update.getAssignments().stream()
                     .map(assignment -> assignment.getName().getValue().toLowerCase(ENGLISH))
                     .collect(toImmutableSet());
-            accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, assignmentTargets);
+            accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, update.getTable().getBranch().map(Identifier::getValue), assignmentTargets);
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
@@ -3642,7 +3674,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
             analyzeCheckConstraints(table, tableName, tableScope, tableSchema.tableSchema().getCheckConstraints());
-            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), tableScope, Optional.empty());
+            analysis.registerTable(table, redirection.tableHandle(), tableName, update.getTable().getBranch().map(Identifier::getValue), session.getIdentity().getUser(), tableScope, Optional.empty());
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
@@ -3731,7 +3763,16 @@ class StatementAnalyzer
             analysis.setUpdateType("MERGE");
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, Optional.empty(), endVersion);
-            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
+            QualifiedObjectName tableName;
+            if (redirection.redirectedTableName().isPresent()) {
+                if (table.getBranch().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, merge, "Merging into a branch of a redirected table is not supported");
+                }
+                tableName = redirection.redirectedTableName().get();
+            }
+            else {
+                tableName = originalTableName;
+            }
             TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
@@ -3745,15 +3786,16 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
 
+            Optional<String> mergeBranch = table.getBranch().map(Identifier::getValue);
             merge.getMergeCases().stream()
                     .filter(mergeCase -> mergeCase instanceof MergeInsert)
                     .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName));
+                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName, mergeBranch));
 
             merge.getMergeCases().stream()
                     .filter(mergeCase -> mergeCase instanceof MergeDelete)
                     .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName));
+                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName, mergeBranch));
 
             Set<String> allUpdateColumnNames = new HashSet<>();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
@@ -3764,7 +3806,7 @@ class StatementAnalyzer
                 }
             }
             if (!allUpdateColumnNames.isEmpty()) {
-                accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
+                accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, mergeBranch, allUpdateColumnNames);
             }
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
@@ -3775,7 +3817,7 @@ class StatementAnalyzer
             Scope sourceTableScope = process(merge.getSource(), mergeScope);
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
             analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.tableSchema().getCheckConstraints());
-            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope, Optional.empty());
+            analysis.registerTable(table, redirection.tableHandle(), tableName, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), targetTableScope, Optional.empty());
 
             if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableSchema.columns()).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with column masks");
@@ -4098,7 +4140,7 @@ class StatementAnalyzer
                 analysis.addTableColumnReferences(
                         accessControl,
                         session.getIdentity(),
-                        ImmutableMultimap.of(field.getOriginTable().get(), field.getOriginColumnName().get()));
+                        ImmutableMultimap.of(new Analysis.TableAndBranch(field.getOriginTable().get(), field.getOriginBranch()), field.getOriginColumnName().get()));
             }
         }
 

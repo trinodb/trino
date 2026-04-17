@@ -148,7 +148,7 @@ public class TableChangesFunction
                 .build());
         List<IcebergColumnHandle> columnHandles = columnHandlesBuilder.build();
 
-        accessControl.checkCanSelectFromColumns(null, schemaTableName, columnHandles.stream()
+        accessControl.checkCanSelectFromColumns(null, schemaTableName, Optional.empty(), columnHandles.stream()
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet()));
 

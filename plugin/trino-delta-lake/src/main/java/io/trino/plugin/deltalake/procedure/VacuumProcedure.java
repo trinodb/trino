@@ -186,8 +186,8 @@ public class VacuumProcedure
             checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
             DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
-            accessControl.checkCanInsertIntoTable(null, tableName);
-            accessControl.checkCanDeleteFromTable(null, tableName);
+            accessControl.checkCanInsertIntoTable(null, tableName, Optional.empty());
+            accessControl.checkCanDeleteFromTable(null, tableName, Optional.empty());
 
             checkUnsupportedUniversalFormat(handle.getMetadataEntry());
 

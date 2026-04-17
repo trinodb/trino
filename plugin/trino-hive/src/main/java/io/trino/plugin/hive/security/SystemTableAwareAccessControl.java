@@ -92,12 +92,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(systemTableProviders, tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(context, sourceTableName.get(), columnNames);
+                checkCanSelectFromColumns(context, sourceTableName.get(), branch, columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
@@ -105,6 +105,6 @@ public class SystemTableAwareAccessControl
             }
         }
 
-        delegate.checkCanSelectFromColumns(context, tableName, columnNames);
+        delegate.checkCanSelectFromColumns(context, tableName, branch, columnNames);
     }
 }

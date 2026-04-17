@@ -517,6 +517,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
+    {
+        checkCanSelectFromColumns(context, table, columns);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanSelectFromColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
@@ -527,6 +536,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        checkCanInsertIntoTable(context, table);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanInsertIntoTable(SystemSecurityContext, CatalogSchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyInsertTable(table.toString());
@@ -537,6 +555,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
+    {
+        checkCanDeleteFromTable(context, table);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanDeleteFromTable(SystemSecurityContext, CatalogSchemaTableName, Optional)}
+     */
+    @Deprecated
     default void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
@@ -557,6 +584,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames)
+    {
+        checkCanUpdateTableColumns(securityContext, table, updatedColumnNames);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanUpdateTableColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
         denyUpdateTableColumns(table.toString(), updatedColumnNames);
@@ -633,6 +669,15 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
+    default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, table, columns);
+    }
+
+    /**
+     * @deprecated use {@link #checkCanCreateViewWithSelectFromColumns(SystemSecurityContext, CatalogSchemaTableName, Optional, Set)}
+     */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());

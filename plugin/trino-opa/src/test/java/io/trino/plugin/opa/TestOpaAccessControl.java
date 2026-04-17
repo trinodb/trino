@@ -134,8 +134,8 @@ final class TestOpaAccessControl
         testTableResourceActions("DropColumn", OpaAccessControl::checkCanDropColumn);
         testTableResourceActions("AlterColumn", OpaAccessControl::checkCanAlterColumn);
         testTableResourceActions("RenameColumn", OpaAccessControl::checkCanRenameColumn);
-        testTableResourceActions("InsertIntoTable", OpaAccessControl::checkCanInsertIntoTable);
-        testTableResourceActions("DeleteFromTable", OpaAccessControl::checkCanDeleteFromTable);
+        testTableResourceActions("InsertIntoTable", (ac, ctx, tbl) -> ac.checkCanInsertIntoTable(ctx, tbl, Optional.empty()));
+        testTableResourceActions("DeleteFromTable", (ac, ctx, tbl) -> ac.checkCanDeleteFromTable(ctx, tbl, Optional.empty()));
         testTableResourceActions("TruncateTable", OpaAccessControl::checkCanTruncateTable);
         testTableResourceActions("CreateView", OpaAccessControl::checkCanCreateView);
         testTableResourceActions("DropView", OpaAccessControl::checkCanDropView);
@@ -529,8 +529,8 @@ final class TestOpaAccessControl
     @Test
     void testColumnOperationsOnTableLikeObjects()
     {
-        testColumnOperationOnTableLikeObject("SelectFromColumns", OpaAccessControl::checkCanSelectFromColumns);
-        testColumnOperationOnTableLikeObject("UpdateTableColumns", OpaAccessControl::checkCanUpdateTableColumns);
+        testColumnOperationOnTableLikeObject("SelectFromColumns", (ac, ctx, tbl, cols) -> ac.checkCanSelectFromColumns(ctx, tbl, Optional.empty(), cols));
+        testColumnOperationOnTableLikeObject("UpdateTableColumns", (ac, ctx, tbl, cols) -> ac.checkCanUpdateTableColumns(ctx, tbl, Optional.empty(), cols));
         testColumnOperationOnTableLikeObject("CreateViewWithSelectFromColumns", OpaAccessControl::checkCanCreateViewWithSelectFromColumns);
     }
 

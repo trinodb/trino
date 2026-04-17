@@ -658,7 +658,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), READ_ONLY)) {
             denySelectTable(table.toString());
@@ -679,28 +679,56 @@ public class FileBasedSystemAccessControl
         }
     }
 
+    @Deprecated
     @Override
-    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        checkCanSelectFromColumns(context, table, Optional.empty(), columns);
+    }
+
+    @Override
+    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
     {
         if (!checkTablePermission(context, table, INSERT)) {
             denyInsertTable(table.toString());
         }
     }
 
+    @Deprecated
     @Override
-    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        checkCanInsertIntoTable(context, table, Optional.empty());
+    }
+
+    @Override
+    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
     {
         if (!checkTablePermission(context, table, DELETE)) {
             denyDeleteTable(table.toString());
         }
     }
 
+    @Deprecated
     @Override
-    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        checkCanDeleteFromTable(context, table, Optional.empty());
+    }
+
+    @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames)
     {
         if (!checkTablePermission(context, table, UPDATE)) {
             denyUpdateTableColumns(table.toString(), updatedColumnNames);
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        checkCanUpdateTableColumns(securityContext, table, Optional.empty(), updatedColumnNames);
     }
 
     @Override
@@ -745,7 +773,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), ALL)) {
             denySelectTable(table.toString());
@@ -766,6 +794,13 @@ public class FileBasedSystemAccessControl
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());
         }
+    }
+
+    @Deprecated
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, table, Optional.empty(), columns);
     }
 
     @Override

@@ -181,7 +181,7 @@ public class TestingTableFunctions
         {
             TableFunctionAnalysis analyzeResult = super.analyze(session, transaction, arguments, accessControl);
             SimpleTableFunction.SimpleTableFunctionHandle handle = (SimpleTableFunction.SimpleTableFunctionHandle) analyzeResult.getHandle();
-            accessControl.checkCanSelectFromColumns(null, handle.getTableHandle().getTableName(), ImmutableSet.of(handle.getColumnName()));
+            accessControl.checkCanSelectFromColumns(null, handle.getTableHandle().getTableName(), Optional.empty(), ImmutableSet.of(handle.getColumnName()));
 
             return analyzeResult;
         }

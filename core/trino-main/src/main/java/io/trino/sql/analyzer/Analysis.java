@@ -159,8 +159,8 @@ public class Analysis
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
-    // a map of users to the columns per table that they access
-    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    // a map of users to the columns per table (and branch) that they access
+    private final Map<AccessControlInfo, Map<TableAndBranch, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Record fields prefixed with labels in row pattern recognition context
     private final Map<NodeRef<Expression>, Optional<String>> labels = new LinkedHashMap<>();
@@ -682,6 +682,7 @@ public class Analysis
             Table table,
             Optional<TableHandle> handle,
             QualifiedObjectName name,
+            Optional<String> branch,
             String authorization,
             Scope accessControlScope,
             Optional<String> viewText)
@@ -691,6 +692,7 @@ public class Analysis
                 new TableEntry(
                         handle,
                         name,
+                        branch,
                         authorization,
                         accessControlScope,
                         tablesForView.isEmpty() &&
@@ -1014,18 +1016,18 @@ public class Analysis
         return nearestAnalysis.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<TableAndBranch, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<TableAndBranch, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
-                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+                .forEach((tableAndBranch, columns) -> references.computeIfAbsent(tableAndBranch, k -> new HashSet<>()).addAll(columns));
     }
 
-    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
+    public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table, Optional<String> branch)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(new TableAndBranch(table, branch), k -> new HashSet<>());
     }
 
     public void addLabels(Map<NodeRef<Expression>, Optional<String>> labels)
@@ -1145,7 +1147,7 @@ public class Analysis
         return jsonTableAnalyses.get(NodeRef.of(jsonTable));
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
+    public Map<AccessControlInfo, Map<TableAndBranch, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
     }
@@ -1249,9 +1251,9 @@ public class Analysis
                 .map(entry -> {
                     NodeRef<Table> table = entry.getKey();
 
-                    QualifiedObjectName tableName = entry.getValue().getName();
+                    TableAndBranch tableAndBranch = new TableAndBranch(entry.getValue().getName(), entry.getValue().getBranch());
                     List<ColumnInfo> columns = tableColumnReferences.values().stream()
-                            .map(tablesToColumns -> tablesToColumns.get(tableName))
+                            .map(tablesToColumns -> tablesToColumns.get(tableAndBranch))
                             .filter(Objects::nonNull)
                             .flatMap(Collection::stream)
                             .distinct()
@@ -2098,6 +2100,8 @@ public class Analysis
         }
     }
 
+    public record TableAndBranch(QualifiedObjectName tableName, Optional<String> branch) {}
+
     private static class RowFilterScopeEntry
     {
         private final QualifiedObjectName table;
@@ -2169,6 +2173,7 @@ public class Analysis
     {
         private final Optional<TableHandle> handle;
         private final QualifiedObjectName name;
+        private final Optional<String> branch;
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
@@ -2178,6 +2183,7 @@ public class Analysis
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
+                Optional<String> branch,
                 String authorization,
                 Scope accessControlScope,
                 boolean directlyReferenced,
@@ -2186,6 +2192,7 @@ public class Analysis
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
+            this.branch = requireNonNull(branch, "branch is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
@@ -2201,6 +2208,11 @@ public class Analysis
         public QualifiedObjectName getName()
         {
             return name;
+        }
+
+        public Optional<String> getBranch()
+        {
+            return branch;
         }
 
         public String getAuthorization()

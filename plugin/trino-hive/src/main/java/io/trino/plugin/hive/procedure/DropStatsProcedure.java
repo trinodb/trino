@@ -113,7 +113,7 @@ public class DropStatsProcedure
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", schemaTableName));
             }
 
-            accessControl.checkCanInsertIntoTable(null, schemaTableName);
+            accessControl.checkCanInsertIntoTable(null, schemaTableName, Optional.empty());
 
             Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
             List<String> partitionColumns = columns.values().stream()
