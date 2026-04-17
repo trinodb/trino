@@ -166,6 +166,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(0),
                             ImmutableMap.of(0, PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                            ImmutableMap.of(),
                             2,
                             TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                             TupleDomain.all(),
@@ -228,6 +229,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(0),
                             ImmutableMap.of(0, PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),
+                            ImmutableMap.of(),
                             2,
                             TupleDomain.all(),
                             TupleDomain.all(),
@@ -340,6 +342,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(partitionSpec.specId()),
                             ImmutableMap.of(partitionSpec.specId(), PartitionSpecParser.toJson(partitionSpec)),
+                            ImmutableMap.of(),
                             2,
                             TupleDomain.all(),
                             TupleDomain.all(),
@@ -497,6 +500,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             SchemaParser.toJson(tableSchema),
                             OptionalInt.of(partitionSpec.specId()),
                             ImmutableMap.of(partitionSpec.specId(), PartitionSpecParser.toJson(partitionSpec)),
+                            ImmutableMap.of(),
                             2,
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(

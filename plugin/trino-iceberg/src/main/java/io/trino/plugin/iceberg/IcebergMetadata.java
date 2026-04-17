@@ -338,6 +338,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
+import static io.trino.plugin.iceberg.IcebergUtil.buildColumnHandleIndex;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
@@ -777,6 +778,7 @@ public class IcebergMetadata
                 SchemaParser.toJson(tableSchema),
                 partitionSpec.map(spec -> OptionalInt.of(spec.specId())).orElseGet(OptionalInt::empty),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
+                buildColumnHandleIndex(table.schemas(), typeManager),
                 formatVersion(table),
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -3564,6 +3566,7 @@ public class IcebergMetadata
                 table.getTableSchemaJson(),
                 table.getSpecId(),
                 table.getPartitionSpecJsons(),
+                table.getColumnHandleIndex(),
                 table.getFormatVersion(),
                 table.getUnenforcedPredicate(), // known to be ALL
                 table.getEnforcedPredicate(),
@@ -3661,6 +3664,7 @@ public class IcebergMetadata
                         table.getTableSchemaJson(),
                         table.getSpecId(),
                         table.getPartitionSpecJsons(),
+                        table.getColumnHandleIndex(),
                         table.getFormatVersion(),
                         newUnenforcedConstraint,
                         newEnforcedConstraint,
@@ -3833,6 +3837,7 @@ public class IcebergMetadata
                 originalHandle.getTableSchemaJson(),
                 originalHandle.getSpecId(),
                 originalHandle.getPartitionSpecJsons(),
+                originalHandle.getColumnHandleIndex(),
                 originalHandle.getFormatVersion(),
                 originalHandle.getUnenforcedPredicate(),
                 // Skip $file_modified_time in cache key as the statistics do not depend on it

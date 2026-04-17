@@ -264,6 +264,7 @@ class TestFileBasedConflictDetection
                 SchemaParser.toJson(TABLE_SCHEMA),
                 OptionalInt.of(partitionSpec.specId()),
                 ImmutableMap.of(partitionSpec.specId(), partitionSpecJson),
+                ImmutableMap.of(),
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
