@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.ldapgroup;
 
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.ldap.LdapClient;
 import io.trino.plugin.base.ldap.LdapQuery;
 import io.trino.spi.security.GroupProvider;
@@ -27,6 +30,7 @@ import javax.naming.directory.SearchResult;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +50,7 @@ public class LdapSingleQueryGroupProvider
     private final String groupsNameAttribute;
     private final String userSearchFilter;
     private final String userMemberOfAttribute;
+    private final LoadingCache<String, Set<String>> groupsCache;
 
     @Inject
     public LdapSingleQueryGroupProvider(LdapClient ldapClient, LdapGroupProviderConfig config, LdapSingleQueryGroupProviderConfig singleQueryGroupProviderConfig)
@@ -57,6 +62,12 @@ public class LdapSingleQueryGroupProvider
         this.groupsNameAttribute = config.getLdapGroupsNameAttribute();
         this.userSearchFilter = config.getLdapUserSearchFilter();
         this.userMemberOfAttribute = singleQueryGroupProviderConfig.getLdapUserMemberOfAttribute();
+
+        groupsCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(Duration.ofMillis(config.getGroupsCacheTtl().toMillis()))
+                .maximumSize(1000)
+                .shareResultsAndFailuresEvenIfDisabled()
+                .build(CacheLoader.from(this::loadGroups));
     }
 
     /**
@@ -65,14 +76,26 @@ public class LdapSingleQueryGroupProvider
      * If multiple users match the search, the first one is used.
      * If the requested group attribute is missing from the LDAP document, it will be ignored
      * (i.e., the function will not error).
-     * Swallows all LDAP exceptions.
+     * Results are cached per user based on the configured cache TTL.
      *
      * @param user Username of user, used with filter expression {@link LdapGroupProviderConfig#getLdapUserSearchFilter()}.
      * @return The relative domain name of all the values of attribute
-     *         {@link LdapSingleQueryGroupProviderConfig#getLdapUserMemberOfAttribute()}.
+     * {@link LdapSingleQueryGroupProviderConfig#getLdapUserMemberOfAttribute()}.
      */
     @Override
     public Set<String> getGroups(String user)
+    {
+        return groupsCache.getUnchecked(user);
+    }
+
+    /**
+     * Loads groups from LDAP for the specified user.
+     * Swallows all LDAP exceptions.
+     *
+     * @return The relative domain name of all the values of attribute
+     *         {@link LdapSingleQueryGroupProviderConfig#getLdapUserMemberOfAttribute()}.
+     */
+    private Set<String> loadGroups(String user)
     {
         try {
             return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ldapgroup;
 
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -32,7 +33,8 @@ class TestLdapGroupProviderConfig
                 .setLdapUserBaseDN(null)
                 .setLdapUserSearchFilter("(uid={0})")
                 .setLdapGroupsNameAttribute("cn")
-                .setLdapUseGroupFilter(false));
+                .setLdapUseGroupFilter(false)
+                .setGroupsCacheTtl(Duration.valueOf("0m")));
     }
 
     @Test
@@ -44,7 +46,8 @@ class TestLdapGroupProviderConfig
                 "ldap.user-base-dn", "dc=trino,dc=io",
                 "ldap.user-search-filter", "(accountName={0})",
                 "ldap.group-name-attribute", "groupName",
-                "ldap.use-group-filter", "true");
+                "ldap.use-group-filter", "true",
+                "ldap.group-cache-ttl", "10m");
 
         LdapGroupProviderConfig expected = new LdapGroupProviderConfig()
                 .setLdapAdminUser("cn=admin,dc=trino,dc=io")
@@ -52,7 +55,8 @@ class TestLdapGroupProviderConfig
                 .setLdapUserBaseDN("dc=trino,dc=io")
                 .setLdapUserSearchFilter("(accountName={0})")
                 .setLdapGroupsNameAttribute("groupName")
-                .setLdapUseGroupFilter(true);
+                .setLdapUseGroupFilter(true)
+                .setGroupsCacheTtl(Duration.valueOf("10m"));
 
         assertFullMapping(properties, expected);
     }
