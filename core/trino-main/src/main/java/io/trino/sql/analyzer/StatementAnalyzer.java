@@ -2593,6 +2593,7 @@ class StatementAnalyzer
                                 inputField.getType(),
                                 false,
                                 inputField.getOriginTable(),
+                                inputField.getOriginBranch(),
                                 inputField.getOriginColumnName(),
                                 inputField.isAliased());
                         fieldBuilder.add(field);
@@ -2612,6 +2613,7 @@ class StatementAnalyzer
                                 inputField.getType(),
                                 false,
                                 inputField.getOriginTable(),
+                                inputField.getOriginBranch(),
                                 inputField.getOriginColumnName(),
                                 inputField.isAliased());
                         fieldBuilder.add(field);
@@ -2695,6 +2697,7 @@ class StatementAnalyzer
                             getViewColumnType(column, name, table),
                             false,
                             Optional.of(name),
+                            getBranchName(table),
                             Optional.of(column.name()),
                             false))
                     .collect(toImmutableList());
@@ -2809,6 +2812,7 @@ class StatementAnalyzer
                         column.getType(),
                         column.isHidden(),
                         Optional.of(tableName),
+                        getBranchName(table),
                         Optional.of(column.getName()),
                         false);
                 fields.add(field);
@@ -3099,6 +3103,7 @@ class StatementAnalyzer
                             field.getType(),
                             field.isHidden(),
                             field.getOriginTable(),
+                            field.getOriginBranch(),
                             field.getOriginColumnName(),
                             field.isAliased()));
                 }
@@ -3112,6 +3117,7 @@ class StatementAnalyzer
                             field.getType(),
                             field.isHidden(),
                             field.getOriginTable(),
+                            field.getOriginBranch(),
                             field.getOriginColumnName(),
                             field.isAliased()));
                 }
@@ -4886,7 +4892,7 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
+                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginBranch(), field.getOriginColumnName(), false);
                         analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
                         outputFields.add(newField);
                     }
@@ -4896,6 +4902,7 @@ class StatementAnalyzer
                     Optional<Identifier> field = column.getAlias();
 
                     Optional<QualifiedObjectName> originTable = Optional.empty();
+                    Optional<String> originBranch = Optional.empty();
                     Optional<String> originColumn = Optional.empty();
                     QualifiedName name = null;
 
@@ -4910,6 +4917,7 @@ class StatementAnalyzer
                         List<Field> matchingFields = sourceScope.getRelationType().resolveFields(name);
                         if (!matchingFields.isEmpty()) {
                             originTable = matchingFields.get(0).getOriginTable();
+                            originBranch = matchingFields.get(0).getOriginBranch();
                             originColumn = matchingFields.get(0).getOriginColumnName();
                         }
                     }
@@ -4920,7 +4928,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originBranch, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
@@ -6156,6 +6164,20 @@ class StatementAnalyzer
         private OutputColumn createOutputColumn(Field field)
         {
             return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+        }
+
+        private Optional<String> getBranchName(Table table)
+        {
+            return table
+                    // branch is explicitly provided for INSERT @ branch, UPDATE @ branch, DELETE @ branch and MERGE @ branch:
+                    .getBranch().map(Identifier::getValue)
+                    // the version pointer is used for SELECT FROM table FOR VERSION AS OF 'branch':
+                    .or(() -> table.getQueryPeriod()
+                            .filter(queryPeriod -> queryPeriod.getRangeType() == QueryPeriod.RangeType.VERSION)
+                            .flatMap(QueryPeriod::getEnd)
+                            .filter(StringLiteral.class::isInstance)
+                            .map(StringLiteral.class::cast)
+                            .map(StringLiteral::getValue));
         }
 
         /**

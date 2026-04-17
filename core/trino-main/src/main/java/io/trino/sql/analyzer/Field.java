@@ -24,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class Field
 {
     private final Optional<QualifiedObjectName> originTable;
+    private final Optional<String> originBranch;
     private final Optional<String> originColumnName;
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
@@ -58,27 +59,30 @@ public class Field
                 .build();
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
+        requireNonNull(originBranch, "originBranch is null");
 
         return builder()
                 .name(name)
                 .type(type)
                 .originTable(originTable)
+                .originBranch(originBranch)
                 .originColumnName(originColumn)
                 .aliased(aliased)
                 .build();
     }
 
-    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
+        requireNonNull(originBranch, "originBranch is null");
 
         return builder()
                 .relationAlias(Optional.of(relationAlias))
@@ -86,17 +90,19 @@ public class Field
                 .type(type)
                 .hidden(hidden)
                 .originTable(originTable)
+                .originBranch(originBranch)
                 .originColumnName(originColumn)
                 .aliased(aliased)
                 .build();
     }
 
-    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumnName, boolean aliased)
+    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumnName, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(originTable, "originTable is null");
+        requireNonNull(originBranch, "originBranch is null");
         requireNonNull(originColumnName, "originColumnName is null");
 
         this.relationAlias = relationAlias;
@@ -104,6 +110,7 @@ public class Field
         this.type = type;
         this.hidden = hidden;
         this.originTable = originTable;
+        this.originBranch = originBranch;
         this.originColumnName = originColumnName;
         this.aliased = aliased;
     }
@@ -116,6 +123,11 @@ public class Field
     public Optional<QualifiedObjectName> getOriginTable()
     {
         return originTable;
+    }
+
+    public Optional<String> getOriginBranch()
+    {
+        return originBranch;
     }
 
     public Optional<String> getOriginColumnName()
@@ -207,6 +219,7 @@ public class Field
         private Type type;
         private boolean hidden;
         private Optional<QualifiedObjectName> originTable = Optional.empty();
+        private Optional<String> originBranch = Optional.empty();
         private Optional<String> originColumnName = Optional.empty();
         private boolean aliased;
 
@@ -253,6 +266,12 @@ public class Field
             return this;
         }
 
+        public Builder originBranch(Optional<String> originBranch)
+        {
+            this.originBranch = requireNonNull(originBranch, "originBranch is null");
+            return this;
+        }
+
         public Builder originColumnName(Optional<String> originColumnName)
         {
             this.originColumnName = requireNonNull(originColumnName, "originColumnName is null");
@@ -268,7 +287,7 @@ public class Field
         public Field build()
         {
             requireNonNull(type, "type is null");
-            return new Field(relationAlias, name, type, hidden, originTable, originColumnName, aliased);
+            return new Field(relationAlias, name, type, hidden, originTable, originBranch, originColumnName, aliased);
         }
     }
 }
