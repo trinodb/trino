@@ -828,7 +828,15 @@ public class TrinoRestCatalog
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         try {
+            // Drop first the storage table and only then the view
+            View materializedView = restSessionCatalog.loadView(convert(session), toRemoteView(session, viewName, true));
+            TableIdentifier storageTableIdentifier = materializedView.currentVersion().storageTable();
+            restSessionCatalog.dropTable(convert(session), storageTableIdentifier);
+
             restSessionCatalog.dropView(convert(session), toRemoteView(session, viewName, true));
+        }
+        catch (NoSuchViewException e) {
+            // View has already been dropped, ignore
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop materialized view '%s'".formatted(viewName.getTableName()), e);
