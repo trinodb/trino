@@ -88,7 +88,20 @@ public class CouchbaseClient
                                 }));
             }
             else {
-                cluster = Cluster.connect(config.getCluster(), config.getUsername(), config.getPassword());
+                cluster = Cluster.connect(
+                        config.getCluster(),
+                        ClusterOptions.clusterOptions(config.getUsername(), config.getPassword())
+                                .environment(env -> {
+                                    env.securityConfig(security -> {
+                                        if (config.getTlsCertificate() != null) {
+                                            security.trustCertificate(Path.of(config.getTlsCertificate()));
+                                        }
+                                    });
+                                    env.timeoutConfig(timeout -> {
+                                        timeout.kvTimeout(config.getTimeouts());
+                                        timeout.queryTimeout(config.getTimeouts());
+                                    });
+                                }));
             }
         }
         catch (Exception e) {
