@@ -273,6 +273,7 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableList());
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
         Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
+        Map<Integer, IcebergColumnHandle> columnHandleIndex = tableHandle.getColumnHandleIndex();
         String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.specId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
         org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
@@ -283,6 +284,7 @@ public class IcebergPageSourceProvider
                 session,
                 icebergColumns,
                 schema,
+                columnHandleIndex,
                 partitionSpec,
                 PartitionData.fromBlocks(split.partitionValues(), partitionColumnTypes, typeManager),
                 split.deletes(),
@@ -305,6 +307,7 @@ public class IcebergPageSourceProvider
             ConnectorSession session,
             List<IcebergColumnHandle> icebergColumns,
             Schema tableSchema,
+            Map<Integer, IcebergColumnHandle> columnHandleIndex,
             PartitionSpec partitionSpec,
             PartitionData partitionData,
             List<DeleteFile> deletes,
@@ -356,7 +359,7 @@ public class IcebergPageSourceProvider
 
         List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
 
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(columnHandleIndex, deletes);
         deleteFilterRequiredColumns.stream()
                 .filter(not(icebergColumns::contains))
                 .forEach(requiredColumns::add);
@@ -389,7 +392,7 @@ public class IcebergPageSourceProvider
                             dataSequenceNumber,
                             deletes,
                             requiredColumns,
-                            tableSchema,
+                            columnHandleIndex,
                             readerPageSourceWithRowPositions.startRowPosition(),
                             readerPageSourceWithRowPositions.endRowPosition(),
                             deleteFile -> readDeletionVector(fileSystem, deleteFile),
@@ -490,7 +493,7 @@ public class IcebergPageSourceProvider
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Map<Integer, IcebergColumnHandle> columnHandleIndex, List<DeleteFile> deletes)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
@@ -499,7 +502,13 @@ public class IcebergPageSourceProvider
             }
             else if (deleteFile.content() == EQUALITY_DELETES) {
                 deleteFile.equalityFieldIds().stream()
-                        .map(id -> getColumnHandle(schema.findField(id), typeManager))
+                        .map(id -> {
+                            IcebergColumnHandle handle = columnHandleIndex.get(id);
+                            if (handle == null) {
+                                throw new TrinoException(ICEBERG_BAD_DATA, "Equality delete references field ID " + id + " not found in column index");
+                            }
+                            return handle;
+                        })
                         .forEach(requiredColumns::add);
             }
         }

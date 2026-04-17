@@ -52,6 +52,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_NAME;
+import static io.trino.plugin.iceberg.IcebergUtil.buildColumnHandleIndex;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
@@ -151,12 +152,15 @@ public class TableChangesFunction
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet()));
 
+        Map<Integer, IcebergColumnHandle> columnHandleIndex = buildColumnHandleIndex(icebergTable.schemas(), typeManager);
+
         return TableFunctionAnalysis.builder()
                 .returnedType(new Descriptor(columns.build()))
                 .handle(new TableChangesFunctionHandle(
                         schemaTableName,
                         SchemaParser.toJson(tableSchema),
                         columnHandles,
+                        columnHandleIndex,
                         Optional.ofNullable(icebergTable.properties().get(TableProperties.DEFAULT_NAME_MAPPING)),
                         startSnapshotId,
                         endSnapshotId))
