@@ -207,7 +207,7 @@
         <dep.netty.version>4.2.12.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
-        <dep.swagger.version>2.2.46</dep.swagger.version>
+        <dep.swagger.version>2.2.47</dep.swagger.version>
         <dep.takari.version>2.3.3</dep.takari.version>
         <dep.tcnative.version>2.0.75.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
