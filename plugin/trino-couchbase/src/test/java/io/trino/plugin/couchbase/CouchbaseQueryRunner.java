@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.couchbase;
 
+import com.couchbase.client.core.error.CollectionExistsException;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
@@ -169,7 +170,7 @@ public class CouchbaseQueryRunner
             JsonObject propHolder = JsonObject.create();
             propHolder.put("properties", infer);
             fw.write(propHolder.toString());
-            log.info("Inferred JSON file for colume %s", propHolder);
+            log.info("Inferred JSON file for column %s", propHolder);
         }
         catch (Exception ex) {
             throw new RuntimeException("Failed to generate INFER file", ex);
@@ -190,7 +191,12 @@ public class CouchbaseQueryRunner
         }
         Scope scope = bucket.scope(scopeName);
 
-        bucket.collections().createCollection(scopeName, tableName);
+        try {
+            bucket.collections().createCollection(scopeName, tableName);
+        }
+        catch (CollectionExistsException _) {
+            // noop
+        }
 
         Collection target = scope.collection(tableName);
 
