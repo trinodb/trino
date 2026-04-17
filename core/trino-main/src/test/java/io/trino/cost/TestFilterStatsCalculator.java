@@ -864,6 +864,37 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
     }
 
+    @Test
+    public void testNotInOnColumnWithUnknownNdvAndRange()
+    {
+        // Regression: on a varchar column with unknown NDV and unbounded range,
+        // `c NOT IN ('a', 'b')` used to collapse to 0 rows. Each per-value equality
+        // returned a 0.5 heuristic selectivity, the IN sum saturated at the full
+        // non-null row count, and $not(IN) subtracted to 0.
+
+        VarcharType type = createVarcharType(16);
+        Symbol column = new Symbol(type, "c");
+        Reference ref = new Reference(type, "c");
+
+        SymbolStatsEstimate columnStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(NaN)
+                .setDistinctValuesCount(NaN)
+                .setLowValue(NEGATIVE_INFINITY)
+                .setHighValue(POSITIVE_INFINITY)
+                .setNullsFraction(0)
+                .build();
+        PlanNodeStatsEstimate input = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(column, columnStats)
+                .setOutputRowCount(1000)
+                .build();
+
+        Constant a = new Constant(type, Slices.utf8Slice("a"));
+        Constant b = new Constant(type, Slices.utf8Slice("b"));
+
+        // NOT IN on an unknown column yields an unknown estimate rather than a fabricated row count.
+        assertExpression(not(new In(ref, ImmutableList.of(a, b))), input).outputRowsCountUnknown();
+    }
+
     private PlanNodeStatsAssertion assertExpression(Expression expression)
     {
         return assertExpression(expression, session);

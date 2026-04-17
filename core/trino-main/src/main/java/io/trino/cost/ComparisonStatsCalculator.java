@@ -67,6 +67,15 @@ public final class ComparisonStatsCalculator
             filterRange = new StatisticRange(literalValue.getAsDouble(), literalValue.getAsDouble(), 1);
         }
         else {
+            // When the literal cannot be represented as a double and the column has no NDV
+            // and no range, StatisticRange.overlapPercentWith falls back to the
+            // infinite-to-infinite 0.5 heuristic, which is meant for range overlap, not point
+            // equality. Treat the selectivity as unknown instead.
+            if (isNaN(expressionStatistics.getDistinctValuesCount())
+                    && !isFinite(expressionStatistics.getLowValue())
+                    && !isFinite(expressionStatistics.getHighValue())) {
+                return PlanNodeStatsEstimate.unknown();
+            }
             filterRange = new StatisticRange(NEGATIVE_INFINITY, POSITIVE_INFINITY, 1);
         }
         return estimateFilterRange(inputStatistics, expressionStatistics, expressionSymbol, filterRange);
