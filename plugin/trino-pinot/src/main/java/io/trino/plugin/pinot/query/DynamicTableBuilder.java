@@ -28,6 +28,7 @@ import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.PinotQuery;
 import org.apache.pinot.common.request.context.ExpressionContext;
 import org.apache.pinot.common.request.context.FunctionContext;
+import org.apache.pinot.common.request.context.LiteralContext;
 import org.apache.pinot.common.request.context.OrderByExpressionContext;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.query.aggregation.function.AggregationFunction;
@@ -35,6 +36,7 @@ import org.apache.pinot.core.query.reduce.PostAggregationHandler;
 import org.apache.pinot.core.query.request.context.QueryContext;
 import org.apache.pinot.core.query.request.context.utils.QueryContextConverterUtils;
 import org.apache.pinot.segment.spi.AggregationFunctionType;
+import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 
 import java.util.EnumSet;
@@ -85,18 +87,14 @@ public final class DynamicTableBuilder
         Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(trinoTableName);
         List<OrderByExpression> orderBy = ImmutableList.of();
         PinotTypeResolver pinotTypeResolver = new PinotTypeResolver(pinotClient, typeConverter, pinotTableName);
-        List<PinotColumnHandle> selectColumns = ImmutableList.of();
-
         Map<String, PinotColumnNameAndTrinoType> aggregateTypes = ImmutableMap.of();
         if (queryContext.getAggregationFunctions() != null) {
             checkState(queryContext.getAggregationFunctions().length > 0, "Aggregation Functions is empty");
             aggregateTypes = getAggregateTypes(schemaTableName, queryContext, columnHandles, typeConverter);
         }
 
-        if (queryContext.getSelectExpressions() != null) {
-            checkState(!queryContext.getSelectExpressions().isEmpty(), "Pinot selections is empty");
-            selectColumns = getPinotColumns(schemaTableName, queryContext.getSelectExpressions(), queryContext.getAliasList(), columnHandles, pinotTypeResolver, aggregateTypes);
-        }
+        checkState(!queryContext.getSelectExpressions().isEmpty(), "Pinot selections is empty");
+        List<PinotColumnHandle> selectColumns = getPinotColumns(schemaTableName, queryContext.getSelectExpressions(), queryContext.getAliasList(), columnHandles, pinotTypeResolver, aggregateTypes);
 
         if (queryContext.getOrderByExpressions() != null) {
             ImmutableList.Builder<OrderByExpression> orderByBuilder = ImmutableList.builder();
@@ -152,8 +150,11 @@ public final class DynamicTableBuilder
     private static PinotColumnHandle getPinotColumnHandle(SchemaTableName schemaTableName, ExpressionContext expressionContext, Optional<String> alias, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
     {
         ExpressionContext rewritten = rewriteExpression(schemaTableName, expressionContext, columnHandles);
-        // If there is no alias, pinot autogenerates the column name:
-        String columnName = rewritten.toString();
+        // If there is no alias, pinot autogenerates the column name from the expression tree. Pinot's internal
+        // ExpressionContext renders CAST target types using Pinot names ('long', 'string', 'bytes') but the broker's
+        // ResultTable column names use SQL names ('bigint', 'varchar', 'varbinary'). Normalize back to SQL names so
+        // the schema matches what the broker returns - the inverse of Pinot's CastTypeAliasRewriter.
+        String columnName = rewriteCastTargetTypeToSqlName(rewritten).toString();
         String pinotExpression = formatExpression(schemaTableName, rewritten);
         Type trinoType;
         boolean isAggregate = hasAggregate(rewritten);
@@ -170,6 +171,43 @@ public final class DynamicTableBuilder
         }
 
         return new PinotColumnHandle(alias.orElse(columnName), trinoType, pinotExpression, alias.isPresent(), isAggregate, isReturnNullOnEmptyGroup(expressionContext), Optional.empty(), Optional.empty());
+    }
+
+    private static ExpressionContext rewriteCastTargetTypeToSqlName(ExpressionContext expression)
+    {
+        if (expression.getType() != ExpressionContext.Type.FUNCTION) {
+            return expression;
+        }
+        FunctionContext function = expression.getFunction();
+        List<ExpressionContext> arguments = function.getArguments();
+        List<ExpressionContext> rewrittenArguments = arguments.stream()
+                .map(DynamicTableBuilder::rewriteCastTargetTypeToSqlName)
+                .collect(toImmutableList());
+        if ("cast".equalsIgnoreCase(function.getFunctionName()) && rewrittenArguments.size() == 2) {
+            ExpressionContext castTarget = rewrittenArguments.get(1);
+            if (castTarget.getType() == ExpressionContext.Type.LITERAL) {
+                String pinotTypeName = castTarget.getLiteral().getStringValue();
+                String sqlTypeName = toSqlCastTypeName(pinotTypeName);
+                if (!sqlTypeName.equals(pinotTypeName)) {
+                    ExpressionContext rewrittenTarget = ExpressionContext.forLiteral(new LiteralContext(DataType.STRING, sqlTypeName));
+                    rewrittenArguments = ImmutableList.of(rewrittenArguments.getFirst(), rewrittenTarget);
+                }
+            }
+        }
+        if (rewrittenArguments.equals(arguments)) {
+            return expression;
+        }
+        return ExpressionContext.forFunction(new FunctionContext(function.getType(), function.getFunctionName(), rewrittenArguments));
+    }
+
+    private static String toSqlCastTypeName(String pinotTypeName)
+    {
+        return switch (pinotTypeName.toUpperCase(ENGLISH)) {
+            case "LONG" -> "BIGINT";
+            case "STRING" -> "VARCHAR";
+            case "BYTES" -> "VARBINARY";
+            default -> pinotTypeName;
+        };
     }
 
     private static Optional<String> getAlias(List<String> aliases, int index)
