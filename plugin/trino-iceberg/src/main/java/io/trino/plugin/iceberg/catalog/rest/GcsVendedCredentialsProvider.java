@@ -53,7 +53,7 @@ final class GcsVendedCredentialsProvider
         return createVendedCredentials(config);
     }
 
-    private static GcsVendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
+    public static GcsVendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
     {
         return new GcsVendedCredentials(
                 fileIoProperties.get(GCS_OAUTH2_TOKEN),

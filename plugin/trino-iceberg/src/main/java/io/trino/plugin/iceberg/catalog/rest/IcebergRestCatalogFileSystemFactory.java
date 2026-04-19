@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
@@ -27,8 +29,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class IcebergRestCatalogFileSystemFactory
         implements IcebergFileSystemFactory
@@ -36,6 +40,10 @@ public class IcebergRestCatalogFileSystemFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean vendedCredentialsEnabled;
     private final Map<String, String> catalogProperties;
+    private final Cache<VendedCredentialsCacheKey, CachedVendedCredentialsProviders> vendedCredentialsProvidersCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(1_000)
+            .expireAfterWrite(1, HOURS)
+            .build();
 
     @Inject
     public IcebergRestCatalogFileSystemFactory(
@@ -52,24 +60,12 @@ public class IcebergRestCatalogFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
         if (vendedCredentialsEnabled) {
-            Optional<S3VendedCredentialsProvider> s3VendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
-                    fileIoProperties,
-                    () -> new S3VendedCredentialsProvider(catalogProperties, fileIoProperties),
-                    S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
-            Optional<GcsVendedCredentialsProvider> gcsVendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
-                    fileIoProperties,
-                    () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),
-                    GCPProperties.GCS_OAUTH2_TOKEN);
-            Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider = createAzureVendedCredentialsProvider(fileIoProperties);
+            CachedVendedCredentialsProviders cached = uncheckedCacheGet(
+                    vendedCredentialsProvidersCache,
+                    createVendedCredentialsCacheKey(identity, fileIoProperties),
+                    () -> createVendedCredentialsProviders(fileIoProperties));
 
-            ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
-            // handle GCS
-            if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
-                addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
-            }
-            Map<String, String> extraCredentials = extraCredentialsBuilder.buildOrThrow();
-
-            if (s3VendedCredentialsProvider.isPresent() || gcsVendedCredentialsProvider.isPresent() || azureVendedCredentialsProvider.isPresent()) {
+            if (cached.s3VendedCredentialsProvider().isPresent() || cached.gcsVendedCredentialsProvider().isPresent() || cached.azureVendedCredentialsProvider().isPresent()) {
                 return new IcebergRestCatalogFileSystem(
                         location -> {
                             if (location.scheme().isEmpty()) {
@@ -77,9 +73,9 @@ public class IcebergRestCatalogFileSystemFactory
                             }
                             // Derive the vended credentials to load from the location scheme
                             Optional<VendedCredentials> vendedCredentials = switch (location.scheme().get()) {
-                                case "s3", "s3a", "s3n" -> s3VendedCredentialsProvider.map(S3VendedCredentialsProvider::getCredentials);
-                                case "gs" -> gcsVendedCredentialsProvider.map(GcsVendedCredentialsProvider::getCredentials);
-                                case "abfs", "abfss", "wasb", "wasbs" -> azureVendedCredentialsProvider.map(AzureVendedCredentialsProvider::getCredentials);
+                                case "s3", "s3a", "s3n" -> cached.s3VendedCredentialsProvider().map(S3VendedCredentialsProvider::getCredentials);
+                                case "gs" -> cached.gcsVendedCredentialsProvider().map(GcsVendedCredentialsProvider::getCredentials);
+                                case "abfs", "abfss", "wasb", "wasbs" -> cached.azureVendedCredentialsProvider().map(AzureVendedCredentialsProvider::getCredentials);
                                 default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
                             };
                             if (vendedCredentials.isEmpty()) {
@@ -92,7 +88,7 @@ public class IcebergRestCatalogFileSystemFactory
                                     .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                                     .withConnectorRole(identity.getConnectorRole())
                                     .withExtraCredentials(ImmutableMap.<String, String>builder()
-                                            .putAll(extraCredentials)
+                                            .putAll(cached.extraCredentials())
                                             .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
                                             .buildOrThrow())
                                     .build();
@@ -102,6 +98,99 @@ public class IcebergRestCatalogFileSystemFactory
             }
         }
         return fileSystemFactory.create(identity);
+    }
+
+    private static VendedCredentialsCacheKey createVendedCredentialsCacheKey(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    {
+        Optional<S3VendedCredentials> s3VendedCredentials = createVendedCredentialsIfPresent(
+                fileIoProperties,
+                () -> S3VendedCredentialsProvider.createVendedCredentials(fileIoProperties),
+                S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
+        Optional<GcsVendedCredentials> gcsVendedCredentials = createVendedCredentialsIfPresent(
+                fileIoProperties,
+                () -> GcsVendedCredentialsProvider.createVendedCredentials(fileIoProperties),
+                GCPProperties.GCS_OAUTH2_TOKEN);
+        Optional<AzureVendedCredentials> azureVendedCredentials = createAzureVendedCredentials(fileIoProperties);
+
+        return new VendedCredentialsCacheKey(identity.getUser(), s3VendedCredentials, gcsVendedCredentials, azureVendedCredentials);
+    }
+
+    private static <T> Optional<T> createVendedCredentialsIfPresent(
+            Map<String, String> fileIoProperties,
+            Supplier<T> providerFactory,
+            String... requiredKeys)
+    {
+        for (String key : requiredKeys) {
+            if (!fileIoProperties.containsKey(key)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(providerFactory.get());
+    }
+
+    private static Optional<AzureVendedCredentials> createAzureVendedCredentials(Map<String, String> fileIoProperties)
+    {
+        for (String key : fileIoProperties.keySet()) {
+            if (key.startsWith(AzureProperties.ADLS_SAS_TOKEN_PREFIX)) {
+                return Optional.of(AzureVendedCredentialsProvider.createVendedCredentials(fileIoProperties));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private CachedVendedCredentialsProviders createVendedCredentialsProviders(Map<String, String> fileIoProperties)
+    {
+        Optional<S3VendedCredentialsProvider> s3VendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
+                fileIoProperties,
+                () -> new S3VendedCredentialsProvider(catalogProperties, fileIoProperties),
+                S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
+        Optional<GcsVendedCredentialsProvider> gcsVendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
+                fileIoProperties,
+                () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),
+                GCPProperties.GCS_OAUTH2_TOKEN);
+        Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider = createAzureVendedCredentialsProvider(fileIoProperties);
+
+        ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
+        // handle GCS
+        if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
+            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
+        }
+
+        return new CachedVendedCredentialsProviders(
+                s3VendedCredentialsProvider,
+                gcsVendedCredentialsProvider,
+                azureVendedCredentialsProvider,
+                extraCredentialsBuilder.buildOrThrow());
+    }
+
+    private record VendedCredentialsCacheKey(
+            String user,
+            Optional<S3VendedCredentials> s3VendedCredentials,
+            Optional<GcsVendedCredentials> gcsVendedCredentials,
+            Optional<AzureVendedCredentials> azureVendedCredentials)
+    {
+        public VendedCredentialsCacheKey
+        {
+            requireNonNull(user, "user is null");
+            requireNonNull(s3VendedCredentials, "s3VendedCredentials is null");
+            requireNonNull(gcsVendedCredentials, "gcsVendedCredentials is null");
+            requireNonNull(azureVendedCredentials, "azureVendedCredentials is null");
+        }
+    }
+
+    private record CachedVendedCredentialsProviders(
+            Optional<S3VendedCredentialsProvider> s3VendedCredentialsProvider,
+            Optional<GcsVendedCredentialsProvider> gcsVendedCredentialsProvider,
+            Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider,
+            Map<String, String> extraCredentials)
+    {
+        public CachedVendedCredentialsProviders
+        {
+            requireNonNull(s3VendedCredentialsProvider, "s3VendedCredentialsProvider is null");
+            requireNonNull(gcsVendedCredentialsProvider, "gcsVendedCredentialsProvider is null");
+            requireNonNull(azureVendedCredentialsProvider, "azureVendedCredentialsProvider is null");
+            requireNonNull(extraCredentials, "extraCredentials is null");
+        }
     }
 
     private static <T> Optional<T> createVendedCredentialsProviderIfPresent(

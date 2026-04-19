@@ -49,7 +49,7 @@ final class AzureVendedCredentialsProvider
                 .collect(toImmutableList()));
     }
 
-    private static AzureVendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
+    public static AzureVendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
     {
         return parseAzureVendedCredentials(fileIoProperties.entrySet());
     }

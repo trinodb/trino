@@ -57,7 +57,7 @@ final class S3VendedCredentialsProvider
         return createVendedCredentials(config);
     }
 
-    private static S3VendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
+    public static S3VendedCredentials createVendedCredentials(Map<String, String> fileIoProperties)
     {
         return new S3VendedCredentials(
                 fileIoProperties.get(ACCESS_KEY_ID),
