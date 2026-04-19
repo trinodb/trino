@@ -151,6 +151,7 @@ public abstract class BaseJdbcConnectorTest
             case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
             case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
             case SUPPORTS_DEFAULT_COLUMN_VALUE: // not supported by DefaultJdbcMetadata
+            case SUPPORTS_PRIMARY_KEY_CONSTRAINT: // not supported by DefaultJdbcMetadata
                 return false;
 
             // Dynamic filters can be pushed down only if predicate push down is supported.

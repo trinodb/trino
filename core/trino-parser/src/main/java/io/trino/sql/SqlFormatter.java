@@ -115,6 +115,7 @@ import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.PropertiesCharacteristic;
 import io.trino.sql.tree.Property;
@@ -1665,6 +1666,11 @@ public final class SqlFormatter
                     .map(element -> {
                         if (element instanceof ColumnDefinition column) {
                             return elementIndent + formatColumnDefinition(column);
+                        }
+                        if (element instanceof PrimaryKeyDefinition primaryKey) {
+                            return elementIndent + primaryKey.getPrimaryKeys().stream()
+                                    .map(SqlFormatter::formatName)
+                                    .collect(joining(", ", "PRIMARY KEY (", ")"));
                         }
                         if (element instanceof LikeClause likeClause) {
                             StringBuilder builder = new StringBuilder(elementIndent);

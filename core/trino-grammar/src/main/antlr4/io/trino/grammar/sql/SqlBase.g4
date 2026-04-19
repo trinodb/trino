@@ -239,11 +239,16 @@ with
 
 tableElement
     : columnDefinition
+    | tableConstraintDefinition
     | likeClause
     ;
 
 columnDefinition
     : qualifiedName type (DEFAULT literal)? (NOT NULL)? (COMMENT string)? (WITH properties)?
+    ;
+
+tableConstraintDefinition
+    : PRIMARY KEY columnAliases          #primaryKeyDefinition
     ;
 
 likeClause
@@ -1278,6 +1283,7 @@ POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PRECISION: 'PRECISION';
 PREPARE: 'PREPARE';
+PRIMARY: 'PRIMARY';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
 PRUNE: 'PRUNE';

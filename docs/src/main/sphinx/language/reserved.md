@@ -74,6 +74,7 @@ be quoted (using double quotes) in order to be used as an identifier.
 | `ORDER`             | reserved | reserved |
 | `OUTER`             | reserved | reserved |
 | `PREPARE`           | reserved | reserved |
+| `PRIMARY`           | reserved | reserved |
 | `RECURSIVE`         | reserved |          |
 | `RIGHT`             | reserved | reserved |
 | `ROLLUP`            | reserved |          |
