@@ -28,6 +28,7 @@ import io.trino.orc.metadata.Stream;
 import io.trino.orc.metadata.Stream.StreamKind;
 import io.trino.orc.metadata.statistics.BloomFilter;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.metadata.statistics.LongValueStatisticsBuilder;
 import io.trino.orc.stream.ByteOutputStream;
 import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,17 +65,20 @@ public class ByteColumnWriter
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
 
-    private int nonNullValueCount;
+    private final Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier;
+    private LongValueStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
 
-    public ByteColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize)
+    public ByteColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier)
     {
         this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.dataStream = new ByteOutputStream(compression, bufferSize);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
+        this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
+        this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
@@ -103,8 +108,9 @@ public class ByteColumnWriter
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                dataStream.writeByte(SignedBytes.checkedCast(type.getLong(block, position)));
-                nonNullValueCount++;
+                byte value = SignedBytes.checkedCast(type.getLong(block, position));
+                dataStream.writeByte(value);
+                statisticsBuilder.addValue(value);
             }
         }
     }
@@ -113,9 +119,9 @@ public class ByteColumnWriter
     public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(columnId, statistics);
     }
 
@@ -221,6 +227,6 @@ public class ByteColumnWriter
         dataStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }
