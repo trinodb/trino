@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
@@ -91,9 +92,10 @@ public class TrinoNessieCatalog
             IcebergTableOperationsProvider tableOperationsProvider,
             NessieIcebergClient nessieClient,
             String warehouseLocation,
-            boolean useUniqueTableLocation)
+            boolean useUniqueTableLocation,
+            Executor metadataFetchingExecutor)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
         this.nessieClient = requireNonNull(nessieClient, "nessieClient is null");
     }

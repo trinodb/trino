@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -29,6 +30,7 @@ import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
@@ -50,6 +52,7 @@ public class TrinoJdbcCatalogFactory
     private final boolean isUniqueTableLocation;
     private final Map<String, String> catalogProperties;
     private final JdbcClientPool clientPool;
+    private final Executor metadataFetchingExecutor;
 
     @Inject
     public TrinoJdbcCatalogFactory(
@@ -60,7 +63,8 @@ public class TrinoJdbcCatalogFactory
             ForwardingFileIoFactory fileIoFactory,
             IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            @ForIcebergMetadata Executor metadataFetchingExecutor)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -83,6 +87,7 @@ public class TrinoJdbcCatalogFactory
         this.catalogProperties = properties.buildOrThrow();
 
         this.clientPool = new JdbcClientPool(jdbcConfig.getConnectionUrl(), catalogProperties);
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @PreDestroy
@@ -111,6 +116,7 @@ public class TrinoJdbcCatalogFactory
                 fileIoFactory,
                 isUniqueTableLocation,
                 defaultWarehouseDir,
-                schemaVersion);
+                schemaVersion,
+                metadataFetchingExecutor);
     }
 }

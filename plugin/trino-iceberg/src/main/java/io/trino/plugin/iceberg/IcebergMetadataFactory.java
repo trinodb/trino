@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastoreFactory;
@@ -31,7 +30,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
@@ -64,7 +62,7 @@ public class IcebergMetadataFactory
             DeletionVectorWriter deletionVectorWriter,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
-            @ForIcebergMetadata ExecutorService metadataExecutorService,
+            @ForIcebergMetadata Executor metadataFetchingExecutor,
             @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
             @ForIcebergFileDelete ExecutorService icebergFileDeleteExecutor,
             IcebergConfig config)
@@ -78,6 +76,7 @@ public class IcebergMetadataFactory
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
         if (config.getAllowedExtraProperties().equals(ImmutableList.of("*"))) {
             this.allowedExtraProperties = _ -> true;
@@ -86,12 +85,6 @@ public class IcebergMetadataFactory
             this.allowedExtraProperties = ImmutableSet.copyOf(requireNonNull(config.getAllowedExtraProperties(), "allowedExtraProperties is null"))::contains;
         }
 
-        if (config.getMetadataParallelism() == 1) {
-            this.metadataFetchingExecutor = directExecutor();
-        }
-        else {
-            this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, config.getMetadataParallelism());
-        }
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = config.getMaterializedViewRefreshMaxSnapshotsToExpire();

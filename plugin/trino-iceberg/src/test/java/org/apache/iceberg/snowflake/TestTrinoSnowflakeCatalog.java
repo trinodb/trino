@@ -192,7 +192,8 @@ public class TestTrinoSnowflakeCatalog
                 s3FileSystemFactory,
                 FILE_IO_FACTORY,
                 tableOperationsProvider,
-                SNOWFLAKE_TEST_DATABASE);
+                SNOWFLAKE_TEST_DATABASE,
+                directExecutor());
     }
 
     @Test

@@ -140,7 +140,6 @@ public class TrinoHiveCatalog
     private final boolean isUsingSystemSecurity;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean hideMaterializedViewStorageTable;
-    private final Executor metadataFetchingExecutor;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -160,13 +159,12 @@ public class TrinoHiveCatalog
             boolean hideMaterializedViewStorageTable,
             Executor metadataFetchingExecutor)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.trinoViewHiveMetastore = requireNonNull(trinoViewHiveMetastore, "trinoViewHiveMetastore is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
-        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     public CachingHiveMetastore getMetastore()

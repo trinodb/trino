@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -24,6 +25,8 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+
+import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,6 +41,7 @@ public class TrinoNessieCatalogFactory
     private final TypeManager typeManager;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ForwardingFileIoFactory fileIoFactory;
+    private final Executor metadataFetchingExecutor;
 
     @Inject
     public TrinoNessieCatalogFactory(
@@ -48,7 +52,8 @@ public class TrinoNessieCatalogFactory
             IcebergTableOperationsProvider tableOperationsProvider,
             NessieIcebergClient nessieClient,
             IcebergNessieCatalogConfig icebergNessieCatalogConfig,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            @ForIcebergMetadata Executor metadataFetchingExecutor)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -58,11 +63,12 @@ public class TrinoNessieCatalogFactory
         this.nessieClient = requireNonNull(nessieClient, "nessieClient is null");
         this.warehouseLocation = icebergNessieCatalogConfig.getDefaultWarehouseDir();
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
-        return new TrinoNessieCatalog(catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, nessieClient, warehouseLocation, isUniqueTableLocation);
+        return new TrinoNessieCatalog(catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, nessieClient, warehouseLocation, isUniqueTableLocation, metadataFetchingExecutor);
     }
 }

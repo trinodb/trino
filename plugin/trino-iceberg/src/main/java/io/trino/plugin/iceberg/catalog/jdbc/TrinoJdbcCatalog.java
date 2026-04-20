@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -118,9 +119,10 @@ public class TrinoJdbcCatalog
             ForwardingFileIoFactory fileIoFactory,
             boolean useUniqueTableLocation,
             String defaultWarehouseDir,
-            SchemaVersion schemaVersion)
+            SchemaVersion schemaVersion,
+            Executor metadataFetchingExecutor)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.defaultWarehouseDir = requireNonNull(defaultWarehouseDir, "defaultWarehouseDir is null");

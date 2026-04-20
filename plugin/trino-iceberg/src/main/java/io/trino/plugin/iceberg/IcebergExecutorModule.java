@@ -19,10 +19,13 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import io.airlift.concurrent.BoundedExecutor;
 import io.trino.spi.catalog.CatalogName;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
@@ -40,6 +43,19 @@ public class IcebergExecutorModule
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergPlanning.class));
+    }
+
+    @Singleton
+    @Provides
+    @ForIcebergMetadata
+    public Executor createIcebergMetadataFetchingExecutor(IcebergConfig config, @ForIcebergMetadata ExecutorService metadataExecutorService)
+    {
+        if (config.getMetadataParallelism() == 1) {
+            return directExecutor();
+        }
+        else {
+            return new BoundedExecutor(metadataExecutorService, config.getMetadataParallelism());
+        }
     }
 
     @Singleton

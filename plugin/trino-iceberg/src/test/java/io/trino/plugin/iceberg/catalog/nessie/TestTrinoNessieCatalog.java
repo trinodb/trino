@@ -124,7 +124,8 @@ public class TestTrinoNessieCatalog
                 new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
                 nessieClient,
                 tmpDirectory.toAbsolutePath().toString(),
-                useUniqueTableLocations);
+                useUniqueTableLocations,
+                directExecutor());
     }
 
     @Test
@@ -149,7 +150,8 @@ public class TestTrinoNessieCatalog
                 new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
                 nessieClient,
                 icebergNessieCatalogConfig.getDefaultWarehouseDir(),
-                false);
+                false,
+                directExecutor());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

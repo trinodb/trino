@@ -172,7 +172,6 @@ public class TrinoGlueCatalog
     private final StatsRecordingGlueClient glueClient;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
-    private final Executor metadataFetchingExecutor;
 
     private final Cache<SchemaTableName, Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
@@ -204,14 +203,13 @@ public class TrinoGlueCatalog
             boolean hideMaterializedViewStorageTable,
             Executor metadataFetchingExecutor)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
-        this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
     }
 
     @Override

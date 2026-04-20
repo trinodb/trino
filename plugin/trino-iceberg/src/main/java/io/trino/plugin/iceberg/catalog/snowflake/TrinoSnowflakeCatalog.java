@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -87,9 +88,10 @@ public class TrinoSnowflakeCatalog
             TrinoFileSystemFactory trinoFileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
             IcebergTableOperationsProvider tableOperationsProvider,
-            String snowflakeDatabase)
+            String snowflakeDatabase,
+            Executor metadataFetchingExecutor)
     {
-        super(catalogName, false, typeManager, tableOperationsProvider, trinoFileSystemFactory, fileIoFactory);
+        super(catalogName, false, typeManager, tableOperationsProvider, trinoFileSystemFactory, fileIoFactory, metadataFetchingExecutor);
         this.snowflakeCatalog = requireNonNull(snowflakeCatalog, "snowflakeCatalog is null");
         this.snowflakeDatabase = requireNonNull(snowflakeDatabase, "snowflakeDatabase is null");
     }
