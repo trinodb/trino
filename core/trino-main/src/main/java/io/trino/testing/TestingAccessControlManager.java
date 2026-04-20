@@ -497,7 +497,7 @@ public class TestingAccessControlManager
     public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), INSERT_TABLE)) {
-            denyInsertTable(tableName.toString());
+            denyInsertTable(tableName.toString(), branch);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanInsertIntoTable(context, tableName, branch);
@@ -508,7 +508,7 @@ public class TestingAccessControlManager
     public void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), DELETE_TABLE)) {
-            denyDeleteTable(tableName.toString());
+            denyDeleteTable(tableName.toString(), branch);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanDeleteFromTable(context, tableName, branch);
@@ -530,7 +530,7 @@ public class TestingAccessControlManager
     public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> updatedColumnNames)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), UPDATE_TABLE)) {
-            denyUpdateTableColumns(tableName.toString(), updatedColumnNames);
+            denyUpdateTableColumns(tableName.toString(), branch, updatedColumnNames);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanUpdateTableColumns(context, tableName, branch, updatedColumnNames);
@@ -588,7 +588,7 @@ public class TestingAccessControlManager
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
-            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+            denyCreateViewWithSelect(tableName.toString(), branch, context.getIdentity());
         }
         if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
             super.checkCanCreateViewWithSelectFromColumns(context, tableName, branch, columnNames);
@@ -697,14 +697,14 @@ public class TestingAccessControlManager
     public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columns)
     {
         if (!denyIdentityTable.test(context.getIdentity(), tableName.objectName())) {
-            denySelectColumns(tableName.toString(), columns);
+            denySelectColumns(tableName.toString(), branch, columns);
         }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName(), SELECT_COLUMN)) {
-            denySelectColumns(tableName.toString(), columns);
+            denySelectColumns(tableName.toString(), branch, columns);
         }
         for (String column : columns) {
             if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.objectName() + "." + column, SELECT_COLUMN)) {
-                denySelectColumns(tableName.toString(), columns);
+                denySelectColumns(tableName.toString(), branch, columns);
             }
         }
         if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {

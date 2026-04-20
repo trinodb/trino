@@ -661,7 +661,7 @@ public class FileBasedSystemAccessControl
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), READ_ONLY)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
 
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
@@ -675,7 +675,7 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
     }
 
@@ -690,7 +690,7 @@ public class FileBasedSystemAccessControl
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
     {
         if (!checkTablePermission(context, table, INSERT)) {
-            denyInsertTable(table.toString());
+            denyInsertTable(table.toString(), branch);
         }
     }
 
@@ -705,7 +705,7 @@ public class FileBasedSystemAccessControl
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch)
     {
         if (!checkTablePermission(context, table, DELETE)) {
-            denyDeleteTable(table.toString());
+            denyDeleteTable(table.toString(), branch);
         }
     }
 
@@ -720,7 +720,7 @@ public class FileBasedSystemAccessControl
     public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames)
     {
         if (!checkTablePermission(context, table, UPDATE)) {
-            denyUpdateTableColumns(table.toString(), updatedColumnNames);
+            denyUpdateTableColumns(table.toString(), branch, updatedColumnNames);
         }
     }
 
@@ -776,7 +776,7 @@ public class FileBasedSystemAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
     {
         if (!canAccessCatalog(context, table.getCatalogName(), ALL)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
 
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
@@ -789,10 +789,10 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || !rule.canSelectColumns(columns)) {
-            denySelectTable(table.toString());
+            denySelectTable(table.toString(), branch);
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
-            denyCreateViewWithSelect(table.toString(), context.getIdentity());
+            denyCreateViewWithSelect(table.toString(), branch, context.getIdentity());
         }
     }
 

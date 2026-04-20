@@ -397,7 +397,7 @@ public class FileBasedAccessControl
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
-            denySelectTable(tableName.toString());
+            denySelectTable(tableName.toString(), branch);
         }
     }
 
@@ -412,7 +412,7 @@ public class FileBasedAccessControl
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, INSERT)) {
-            denyInsertTable(tableName.toString());
+            denyInsertTable(tableName.toString(), branch);
         }
     }
 
@@ -427,7 +427,7 @@ public class FileBasedAccessControl
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, DELETE)) {
-            denyDeleteTable(tableName.toString());
+            denyDeleteTable(tableName.toString(), branch);
         }
     }
 
@@ -450,7 +450,7 @@ public class FileBasedAccessControl
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
     {
         if (!checkTablePermission(context, tableName, UPDATE)) {
-            denyUpdateTableColumns(tableName.toString(), updatedColumns);
+            denyUpdateTableColumns(tableName.toString(), branch, updatedColumns);
         }
     }
 
@@ -520,10 +520,10 @@ public class FileBasedAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || !rule.canSelectColumns(columnNames)) {
-            denySelectTable(tableName.toString());
+            denySelectTable(tableName.toString(), branch);
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
-            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+            denyCreateViewWithSelect(tableName.toString(), branch, context.getIdentity());
         }
     }
 

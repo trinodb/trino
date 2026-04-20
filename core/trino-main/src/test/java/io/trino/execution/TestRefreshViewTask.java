@@ -330,7 +330,7 @@ final class TestRefreshViewTask
         public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
         {
             if (deniedTables.contains(tableName.objectName())) {
-                denySelectColumns(tableName.toString(), columnNames);
+                denySelectColumns(tableName.toString(), branch, columnNames);
             }
         }
 
@@ -338,7 +338,7 @@ final class TestRefreshViewTask
         public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
         {
             if (deniedTables.contains(tableName.objectName())) {
-                denySelectColumns(tableName.toString(), columnNames);
+                denySelectColumns(tableName.toString(), branch, columnNames);
             }
         }
     }
