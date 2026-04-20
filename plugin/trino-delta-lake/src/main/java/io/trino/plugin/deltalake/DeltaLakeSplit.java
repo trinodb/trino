@@ -16,15 +16,12 @@ package io.trino.plugin.deltalake;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
-import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -48,7 +45,7 @@ public class DeltaLakeSplit
     private final Optional<Long> fileRowCount;
     private final long fileModifiedTime;
     private final Optional<DeletionVectorEntry> deletionVector;
-    private final List<HostAddress> addresses;
+    private final Optional<String> affinityKey;
     private final SplitWeight splitWeight;
     private final TupleDomain<DeltaLakeColumnHandle> statisticsPredicate;
     private final Map<String, Optional<String>> partitionKeys;
@@ -74,7 +71,7 @@ public class DeltaLakeSplit
                 fileRowCount,
                 fileModifiedTime,
                 deletionVector,
-                ImmutableList.of(),
+                Optional.empty(),
                 splitWeight,
                 statisticsPredicate,
                 partitionKeys);
@@ -88,7 +85,7 @@ public class DeltaLakeSplit
             Optional<Long> fileRowCount,
             long fileModifiedTime,
             Optional<DeletionVectorEntry> deletionVector,
-            List<HostAddress> addresses,
+            Optional<String> affinityKey,
             SplitWeight splitWeight,
             TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
             Map<String, Optional<String>> partitionKeys)
@@ -100,18 +97,18 @@ public class DeltaLakeSplit
         this.fileRowCount = requireNonNull(fileRowCount, "rowCount is null");
         this.fileModifiedTime = fileModifiedTime;
         this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
-        this.addresses = requireNonNull(addresses, "addresses is null");
+        this.affinityKey = requireNonNull(affinityKey, "affinityKey is null");
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.statisticsPredicate = requireNonNull(statisticsPredicate, "statisticsPredicate is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
     }
 
-    // do not serialize addresses as they are not needed on workers
+    // do not serialize affinity key as it is only used by the scheduler on the coordinator
     @JsonIgnore
     @Override
-    public List<HostAddress> getAddresses()
+    public Optional<String> getAffinityKey()
     {
-        return addresses;
+        return affinityKey;
     }
 
     @JsonProperty
@@ -185,6 +182,7 @@ public class DeltaLakeSplit
                 + estimatedSizeOf(path)
                 + sizeOf(fileRowCount, value -> LONG_INSTANCE_SIZE)
                 + sizeOf(deletionVector, DeletionVectorEntry::sizeInBytes)
+                + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + splitWeight.getRetainedSizeInBytes()
                 + statisticsPredicate.getRetainedSizeInBytes(DeltaLakeColumnHandle::retainedSizeInBytes)
                 + estimatedSizeOf(partitionKeys, SizeOf::estimatedSizeOf, value -> sizeOf(value, SizeOf::estimatedSizeOf));
@@ -201,7 +199,6 @@ public class DeltaLakeSplit
                 .add("rowCount", fileRowCount)
                 .add("fileModifiedTime", fileModifiedTime)
                 .add("deletionVector", deletionVector)
-                .add("addresses", addresses)
                 .add("statisticsPredicate", statisticsPredicate)
                 .add("partitionKeys", partitionKeys)
                 .toString();
@@ -224,7 +221,6 @@ public class DeltaLakeSplit
                 path.equals(that.path) &&
                 fileRowCount.equals(that.fileRowCount) &&
                 deletionVector.equals(that.deletionVector) &&
-                Objects.equals(addresses, that.addresses) &&
                 Objects.equals(statisticsPredicate, that.statisticsPredicate) &&
                 Objects.equals(partitionKeys, that.partitionKeys);
     }
@@ -232,6 +228,6 @@ public class DeltaLakeSplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, start, length, fileSize, fileRowCount, fileModifiedTime, deletionVector, addresses, statisticsPredicate, partitionKeys);
+        return Objects.hash(path, start, length, fileSize, fileRowCount, fileModifiedTime, deletionVector, statisticsPredicate, partitionKeys);
     }
 }

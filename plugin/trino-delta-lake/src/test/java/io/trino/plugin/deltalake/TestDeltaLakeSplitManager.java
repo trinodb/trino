@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
@@ -246,7 +246,7 @@ public class TestDeltaLakeSplitManager
                 deltaLakeConfig,
                 new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
                 deltaLakeTransactionManager,
-                new DefaultCachingHostAddressProvider());
+                new NoopSplitAffinityProvider());
     }
 
     private AddFileEntry addFileEntryOfSize(String path, long fileSize)

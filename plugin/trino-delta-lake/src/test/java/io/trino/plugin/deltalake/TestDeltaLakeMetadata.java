@@ -23,8 +23,8 @@ import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
-import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.NoopSplitAffinityProvider;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
@@ -196,7 +196,7 @@ public class TestDeltaLakeMetadata
                     binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
                     binder.bind(TrinoHdfsFileSystemStats.class).toInstance(HDFS_FILE_SYSTEM_STATS);
                     binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(Scopes.SINGLETON);
-                    binder.bind(CachingHostAddressProvider.class).to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
+                    binder.bind(SplitAffinityProvider.class).toInstance(new NoopSplitAffinityProvider());
                 },
                 new AbstractModule()
                 {
