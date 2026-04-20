@@ -26,10 +26,13 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
@@ -117,8 +120,28 @@ public class TestTryFunction
                 .binding("a", "-9223372036854775807 - 1"))
                 .isNull(BIGINT);
 
+        // JSON path evaluation error (strict path miss)
+        assertThat(assertions.expression("try(json_value('[1, 2, 3]', 'strict $[100]' ERROR ON ERROR))"))
+                .isNull(VARCHAR);
+
+        // JSON_VALUE result error (path returns multiple items)
+        assertThat(assertions.expression("try(json_value('[1, 2, 3]', 'lax $[0 to 2]' ERROR ON ERROR))"))
+                .isNull(VARCHAR);
+
+        // JSON input conversion error (malformed input)
+        assertThat(assertions.expression("try(json_value('[...', 'lax $[0]' ERROR ON ERROR))"))
+                .isNull(VARCHAR);
+
+        // JSON output conversion error (JSON_QUERY with empty path)
+        assertThat(assertions.expression("try(json_query('[1, 2, 3]', 'lax $[100]' ERROR ON EMPTY))"))
+                .isNull(VARCHAR);
+
         // Exceptions that should not be suppressed
         assertTrinoExceptionThrownBy(assertions.expression("try(throw_error())")::evaluate)
                 .hasErrorCode(GENERIC_INTERNAL_ERROR);
+        assertTrinoExceptionThrownBy(assertions.expression("try(fail('boom'))")::evaluate)
+                .hasErrorCode(GENERIC_USER_ERROR);
+        assertTrinoExceptionThrownBy(assertions.expression("try(json_object('a' : 1, 'a' : 2))")::evaluate)
+                .hasErrorCode(NOT_SUPPORTED);
     }
 }

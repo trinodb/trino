@@ -132,6 +132,10 @@ The following errors are handled by `TRY`:
 - Division by zero
 - Invalid cast or function argument
 - Numeric value out of range
+- Invalid JSON literal
+- JSON input or output conversion errors
+- JSON path evaluation errors
+- JSON value function result errors
 
 ### Examples
 
