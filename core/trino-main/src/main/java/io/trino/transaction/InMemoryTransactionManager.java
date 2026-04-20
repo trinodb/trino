@@ -63,6 +63,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_COMMITED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -384,7 +385,7 @@ public class InMemoryTransactionManager
             if (completedStatus != null) {
                 if (completedStatus) {
                     // Should not happen normally
-                    throw new IllegalStateException("Current transaction already committed");
+                    throw new TrinoException(TRANSACTION_ALREADY_COMMITED, "Current transaction already committed");
                 }
                 throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
             }
@@ -521,7 +522,7 @@ public class InMemoryTransactionManager
             if (!completedSuccessfully.compareAndSet(null, false)) {
                 if (completedSuccessfully.get()) {
                     // Should not happen normally
-                    return immediateFailedFuture(new IllegalStateException("Current transaction already committed"));
+                    return immediateFailedFuture(new TrinoException(TRANSACTION_ALREADY_COMMITED, "Current transaction already committed"));
                 }
                 // Already done
                 return immediateVoidFuture();
