@@ -22,7 +22,10 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
+import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.metadata.Split;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
@@ -55,6 +58,8 @@ public class TestArbitraryDistributionSplitAssigner
     private static final int FUZZ_TESTING_INVOCATION_COUNT = 100;
 
     private static final long STANDARD_SPLIT_SIZE_IN_BYTES = 1;
+
+    private static final ConsistentHashingAddressProvider CONSISTENT_HASHING_ADDRESS_PROVIDER = new ConsistentHashingAddressProvider(TestingInternalNodeManager.createDefault(), new ConsistentHashingAddressProviderConfig());
 
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
     private static final PlanNodeId PARTITIONED_2 = new PlanNodeId("partitioned-2");
@@ -474,7 +479,8 @@ public class TestArbitraryDistributionSplitAssigner
                 1,
                 4,
                 STANDARD_SPLIT_SIZE_IN_BYTES,
-                5);
+                5,
+                CONSISTENT_HASHING_ADDRESS_PROVIDER);
         SplitAssignerTester tester = new SplitAssignerTester();
         for (SplitBatch batch : batches) {
             PlanNodeId planNodeId = batch.getPlanNodeId();
@@ -539,7 +545,8 @@ public class TestArbitraryDistributionSplitAssigner
                 100,
                 400,
                 100,
-                5);
+                5,
+                CONSISTENT_HASHING_ADDRESS_PROVIDER);
         SplitAssignerTester tester = new SplitAssignerTester();
         for (SplitBatch batch : batches) {
             PlanNodeId planNodeId = batch.getPlanNodeId();
@@ -856,7 +863,8 @@ public class TestArbitraryDistributionSplitAssigner
                 targetPartitionSizeInBytes,
                 targetPartitionSizeInBytes,
                 STANDARD_SPLIT_SIZE_IN_BYTES,
-                maxTaskSplitCount);
+                maxTaskSplitCount,
+                CONSISTENT_HASHING_ADDRESS_PROVIDER);
     }
 
     private static class SplitBatch

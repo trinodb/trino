@@ -27,6 +27,7 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
@@ -68,6 +69,7 @@ public class UniformNodeSelector
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final QueueSizeAdjuster queueSizeAdjuster;
+    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
 
     public UniformNodeSelector(
             InternalNode currentNode,
@@ -80,7 +82,8 @@ public class UniformNodeSelector
             long maxAdjustedPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
-            boolean optimizedLocalScheduling)
+            boolean optimizedLocalScheduling,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider)
     {
         this(currentNode,
                 nodeTaskMap,
@@ -92,7 +95,8 @@ public class UniformNodeSelector
                 maxUnacknowledgedSplitsPerTask,
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
-                new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask));
+                new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask),
+                consistentHashingAddressProvider);
     }
 
     @VisibleForTesting
@@ -107,7 +111,8 @@ public class UniformNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
-            QueueSizeAdjuster queueSizeAdjuster)
+            QueueSizeAdjuster queueSizeAdjuster,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -121,6 +126,7 @@ public class UniformNodeSelector
         this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.queueSizeAdjuster = queueSizeAdjuster;
+        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
     }
 
     @Override
@@ -173,8 +179,11 @@ public class UniformNodeSelector
             }
             else {
                 // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
-                if (optimizedLocalScheduling && !split.getAddresses().isEmpty()) {
-                    candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
+                        .map(consistentHashingAddressProvider::getHosts)
+                        .orElseGet(split::getAddresses);
+                if (optimizedLocalScheduling && !preferredAddresses.isEmpty()) {
+                    candidateNodes = selectExactNodes(nodeMap, preferredAddresses, includeCoordinator);
                     if (candidateNodes.isEmpty()) {
                         // choose any other node if preferred node is not available
                         candidateNodes = selectNodes(minCandidates, randomCandidates);
