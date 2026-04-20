@@ -14,12 +14,15 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -32,6 +35,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_CREATED_BY_VALUE;
@@ -52,6 +56,8 @@ public class TrinoHiveCatalogFactory
     private final boolean deleteSchemaLocationsFallback;
     private final boolean hideMaterializedViewStorageTable;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     @Inject
     public TrinoHiveCatalogFactory(
@@ -64,7 +70,9 @@ public class TrinoHiveCatalogFactory
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
             @UsingSystemSecurity boolean isUsingSystemSecurity,
-            @ForIcebergMetadata Executor metadataFetchingExecutor)
+            @ForIcebergMetadata Executor metadataFetchingExecutor,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
@@ -78,6 +86,8 @@ public class TrinoHiveCatalogFactory
         this.deleteSchemaLocationsFallback = config.isDeleteSchemaLocationsFallback();
         this.hideMaterializedViewStorageTable = config.isHideMaterializedViewStorageTable();
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @Override
@@ -96,6 +106,8 @@ public class TrinoHiveCatalogFactory
                 isUsingSystemSecurity,
                 deleteSchemaLocationsFallback,
                 hideMaterializedViewStorageTable,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                icebergScanExecutor,
+                commitTaskCodec);
     }
 }

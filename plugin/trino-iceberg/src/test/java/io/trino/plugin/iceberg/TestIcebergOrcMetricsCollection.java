@@ -40,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.SystemSessionProperties.INITIAL_SPLITS_PER_NODE;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
@@ -102,7 +104,9 @@ public class TestIcebergOrcMetricsCollection
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

@@ -112,7 +112,9 @@ public class TestTrinoGlueCatalog
                 Optional.empty(),
                 useUniqueTableLocations,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
     }
 
     private static GlueClient createGlueClient()
@@ -268,7 +270,9 @@ public class TestTrinoGlueCatalog
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

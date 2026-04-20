@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
@@ -34,6 +35,7 @@ import io.trino.plugin.hive.HiveSchemaProperties;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -77,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -157,9 +160,11 @@ public class TrinoHiveCatalog
             boolean isUsingSystemSecurity,
             boolean deleteSchemaLocationsFallback,
             boolean hideMaterializedViewStorageTable,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor, icebergScanExecutor, commitTaskCodec);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.trinoViewHiveMetastore = requireNonNull(trinoViewHiveMetastore, "trinoViewHiveMetastore is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;

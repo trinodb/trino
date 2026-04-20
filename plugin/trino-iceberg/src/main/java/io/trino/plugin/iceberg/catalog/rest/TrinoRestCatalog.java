@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
@@ -28,21 +29,25 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
+import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -78,11 +83,13 @@ import org.apache.iceberg.view.ViewVersion;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -893,6 +900,44 @@ public class TrinoRestCatalog
 
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+    }
+
+    @Override
+    public Table beginRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemaTableName>
+            boolean hasForeignSourceTables,
+            RetryMode retryMode,
+            RefreshType refreshType)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+    }
+
+    @Override
+    public Table finishRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            IcebergFileFormat fileFormat,
+            Collection<Slice> fragments,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemaTableName>
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+    }
+
+    @Override
+    public OptionalLong getIncrementalRefreshFromSnapshot()
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
+    }
+
+    @Override
+    public void disableIncrementalRefresh()
     {
         throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
     }

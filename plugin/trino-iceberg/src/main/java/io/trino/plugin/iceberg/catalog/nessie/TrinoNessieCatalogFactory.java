@@ -14,8 +14,11 @@
 package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -27,6 +30,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.nessie.NessieIcebergClient;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,6 +46,8 @@ public class TrinoNessieCatalogFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ForwardingFileIoFactory fileIoFactory;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     @Inject
     public TrinoNessieCatalogFactory(
@@ -53,7 +59,9 @@ public class TrinoNessieCatalogFactory
             NessieIcebergClient nessieClient,
             IcebergNessieCatalogConfig icebergNessieCatalogConfig,
             IcebergConfig icebergConfig,
-            @ForIcebergMetadata Executor metadataFetchingExecutor)
+            @ForIcebergMetadata Executor metadataFetchingExecutor,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -64,11 +72,13 @@ public class TrinoNessieCatalogFactory
         this.warehouseLocation = icebergNessieCatalogConfig.getDefaultWarehouseDir();
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
-        return new TrinoNessieCatalog(catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, nessieClient, warehouseLocation, isUniqueTableLocation, metadataFetchingExecutor);
+        return new TrinoNessieCatalog(catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, nessieClient, warehouseLocation, isUniqueTableLocation, metadataFetchingExecutor, icebergScanExecutor, commitTaskCodec);
     }
 }

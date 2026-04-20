@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
@@ -188,7 +186,6 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
-import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
@@ -203,11 +200,7 @@ import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.UpdateStatistics;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
-import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.exceptions.NotFoundException;
-import org.apache.iceberg.exceptions.RESTException;
-import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
@@ -268,7 +261,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -335,7 +327,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFi
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isFileBasedConflictDetectionEnabled;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
@@ -364,7 +355,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
-import static io.trino.plugin.iceberg.IcebergUtil.commit;
+import static io.trino.plugin.iceberg.IcebergUtil.commitTransaction;
+import static io.trino.plugin.iceberg.IcebergUtil.commitUpdate;
+import static io.trino.plugin.iceberg.IcebergUtil.commitUpdateAndTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.fileName;
@@ -488,7 +481,6 @@ public class IcebergMetadata
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
-    private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(FILE_FORMAT_PROPERTY)
@@ -511,13 +503,6 @@ public class IcebergMetadata
 
     private static final Integer DELETE_BATCH_SIZE = 1000;
     public static final int GET_METADATA_BATCH_SIZE = 1000;
-    private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
-
-    private static final String DEPENDS_ON_TABLES = "dependsOnTables";
-    private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
-    private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
-    // Value should be ISO-8601 formatted time instant
-    private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -539,7 +524,6 @@ public class IcebergMetadata
     private final DeletionVectorWriter deletionVectorWriter;
 
     private Transaction transaction;
-    private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
 
     public IcebergMetadata(
             TypeManager typeManager,
@@ -2203,32 +2187,6 @@ public class IcebergMetadata
                     .put("removed_delete_files_count", removedDeleteFiles)
                     .put("added_data_files_count", addedDataFiles)
                     .buildOrThrow();
-        }
-    }
-
-    private static void commitUpdateAndTransaction(SnapshotUpdate<?> update, ConnectorSession session, Transaction transaction, String operation)
-    {
-        commitUpdate(update, session, operation);
-        commitTransaction(transaction, operation);
-    }
-
-    private static void commitUpdate(SnapshotUpdate<?> update, ConnectorSession session, String operation)
-    {
-        try {
-            commit(update, session);
-        }
-        catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
-        }
-    }
-
-    private static void commitTransaction(Transaction transaction, String operation)
-    {
-        try {
-            transaction.commitTransaction();
-        }
-        catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -4254,34 +4212,14 @@ public class IcebergMetadata
             RetryMode retryMode,
             RefreshType refreshType)
     {
-        checkState(fromSnapshotForRefresh.isEmpty(), "From Snapshot must be empty at the start of MV refresh operation.");
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        beginTransaction(icebergTable);
-
-        Optional<String> dependencies = Optional.ofNullable(icebergTable.currentSnapshot())
-                .map(Snapshot::summary)
-                .map(summary -> summary.get(DEPENDS_ON_TABLES));
-
-        boolean shouldUseIncremental = isIncrementalRefreshEnabled(session)
-                && refreshType == RefreshType.INCREMENTAL
-                // there is a single source table
-                && sourceTableHandles.size() == 1
-                // and there are no other foreign sources
-                && !hasForeignSourceTables
-                // and the source table's fromSnapshot is available in the MV snapshot summary
-                && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
-
-        if (shouldUseIncremental) {
-            Map<String, String> sourceTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
-            checkState(sourceTableToSnapshot.size() == 1, "Expected %s to contain only single source table in snapshot summary", sourceTableToSnapshot);
-            Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
-            String[] schemaTable = sourceTable.getKey().split("\\.");
-            IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
-            SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
-            checkState(sourceSchemaTable.equals(handle.getSchemaTableName()), "Source table name %s doesn't match handle table name %s", sourceSchemaTable, handle.getSchemaTableName());
-            fromSnapshotForRefresh = OptionalLong.of(Long.parseLong(sourceTable.getValue()));
-        }
+        Table icebergTable = catalog.beginRefreshMaterializedView(
+                session,
+                table.getSchemaTableName(),
+                sourceTableHandles,
+                hasForeignSourceTables,
+                retryMode,
+                refreshType);
 
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable);
     }
@@ -4300,70 +4238,15 @@ public class IcebergMetadata
     {
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
-        Table icebergTable = transaction.table();
-        boolean isFullRefresh = fromSnapshotForRefresh.isEmpty();
-        if (isFullRefresh) {
-            // delete before insert .. simulating overwrite
-            log.info("Performing full MV refresh for storage table: %s", table.name());
-            transaction.newDelete()
-                    .deleteFromRowFilter(Expressions.alwaysTrue())
-                    .scanManifestsWith(icebergScanExecutor)
-                    .commit();
-        }
-        else {
-            log.info("Performing incremental MV refresh for storage table: %s", table.name());
-        }
-
-        List<CommitTaskData> commitTasks = fragments.stream()
-                .map(Slice::getInput)
-                .map(commitTaskCodec::fromJson)
-                .collect(toImmutableList());
-
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        icebergTable.schema().findType(field.sourceId())))
-                .toArray(Type[]::new);
-
-        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
-        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.path())
-                    .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withFormat(table.fileFormat().toIceberg())
-                    .withMetrics(task.metrics().metrics())
-                    .withSortOrder(sortOrders.get(task.sortOrderId()));
-            task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
-
-            if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.partitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
-            }
-
-            appendFiles.appendFile(builder.build());
-        }
-
-        List<String> tableDependencies = new ArrayList<>();
-        sourceTableHandles.stream()
-                .map(IcebergTableHandle.class::cast)
-                .map(handle -> "%s=%s".formatted(
-                        handle.getSchemaTableName(),
-                        handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().getAsLong()) : ""))
-                .forEach(tableDependencies::add);
-        if (hasForeignSourceTables) {
-            tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
-        }
-
-        // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
-        appendFiles.set(DEPENDS_ON_TABLES, String.join(",", tableDependencies));
-        appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
-        appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
-        appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
-        appendFiles.scanManifestsWith(icebergScanExecutor);
-        commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
-        transaction = null;
-        fromSnapshotForRefresh = OptionalLong.empty();
+        Table icebergTable = catalog.finishRefreshMaterializedView(
+                session,
+                table.name(),
+                table.fileFormat(),
+                fragments,
+                sourceTableHandles,
+                hasForeignSourceTables,
+                hasSourceTableFunctions,
+                hasNonDeterministicFunctions);
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         Optional<ConnectorOutputMetadata> icebergCommitMetadata = summary == null ? Optional.empty() : Optional.of(new IcebergCommitMetadata(summary));
 
@@ -4481,12 +4364,12 @@ public class IcebergMetadata
 
     public OptionalLong getIncrementalRefreshFromSnapshot()
     {
-        return fromSnapshotForRefresh;
+        return catalog.getIncrementalRefreshFromSnapshot();
     }
 
     public void disableIncrementalRefresh()
     {
-        fromSnapshotForRefresh = OptionalLong.empty();
+        catalog.disableIncrementalRefresh();
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)

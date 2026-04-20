@@ -15,11 +15,14 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -57,6 +60,8 @@ public class TrinoGlueCatalogFactory
     private final GlueMetastoreStats stats;
     private final boolean isUsingSystemSecurity;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -72,7 +77,9 @@ public class TrinoGlueCatalogFactory
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
             GlueClient glueClient,
-            @ForIcebergMetadata ExecutorService metadataExecutorService)
+            @ForIcebergMetadata ExecutorService metadataExecutorService,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -87,12 +94,14 @@ public class TrinoGlueCatalogFactory
         this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = usingSystemSecurity;
-        if (icebergConfig.getMetadataParallelism() == 1) {
+        if (icebergConfig.getMetadataParallelism() == 1) { // TODO remove in previous commit
             this.metadataFetchingExecutor = directExecutor();
         }
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
         }
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @Managed
@@ -118,6 +127,8 @@ public class TrinoGlueCatalogFactory
                 defaultSchemaLocation,
                 isUniqueTableLocation,
                 hideMaterializedViewStorageTable,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                icebergScanExecutor,
+                commitTaskCodec);
     }
 }

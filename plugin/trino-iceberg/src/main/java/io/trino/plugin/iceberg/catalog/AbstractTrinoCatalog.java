@@ -14,29 +14,40 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
+import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergUtil;
+import io.trino.plugin.iceberg.PartitionData;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -52,6 +63,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
@@ -61,11 +73,14 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -74,11 +89,15 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
@@ -91,6 +110,8 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -98,6 +119,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
+import static io.trino.plugin.iceberg.IcebergUtil.commitUpdateAndTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.createTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshotAfter;
@@ -135,12 +157,15 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public abstract class AbstractTrinoCatalog
         implements TrinoCatalog
 {
+    private static final Logger log = Logger.get(AbstractTrinoCatalog.class);
+
     public static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
     public static final String ICEBERG_VIEW_RUN_AS_OWNER = "trino.run-as-owner";
 
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
     private static final String DEPENDS_ON_TABLES = "dependsOnTables";
     private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
     private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
@@ -155,6 +180,11 @@ public abstract class AbstractTrinoCatalog
     protected final TrinoFileSystemFactory fileSystemFactory;
     protected final ForwardingFileIoFactory fileIoFactory;
     protected final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
+
+    private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
+    private Transaction transaction;
 
     protected AbstractTrinoCatalog(
             CatalogName catalogName,
@@ -163,7 +193,9 @@ public abstract class AbstractTrinoCatalog
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
             ForwardingFileIoFactory fileIoFactory,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
@@ -172,6 +204,8 @@ public abstract class AbstractTrinoCatalog
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @Override
@@ -244,6 +278,143 @@ public abstract class AbstractTrinoCatalog
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to load storage table metadata for materialized view: " + viewName);
         }
+    }
+
+    @Override
+    public Table beginRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemTableName>
+            boolean hasForeignSourceTables,
+            RetryMode retryMode,
+            RefreshType refreshType)
+    {
+        checkState(fromSnapshotForRefresh.isEmpty(), "From Snapshot must be empty at the start of MV refresh operation.");
+        Table icebergTable = loadTable(session, schemaTableName);
+        beginTransaction(icebergTable);
+
+        Optional<String> dependencies = Optional.ofNullable(icebergTable.currentSnapshot())
+                .map(Snapshot::summary)
+                .map(summary -> summary.get(DEPENDS_ON_TABLES));
+
+        boolean shouldUseIncremental = isIncrementalRefreshEnabled(session)
+                && refreshType == RefreshType.INCREMENTAL
+                // there is a single source table
+                && sourceTableHandles.size() == 1
+                // and there are no other foreign sources
+                && !hasForeignSourceTables
+                // and the source table's fromSnapshot is available in the MV snapshot summary
+                && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
+
+        if (shouldUseIncremental) {
+            Map<String, String> sourceTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
+            checkState(sourceTableToSnapshot.size() == 1, "Expected %s to contain only single source table in snapshot summary", sourceTableToSnapshot);
+            Map.Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+            String[] schemaTable = sourceTable.getKey().split("\\.");
+            IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+            SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+            checkState(sourceSchemaTable.equals(handle.getSchemaTableName()), "Source table name %s doesn't match handle table name %s", sourceSchemaTable, handle.getSchemaTableName());
+            fromSnapshotForRefresh = OptionalLong.of(Long.parseLong(sourceTable.getValue()));
+        }
+
+        return icebergTable;
+    }
+
+    @Override
+    public Table finishRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            IcebergFileFormat fileFormat,
+            Collection<Slice> fragments,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemaTableName>
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        Table icebergTable = transaction.table();
+        boolean isFullRefresh = fromSnapshotForRefresh.isEmpty();
+        if (isFullRefresh) {
+            // delete before insert .. simulating overwrite
+            log.info("Performing full MV refresh for storage table: %s", tableName);
+            transaction.newDelete()
+                    .deleteFromRowFilter(Expressions.alwaysTrue())
+                    .scanManifestsWith(icebergScanExecutor)
+                    .commit();
+        }
+        else {
+            log.info("Performing incremental MV refresh for storage table: %s", tableName);
+        }
+
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(Slice::getInput)
+                .map(commitTaskCodec::fromJson)
+                .collect(toImmutableList());
+
+        org.apache.iceberg.types.Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+
+        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        for (CommitTaskData task : commitTasks) {
+            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+                    .withPath(task.path())
+                    .withFileSizeInBytes(task.fileSizeInBytes())
+                    .withFormat(fileFormat.toIceberg())
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
+            task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+
+            if (!icebergTable.spec().fields().isEmpty()) {
+                String partitionDataJson = task.partitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+
+            appendFiles.appendFile(builder.build());
+        }
+
+        List<String> tableDependencies = new ArrayList<>();
+        sourceTableHandles.stream()
+                .map(IcebergTableHandle.class::cast)
+                .map(handle -> "%s=%s".formatted(
+                        handle.getSchemaTableName(),
+                        handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().getAsLong()) : ""))
+                .forEach(tableDependencies::add);
+        if (hasForeignSourceTables) {
+            tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
+        }
+
+        // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
+        appendFiles.set(DEPENDS_ON_TABLES, String.join(",", tableDependencies));
+        appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, String.valueOf(hasSourceTableFunctions));
+        appendFiles.set(DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS, String.valueOf(hasNonDeterministicFunctions));
+        appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
+        appendFiles.scanManifestsWith(icebergScanExecutor);
+        commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
+        transaction = null;
+        fromSnapshotForRefresh = OptionalLong.empty();
+
+        return icebergTable;
+    }
+
+    private void beginTransaction(Table icebergTable)
+    {
+        verify(transaction == null, "transaction already set");
+        transaction = newTransaction(icebergTable);
+    }
+
+    @Override
+    public OptionalLong getIncrementalRefreshFromSnapshot()
+    {
+        return fromSnapshotForRefresh;
+    }
+
+    @Override
+    public void disableIncrementalRefresh()
+    {
+        fromSnapshotForRefresh = OptionalLong.empty();
     }
 
     @Override

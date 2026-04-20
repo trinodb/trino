@@ -15,8 +15,11 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -31,6 +34,7 @@ import org.apache.iceberg.jdbc.JdbcClientPool;
 
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
@@ -53,6 +57,8 @@ public class TrinoJdbcCatalogFactory
     private final Map<String, String> catalogProperties;
     private final JdbcClientPool clientPool;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     @Inject
     public TrinoJdbcCatalogFactory(
@@ -64,7 +70,9 @@ public class TrinoJdbcCatalogFactory
             IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
             IcebergConfig icebergConfig,
-            @ForIcebergMetadata Executor metadataFetchingExecutor)
+            @ForIcebergMetadata Executor metadataFetchingExecutor,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -88,6 +96,8 @@ public class TrinoJdbcCatalogFactory
 
         this.clientPool = new JdbcClientPool(jdbcConfig.getConnectionUrl(), catalogProperties);
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @PreDestroy
@@ -117,6 +127,8 @@ public class TrinoJdbcCatalogFactory
                 isUniqueTableLocation,
                 defaultWarehouseDir,
                 schemaVersion,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                icebergScanExecutor,
+                commitTaskCodec);
     }
 }

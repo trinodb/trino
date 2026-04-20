@@ -15,8 +15,11 @@ package org.apache.iceberg.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
+import io.trino.plugin.iceberg.ForIcebergSplitManager;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -35,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
@@ -58,6 +62,8 @@ public class TrinoIcebergSnowflakeCatalogFactory
     private final Map<String, String> snowflakeDriverProperties;
     private final JdbcClientPool snowflakeConnectionPool;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
+    private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     @Inject
     public TrinoIcebergSnowflakeCatalogFactory(
@@ -67,7 +73,9 @@ public class TrinoIcebergSnowflakeCatalogFactory
             IcebergSnowflakeCatalogConfig snowflakeCatalogConfig,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
-            @ForIcebergMetadata Executor metadataFetchingExecutor)
+            @ForIcebergMetadata Executor metadataFetchingExecutor,
+            @ForIcebergSplitManager ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -84,6 +92,8 @@ public class TrinoIcebergSnowflakeCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
+        this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     @PreDestroy
@@ -100,7 +110,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
         SnowflakeCatalog icebergSnowflakeCatalog = new SnowflakeCatalog();
         icebergSnowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, new TrinoIcebergSnowflakeCatalogFileIOFactory(fileSystemFactory, fileIoFactory, identity), snowflakeDriverProperties);
 
-        return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, snowflakeDatabase, metadataFetchingExecutor);
+        return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, snowflakeDatabase, metadataFetchingExecutor, icebergScanExecutor, commitTaskCodec);
     }
 
     public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, Optional<String> snowflakeRole)

@@ -193,7 +193,9 @@ public class TestTrinoSnowflakeCatalog
                 FILE_IO_FACTORY,
                 tableOperationsProvider,
                 SNOWFLAKE_TEST_DATABASE,
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
     }
 
     @Test

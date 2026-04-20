@@ -16,10 +16,12 @@ package io.trino.plugin.iceberg.catalog.snowflake;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.json.JsonCodec;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
@@ -55,6 +57,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -89,9 +92,11 @@ public class TrinoSnowflakeCatalog
             ForwardingFileIoFactory fileIoFactory,
             IcebergTableOperationsProvider tableOperationsProvider,
             String snowflakeDatabase,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
-        super(catalogName, false, typeManager, tableOperationsProvider, trinoFileSystemFactory, fileIoFactory, metadataFetchingExecutor);
+        super(catalogName, false, typeManager, tableOperationsProvider, trinoFileSystemFactory, fileIoFactory, metadataFetchingExecutor, icebergScanExecutor, commitTaskCodec);
         this.snowflakeCatalog = requireNonNull(snowflakeCatalog, "snowflakeCatalog is null");
         this.snowflakeDatabase = requireNonNull(snowflakeDatabase, "snowflakeDatabase is null");
     }

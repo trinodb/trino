@@ -125,7 +125,9 @@ public class TestTrinoNessieCatalog
                 nessieClient,
                 tmpDirectory.toAbsolutePath().toString(),
                 useUniqueTableLocations,
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
     }
 
     @Test
@@ -151,7 +153,9 @@ public class TestTrinoNessieCatalog
                 nessieClient,
                 icebergNessieCatalogConfig.getDefaultWarehouseDir(),
                 false,
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService(),
+                jsonCodec(CommitTaskData.class));
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
@@ -30,6 +31,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
+import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -91,6 +93,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -201,9 +204,11 @@ public class TrinoGlueCatalog
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
             boolean hideMaterializedViewStorageTable,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            ExecutorService icebergScanExecutor,
+            JsonCodec<CommitTaskData> commitTaskCodec)
     {
-        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory, metadataFetchingExecutor, icebergScanExecutor, commitTaskCodec);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.glueClient = requireNonNull(glueClient, "glueClient is null");

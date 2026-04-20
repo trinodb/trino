@@ -13,17 +13,22 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import io.airlift.slice.Slice;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
+import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.spi.RefreshType;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
@@ -36,10 +41,12 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -196,6 +203,29 @@ public interface TrinoCatalog
     Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition);
 
     MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod);
+
+    Table beginRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemaTableName>
+            boolean hasForeignSourceTables,
+            RetryMode retryMode,
+            RefreshType refreshType);
+
+    Table finishRefreshMaterializedView(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            IcebergFileFormat fileFormat,
+            Collection<Slice> fragments,
+            List<ConnectorTableHandle> sourceTableHandles, //TODO change to List<SchemaTableName>
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions);
+
+    //TODO figure out a way to get rid of this tangling
+    OptionalLong getIncrementalRefreshFromSnapshot();
+
+    void disableIncrementalRefresh();
 
     Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName);
 
