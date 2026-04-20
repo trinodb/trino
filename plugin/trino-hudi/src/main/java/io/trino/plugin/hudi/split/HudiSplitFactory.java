@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi.split;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
@@ -32,13 +33,16 @@ public class HudiSplitFactory
 
     private final HudiTableHandle hudiTableHandle;
     private final HudiSplitWeightProvider hudiSplitWeightProvider;
+    private final SplitAffinityProvider splitAffinityProvider;
 
     public HudiSplitFactory(
             HudiTableHandle hudiTableHandle,
-            HudiSplitWeightProvider hudiSplitWeightProvider)
+            HudiSplitWeightProvider hudiSplitWeightProvider,
+            SplitAffinityProvider splitAffinityProvider)
     {
         this.hudiTableHandle = requireNonNull(hudiTableHandle, "hudiTableHandle is null");
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
+        this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
     }
 
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
@@ -48,17 +52,19 @@ public class HudiSplitFactory
         }
 
         long fileSize = fileStatus.length();
+        String location = fileStatus.location().toString();
 
         if (fileSize == 0) {
             return ImmutableList.of(new HudiSplit(
-                    fileStatus.location().toString(),
+                    location,
                     0,
                     fileSize,
                     fileSize,
                     fileStatus.modificationTime(),
                     hudiTableHandle.getRegularPredicates(),
                     partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
+                    hudiSplitWeightProvider.calculateSplitWeight(fileSize),
+                    splitAffinityProvider.getKey(location, 0, fileSize)));
         }
 
         ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
@@ -66,27 +72,31 @@ public class HudiSplitFactory
 
         long bytesRemaining = fileSize;
         while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
+            long start = fileSize - bytesRemaining;
             splits.add(new HudiSplit(
-                    fileStatus.location().toString(),
-                    fileSize - bytesRemaining,
+                    location,
+                    start,
                     splitSize,
                     fileSize,
                     fileStatus.modificationTime(),
                     hudiTableHandle.getRegularPredicates(),
                     partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(splitSize)));
+                    hudiSplitWeightProvider.calculateSplitWeight(splitSize),
+                    splitAffinityProvider.getKey(location, start, splitSize)));
             bytesRemaining -= splitSize;
         }
         if (bytesRemaining > 0) {
+            long start = fileSize - bytesRemaining;
             splits.add(new HudiSplit(
-                    fileStatus.location().toString(),
-                    fileSize - bytesRemaining,
+                    location,
+                    start,
                     bytesRemaining,
                     fileSize,
                     fileStatus.modificationTime(),
                     hudiTableHandle.getRegularPredicates(),
                     partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
+                    hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining),
+                    splitAffinityProvider.getKey(location, start, bytesRemaining)));
         }
         return splits.build();
     }

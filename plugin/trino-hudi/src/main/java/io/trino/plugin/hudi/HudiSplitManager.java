@@ -16,6 +16,7 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
@@ -54,6 +55,7 @@ public class HudiSplitManager
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
+    private final SplitAffinityProvider splitAffinityProvider;
 
     @Inject
     public HudiSplitManager(
@@ -61,13 +63,15 @@ public class HudiSplitManager
             HudiTransactionManager transactionManager,
             @ForHudiSplitManager ExecutorService executor,
             TrinoFileSystemFactory fileSystemFactory,
-            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
+            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
+            SplitAffinityProvider splitAffinityProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
+        this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
     }
 
     @Override
@@ -99,6 +103,7 @@ public class HudiSplitManager
                 splitLoaderExecutorService,
                 getMaxSplitsPerSecond(session),
                 getMaxOutstandingSplits(session),
+                splitAffinityProvider,
                 partitions);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }

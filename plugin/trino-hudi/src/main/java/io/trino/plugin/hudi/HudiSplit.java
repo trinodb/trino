@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.spi.SplitWeight;
@@ -21,11 +22,13 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +40,8 @@ public record HudiSplit(
         long fileModifiedTime,
         TupleDomain<HiveColumnHandle> predicate,
         List<HivePartitionKey> partitionKeys,
-        SplitWeight splitWeight)
+        SplitWeight splitWeight,
+        Optional<String> affinityKey)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
@@ -52,6 +56,13 @@ public record HudiSplit(
         requireNonNull(predicate, "predicate is null");
         partitionKeys = ImmutableList.copyOf(partitionKeys);
         requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(affinityKey, "affinityKey is null");
+    }
+
+    @Override
+    public Optional<String> getAffinityKey()
+    {
+        return affinityKey;
     }
 
     @Override
@@ -61,7 +72,8 @@ public record HudiSplit(
                 + estimatedSizeOf(location)
                 + splitWeight.getRetainedSizeInBytes()
                 + predicate.getRetainedSizeInBytes(HiveColumnHandle::getRetainedSizeInBytes)
-                + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes);
+                + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes)
+                + sizeOf(affinityKey, SizeOf::estimatedSizeOf);
     }
 
     @Override

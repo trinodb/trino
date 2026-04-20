@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -71,6 +72,7 @@ public class HudiSplitSource
             ScheduledExecutorService splitLoaderExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
+            SplitAffinityProvider splitAffinityProvider,
             List<String> partitions)
     {
         HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
@@ -94,6 +96,7 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
+                splitAffinityProvider,
                 partitions,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
