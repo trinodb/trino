@@ -74,6 +74,7 @@ public class TestHiveSplit
                 new Schema("abc", true, schema),
                 partitionKeys,
                 addresses,
+                Optional.of("path:42:87"),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,

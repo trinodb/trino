@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
@@ -86,7 +86,7 @@ class HiveSplitSource
     private final CounterStat highMemorySplitSourceCounter;
     private final AtomicBoolean loggedHighMemoryWarning = new AtomicBoolean();
     private final HiveSplitWeightProvider splitWeightProvider;
-    private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final SplitAffinityProvider splitAffinityProvider;
 
     private final boolean recordScannedFiles;
     private final ImmutableList.Builder<Object> scannedFilePaths = ImmutableList.builder();
@@ -101,7 +101,7 @@ class HiveSplitSource
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter,
-            CachingHostAddressProvider cachingHostAddressProvider,
+            SplitAffinityProvider splitAffinityProvider,
             boolean recordScannedFiles)
     {
         requireNonNull(session, "session is null");
@@ -119,7 +119,7 @@ class HiveSplitSource
         this.deterministicSplits = maxInitialSplits == 0 || maxInitialSplitSize.equals(maxSplitSize);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
-        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.recordScannedFiles = recordScannedFiles;
     }
 
@@ -134,7 +134,7 @@ class HiveSplitSource
             HiveSplitLoader splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
-            CachingHostAddressProvider cachingHostAddressProvider,
+            SplitAffinityProvider splitAffinityProvider,
             boolean recordScannedFiles)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
@@ -175,7 +175,7 @@ class HiveSplitSource
                 splitLoader,
                 stateReference,
                 highMemorySplitSourceCounter,
-                cachingHostAddressProvider,
+                splitAffinityProvider,
                 recordScannedFiles);
     }
 
@@ -304,6 +304,15 @@ class HiveSplitSource
                     splitBytes = internalSplit.getEnd() - internalSplit.getStart();
                 }
 
+                // Force-local splits are pinned to specific addresses by the scheduler; affinity keys are only
+                // meaningful for remotely accessible splits. When it is not guaranteed that the splits from a file
+                // will have the same size across different queries, use a file-wide key so all splits of the same
+                // file land on the same worker and reuse the cached content.
+                Optional<String> affinityKey = internalSplit.isForceLocalScheduling()
+                        ? Optional.empty()
+                        : deterministicSplits
+                                ? splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes)
+                                : splitAffinityProvider.getKey(internalSplit.getPath(), 0, internalSplit.getEstimatedFileSize());
                 resultBuilder.add(new HiveSplit(
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
@@ -313,7 +322,8 @@ class HiveSplitSource
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
-                        cachingHostAddressProvider.getHosts(getSplitKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes), block.addresses()),
+                        block.addresses(),
+                        affinityKey,
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
@@ -400,16 +410,6 @@ class HiveSplitSource
             splitLoader.stop();
             queues.finish();
         }
-    }
-
-    private String getSplitKey(String path, long start, long length)
-    {
-        if (deterministicSplits) {
-            return CachingHostAddressProvider.getSplitKey(path, start, length);
-        }
-        // When it is not guaranteed that the splits from a file will have the same size across different queries,
-        // do not include start and length in the key to avoid cache misses.
-        return path;
     }
 
     private static <T> boolean setIf(AtomicReference<T> atomicReference, T newValue, Predicate<T> predicate)

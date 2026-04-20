@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.HostAddress;
@@ -51,6 +52,7 @@ public class HiveSplit
     private final Schema schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
+    private final Optional<String> affinityKey;
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
@@ -90,6 +92,7 @@ public class HiveSplit
                 schema,
                 partitionKeys,
                 ImmutableList.of(),
+                Optional.empty(),
                 readBucketNumber,
                 tableBucketNumber,
                 forceLocalScheduling,
@@ -110,6 +113,7 @@ public class HiveSplit
             Schema schema,
             List<HivePartitionKey> partitionKeys,
             List<HostAddress> addresses,
+            Optional<String> affinityKey,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean forceLocalScheduling,
@@ -127,6 +131,7 @@ public class HiveSplit
         requireNonNull(schema, "schema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(addresses, "addresses is null");
+        requireNonNull(affinityKey, "affinityKey is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
         requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null");
@@ -143,6 +148,7 @@ public class HiveSplit
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
+        this.affinityKey = affinityKey;
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
@@ -209,6 +215,14 @@ public class HiveSplit
         return addresses;
     }
 
+    // do not serialize affinity key as it is only used by the scheduler on the coordinator
+    @JsonIgnore
+    @Override
+    public Optional<String> getAffinityKey()
+    {
+        return affinityKey;
+    }
+
     @JsonProperty
     public OptionalInt getReadBucketNumber()
     {
@@ -272,6 +286,7 @@ public class HiveSplit
                 + schema.getRetainedSizeInBytes()
                 + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(partitionName)
                 + sizeOf(readBucketNumber)
                 + sizeOf(tableBucketNumber)
