@@ -36,21 +36,6 @@ public class Field
         return new Builder();
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
-        requireNonNull(originTable, "originTable is null");
-
-        return builder()
-                .name(name)
-                .type(type)
-                .originTable(originTable)
-                .originColumnName(originColumn)
-                .aliased(aliased)
-                .build();
-    }
-
     public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");

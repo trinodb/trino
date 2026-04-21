@@ -4893,7 +4893,12 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
+                        Field newField = field.rebuild()
+                                .name(name)
+                                .aliased(false)
+                                .hidden(false)
+                                .relationAlias(Optional.empty())
+                                .build();
                         analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
                         outputFields.add(newField);
                     }
@@ -4927,7 +4932,13 @@ class StatementAnalyzer
                         }
                     }
 
-                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.builder()
+                            .name(field.map(Identifier::getValue))
+                            .type(analysis.getType(expression))
+                            .originTable(originTable)
+                            .originColumnName(originColumn)
+                            .aliased(column.getAlias().isPresent())
+                            .build(); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
