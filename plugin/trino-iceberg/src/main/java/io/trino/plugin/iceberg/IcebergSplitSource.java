@@ -29,7 +29,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
@@ -100,7 +100,6 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.filesystem.cache.CachingHostAddressProvider.getSplitKey;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertibleToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
@@ -185,7 +184,7 @@ public class IcebergSplitSource
     private Map<StructLikeWrapperWithFieldIdToIndex, Optional<FileScanTaskWithDomain>> scannedFilesByPartition = new HashMap<>();
     @GuardedBy("this")
     private long outputRowsLowerBound;
-    private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final SplitAffinityProvider splitAffinityProvider;
     private final InMemoryMetricsReporter metricsReporter;
     private volatile boolean finished;
 
@@ -202,7 +201,7 @@ public class IcebergSplitSource
             TypeManager typeManager,
             boolean recordScannedFiles,
             double minimumAssignedSplitWeight,
-            CachingHostAddressProvider cachingHostAddressProvider,
+            SplitAffinityProvider splitAffinityProvider,
             InMemoryMetricsReporter metricsReporter,
             ListeningExecutorService executor)
     {
@@ -241,7 +240,7 @@ public class IcebergSplitSource
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
-        this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.metricsReporter = requireNonNull(metricsReporter, "metricsReporter is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
@@ -729,6 +728,7 @@ public class IcebergSplitSource
     {
         FileScanTask task = taskWithDomain.fileScanTask();
 
+        Optional<String> affinityKey = splitAffinityProvider.getKey(task.file().location(), task.start(), task.length());
         return new IcebergSplit(
                 task.file().location(),
                 task.start(),
@@ -744,7 +744,7 @@ public class IcebergSplitSource
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
-                cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
+                affinityKey,
                 task.file().dataSequenceNumber(),
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
     }

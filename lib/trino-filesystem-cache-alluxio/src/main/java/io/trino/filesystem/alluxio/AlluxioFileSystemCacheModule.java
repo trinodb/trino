@@ -19,9 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.cache.CacheSplitAffinityProvider;
-import io.trino.filesystem.cache.CachingHostAddressProvider;
-import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
-import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfig;
 import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.spi.catalog.CatalogName;
@@ -47,14 +44,12 @@ public class AlluxioFileSystemCacheModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(AlluxioFileSystemCacheConfig.class);
-        configBinder(binder).bindConfig(ConsistentHashingHostAddressProviderConfig.class);
         binder.bind(AlluxioCacheStats.class).in(SINGLETON);
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(AlluxioCacheStats.class)
                 .as(generator -> generator.generatedNameOf(AlluxioCacheStats.class, catalogName.get().toString()));
 
         if (isCoordinator) {
-            newOptionalBinder(binder, CachingHostAddressProvider.class).setBinding().to(ConsistentHashingHostAddressProvider.class).in(SINGLETON);
             newOptionalBinder(binder, SplitAffinityProvider.class).setBinding().to(CacheSplitAffinityProvider.class).in(SINGLETON);
         }
         binder.bind(TrinoFileSystemCache.class).to(AlluxioFileSystemCache.class).in(SINGLETON);

@@ -14,18 +14,18 @@
 package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.delete.DeleteFile;
-import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -33,6 +33,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplit
@@ -53,7 +54,7 @@ public class IcebergSplit
     private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
     private final long dataSequenceNumber;
     private final OptionalLong fileFirstRowId;
-    private final List<HostAddress> addresses;
+    private final Optional<String> affinityKey;
 
     @JsonCreator
     public IcebergSplit(
@@ -68,41 +69,9 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+            @JsonProperty("affinityKey") Optional<String> affinityKey,
             @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
             @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId)
-    {
-        this(
-                path,
-                start,
-                length,
-                fileSize,
-                fileRecordCount,
-                fileFormat,
-                specId,
-                partitionValues,
-                deletes,
-                splitWeight,
-                fileStatisticsDomain,
-                ImmutableList.of(),
-                dataSequenceNumber,
-                fileFirstRowId);
-    }
-
-    public IcebergSplit(
-            String path,
-            long start,
-            long length,
-            long fileSize,
-            long fileRecordCount,
-            IcebergFileFormat fileFormat,
-            int specId,
-            List<Block> partitionValues,
-            List<DeleteFile> deletes,
-            SplitWeight splitWeight,
-            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            List<HostAddress> addresses,
-            long dataSequenceNumber,
-            OptionalLong fileFirstRowId)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -115,16 +84,16 @@ public class IcebergSplit
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         this.fileStatisticsDomain = requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
-        this.addresses = requireNonNull(addresses, "addresses is null");
+        this.affinityKey = requireNonNull(affinityKey, "affinityKey is null");
         this.dataSequenceNumber = dataSequenceNumber;
         this.fileFirstRowId = requireNonNull(fileFirstRowId, "fileFirstRowId is null");
     }
 
-    @JsonIgnore
+    @JsonProperty
     @Override
-    public List<HostAddress> getAddresses()
+    public Optional<String> getAffinityKey()
     {
-        return addresses;
+        return affinityKey;
     }
 
     @JsonProperty
@@ -218,7 +187,7 @@ public class IcebergSplit
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + SIZE_OF_LONG // dataSequenceNumber
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + (fileFirstRowId.isPresent() ? SIZE_OF_LONG : 0);
     }
 
