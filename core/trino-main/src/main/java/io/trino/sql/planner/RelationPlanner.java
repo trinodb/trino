@@ -880,7 +880,7 @@ class RelationPlanner
     @Override
     protected RelationPlan visitNearest(Nearest node, Void context)
     {
-        throw semanticException(NOT_SUPPORTED, node, "NEAREST is only supported on the right side of CROSS JOIN, LEFT JOIN, or an implicit join");
+        throw semanticException(NOT_SUPPORTED, node, "NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
     }
 
     @Override
