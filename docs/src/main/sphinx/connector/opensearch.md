@@ -215,6 +215,9 @@ according to the following table:
 * - `TEXT`
   - `VARCHAR`
   -
+* - `MATCH_ONLY_TEXT`
+  - `VARCHAR`
+  -
 * - `DATE`
   - `TIMESTAMP`
   - For more information, see [](opensearch-date-types).
