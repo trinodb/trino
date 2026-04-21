@@ -31,6 +31,11 @@ public record EncryptionKey(byte[] key, String algorithm)
     {
         byte[] key = new byte[32];
         ThreadLocalRandom.current().nextBytes(key);
+        return ofAes256(key);
+    }
+
+    private static EncryptionKey ofAes256(byte[] key)
+    {
         return new EncryptionKey(key, "AES256");
     }
 
