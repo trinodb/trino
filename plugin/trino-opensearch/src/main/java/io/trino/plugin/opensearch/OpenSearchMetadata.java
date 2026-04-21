@@ -180,8 +180,15 @@ public class OpenSearchMetadata
         requireNonNull(tableName, "tableName is null");
 
         if (tableName.getSchemaName().equals(schemaName)) {
-            if (client.indexExists(tableName.getTableName()) && !client.getIndexMetadata(tableName.getTableName()).schema().fields().isEmpty()) {
-                return new OpenSearchTableHandle(OpenSearchTableHandle.Type.SCAN, schemaName, tableName.getTableName(), Optional.empty());
+            String[] parts = tableName.getTableName().split(":", 2);
+            String table = parts[0];
+            Optional<String> query = Optional.empty();
+            if (parts.length == 2) {
+                query = Optional.of(parts[1]);
+            }
+
+            if (client.indexExists(table) && !client.getIndexMetadata(table).schema().fields().isEmpty()) {
+                return new OpenSearchTableHandle(OpenSearchTableHandle.Type.SCAN, schemaName, table, query);
             }
         }
 

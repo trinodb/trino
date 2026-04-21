@@ -390,6 +390,16 @@ The following hidden columns are available:
   - The source of the original document.
 :::
 
+(opensearch-full-text-queries)=
+## Full text queries
+
+Trino SQL queries can be combined with OpenSearch queries by providing the [full text query]
+as part of the table name, separated by a colon. For example:
+
+```sql
+SELECT * FROM "tweets: +trino SQL^2"
+```
+
 (opensearch-sql-support)=
 ## SQL support
 

@@ -1822,6 +1822,13 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testQueryString()
+    {
+        assertThat(query("SELECT count(*) FROM \"orders: +packages -slyly\""))
+                .matches("VALUES BIGINT '1639'");
+    }
+
+    @Test
     public void testMixedCase()
             throws IOException
     {
@@ -1857,6 +1864,13 @@ public abstract class BaseOpenSearchConnectorTest
                 .matches("VALUES VARCHAR '20'");
         assertThat(query("SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'"))
                 .matches("VALUES VARCHAR '20'");
+    }
+
+    @Test
+    public void testQueryStringError()
+    {
+        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
+        assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
     @Test
