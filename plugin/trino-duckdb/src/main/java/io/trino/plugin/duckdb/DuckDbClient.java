@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.duckdb;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -46,7 +45,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -117,12 +115,6 @@ public final class DuckDbClient
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
-    }
-
-    @Override
-    protected Optional<List<String>> getTableTypes()
-    {
-        return Optional.of(ImmutableList.of("BASE TABLE", "VIEW"));
     }
 
     @Override
