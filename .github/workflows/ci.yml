@@ -546,6 +546,11 @@ jobs:
         if: contains(matrix.modules, 'trino-hdfs')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
+      - name: Iceberg isolated JVM tests
+        id: tests-iceberg-isolated
+        if: contains(matrix.modules, 'trino-iceberg') && matrix.profile == ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg -P test-isolated-jvm-suites
       - name: FileSystem Exchange Storage Cloud Tests
         id: tests-filesystem-exchange
         env:
@@ -796,6 +801,7 @@ jobs:
           has-failed-tests: >-
             ${{ steps.tests.outcome == 'failure'
               || steps.tests-hdfs-isolated.outcome == 'failure'
+              || steps.tests-iceberg-isolated.outcome == 'failure'
               || steps.tests-s3.outcome == 'failure'
               || steps.tests-azure.outcome == 'failure'
               || steps.tests-filesystem-exchange.outcome == 'failure'

@@ -36,7 +36,10 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -126,8 +129,14 @@ public class IcebergRestCatalogFileSystemFactory
             case "abfs", "abfss", "wasb", "wasbs" -> cached.azureVendedCredentialsProvider().map(AzureVendedCredentialsProvider::getCredentials);
             default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
         };
-        if (vendedCredentials.isEmpty()) {
-            throw new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties");
+
+        ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.<String, String>builder()
+                .putAll(cached.extraCredentials());
+        vendedCredentials.ifPresent(credentials -> extraCredentialsBuilder.putAll(credentials.toExtraCredentials()));
+        Map<String, String> extraCredentials = extraCredentialsBuilder.buildOrThrow();
+        if (extraCredentials.isEmpty()) {
+            // No vended credentials or static extras to inject — delegate with the original identity.
+            return fileSystemFactory.create(identity);
         }
 
         ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
@@ -135,10 +144,7 @@ public class IcebergRestCatalogFileSystemFactory
                 .withPrincipal(identity.getPrincipal())
                 .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                 .withConnectorRole(identity.getConnectorRole())
-                .withExtraCredentials(ImmutableMap.<String, String>builder()
-                        .putAll(cached.extraCredentials())
-                        .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
-                        .buildOrThrow())
+                .withExtraCredentials(extraCredentials)
                 .build();
 
         return fileSystemFactory.create(identityWithExtraCredentials);
@@ -150,7 +156,8 @@ public class IcebergRestCatalogFileSystemFactory
                 identity.getUser(),
                 createS3VendedCredentials(fileIoProperties, storageCredentials),
                 createGcsVendedCredentials(fileIoProperties, storageCredentials),
-                createAzureVendedCredentials(fileIoProperties));
+                createAzureVendedCredentials(fileIoProperties),
+                collectStaticExtraCredentials(fileIoProperties));
     }
 
     private static Map<String, S3VendedCredentials> createS3VendedCredentials(Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentialsList)
@@ -222,7 +229,6 @@ public class IcebergRestCatalogFileSystemFactory
     {
         ImmutableMap.Builder<String, S3VendedCredentialsProvider> s3ProvidersBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, GcsVendedCredentialsProvider> gcsProvidersBuilder = ImmutableMap.builder();
-        ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
 
         // Root-prefix providers built from fileIoProperties — act as catch-all fallback, matching any S3/GCS path
         createVendedCredentialsProviderIfPresent(
@@ -237,9 +243,6 @@ public class IcebergRestCatalogFileSystemFactory
                 () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),
                 GCPProperties.GCS_OAUTH2_TOKEN)
                 .ifPresent(vendedCredentialsProvider -> gcsProvidersBuilder.put("gs", vendedCredentialsProvider));
-        if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
-            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
-        }
 
         // Per-prefix providers built from merged config (storage credential config overrides fileIoProperties)
         for (IcebergStorageCredentials storageCredentials : storageCredentialsList) {
@@ -259,14 +262,32 @@ public class IcebergRestCatalogFileSystemFactory
                 s3ProvidersBuilder.buildKeepingLast(),
                 gcsProvidersBuilder.buildKeepingLast(),
                 azureVendedCredentialsProvider,
-                extraCredentialsBuilder.buildOrThrow());
+                collectStaticExtraCredentials(fileIoProperties));
+    }
+
+    private static Map<String, String> collectStaticExtraCredentials(Map<String, String> fileIoProperties)
+    {
+        ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.builder();
+        // handle GCS project id
+        if (fileIoProperties.containsKey(GCPProperties.GCS_OAUTH2_TOKEN)) {
+            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_PROJECT_ID, EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY);
+        }
+        // handle s3 SSE-C encryption key
+        if (S3FileIOProperties.SSE_TYPE_CUSTOM.equals(fileIoProperties.get(S3FileIOProperties.SSE_TYPE))) {
+            addOptionalProperty(extraCredentialsBuilder, fileIoProperties, S3FileIOProperties.SSE_KEY, EXTRA_CREDENTIALS_SSE_CUSTOMER_KEY_PROPERTY);
+        }
+        // handle gcs CSEK encryption keys
+        addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_ENCRYPTION_KEY, EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY);
+        addOptionalProperty(extraCredentialsBuilder, fileIoProperties, GCPProperties.GCS_DECRYPTION_KEY, EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY);
+        return extraCredentialsBuilder.buildOrThrow();
     }
 
     private record VendedCredentialsCacheKey(
             String user,
             Map<String, S3VendedCredentials> s3VendedCredentials,
             Map<String, GcsVendedCredentials> gcsVendedCredentials,
-            Optional<AzureVendedCredentials> azureVendedCredentials)
+            Optional<AzureVendedCredentials> azureVendedCredentials,
+            Map<String, String> staticExtraCredentials)
     {
         public VendedCredentialsCacheKey
         {
@@ -274,6 +295,7 @@ public class IcebergRestCatalogFileSystemFactory
             s3VendedCredentials = ImmutableMap.copyOf(s3VendedCredentials);
             gcsVendedCredentials = ImmutableMap.copyOf(gcsVendedCredentials);
             requireNonNull(azureVendedCredentials, "azureVendedCredentials is null");
+            staticExtraCredentials = ImmutableMap.copyOf(requireNonNull(staticExtraCredentials, "staticExtraCredentials is null"));
         }
     }
 
