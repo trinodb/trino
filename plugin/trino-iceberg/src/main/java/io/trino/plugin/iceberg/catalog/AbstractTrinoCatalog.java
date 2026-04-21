@@ -170,7 +170,7 @@ public abstract class AbstractTrinoCatalog
     private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
     private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
     // Value should be ISO-8601 formatted time instant
-    private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
+    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time"; //TODO move to a public spot
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
 
     private final CatalogName catalogName;
