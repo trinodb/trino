@@ -842,12 +842,14 @@
                                 <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
+                                <exclude>**/TestIcebergGcsVendingRestCatalogCustomerSuppliedEncryptionKey.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
+                                <exclude>**/TestIcebergS3VendingRestCatalogServerSideEncryptionCustomerKey.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -905,12 +907,32 @@
                                 <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
+                                <include>**/TestIcebergGcsVendingRestCatalogCustomerSuppliedEncryptionKey.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>test-isolated-jvm-suites</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestIcebergS3VendingRestCatalogServerSideEncryptionCustomerKey.java</include>
+                            </includes>
+                            <reuseForks>false</reuseForks>
+                            <forkCount>1</forkCount>
                         </configuration>
                     </plugin>
                 </plugins>
