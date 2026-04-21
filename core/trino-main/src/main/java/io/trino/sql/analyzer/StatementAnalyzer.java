@@ -2986,26 +2986,17 @@ class StatementAnalyzer
 
         private Field unqualifiedVisible(Field field)
         {
-            return new Field(
-                    Optional.empty(),
-                    field.getName(),
-                    field.getType(),
-                    false,
-                    field.getOriginTable(),
-                    field.getOriginColumnName(),
-                    field.isAliased());
+            return field.rebuild()
+                    .relationAlias(Optional.empty())
+                    .hidden(false)
+                    .build();
         }
 
         private Field unqualified(Field field)
         {
-            return new Field(
-                    Optional.empty(),
-                    field.getName(),
-                    field.getType(),
-                    field.isHidden(),
-                    field.getOriginTable(),
-                    field.getOriginColumnName(),
-                    field.isAliased());
+            return field.rebuild()
+                    .relationAlias(Optional.empty())
+                    .build();
         }
 
         private ExpressionAnalysis analyzePatternRecognitionExpression(Expression expression, Scope scope, Set<String> labels)
@@ -3432,14 +3423,9 @@ class StatementAnalyzer
             RelationType firstDescriptor = childrenTypes.getFirst();
             for (int i = 0; i < outputFieldTypes.length; i++) {
                 Field oldField = firstDescriptor.getFieldByIndex(i);
-                outputDescriptorFields[i] = new Field(
-                        oldField.getRelationAlias(),
-                        oldField.getName(),
-                        outputFieldTypes[i],
-                        oldField.isHidden(),
-                        oldField.getOriginTable(),
-                        oldField.getOriginColumnName(),
-                        oldField.isAliased());
+                outputDescriptorFields[i] = oldField.rebuild()
+                        .type(outputFieldTypes[i])
+                        .build();
 
                 int index = i; // Variable used in Lambda should be final
                 analysis.addSourceColumns(
@@ -5128,14 +5114,11 @@ class StatementAnalyzer
                     alias = Optional.of(allColumns.getAliases().get(i).getValue());
                 }
 
-                Field newField = new Field(
-                        field.getRelationAlias(),
-                        alias,
-                        field.getType(),
-                        false,
-                        field.getOriginTable(),
-                        field.getOriginColumnName(),
-                        !allColumns.getAliases().isEmpty() || field.isAliased());
+                Field newField = field.rebuild()
+                        .name(alias)
+                        .hidden(false)
+                        .aliased(!allColumns.getAliases().isEmpty() || field.isAliased())
+                        .build();
                 itemOutputFieldBuilder.add(newField);
                 analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
 
