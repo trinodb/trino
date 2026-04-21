@@ -1594,6 +1594,7 @@ NEAREST (...) ON TRUE`, implicit comma joins with `NEAREST (...)`, and
 `LEFT JOIN NEAREST (...) ON TRUE`.
 `JOIN USING`, `NATURAL JOIN`, and join conditions other than `ON TRUE` are not
 supported for `NEAREST`.
+
 ### Qualifying column names
 
 When two relations in a join have columns with the same name, the column
