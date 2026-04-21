@@ -704,7 +704,7 @@ class StatementAnalyzer
                                     (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
-            return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(insert, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -783,7 +783,7 @@ class StatementAnalyzer
                                     (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
-            return createAndAssignScope(refreshMaterializedView, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(refreshMaterializedView, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         private boolean typesMatchForInsert(List<Type> tableTypes, List<Type> queryTypes)
@@ -892,7 +892,7 @@ class StatementAnalyzer
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -939,7 +939,7 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName), exception);
             }
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -960,7 +960,7 @@ class StatementAnalyzer
                             false));
                     analysis.setUpdateType("CREATE TABLE");
                     analysis.setUpdateTarget(targetTableHandle.get().catalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
-                    return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+                    return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
@@ -1056,7 +1056,7 @@ class StatementAnalyzer
                     Optional.empty(),
                     Optional.of(outputColumns.build()));
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -1342,7 +1342,9 @@ class StatementAnalyzer
             analysis.setUpdateType("ALTER TABLE EXECUTE");
             analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
+            return createAndAssignScope(node, scope,
+                    Field.builder().name("metric_name").type(VARCHAR).build(),
+                    Field.builder().name("metric_value").type(BIGINT).build());
         }
 
         private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
@@ -1578,14 +1580,14 @@ class StatementAnalyzer
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            return createAndAssignScope(node, scope, Field.builder().name("Query Plan").type(VARCHAR).build());
         }
 
         @Override
         protected Scope visitExplainAnalyze(ExplainAnalyze node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            return createAndAssignScope(node, scope, Field.builder().name("Query Plan").type(VARCHAR).build());
         }
 
         @Override
@@ -2946,9 +2948,10 @@ class StatementAnalyzer
                 }
             }
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
-                outputFieldsBuilder.add(Field.newUnqualified(
-                        measureDefinition.getName().getValue(),
-                        measureTypes.get(NodeRef.of(measureDefinition.getExpression()))));
+                outputFieldsBuilder.add(Field.builder()
+                        .name(measureDefinition.getName().getValue())
+                        .type(measureTypes.get(NodeRef.of(measureDefinition.getExpression())))
+                        .build());
             }
             if (!oneRowPerMatch) {
                 Set<Field> inputFieldsOnOutput = inputFieldsOnOutputBuilder.build();
@@ -3700,7 +3703,7 @@ class StatementAnalyzer
             updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
 
-            return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(update, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -3886,7 +3889,7 @@ class StatementAnalyzer
 
             createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build());
 
-            return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(merge, Optional.empty(), Field.builder().name("rows").type(BIGINT).build());
         }
 
         private void createMergeAnalysis(
@@ -4056,7 +4059,7 @@ class StatementAnalyzer
                 Optional<Type> type = typeCoercion.getCommonSuperType(leftField.getType(), rightField.getType());
                 analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.orElseThrow()));
 
-                joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
+                joinFields.add(Field.builder().name(column.getValue()).type(type.get()).build());
 
                 leftJoinFields.add(leftField.getRelationFieldIndex());
                 rightJoinFields.add(rightField.getRelationFieldIndex());
@@ -4318,7 +4321,7 @@ class StatementAnalyzer
                         if (!uniqueNames.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, ordinalityColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
-                        outputFields.add(Field.newUnqualified(name, BIGINT));
+                        outputFields.add(Field.builder().name(name).type(BIGINT).build());
                         orderedOutputColumns.add(NodeRef.of(ordinalityColumn));
                     }
                     case ValueColumn valueColumn -> {
@@ -4345,7 +4348,7 @@ class StatementAnalyzer
                                 correlationSupport);
                         // default values can contain subqueries - the subqueries are recorded under the enclosing JsonTable node
                         analysis.recordSubqueries(jsonTable, typeAndAnalysis.analysis());
-                        outputFields.add(Field.newUnqualified(name, typeAndAnalysis.type()));
+                        outputFields.add(Field.builder().name(name).type(typeAndAnalysis.type()).build());
                         orderedOutputColumns.add(NodeRef.of(valueColumn));
                     }
                     case QueryColumn queryColumn -> {
@@ -4358,7 +4361,7 @@ class StatementAnalyzer
                                 .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), queryColumn.getLocation()));
                         analysis.setJsonPathAnalysis(queryColumn, pathAnalysis);
                         Type type = analyzeJsonQueryExpression(queryColumn, session, plannerContext, statementAnalyzerFactory, accessControl, enclosingScope, analysis, warningCollector);
-                        outputFields.add(Field.newUnqualified(name, type));
+                        outputFields.add(Field.builder().name(name).type(type).build());
                         orderedOutputColumns.add(NodeRef.of(queryColumn));
                     }
                     case NestedColumns nestedColumns -> {

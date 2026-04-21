@@ -564,7 +564,7 @@ public class SqlRoutineAnalyzer
         private Type analyzeExpression(Context context, Expression expression)
         {
             List<Field> fields = context.variables().entrySet().stream()
-                    .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue()))
+                    .map(entry -> Field.builder().name(entry.getKey()).type(entry.getValue()).build())
                     .collect(toImmutableList());
 
             Scope scope = Scope.builder()

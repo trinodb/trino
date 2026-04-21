@@ -36,17 +36,6 @@ public class Field
         return new Builder();
     }
 
-    public static Field newUnqualified(String name, Type type)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
-
-        return builder()
-                .name(Optional.of(name))
-                .type(type)
-                .build();
-    }
-
     public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
@@ -216,6 +205,11 @@ public class Field
         {
             this.relationAlias = requireNonNull(relationAlias, "relationAlias is null");
             return this;
+        }
+
+        public Builder name(String name)
+        {
+            return name(Optional.of(name));
         }
 
         public Builder name(Optional<String> name)

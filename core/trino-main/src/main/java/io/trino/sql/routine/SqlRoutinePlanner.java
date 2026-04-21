@@ -302,7 +302,7 @@ public final class SqlRoutinePlanner
         {
             // build symbol and field indexes for translation
             List<Field> fields = context.variables().entrySet().stream()
-                    .map(entry -> Field.newUnqualified(entry.getKey(), entry.getValue().type()))
+                    .map(entry -> Field.builder().name(entry.getKey()).type(entry.getValue().type()).build())
                     .collect(toImmutableList());
 
             Scope scope = Scope.builder()

@@ -479,7 +479,7 @@ public class LogicalPlanner
 
         checkState(assignments.size() == finalColumns.size(), "Assignment and column count must match");
         List<Field> fields = finalColumns.stream()
-                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .map(column -> Field.builder().name(column.getName()).type(column.getType()).build())
                 .collect(toImmutableList());
 
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments);
@@ -566,7 +566,7 @@ public class LogicalPlanner
 
         List<ColumnMetadata> insertedColumns = insertedColumnsBuilder.build();
         List<Field> fields = insertedColumns.stream()
-                .map(column -> Field.newUnqualified(column.getName(), column.getType()))
+                .map(column -> Field.builder().name(column.getName()).type(column.getType()).build())
                 .collect(toImmutableList());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields)).build();
 
