@@ -247,6 +247,16 @@ final class TestFakerQueries
     }
 
     @Test
+    void testListFunctionsRespectsSchemaName()
+    {
+        assertUpdate("CREATE SCHEMA faker.other_schema");
+        assertThat(query("SHOW FUNCTIONS FROM faker.other_schema"))
+                .result()
+                .isEmpty();
+        assertUpdate("DROP SCHEMA faker.other_schema");
+    }
+
+    @Test
     void testSelectRangeProperties()
     {
         // inclusive ranges that produce only 2 values

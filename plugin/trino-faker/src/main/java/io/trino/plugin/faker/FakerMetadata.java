@@ -765,7 +765,7 @@ public class FakerMetadata
     @Override
     public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
     {
-        return functionBundle.getFunctions();
+        return schemaName.equals(SCHEMA_NAME) ? functionBundle.getFunctions() : List.of();
     }
 
     @Override
