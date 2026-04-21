@@ -47,17 +47,6 @@ public class Field
                 .build();
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
-
-        return builder()
-                .name(name)
-                .type(type)
-                .build();
-    }
-
     public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");

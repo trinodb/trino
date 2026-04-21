@@ -1663,16 +1663,16 @@ class StatementAnalyzer
                     Type elementType = arrayType.getElementType();
                     if (elementType instanceof RowType rowType) {
                         rowType.getFields().stream()
-                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                                .map(field -> Field.builder().name(field.getName()).type(field.getType()).build())
                                 .forEach(expressionOutputs::add);
                     }
                     else {
-                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
+                        expressionOutputs.add(Field.builder().type(elementType).build());
                     }
                 }
                 else if (expressionType instanceof MapType mapType) {
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getKeyType()));
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getValueType()));
+                    expressionOutputs.add(Field.builder().type(mapType.getKeyType()).build());
+                    expressionOutputs.add(Field.builder().type(mapType.getValueType()).build());
                 }
                 else {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
@@ -1685,7 +1685,7 @@ class StatementAnalyzer
 
             Optional<Field> ordinalityField = Optional.empty();
             if (node.isWithOrdinality()) {
-                ordinalityField = Optional.of(Field.newUnqualified(Optional.empty(), BIGINT));
+                ordinalityField = Optional.of(Field.builder().type(BIGINT).build());
             }
 
             ordinalityField.ifPresent(outputFields::add);
@@ -1877,7 +1877,10 @@ class StatementAnalyzer
             if (properColumnsDescriptor != null) {
                 properColumnsDescriptor.getFields().stream()
                         // per spec, field names are mandatory. We support anonymous fields.
-                        .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                        .map(field -> Field.builder()
+                                .name(field.getName())
+                                .type(field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field")))
+                                .build())
                         .forEach(fields::add);
             }
 
@@ -2411,7 +2414,7 @@ class StatementAnalyzer
                 // Add the row id field
                 ColumnHandle rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
-                Field field = Field.newUnqualified(Optional.empty(), type);
+                Field field = Field.builder().type(type).build();
                 fields.add(field);
                 analysis.setColumn(field, rowIdColumnHandle);
             }
@@ -4236,7 +4239,7 @@ class StatementAnalyzer
             }
 
             List<Field> fields = commonSuperType.getFields().stream()
-                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                    .map(field -> Field.builder().name(field.getName()).type(field.getType()).build())
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);
@@ -5167,7 +5170,7 @@ class StatementAnalyzer
                 if (!allColumns.getAliases().isEmpty()) {
                     name = Optional.of(allColumns.getAliases().get(i).getValue());
                 }
-                itemOutputFieldBuilder.add(Field.newUnqualified(name, outputExpressionType));
+                itemOutputFieldBuilder.add(Field.builder().name(name).type(outputExpressionType).build());
             }
             selectExpressionBuilder.add(new SelectExpression(expression, Optional.of(unfoldedExpressionsBuilder.build())));
             analysis.setSelectAllResultFields(allColumns, itemOutputFieldBuilder.build());
