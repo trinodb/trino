@@ -2592,14 +2592,11 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                Optional.of(aliases.next().getValue()),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                        Field field = inputField.rebuild()
+                                .relationAlias(Optional.of(QualifiedName.of(table.getName().getSuffix())))
+                                .name(aliases.next().getValue())
+                                .hidden(false)
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -2611,14 +2608,10 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                inputField.getName(),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                        Field field = inputField.rebuild()
+                                .relationAlias(Optional.of(QualifiedName.of(table.getName().getSuffix())))
+                                .hidden(false)
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -2694,14 +2687,15 @@ class StatementAnalyzer
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
             List<Field> viewFields = columns.stream()
-                    .map(column -> Field.newQualified(
-                            table.getName(),
-                            Optional.of(column.name()),
-                            getViewColumnType(column, name, table),
-                            false,
-                            Optional.of(name),
-                            Optional.of(column.name()),
-                            false))
+                    .map(column -> Field.builder()
+                            .relationAlias(Optional.of(table.getName()))
+                            .name(column.name())
+                            .type(getViewColumnType(column, name, table))
+                            .hidden(false)
+                            .originTable(Optional.of(name))
+                            .originColumnName(Optional.of(column.name()))
+                            .aliased(false)
+                            .build())
                     .collect(toImmutableList());
 
             if (freshStorageTable.isPresent()) {
@@ -2808,14 +2802,15 @@ class StatementAnalyzer
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnSchema column : tableSchema.columns()) {
-                Field field = Field.newQualified(
-                        table.getName(),
-                        Optional.of(column.getName()),
-                        column.getType(),
-                        column.isHidden(),
-                        Optional.of(tableName),
-                        Optional.of(column.getName()),
-                        false);
+                Field field = Field.builder()
+                        .relationAlias(Optional.of(table.getName()))
+                        .name(column.getName())
+                        .type(column.getType())
+                        .hidden(column.isHidden())
+                        .originTable(Optional.of(tableName))
+                        .originColumnName(Optional.of(column.getName()))
+                        .aliased(false)
+                        .build();
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -3099,27 +3094,19 @@ class StatementAnalyzer
                 for (int i = 0; i < properColumnsCount; i++) {
                     // proper columns are not hidden, so we don't need to skip hidden fields
                     Field field = relationType.getFieldByIndex(i);
-                    fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
-                            Optional.of(relation.getColumnNames().get(i).getCanonicalValue()), // although the canonical name is recorded, fields are resolved case-insensitive
-                            field.getType(),
-                            field.isHidden(),
-                            field.getOriginTable(),
-                            field.getOriginColumnName(),
-                            field.isAliased()));
+                    // although the canonical name is recorded, fields are resolved case-insensitive
+                    fieldsBuilder.add(field.rebuild()
+                            .relationAlias(Optional.of(QualifiedName.of(ImmutableList.of(relation.getAlias()))))
+                            .name(relation.getColumnNames().get(i).getCanonicalValue())
+                            .build());
                 }
             }
             else {
                 for (int i = 0; i < properColumnsCount; i++) {
                     Field field = relationType.getFieldByIndex(i);
-                    fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
-                            field.getName(),
-                            field.getType(),
-                            field.isHidden(),
-                            field.getOriginTable(),
-                            field.getOriginColumnName(),
-                            field.isAliased()));
+                    fieldsBuilder.add(field.rebuild()
+                            .relationAlias(Optional.of(QualifiedName.of(ImmutableList.of(relation.getAlias()))))
+                            .build());
                 }
             }
 
