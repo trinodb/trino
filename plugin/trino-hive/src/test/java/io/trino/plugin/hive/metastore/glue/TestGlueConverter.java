@@ -24,6 +24,7 @@ import io.trino.metastore.Storage;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.TableType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
@@ -44,14 +45,17 @@ import java.util.Random;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.PUBLIC_OWNER;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestGlueConverter
 {
@@ -110,6 +114,19 @@ class TestGlueConverter
             .viewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
             .build();
 
+    private final software.amazon.awssdk.services.glue.model.Table glueView = software.amazon.awssdk.services.glue.model.Table.builder()
+            .databaseName(glueDatabase.name())
+            .name("test-regular-view")
+            .owner("owner")
+            .parameters(ImmutableMap.<String, String>builder()
+                    .put(PRESTO_VIEW_FLAG, "true")
+                    .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                    .buildOrThrow())
+            .tableType(TableType.VIRTUAL_VIEW.name())
+            .viewOriginalText("/* %s: base64encodedquery */".formatted(PRESTO_VIEW_COMMENT))
+            .viewExpandedText(PRESTO_VIEW_COMMENT)
+            .build();
+
     private final software.amazon.awssdk.services.glue.model.Table glueTable = software.amazon.awssdk.services.glue.model.Table.builder()
             .databaseName(glueDatabase.name())
             .name("test-table")
@@ -120,7 +137,7 @@ class TestGlueConverter
                     .type("string")
                     .comment("table partition column comment")
                     .build())
-            .storageDescriptor(software.amazon.awssdk.services.glue.model.StorageDescriptor.builder()
+            .storageDescriptor(StorageDescriptor.builder()
                     .bucketColumns(ImmutableList.of("test-bucket-col"))
                     .columns(software.amazon.awssdk.services.glue.model.Column.builder()
                             .name("table-data")
@@ -147,7 +164,7 @@ class TestGlueConverter
             .tableName(glueTable.name())
             .values(ImmutableList.of("val1"))
             .parameters(ImmutableMap.of())
-            .storageDescriptor(software.amazon.awssdk.services.glue.model.StorageDescriptor.builder()
+            .storageDescriptor(StorageDescriptor.builder()
                     .bucketColumns(ImmutableList.of("partition-bucket-col"))
                     .columns(software.amazon.awssdk.services.glue.model.Column.builder()
                             .name("partition-data")
@@ -246,7 +263,7 @@ class TestGlueConverter
         io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name());
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
-        assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(glueTable));
         assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(glueTable.owner());
         assertThat(trinoTable.getParameters()).isEqualTo(glueTable.parameters());
         assertColumnList(glueTable.storageDescriptor().columns(), trinoTable.getDataColumns());
@@ -278,7 +295,7 @@ class TestGlueConverter
 
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
-        assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(glueTable));
         assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(glueTable.owner());
         assertThat(trinoTable.getParameters()).isEqualTo(glueTable.parameters());
         assertThat(trinoTable.getDataColumns()).hasSize(1);
@@ -322,6 +339,56 @@ class TestGlueConverter
                 .build();
 
         assertThat(GlueConverter.fromGlueTable(table, table.databaseName()).getPartitionColumns().getFirst().getType()).isEqualTo(HIVE_STRING);
+    }
+
+    @Test
+    void testConvertTableBadHiveType()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(software.amazon.awssdk.services.glue.model.Column.builder()
+                                        .name("badhivetype")
+                                        .type("notarealtype")
+                                        .build())
+                                .serdeInfo(glueTable.storageDescriptor().serdeInfo())
+                                .build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column badhivetype has invalid type: notarealtype");
+    }
+
+    @Test
+    void testConvertTableEmptyHiveType()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(
+                        StorageDescriptor.builder()
+                                .columns(software.amazon.awssdk.services.glue.model.Column.builder()
+                                        .name("emptyhivetype")
+                                        .type("")
+                                        .build())
+                                .serdeInfo(glueTable.storageDescriptor().serdeInfo())
+                                .build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column emptyhivetype has invalid type: ");
+    }
+
+    @Test
+    void testConvertTableNullSerdeInfo()
+    {
+        software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
+                .storageDescriptor(StorageDescriptor.builder().columns(glueTable.storageDescriptor().columns()).build())
+                .build();
+
+        assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("StorageDescriptor SerDeInfo is null: %s.%s".formatted(glueTable.databaseName(), glueTable.name()));
     }
 
     @Test
@@ -410,6 +477,14 @@ class TestGlueConverter
     {
         assertThat(glueMaterializedView.storageDescriptor()).isNull();
         Table trinoTable = GlueConverter.fromGlueTable(glueMaterializedView, glueMaterializedView.databaseName());
+        assertThat(trinoTable.getDataColumns()).hasSize(1);
+    }
+
+    @Test
+    public void testIcebergTrinoViewNullStorageDescriptor()
+    {
+        assertThat(glueView.storageDescriptor()).isNull();
+        Table trinoTable = GlueConverter.fromGlueTable(glueView, glueView.databaseName());
         assertThat(trinoTable.getDataColumns()).hasSize(1);
     }
 

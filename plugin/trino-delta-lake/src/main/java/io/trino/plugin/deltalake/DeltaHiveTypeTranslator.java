@@ -26,7 +26,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Verify.verify;
@@ -42,6 +41,7 @@ import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_SHORT;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.metastore.HiveType.HIVE_VARIANT;
 import static io.trino.metastore.type.CharTypeInfo.MAX_CHAR_LENGTH;
 import static io.trino.metastore.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getListTypeInfo;
@@ -57,6 +57,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -118,8 +119,8 @@ public class DeltaHiveTypeTranslator
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            verify(timestampWithTimeZoneType.getPrecision() == 3, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof TimestampType timestampType) {
@@ -128,6 +129,9 @@ public class DeltaHiveTypeTranslator
         }
         if (type instanceof DecimalType decimalType) {
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
+        }
+        if (type.getBaseName().equals(JSON)) {
+            return HIVE_VARIANT.getTypeInfo();
         }
         if (type instanceof ArrayType arrayType) {
             TypeInfo elementType = translate(arrayType.getElementType());
@@ -138,18 +142,15 @@ public class DeltaHiveTypeTranslator
             TypeInfo valueType = translate(mapType.getValueType());
             return getMapTypeInfo(keyType, valueType);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
-            for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
-                if (!parameter.isNamedTypeSignature()) {
-                    throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
-                }
-                fieldNames.add(parameter.getNamedTypeSignature().getName()
+            for (RowType.Field field : rowType.getFields()) {
+                fieldNames.add(field.getName()
                         .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type))));
             }
             return getStructTypeInfo(
                     fieldNames.build(),
-                    type.getTypeParameters().stream()
+                    rowType.getFieldTypes().stream()
                             .map(DeltaHiveTypeTranslator::translate)
                             .collect(toImmutableList()));
         }

@@ -46,6 +46,14 @@ public class ClassLoaderSafeConnectorMergeSink
     }
 
     @Override
+    public long getCompletedBytes()
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCompletedBytes();
+        }
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

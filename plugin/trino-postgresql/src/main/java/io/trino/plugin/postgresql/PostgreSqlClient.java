@@ -16,6 +16,7 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import com.google.common.math.LongMath;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -35,7 +36,9 @@ import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -71,9 +74,11 @@ import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteCoalesce;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
+import io.trino.plugin.postgresql.rule.RewriteCast;
 import io.trino.plugin.postgresql.rule.RewriteDotProductFunction;
 import io.trino.plugin.postgresql.rule.RewriteStringReverseFunction;
 import io.trino.plugin.postgresql.rule.RewriteVectorDistanceFunction;
@@ -112,6 +117,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.locationtech.jts.geom.Geometry;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
@@ -153,11 +159,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
-import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
-import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -181,6 +186,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
@@ -216,6 +223,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -230,17 +238,16 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.clamp;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -260,7 +267,11 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
-    private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
+    /**
+     * COLUMN_SIZE value for "unconstrained numeric" columns.
+     * Starting with PostgreSQL 15, unconstrained numeric columns can store up to 131072 digits before the decimal point and up to 16383 digits after the decimal point.
+     */
+    private static final int UNCONSTRAINED_NUMERIC_COLUMN_SIZE = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
@@ -307,7 +318,7 @@ public class PostgreSqlClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        this.varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         this.geometryType = typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
@@ -323,6 +334,7 @@ public class PostgreSqlClient
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
+                .add(new RewriteCoalesce())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
                 .map("$equal(left, right)").to("left = right")
@@ -358,6 +370,7 @@ public class PostgreSqlClient
                         .add(new RewriteVectorDistanceFunction("euclidean_distance", "<->"))
                         .add(new RewriteVectorDistanceFunction("cosine_distance", "<=>"))
                         .add(new RewriteDotProductFunction())
+                        .add(new RewriteCast((session, type) -> toWriteMapping(session, type).getDataType()))
                         .build());
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -581,15 +594,20 @@ public class PostgreSqlClient
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
-                return Optional.of(hstoreColumnMapping(session));
+                return Optional.of(hstoreColumnMapping());
             case "vector":
                 return Optional.of(vectorColumnMapping());
             case "geometry":
                 return Optional.of(geometryColumnMapping());
         }
+
+        // Handling of schema-qualified types
+        // TODO: Find more reliable way to detect these types. The type name can be eg. "schema-name"."vector"
         if (jdbcTypeName.endsWith("\"vector\"")) {
-            // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
             return Optional.of(vectorColumnMapping());
+        }
+        if (jdbcTypeName.endsWith("\"geometry\"")) {
+            return Optional.of(geometryColumnMapping());
         }
 
         switch (typeHandle.jdbcType()) {
@@ -613,24 +631,42 @@ public class PostgreSqlClient
 
             case Types.NUMERIC: {
                 int columnSize = typeHandle.requiredColumnSize();
-                int precision;
-                int decimalDigits = typeHandle.decimalDigits().orElse(0);
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL) {
-                        // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
+                OptionalInt pgScale = getPostgreSqlDecimalScale(typeHandle);
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE && pgScale.isEmpty()) {
+                    // This is impossible in current PostgreSQL. We don't fall back to "overflow" mode,
+                    // as that could mean anything (e.g. PostgreSQL changing how decimal metadata is reported)
+                    // and we don't want future fix to be backwards incompatible change for connector's users.
+                    break;
+                }
+                if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
+                    int scale = pgScale.orElseThrow();
+                    // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                    // Map decimal(p, s) with s>p, to decimal(s, s).
+                    int precision = max(columnSize + max(-scale, 0), scale);
+                    scale = max(scale, 0);
+                    if (precision <= Decimals.MAX_PRECISION) {
+                        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
-                    precision = columnSize;
-                    if (precision > Decimals.MAX_PRECISION) {
-                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                }
+                switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> {
+                        return Optional.of(numberColumnMapping());
+                    }
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale;
+                        if (columnSize == UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
+                            scale = getDecimalDefaultScale(session);
+                        }
+                        else {
+                            scale = clamp(pgScale.orElseThrow(), 0, getDecimalDefaultScale(session));
+                        }
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
                 }
-                precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (columnSize == PRECISION_OF_UNSPECIFIED_DECIMAL || precision > Decimals.MAX_PRECISION) {
-                    break;
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                break;
             }
 
             case Types.CHAR:
@@ -674,6 +710,28 @@ public class PostgreSqlClient
         return Optional.empty();
     }
 
+    private static OptionalInt getPostgreSqlDecimalScale(JdbcTypeHandle typeHandle)
+    {
+        // This should be the case for "unconstrained numeric", i.e. PostgreSQL "NUMERIC" / "DECIMAL"
+        // with precision and scale unspecified, and therefore enjoying dynamic scale.
+        if (typeHandle.decimalDigits().isEmpty()) {
+            return OptionalInt.empty();
+        }
+        int decimalDigits = typeHandle.requiredDecimalDigits();
+
+        // PostgreSQL supports scales from -1000 to 1000.
+        // The nonnegative scale number N is represented in metadata as DECIMAL_DIGITS N (so values 0..1000)
+        // The negative scale number -N is represented in metadata as DECIMAL_DIGITS 2048-N (so values 1048..2047)
+        if (0 <= decimalDigits && decimalDigits <= 1000) {
+            return OptionalInt.of(decimalDigits);
+        }
+        if ((2048 - 1000) <= decimalDigits && decimalDigits < 2048) {
+            return OptionalInt.of(decimalDigits - 2048);
+        }
+        // This is impossible in current PostgreSQL.
+        return OptionalInt.empty();
+    }
+
     private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         checkArgument(typeHandle.jdbcType() == Types.ARRAY, "Not array type");
@@ -700,19 +758,19 @@ public class PostgreSqlClient
             return baseElementMapping
                     .map(elementMapping -> {
                         ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
-                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, elementMapping, baseElementTypeName);
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(trinoArrayType, elementMapping, baseElementTypeName);
 
                         int arrayDimensions = typeHandle.arrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
                             trinoArrayType = new ArrayType(trinoArrayType);
-                            arrayColumnMapping = arrayColumnMapping(session, trinoArrayType, arrayColumnMapping, baseElementTypeName);
+                            arrayColumnMapping = arrayColumnMapping(trinoArrayType, arrayColumnMapping, baseElementTypeName);
                         }
                         return arrayColumnMapping;
                     });
         }
         if (arrayMapping == AS_JSON) {
             return baseElementMapping
-                    .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
+                    .map(elementMapping -> arrayAsJsonColumnMapping(elementMapping));
         }
         throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
     }
@@ -768,8 +826,12 @@ public class PostgreSqlClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type == NUMBER) {
+            return WriteMapping.objectMapping("decimal", numberWriteFunction());
+        }
+
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
 
         if (type instanceof VarcharType varcharType) {
@@ -816,7 +878,7 @@ public class PostgreSqlClient
         if (type instanceof ArrayType arrayType && getArrayMapping(session) == AS_ARRAY) {
             Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
-            return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
+            return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -926,6 +988,193 @@ public class PostgreSqlClient
     public boolean supportsMerge()
     {
         return true;
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        Closer closer = Closer.create();
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            RemoteTableName pageSinkIdsTable = constructPageSinkIdsTable(session, connection, handle.getOutputTableHandle(), pageSinkIds, closer);
+
+            doFinishMerge(session, connection, handle, pageSinkIdsTable, closer);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+        finally {
+            try {
+                closer.close();
+            }
+            catch (IOException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        }
+    }
+
+    private void doFinishMerge(ConnectorSession session, Connection connection, JdbcMergeTableHandle handle, RemoteTableName pageSinkIdsTable, Closer closer)
+            throws SQLException
+    {
+        try {
+            connection.setAutoCommit(false);
+
+            // prepare phrase for insert/update/delete
+            prepareExecuteInsert(session, connection, handle.getOutputTableHandle(), pageSinkIdsTable, closer);
+            handle.getUpdateOutputTableHandle().values().forEach(tableHandle -> prepareExecuteUpdate(session, connection, tableHandle, handle.getPrimaryKeys(), pageSinkIdsTable, closer));
+            handle.getDeleteOutputTableHandle().ifPresent(tableHandle -> prepareExecuteDelete(session, connection, tableHandle, pageSinkIdsTable, closer));
+
+            // submit statements
+            connection.commit();
+        }
+        catch (Throwable e) {
+            connection.rollback();
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+        finally {
+            connection.setAutoCommit(true);
+        }
+    }
+
+    private void prepareExecuteInsert(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, RemoteTableName pageSinkTable, Closer closer)
+            throws SQLException
+    {
+        RemoteTableName temporaryTable = new RemoteTableName(
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
+                handle.getTemporaryTableName().orElseThrow());
+
+        String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        String columns = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+
+        String insertSql =
+        """
+        INSERT INTO %s (%s)
+        SELECT %s FROM %s temp_table
+        WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
+        """
+                .formatted(
+                        quoted(handle.getRemoteTableName()),
+                        columns,
+                        columns,
+                        quoted(temporaryTable),
+                        quoted(pageSinkTable),
+                        pageSinkIdName,
+                        pageSinkIdName);
+
+        execute(session, connection, insertSql);
+    }
+
+    private void prepareExecuteUpdate(
+            ConnectorSession session,
+            Connection connection,
+            JdbcOutputTableHandle handle,
+            List<JdbcColumnHandle> primaryKeys,
+            RemoteTableName pageSinkTable,
+            Closer closer)
+    {
+        RemoteTableName temporaryTable = new RemoteTableName(
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
+                handle.getTemporaryTableName().orElseThrow());
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        String targetTableName = quoted(handle.getRemoteTableName());
+        String sourceTableName = quoted(temporaryTable);
+
+        String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
+
+        int keyNamesSize = primaryKeys.size();
+        int columnNamesSize = handle.getColumnNames().size();
+        checkArgument(columnNamesSize > keyNamesSize, "Update assigns keyNamesSize should greater than primary key keyNamesSize");
+        List<String> updateColumns = handle.getColumnNames().subList(0, columnNamesSize - keyNamesSize);
+
+        List<String> targetConditionColumns = primaryKeys.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList());
+        List<String> temporaryTableConditionColumns = handle.getColumnNames().subList(columnNamesSize - keyNamesSize, columnNamesSize);
+
+        // Target columns
+        String updateAssigns = updateColumns.stream()
+                .map(this::quoted)
+                .map(column -> column + " = temp_table." + column)
+                .collect(joining(", "));
+
+        String updateSql =
+        """
+        UPDATE %s SET %s FROM
+          %s AS temp_table
+            JOIN
+          %s AS page_sink_table
+            ON page_sink_table.%s = temp_table.%s
+        """
+                .formatted(
+                        targetTableName,
+                        updateAssigns,
+                        sourceTableName,
+                        quoted(pageSinkTable),
+                        pageSinkIdName,
+                        pageSinkIdName);
+
+        ImmutableList.Builder<String> conditions = ImmutableList.builder();
+        for (int i = 0; i < keyNamesSize; i++) {
+            conditions.add("%s.%s = temp_table.%s".formatted(targetTableName, targetConditionColumns.get(i), temporaryTableConditionColumns.get(i)));
+        }
+        updateSql += " WHERE " + String.join(" AND ", conditions.build());
+
+        try {
+            execute(session, connection, updateSql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void prepareExecuteDelete(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, RemoteTableName pageSinkTable, Closer closer)
+    {
+        RemoteTableName temporaryTable = new RemoteTableName(
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
+                handle.getTemporaryTableName().orElseThrow());
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        String targetTableName = quoted(handle.getRemoteTableName());
+        String sourceTableName = quoted(temporaryTable);
+
+        String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
+
+        String deleteSql =
+        """
+        DELETE FROM %s USING %s AS temp_table
+        JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
+        """
+                .formatted(
+                        targetTableName,
+                        sourceTableName,
+                        quoted(pageSinkTable),
+                        pageSinkIdName,
+                        pageSinkIdName);
+
+        String condition = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .map(column -> "%s.%s = temp_table.%s".formatted(targetTableName, column, column))
+                .collect(joining(" AND ", " WHERE ", ""));
+        deleteSql += condition;
+
+        try {
+            execute(session, connection, deleteSql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -1379,12 +1628,12 @@ public class PostgreSqlClient
                 });
     }
 
-    private ColumnMapping hstoreColumnMapping(ConnectorSession session)
+    private ColumnMapping hstoreColumnMapping()
     {
         return ColumnMapping.objectMapping(
                 varcharMapType,
                 varcharMapReadFunction(),
-                hstoreWriteFunction(session),
+                hstoreWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
@@ -1412,7 +1661,7 @@ public class PostgreSqlClient
         });
     }
 
-    private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
+    private ObjectWriteFunction hstoreWriteFunction()
     {
         return ObjectWriteFunction.of(SqlMap.class, (statement, index, sqlMap) -> {
             int rawOffset = sqlMap.getRawOffset();
@@ -1424,18 +1673,18 @@ public class PostgreSqlClient
 
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < sqlMap.getSize(); i++) {
-                map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
+                map.put(keyType.getObjectValue(rawKeyBlock, rawOffset + i), valueType.getObjectValue(rawValueBlock, rawOffset + i));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
         });
     }
 
-    private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
+    private static ColumnMapping arrayColumnMapping(ArrayType arrayType, ColumnMapping arrayElementMapping, String baseElementJdbcTypeName)
     {
         return ColumnMapping.objectMapping(
                 arrayType,
                 arrayReadFunction(arrayType.getElementType(), arrayElementMapping.getReadFunction()),
-                arrayWriteFunction(session, arrayType.getElementType(), baseElementJdbcTypeName));
+                arrayWriteFunction(arrayType.getElementType(), baseElementJdbcTypeName));
     }
 
     private static ObjectReadFunction arrayReadFunction(Type elementType, ReadFunction elementReadFunction)
@@ -1470,24 +1719,24 @@ public class PostgreSqlClient
         });
     }
 
-    private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
+    private static ObjectWriteFunction arrayWriteFunction(Type elementType, String baseElementJdbcTypeName)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
+            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(elementType, block));
             statement.setArray(index, jdbcArray);
         });
     }
 
-    private ColumnMapping arrayAsJsonColumnMapping(ConnectorSession session, ColumnMapping baseElementMapping)
+    private ColumnMapping arrayAsJsonColumnMapping(ColumnMapping baseElementMapping)
     {
         return ColumnMapping.sliceMapping(
                 jsonType,
-                arrayAsJsonReadFunction(session, baseElementMapping),
+                arrayAsJsonReadFunction(baseElementMapping),
                 (statement, index, block) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceReadFunction arrayAsJsonReadFunction(ConnectorSession session, ColumnMapping baseElementMapping)
+    private static SliceReadFunction arrayAsJsonReadFunction(ColumnMapping baseElementMapping)
     {
         return (resultSet, columnIndex) -> {
             // resolve array type
@@ -1507,13 +1756,17 @@ public class PostgreSqlClient
             // convert block to JSON slice
             BlockBuilder builder = type.createBlockBuilder(null, 1);
             type.writeObject(builder, block);
-            Object value = type.getObjectValue(session, builder.build(), 0);
+            Object value = type.getObjectValue(builder.build(), 0);
+
+            if (!(value instanceof List<?> list)) {
+                throw new TrinoException(JDBC_ERROR, "Unexpected JSON object value for " + type.getDisplayName() + " expected List, got " + value.getClass().getSimpleName());
+            }
 
             try {
-                return toJsonValue(value);
+                return toJsonValue(list);
             }
             catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
+                throw new TrinoException(JDBC_ERROR, "Conversion to JSON failed for " + type.getDisplayName(), e);
             }
         };
     }
@@ -1668,33 +1921,39 @@ public class PostgreSqlClient
 
     private ColumnMapping geometryColumnMapping()
     {
-        return ColumnMapping.sliceMapping(
+        return ColumnMapping.objectMapping(
                 geometryType,
-                (resultSet, columnIndex) -> {
+                ObjectReadFunction.of(Geometry.class, (resultSet, columnIndex) -> {
                     String hexWkb = resultSet.getString(columnIndex);
                     byte[] wkb = HexFormat.of().parseHex(hexWkb);
-                    return stGeomFromBinary(wrappedBuffer(wkb));
-                },
+                    return deserialize(wrappedBuffer(wkb));
+                }),
                 geometryWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceWriteFunction geometryWriteFunction()
+    private static ObjectWriteFunction geometryWriteFunction()
     {
-        return new SliceWriteFunction()
+        return new ObjectWriteFunction()
         {
             @Override
-            public String getBindExpression()
+            public Class<?> getJavaType()
             {
-                return "ST_GeomFromWKB(?)";
+                return Geometry.class;
             }
 
             @Override
-            public void set(PreparedStatement statement, int index, Slice slice)
+            public String getBindExpression()
+            {
+                return "ST_GeomFromEWKB(?)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Object value)
                     throws SQLException
             {
-                byte[] bytes = stAsBinary(slice).getBytes();
-                statement.setBytes(index, bytes);
+                Geometry geometry = (Geometry) value;
+                statement.setBytes(index, serialize(geometry).getBytes());
             }
         };
     }

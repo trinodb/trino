@@ -13,7 +13,8 @@
  */
 package io.trino.spi.connector;
 
-public enum SaveMode {
+public enum SaveMode
+{
     IGNORE,
     REPLACE,
     FAIL

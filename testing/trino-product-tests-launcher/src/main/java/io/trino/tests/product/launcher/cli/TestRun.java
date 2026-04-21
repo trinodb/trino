@@ -48,6 +48,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -156,6 +157,7 @@ public final class TestRun
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
         private final boolean debugSuspend;
+        private final boolean ipv6;
         private final JdkProvider jdkProvider;
         private final File testJar;
         private final File cliJar;
@@ -186,6 +188,7 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.ipv6 = environmentOptions.ipv6;
             this.debugSuspend = testRunOptions.debugSuspend;
             this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
@@ -278,7 +281,7 @@ public final class TestRun
             }, toList())));
             // see PluginReader. printPluginFeatures() for all possible feature prefixes
             Map<String, List<String>> environmentFeaturesByName = environment.getConfiguredFeatures();
-            for (Map.Entry<String, List<String>> entry : featuresByName.entrySet()) {
+            for (Entry<String, List<String>> entry : featuresByName.entrySet()) {
                 String name = entry.getKey();
                 List<String> features = entry.getValue();
                 if (!environmentFeaturesByName.containsKey(name)) {
@@ -323,7 +326,13 @@ public final class TestRun
             Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
-                    .setLogsBaseDir(logsDirBase);
+                    .setLogsBaseDir(logsDirBase)
+                    .setIpv6(ipv6);
+
+            if (isEnvSet("CONTINUOUS_INTEGRATION")) {
+                builder.configureContainers(container ->
+                        container.withEnv("CONTINUOUS_INTEGRATION", "true"));
+            }
 
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {
@@ -334,10 +343,6 @@ public final class TestRun
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
                     temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
-                }
-
-                if (isEnvSet("CONTINUOUS_INTEGRATION")) {
-                    container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
                 // Install Java distribution if necessary
@@ -352,8 +357,6 @@ public final class TestRun
                                         "-Xmx1g",
                                         "-Djava.util.logging.config.file=/docker/trino-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
-                                        // https://bugs.openjdk.org/browse/JDK-8327134
-                                        "-Djava.security.manager=allow",
                                         // Tempto has progress logging built in
                                         "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)

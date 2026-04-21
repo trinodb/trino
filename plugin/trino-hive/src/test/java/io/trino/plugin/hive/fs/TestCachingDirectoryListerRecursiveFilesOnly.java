@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -69,17 +70,17 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
         assertQuery("SELECT sum(clicks) FROM recursive_directories", "VALUES (11000)");
 
         String tableLocation = getTableLocation(TPCH_SCHEMA, "recursive_directories");
-        assertThat(isCached(tableLocation)).isTrue();
+        assertThat(isCached(tableLocation, SchemaTableName.schemaTableName(TPCH_SCHEMA, "recursive_directories"))).isTrue();
 
         // Insert should invalidate cache, even at the root directory path
         assertUpdate("INSERT INTO recursive_directories VALUES (1000)", 1);
-        assertThat(isCached(tableLocation)).isFalse();
+        assertThat(isCached(tableLocation, SchemaTableName.schemaTableName(TPCH_SCHEMA, "recursive_directories"))).isFalse();
 
         // Results should include the new insert which is at the table location root for the unpartitioned table
         assertQuery("SELECT sum(clicks) FROM recursive_directories", "VALUES (12000)");
 
         assertUpdate("DROP TABLE recursive_directories");
 
-        assertThat(isCached(tableLocation)).isFalse();
+        assertThat(isCached(tableLocation, SchemaTableName.schemaTableName(TPCH_SCHEMA, "recursive_directories"))).isFalse();
     }
 }

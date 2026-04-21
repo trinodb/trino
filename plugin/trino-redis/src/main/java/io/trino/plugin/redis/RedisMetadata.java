@@ -46,6 +46,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -221,7 +222,7 @@ public class RedisMetadata
                 unsupported = domains;
             }
             else {
-                for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+                for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                     RedisColumnHandle columnHandle = (RedisColumnHandle) entry.getKey();
                     Domain domain = entry.getValue();
                     if (isColumnSupportsPushdown(columnHandle, domain)) {
@@ -324,8 +325,8 @@ public class RedisMetadata
                 return true;
             }
             ValueSet valueSet = domain.getValues();
-            if (valueSet instanceof SortedRangeSet) {
-                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+            if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+                Ranges ranges = sortedRangeSet.getRanges();
                 List<Range> rangeList = ranges.getOrderedRanges();
                 return rangeList.stream().allMatch(Range::isSingleValue);
             }

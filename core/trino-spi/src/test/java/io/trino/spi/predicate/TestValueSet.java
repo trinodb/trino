@@ -28,7 +28,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestValueSet
+class TestValueSet
 {
     @Test
     public void testRejectNullOnCreate()

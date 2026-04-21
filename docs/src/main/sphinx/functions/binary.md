@@ -179,8 +179,10 @@ Computes the xxHash64 hash of `binary`.
 Computes the 128-bit [MurmurHash3](https://wikipedia.org/wiki/MurmurHash)
 hash of `binary`.
 
-> SELECT murmur3(from_base64('aaaaaa'));
-> -- ba 58 55 63 55 69 b4 2f 49 20 37 2c a0 e3 96 ef
+```sql
+SELECT murmur3(from_base64('aaaaaa'));
+-- ba 58 55 63 55 69 b4 2f 49 20 37 2c a0 e3 96 ef
+```
 :::
 
 ## HMAC functions

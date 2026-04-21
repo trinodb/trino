@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.IdColumnDecoder;
 import io.trino.plugin.elasticsearch.decoders.ScoreColumnDecoder;
 import io.trino.plugin.elasticsearch.decoders.SourceColumnDecoder;
@@ -31,22 +33,24 @@ import static java.util.function.Function.identity;
 
 enum BuiltinColumns
 {
-    ID("_id", VARCHAR, new IdColumnDecoder.Descriptor(), true),
-    SOURCE("_source", VARCHAR, new SourceColumnDecoder.Descriptor(), false),
-    SCORE("_score", REAL, new ScoreColumnDecoder.Descriptor(), false);
+    ID("_id", VARCHAR, new IndexMetadata.PrimitiveType("text"), new IdColumnDecoder.Descriptor(), true),
+    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("text"), new SourceColumnDecoder.Descriptor(), false),
+    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("real"), new ScoreColumnDecoder.Descriptor(), false);
 
     private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
             .collect(toImmutableMap(BuiltinColumns::getName, identity()));
 
     private final String name;
     private final Type type;
+    private final IndexMetadata.Type elasticsearchType;
     private final DecoderDescriptor decoderDescriptor;
     private final boolean supportsPredicates;
 
-    BuiltinColumns(String name, Type type, DecoderDescriptor decoderDescriptor, boolean supportsPredicates)
+    BuiltinColumns(String name, Type type, IndexMetadata.Type elasticsearchType, DecoderDescriptor decoderDescriptor, boolean supportsPredicates)
     {
         this.name = name;
         this.type = type;
+        this.elasticsearchType = elasticsearchType;
         this.decoderDescriptor = decoderDescriptor;
         this.supportsPredicates = supportsPredicates;
     }
@@ -83,8 +87,9 @@ enum BuiltinColumns
     public ColumnHandle getColumnHandle()
     {
         return new ElasticsearchColumnHandle(
-                name,
+                ImmutableList.of(name),
                 type,
+                elasticsearchType,
                 decoderDescriptor,
                 supportsPredicates);
     }

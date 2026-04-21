@@ -21,29 +21,34 @@ import io.trino.plugin.iceberg.containers.UnityCatalogContainer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.assertj.core.util.Files;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergUnityRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private final File warehouseLocation;
+    private final Path warehouseLocation;
+    private UnityCatalogContainer unityCatalog;
 
     public TestIcebergUnityRestCatalogConnectorSmokeTest()
+            throws IOException
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        warehouseLocation = Files.newTemporaryFolder();
+        warehouseLocation = Files.createTempDirectory(null);
     }
 
     @Override
@@ -61,11 +66,11 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
-        UnityCatalogContainer unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
+        unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.security", "read_only")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
@@ -81,7 +86,26 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void createSchema(String schemaName)
+    {
+        unityCatalog.createSchema(schemaName);
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+    {
+        unityCatalog.dropSchema(schema);
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+    {
+        unityCatalog.createTable(schema, tableName, tableDefinition);
+        return () -> unityCatalog.dropTable(schema, tableName);
+    }
+
+    @Override
+    protected void dropTableFromCatalog(String tableName)
     {
         throw new UnsupportedOperationException();
     }
@@ -95,7 +119,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", warehouseLocation, getSession().getSchema());
+        return format("%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override
@@ -125,256 +149,231 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     public void testView()
     {
-        assertThatThrownBy(super::testView)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testView);
     }
 
     @Test
     @Override
     public void testCommentView()
     {
-        assertThatThrownBy(super::testCommentView)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCommentView);
     }
 
     @Test
     @Override
     public void testCommentViewColumn()
     {
-        assertThatThrownBy(super::testCommentViewColumn)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCommentViewColumn);
     }
 
     @Test
     @Override
     public void testMaterializedView()
     {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testMaterializedView);
     }
 
     @Test
     @Override
     public void testRenameSchema()
     {
-        assertThatThrownBy(super::testRenameSchema)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRenameSchema);
     }
 
     @Test
     @Override
     public void testRenameTable()
     {
-        assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRenameTable);
     }
 
     @Test
     @Override
     public void testRenameTableAcrossSchemas()
     {
-        assertThatThrownBy(super::testRenameTableAcrossSchemas)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRenameTableAcrossSchemas);
     }
 
     @Test
     @Override
     public void testCreateTable()
     {
-        assertThatThrownBy(super::testCreateTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateTable);
     }
 
     @Test
     @Override
     public void testCreateTableAsSelect()
     {
-        assertThatThrownBy(super::testCreateTableAsSelect)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateTableAsSelect);
     }
 
     @Test
     @Override
     public void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testUpdate);
     }
 
     @Test
     @Override
     public void testInsert()
     {
-        assertThatThrownBy(super::testInsert)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testInsert);
     }
 
     @Test
     @Override
     public void testHiddenPathColumn()
     {
-        assertThatThrownBy(super::testHiddenPathColumn)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testHiddenPathColumn);
     }
 
     @Test
     @Override
     public void testRowLevelDelete()
     {
-        assertThatThrownBy(super::testRowLevelDelete)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRowLevelDelete);
     }
 
     @Test
     @Override
     public void testDeleteAllDataFromTable()
     {
-        assertThatThrownBy(super::testDeleteAllDataFromTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDeleteAllDataFromTable);
     }
 
     @Test
     @Override
     public void testDeleteRowsConcurrently()
     {
-        assertThatThrownBy(super::testDeleteRowsConcurrently)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDeleteRowsConcurrently);
     }
 
     @Test
     @Override
     public void testCreateOrReplaceTable()
     {
-        assertThatThrownBy(super::testCreateOrReplaceTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateOrReplaceTable);
     }
 
     @Test
     @Override
     public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
     {
-        assertThatThrownBy(super::testCreateOrReplaceTableChangeColumnNamesAndTypes)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateOrReplaceTableChangeColumnNamesAndTypes);
+    }
+
+    @Test
+    @Override
+    public void testRecreateTableWithSameName()
+    {
+        testFailsDueToReadOnlyCatalog(super::testRecreateTableWithSameName);
     }
 
     @Test
     @Override
     public void testRegisterTableWithTableLocation()
     {
-        assertThatThrownBy(super::testRegisterTableWithTableLocation)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithTableLocation);
     }
 
     @Test
     @Override
     public void testRegisterTableWithComments()
     {
-        assertThatThrownBy(super::testRegisterTableWithComments)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithComments);
     }
 
     @Test
     @Override
     public void testRowLevelUpdate()
     {
-        assertThatThrownBy(super::testRowLevelUpdate)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRowLevelUpdate);
     }
 
     @Test
     @Override
     public void testMerge()
     {
-        assertThatThrownBy(super::testMerge)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testMerge);
     }
 
     @Test
     @Override
     public void testCreateSchema()
     {
-        assertThatThrownBy(super::testCreateSchema)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateSchema);
     }
 
     @Test
     @Override
     public void testCreateSchemaWithNonLowercaseOwnerName()
     {
-        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateSchemaWithNonLowercaseOwnerName);
     }
 
     @Test
     @Override
     public void testRegisterTableWithShowCreateTable()
     {
-        assertThatThrownBy(super::testRegisterTableWithShowCreateTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithShowCreateTable);
     }
 
     @Test
     @Override
     public void testRegisterTableWithReInsert()
     {
-        assertThatThrownBy(super::testRegisterTableWithReInsert)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithReInsert);
     }
 
     @Test
     @Override
     public void testRegisterTableWithDroppedTable()
     {
-        assertThatThrownBy(super::testRegisterTableWithDroppedTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithDroppedTable);
     }
 
     @Test
     @Override
     public void testRegisterTableWithDifferentTableName()
     {
-        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithDifferentTableName);
     }
 
     @Test
     @Override
     public void testRegisterTableWithMetadataFile()
     {
-        assertThatThrownBy(super::testRegisterTableWithMetadataFile)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithMetadataFile);
     }
 
     @Test
     @Override
     public void testCreateTableWithTrailingSpaceInLocation()
     {
-        assertThatThrownBy(super::testCreateTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateTableWithTrailingSpaceInLocation);
     }
 
     @Test
     @Override
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
-        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRegisterTableWithTrailingSpaceInLocation);
     }
 
     @Test
     @Override
     public void testUnregisterTable()
     {
-        assertThatThrownBy(super::testUnregisterTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testUnregisterTable);
     }
 
     @Test
     @Override
     public void testUnregisterBrokenTable()
     {
-        assertThatThrownBy(super::testUnregisterBrokenTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testUnregisterBrokenTable);
     }
 
     @Test
@@ -389,8 +388,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     public void testUnregisterTableNotExistingSchema()
     {
-        assertThatThrownBy(super::testUnregisterTableNotExistingSchema)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testUnregisterTableNotExistingSchema);
     }
 
     @Test
@@ -405,119 +403,138 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     public void testUnregisterTableAccessControl()
     {
-        assertThatThrownBy(super::testUnregisterTableAccessControl)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testUnregisterTableAccessControl);
     }
 
     @Test
     @Override
     public void testCreateTableWithNonExistingSchemaVerifyLocation()
     {
-        assertThatThrownBy(super::testCreateTableWithNonExistingSchemaVerifyLocation)
-                .hasStackTraceContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateTableWithNonExistingSchemaVerifyLocation);
     }
 
     @Test
     @Override
     public void testSortedNationTable()
     {
-        assertThatThrownBy(super::testSortedNationTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testSortedNationTable);
     }
 
     @Test
     @Override
     public void testFileSortingWithLargerTable()
     {
-        assertThatThrownBy(super::testFileSortingWithLargerTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testFileSortingWithLargerTable);
     }
 
     @Test
     @Override
     public void testDropTableWithMissingMetadataFile()
     {
-        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingMetadataFile);
     }
 
     @Test
     @Override
     public void testDropTableWithMissingSnapshotFile()
     {
-        assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingSnapshotFile);
     }
 
     @Test
     @Override
     public void testDropTableWithMissingManifestListFile()
     {
-        assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingManifestListFile);
     }
 
     @Test
     @Override
     public void testDropTableWithMissingDataFile()
     {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingDataFile);
     }
 
     @Test
     @Override
     public void testDropTableWithNonExistentTableLocation()
     {
-        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testDropTableWithNonExistentTableLocation);
     }
 
     @Test
     @Override
     public void testMetadataTables()
     {
-        assertThatThrownBy(super::testMetadataTables)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testMetadataTables);
     }
 
     @Test
     @Override
     public void testPartitionFilterRequired()
     {
-        assertThatThrownBy(super::testPartitionFilterRequired)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testPartitionFilterRequired);
     }
 
     @Test
     @Override
     public void testTableChangesFunction()
     {
-        assertThatThrownBy(super::testTableChangesFunction)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testTableChangesFunction);
     }
 
     @Test
     @Override
     public void testRowLevelDeletesWithTableChangesFunction()
     {
-        assertThatThrownBy(super::testRowLevelDeletesWithTableChangesFunction)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testRowLevelDeletesWithTableChangesFunction);
     }
 
     @Test
     @Override
     public void testCreateOrReplaceWithTableChangesFunction()
     {
-        assertThatThrownBy(super::testCreateOrReplaceWithTableChangesFunction)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testCreateOrReplaceWithTableChangesFunction);
     }
 
     @Test
     @Override
     public void testTruncateTable()
     {
-        assertThatThrownBy(super::testTruncateTable)
-                .hasMessageContaining("Access Denied");
+        testFailsDueToReadOnlyCatalog(super::testTruncateTable);
+    }
+
+    @Test
+    @Override
+    public void testMetadataDeleteAfterCommitEnabled()
+    {
+        testFailsDueToReadOnlyCatalog(super::testMetadataDeleteAfterCommitEnabled);
+    }
+
+    @Test
+    @Override
+    public void testAnalyze()
+    {
+        testFailsDueToReadOnlyCatalog(super::testAnalyze);
+    }
+
+    /**
+     * Verifies that the given action fails due to the read-only security mode
+     * configured via {@code iceberg.security=read_only}.
+     */
+    private static void testFailsDueToReadOnlyCatalog(ThrowingCallable callable)
+    {
+        String[] expectedReasons = Stream.of(
+                        "Cannot create schema",
+                        "Cannot rename schema",
+                        "Cannot create table",
+                        "Cannot create materialized view",
+                        "Cannot create view",
+                        "Cannot execute procedure")
+                .map(reason -> "Access Denied: " + reason)
+                .toArray(String[]::new);
+        assertThatThrownBy(callable)
+                .satisfies(throwable -> assertThat(getStackTraceAsString(throwable))
+                        .containsAnyOf(expectedReasons));
     }
 }

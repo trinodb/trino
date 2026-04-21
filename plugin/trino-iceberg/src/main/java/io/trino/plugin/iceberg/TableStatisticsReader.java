@@ -14,14 +14,18 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.filesystem.TrinoFileSystem;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -32,15 +36,19 @@ import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BlobMetadata;
-import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.Schema;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.ManifestEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.ParallelIterable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -50,7 +58,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,15 +69,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
-import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Long.parseLong;
@@ -75,23 +82,30 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
+import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
 
 public final class TableStatisticsReader
 {
-    private TableStatisticsReader() {}
-
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    public static TableStatistics getTableStatistics(
+    private final TypeManager typeManager;
+    private final ExecutorService icebergPlanningExecutor;
+
+    @Inject
+    public TableStatisticsReader(
             TypeManager typeManager,
-            ConnectorSession session,
+            @ForIcebergPlanning ExecutorService icebergPlanningExecutor)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
+    }
+
+    public TableStatistics getTableStatistics(
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
-            Table icebergTable,
-            TrinoFileSystem fileSystem)
+            Table icebergTable)
     {
         return makeTableStatistics(
                 typeManager,
@@ -100,20 +114,18 @@ public final class TableStatisticsReader
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
-                isExtendedStatisticsEnabled(session),
-                fileSystem);
+                icebergPlanningExecutor);
     }
 
     @VisibleForTesting
     public static TableStatistics makeTableStatistics(
             TypeManager typeManager,
             Table icebergTable,
-            Optional<Long> snapshot,
+            OptionalLong snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
-            boolean extendedStatisticsEnabled,
-            TrinoFileSystem fileSystem)
+            ExecutorService icebergPlanningExecutor)
     {
         if (snapshot.isEmpty()) {
             // No snapshot, so no data.
@@ -121,7 +133,7 @@ public final class TableStatisticsReader
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = snapshot.get();
+        long snapshotId = snapshot.getAsLong();
 
         // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
         // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the
@@ -133,41 +145,51 @@ public final class TableStatisticsReader
                     .build();
         }
 
-        List<Types.NestedField> columns = icebergTable.schema().columns();
-        Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
-                .map(column -> Maps.immutableEntry(column.fieldId(), column.type()))
-                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-
         Set<Integer> columnIds = projectedColumns.stream()
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
+        Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
-        Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
-        TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
-                .useSnapshot(snapshotId)
-                .includeColumnStats(
-                        columnIds.stream()
-                                .map(snapshotSchema::findColumnName)
-                                .filter(Objects::nonNull)
-                                .collect(toImmutableList()));
+        Expression filter = toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId())));
 
+        NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
+                CacheBuilder.newBuilder().maximumSize(1000),
+                CacheLoader.from(specId -> {
+                    PartitionSpec partitionSpec = icebergTable.specs().get(specId);
+                    return ManifestEvaluator.forRowFilter(filter, partitionSpec, true);
+                }));
+        List<ManifestFile> filteredManifests = icebergTable.snapshot(snapshotId)
+                // We only need to look at data files to estimate statistics
+                .dataManifests(icebergTable.io())
+                .stream()
+                // remove any manifests that don't have any existing or added files
+                .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
+                // remove manifests that don't match the scan filter
+                .filter(manifestFile -> {
+                    ManifestEvaluator evaluator = manifestPartitionFilterEvaluators.getUnchecked(manifestFile.partitionSpecId());
+                    return evaluator.eval(manifestFile);
+                })
+                .collect(toImmutableList());
+        Iterable<CloseableIterable<DataFile>> dataFileIterables = Iterables.transform(filteredManifests, manifestFile -> readManifest(icebergTable, manifestFile, filter, columnIds));
+
+        List<Types.NestedField> columns = icebergTable.schema().columns()
+                .stream()
+                .filter(column -> columnIds.contains(column.fieldId()))
+                .collect(toImmutableList());
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
-        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            fileScanTasks.forEach(fileScanTask -> {
-                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
+        try (CloseableIterable<DataFile> dataFiles = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor)) {
+            dataFiles.forEach(dataFile -> {
+                PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
+                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {
                     return;
                 }
-                if (!fileModifiedTimeDomain.isAll()) {
-                    long fileModifiedTime = getModificationTime(fileScanTask.file().location(), fileSystem);
-                    if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
-                        return;
-                    }
+                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(dataFile.location()))) {
+                    return;
                 }
 
-                icebergStatisticsBuilder.acceptDataFile(fileScanTask.file(), fileScanTask.spec());
+                // Filtering by $file_modified_time is skipped to avoid making filesystem calls on each matched data file
+                icebergStatisticsBuilder.acceptDataFile(dataFile, spec);
             });
         }
         catch (IOException e) {
@@ -185,8 +207,11 @@ public final class TableStatisticsReader
         Map<Integer, Long> ndvs = readNdvs(
                 icebergTable,
                 snapshotId,
-                columnIds,
-                extendedStatisticsEnabled);
+                columnIds);
+
+        Map<Integer, org.apache.iceberg.types.Type> idToType = columns.stream()
+                .map(column -> Maps.immutableEntry(column.fieldId(), column.type()))
+                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.recordCount();
@@ -240,12 +265,8 @@ public final class TableStatisticsReader
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    public static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds, boolean extendedStatisticsEnabled)
+    public static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds)
     {
-        if (!extendedStatisticsEnabled) {
-            return ImmutableMap.of();
-        }
-
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
 
         getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
@@ -322,5 +343,24 @@ public final class TableStatisticsReader
                 return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
+    }
+
+    private static CloseableIterable<DataFile> readManifest(Table icebergTable, ManifestFile manifestFile, Expression filter, Set<Integer> columnIds)
+    {
+        return CloseableIterable.transform(
+                liveEntries(
+                        ManifestFiles.read(manifestFile, icebergTable.io(), icebergTable.specs())
+                                .select(ImmutableSet.of(
+                                        "partition",
+                                        "file_path",
+                                        "column_sizes",
+                                        "value_counts",
+                                        "null_value_counts",
+                                        "nan_value_counts",
+                                        "lower_bounds",
+                                        "upper_bounds",
+                                        "record_count"))
+                                .filterRows(filter)),
+                dataFile -> dataFile.copyWithStats(columnIds));
     }
 }

@@ -35,7 +35,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -44,8 +43,10 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -250,8 +251,6 @@ public class TestStageStateMachine
         assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
         assertThat(stats.getPhysicalInputReadTime()).isEqualTo(succinctDuration(expectedStatsValue, MILLISECONDS));
         assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
-        assertThat(stats.getRawInputDataSize()).isEqualTo(succinctBytes(0));
-        assertThat(stats.getRawInputPositions()).isEqualTo(0);
         assertThat(stats.getCumulativeUserMemory()).isEqualTo(expectedStatsValue);
         assertThat(stats.getFailedCumulativeUserMemory()).isEqualTo(1);
         assertThat(stats.getTotalMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue * 2L));
@@ -264,7 +263,7 @@ public class TestStageStateMachine
         assertThat(stats.getFailedScheduledTime()).isEqualTo(succinctDuration(1, MILLISECONDS));
         assertThat(stats.getRunningPercentage()).isEmpty();
         assertThat(stats.getProgressPercentage()).isEmpty();
-        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
@@ -274,7 +273,7 @@ public class TestStageStateMachine
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue)
     {
-        return new TaskStats(DateTime.now(),
+        return new TaskStats(Instant.now(),
                 null,
                 null,
                 null,
@@ -292,6 +291,7 @@ public class TestStageStateMachine
                 baseValue,
                 baseValue,
                 baseValue,
+                DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
@@ -307,15 +307,13 @@ public class TestStageStateMachine
                 baseValue,
                 DataSize.ofBytes(baseValue),
                 baseValue,
-                DataSize.ofBytes(baseValue),
-                baseValue,
                 new Duration(baseValue, MILLISECONDS),
                 DataSize.ofBytes(baseValue),
                 baseValue,
                 new Duration(baseValue, MILLISECONDS),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
-                Optional.empty(),
+                OptionalInt.empty(),
                 baseValue,
                 new Duration(baseValue, MILLISECONDS),
                 pipelineContexts.stream().map(PipelineContext::getPipelineStats).collect(toImmutableList()));
@@ -352,22 +350,22 @@ public class TestStageStateMachine
         assertThat(stateMachine.getStageId()).isEqualTo(STAGE_ID);
 
         StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of);
-        assertThat(stageInfo.getStageId()).isEqualTo(STAGE_ID);
-        assertThat(stageInfo.getSubStages()).isEqualTo(ImmutableList.of());
-        assertThat(stageInfo.getTasks()).isEqualTo(ImmutableList.of());
-        assertThat(stageInfo.getTypes()).isEqualTo(ImmutableList.of(VARCHAR));
-        assertThat(stageInfo.getPlan()).isSameAs(PLAN_FRAGMENT);
+        assertThat(stageInfo.stageId()).isEqualTo(STAGE_ID);
+        assertThat(stageInfo.subStages()).isEqualTo(ImmutableList.of());
+        assertThat(stageInfo.tasks()).isEqualTo(ImmutableList.of());
+        assertThat(stageInfo.types()).isEqualTo(ImmutableList.of(VARCHAR));
+        assertThat(stageInfo.plan()).isSameAs(PLAN_FRAGMENT);
 
         assertThat(stateMachine.getState()).isEqualTo(expectedState);
-        assertThat(stageInfo.getState()).isEqualTo(expectedState);
+        assertThat(stageInfo.state()).isEqualTo(expectedState);
 
         if (expectedState == StageState.FAILED) {
-            ExecutionFailureInfo failure = stageInfo.getFailureCause();
-            assertThat(failure.getMessage()).isEqualTo(FAILED_CAUSE.getMessage());
-            assertThat(failure.getType()).isEqualTo(FAILED_CAUSE.getClass().getName());
+            ExecutionFailureInfo failure = stageInfo.failureCause();
+            assertThat(failure.message()).isEqualTo(FAILED_CAUSE.getMessage());
+            assertThat(failure.type()).isEqualTo(FAILED_CAUSE.getClass().getName());
         }
         else {
-            assertThat(stageInfo.getFailureCause()).isNull();
+            assertThat(stageInfo.failureCause()).isNull();
         }
     }
 
@@ -394,9 +392,10 @@ public class TestStageStateMachine
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

@@ -499,7 +499,7 @@ public final class HiveSessionProperties
                         value -> value),
                 booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
-                        "Projection push down enabled for hive",
+                        "Read only required fields from a row type",
                         hiveConfig.isProjectionPushdownEnabled(),
                         false),
                 enumProperty(

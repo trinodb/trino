@@ -28,8 +28,8 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Row;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,19 +51,19 @@ import static java.util.Objects.requireNonNull;
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
-    private final Type rowType;
-    private final List<RowExpression> arguments;
+    private final RowType rowType;
+    private final List<Expression> arguments;
     // Arbitrary value chosen to balance the code size vs performance trade off. Not perf tested.
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     // number of fields to initialize in a single method for large rows
     private static final int LARGE_ROW_BATCH_SIZE = 100;
 
-    public RowConstructorCodeGenerator(SpecialForm specialForm)
+    public RowConstructorCodeGenerator(Row row)
     {
-        requireNonNull(specialForm, "specialForm is null");
-        rowType = specialForm.type();
-        arguments = specialForm.arguments();
+        requireNonNull(row, "row is null");
+        rowType = (RowType) row.type();
+        arguments = row.items();
     }
 
     @Override
@@ -76,7 +76,7 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
         CallSiteBinder binder = context.getCallSiteBinder();
         Scope scope = context.getScope();
-        List<Type> types = rowType.getTypeParameters();
+        List<Type> types = rowType.getFieldTypes();
 
         Variable fieldBlocks = scope.getOrCreateTempVariable(Block[].class);
         block.append(fieldBlocks.set(newArray(type(Block[].class), arguments.size())));
@@ -94,7 +94,7 @@ public class RowConstructorCodeGenerator
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
-            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
+            Variable field = scope.getOrCreateTempVariable(binder.getAccessibleType(fieldType.getJavaType()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
@@ -161,9 +161,17 @@ public class RowConstructorCodeGenerator
         BytecodeBlock block = methodDefinition.getBody();
         scope.declareVariable("wasNull", block, constantFalse());
 
-        BytecodeGeneratorContext context = new BytecodeGeneratorContext(parentContext.getRowExpressionCompiler(), scope, binder, parentContext.getCachedInstanceBinder(), parentContext.getFunctionManager(), classDefinition, parentContext.getContextArguments());
+        BytecodeGeneratorContext context = new BytecodeGeneratorContext(
+                parentContext.getExpressionCompiler(),
+                scope,
+                binder,
+                parentContext.getCachedInstanceBinder(),
+                parentContext.getFunctionManager(),
+                parentContext.getMetadata(),
+                classDefinition,
+                parentContext.getContextArguments());
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
-        List<Type> types = rowType.getTypeParameters();
+        List<Type> types = rowType.getFieldTypes();
         for (int i = start; i < end; i++) {
             Type fieldType = types.get(i);
 
@@ -173,7 +181,7 @@ public class RowConstructorCodeGenerator
 
             block.append(context.wasNull().set(constantFalse()));
             block.append(context.generate(arguments.get(i)));
-            Variable field = scope.getOrCreateTempVariable(fieldType.getJavaType());
+            Variable field = scope.getOrCreateTempVariable(binder.getAccessibleType(fieldType.getJavaType()));
             block.putVariable(field);
             block.append(new IfStatement()
                     .condition(context.wasNull())
@@ -187,12 +195,12 @@ public class RowConstructorCodeGenerator
     }
 
     @UsedByGeneratedCode
-    public static BlockBuilder[] createFieldBlockBuildersForSingleRow(Type rowType)
+    public static BlockBuilder[] createFieldBlockBuildersForSingleRow(Type type)
     {
-        if (!(rowType instanceof RowType)) {
-            throw new IllegalArgumentException("Not a row type: " + rowType);
+        if (!(type instanceof RowType rowType)) {
+            throw new IllegalArgumentException("Not a row type: " + type);
         }
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         BlockBuilder[] fieldBlockBuilders = new BlockBuilder[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {
             fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(null, 1);

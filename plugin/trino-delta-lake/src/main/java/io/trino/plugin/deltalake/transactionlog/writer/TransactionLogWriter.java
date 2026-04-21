@@ -13,107 +13,31 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
-import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
-import io.trino.spi.connector.ConnectorSession;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkState;
-
-public class TransactionLogWriter
+public interface TransactionLogWriter
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    void appendCommitInfoEntry(CommitInfoEntry commitInfoEntry);
 
-    private Optional<DeltaLakeTransactionLogEntry> commitInfoEntry = Optional.empty();
-    private final List<DeltaLakeTransactionLogEntry> entries = new ArrayList<>();
-    private final TransactionLogSynchronizer logSynchronizer;
-    private final ConnectorSession session;
-    private final String tableLocation;
+    void appendMetadataEntry(MetadataEntry metadataEntry);
 
-    public TransactionLogWriter(TransactionLogSynchronizer logSynchronizer, ConnectorSession session, String tableLocation)
-    {
-        this.logSynchronizer = requireNonNull(logSynchronizer, "logSynchronizer is null");
-        this.session = requireNonNull(session, "session is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-    }
+    void appendProtocolEntry(ProtocolEntry protocolEntry);
 
-    public void appendCommitInfoEntry(CommitInfoEntry commitInfoEntry)
-    {
-        checkState(this.commitInfoEntry.isEmpty(), "commitInfo already set");
-        this.commitInfoEntry = Optional.of(DeltaLakeTransactionLogEntry.commitInfoEntry(commitInfoEntry));
-    }
+    void appendAddFileEntry(AddFileEntry addFileEntry);
 
-    public void appendMetadataEntry(MetadataEntry metadataEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.metadataEntry(metadataEntry));
-    }
+    void appendRemoveFileEntry(RemoveFileEntry removeFileEntry);
 
-    public void appendProtocolEntry(ProtocolEntry protocolEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.protocolEntry(protocolEntry));
-    }
+    void appendCdcEntry(CdcEntry cdcEntry);
 
-    public void appendAddFileEntry(AddFileEntry addFileEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.addFileEntry(addFileEntry));
-    }
+    boolean isUnsafe();
 
-    public void appendRemoveFileEntry(RemoveFileEntry removeFileEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.removeFileEntry(removeFileEntry));
-    }
-
-    public void appendCdcEntry(CdcEntry cdcEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.cdcEntry(cdcEntry));
-    }
-
-    public boolean isUnsafe()
-    {
-        return logSynchronizer.isUnsafe();
-    }
-
-    public void flush()
-            throws IOException
-    {
-        checkState(commitInfoEntry.isPresent(), "commitInfo not set");
-
-        String transactionLogLocation = getTransactionLogDir(tableLocation);
-        CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
-        Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.version());
-
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        writeEntry(bos, commitInfoEntry.get());
-        for (DeltaLakeTransactionLogEntry entry : entries) {
-            writeEntry(bos, entry);
-        }
-
-        String clusterId = commitInfoEntry.get().getCommitInfo().clusterId();
-        logSynchronizer.write(session, clusterId, logEntry, bos.toByteArray());
-    }
-
-    private void writeEntry(OutputStream outputStream, DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry)
-            throws IOException
-    {
-        outputStream.write(OBJECT_MAPPER.writeValueAsString(deltaLakeTransactionLogEntry).getBytes(UTF_8));
-        outputStream.write("\n".getBytes(UTF_8));
-    }
+    void flush()
+            throws IOException;
 }

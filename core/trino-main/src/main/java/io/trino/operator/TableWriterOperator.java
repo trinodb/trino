@@ -34,6 +34,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSinkId;
 import io.trino.split.PageSinkManager;
@@ -44,6 +45,7 @@ import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -57,7 +59,6 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getCloseIdleWritersTriggerDuration;
 import static io.trino.SystemSessionProperties.getIdleWriterMinDataSizeThreshold;
-import static io.trino.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
@@ -79,6 +80,7 @@ public class TableWriterOperator
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
+        private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<Integer> columnChannels;
         private final Session session;
         private final OperatorFactory statisticsAggregationOperatorFactory;
@@ -90,6 +92,7 @@ public class TableWriterOperator
                 PlanNodeId planNodeId,
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
+                Optional<ConnectorTableCredentials> tableCredentials,
                 List<Integer> columnChannels,
                 Session session,
                 OperatorFactory statisticsAggregationOperatorFactory,
@@ -106,6 +109,7 @@ public class TableWriterOperator
                             || writerTarget instanceof TableWriterNode.TableExecuteTarget,
                     "writerTarget must be CreateTarget, InsertTarget, RefreshMaterializedViewTarget or TableExecuteTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
+            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -122,7 +126,7 @@ public class TableWriterOperator
             }
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
             Operator statisticsAggregationOperator = statisticsAggregationOperatorFactory.createOperator(driverContext);
-            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator) && isStatisticsCpuTimerEnabled(session);
+            boolean statisticsCpuTimerEnabled = !(statisticsAggregationOperator instanceof DevNullOperator);
             return new TableWriterOperator(
                     context,
                     createPageSink(driverContext),
@@ -135,17 +139,17 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink(DriverContext driverContext)
         {
-            if (target instanceof CreateTarget) {
-                return pageSinkManager.createPageSink(session, ((CreateTarget) target).getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof CreateTarget createTarget) {
+                return pageSinkManager.createPageSink(session, createTarget.getHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof InsertTarget) {
-                return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof InsertTarget insertTarget) {
+                return pageSinkManager.createPageSink(session, insertTarget.getHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof TableWriterNode.RefreshMaterializedViewTarget refreshMaterializedViewTarget) {
+                return pageSinkManager.createPageSink(session, refreshMaterializedViewTarget.getInsertHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
-            if (target instanceof TableWriterNode.TableExecuteTarget) {
-                return pageSinkManager.createPageSink(session, ((TableWriterNode.TableExecuteTarget) target).getExecuteHandle(), PageSinkId.fromTaskId(driverContext.getTaskId()));
+            if (target instanceof TableWriterNode.TableExecuteTarget tableExecuteTarget) {
+                return pageSinkManager.createPageSink(session, tableExecuteTarget.getExecuteHandle(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()));
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
@@ -159,7 +163,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, columnChannels, session, statisticsAggregationOperatorFactory, types);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, tableCredentials, columnChannels, session, statisticsAggregationOperatorFactory, types);
         }
     }
 
@@ -395,8 +399,8 @@ public class TableWriterOperator
     private void tryClosingIdleWriters()
     {
         long physicalWrittenDataSize = getTaskContext().getPhysicalWrittenDataSize();
-        Optional<Integer> writerCount = getTaskContext().getMaxWriterCount();
-        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.get()) {
+        OptionalInt writerCount = getTaskContext().getMaxWriterCount();
+        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.getAsInt()) {
             return;
         }
         pageSink.closeIdleWriters();
@@ -414,7 +418,9 @@ public class TableWriterOperator
     {
         long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
-        pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        if (pageSinkMemoryUsage > pageSinkPeakMemoryUsage.get()) {
+            pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        }
     }
 
     @VisibleForTesting

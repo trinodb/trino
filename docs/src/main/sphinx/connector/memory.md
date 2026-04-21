@@ -44,6 +44,15 @@ Drop table:
 DROP TABLE example.default.nation;
 ```
 
+Create a table with a column that has a default value:
+
+```sql
+CREATE TABLE orders (
+  orderkey bigint,
+  status varchar DEFAULT 'created'
+)
+```
+
 (memory-type-mapping)=
 ## Type mapping
 

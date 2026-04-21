@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.PlanMatchPattern;

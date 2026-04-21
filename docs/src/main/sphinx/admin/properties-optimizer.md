@@ -8,21 +8,6 @@
 
 Enables optimization for aggregations on dictionaries.
 
-## `optimizer.optimize-hash-generation`
-
-- **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
-- **Session property:** `optimize_hash_generation`
-
-Compute hash codes for distribution, joins, and aggregations early during execution,
-allowing result to be shared between operations later in the query. This can reduce
-CPU usage by avoiding computing the same hash multiple times, but at the cost of
-additional network transfer for the hashes. In most cases it decreases overall
-query processing time.
-
-It is often helpful to disable this property, when using {doc}`/sql/explain` in order
-to make the query plan easier to read.
-
 ## `optimizer.optimize-metadata-queries`
 
 - **Type:** {ref}`prop-type-boolean`
@@ -92,6 +77,16 @@ speed of writing output tables in `UNION ALL` queries, because these writes do n
 additional synchronization when collecting results. Enabling this optimization can improve
 `UNION ALL` speed, when write speed is not yet saturated. However, it may slow down queries
 in an already heavily loaded system.
+
+## `optimizer.push-filter-into-values-max-row-count`
+
+- **Type:** {ref}`prop-type-integer`
+- **Default value:** `100`
+- **Minimum value:** `0`
+- **Session property:** `push_filter_into_values_max_row_count`
+ 
+The number of rows in [](/sql/values) below which the planner evaluates a filter
+on top of `VALUES` to optimize the query plan.
 
 ## `optimizer.join-reordering-strategy`
 

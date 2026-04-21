@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.Experimental;
 import io.trino.spi.expression.FunctionName;
 
 import java.util.Objects;
@@ -48,7 +47,6 @@ public class ColumnStatisticMetadata
         this(columnName, connectorAggregationId, Optional.of(statisticType), Optional.empty());
     }
 
-    @Experimental(eta = "2023-01-31")
     public ColumnStatisticMetadata(
             String columnName,
             String connectorAggregationId,
@@ -89,7 +87,6 @@ public class ColumnStatisticMetadata
         return columnName;
     }
 
-    @Experimental(eta = "2023-01-31")
     @JsonProperty
     public String getConnectorAggregationId()
     {
@@ -102,21 +99,18 @@ public class ColumnStatisticMetadata
         return statisticType.orElseThrow();
     }
 
-    @Experimental(eta = "2023-01-31")
     @JsonProperty("statisticType")
     public Optional<ColumnStatisticType> getStatisticTypeIfPresent()
     {
         return statisticType;
     }
 
-    @Experimental(eta = "2023-01-31")
     @JsonIgnore
     public FunctionName getAggregation()
     {
         return aggregation.orElseThrow();
     }
 
-    @Experimental(eta = "2023-01-31")
     @JsonProperty("aggregation")
     public Optional<FunctionName> getAggregationIfPresent()
     {

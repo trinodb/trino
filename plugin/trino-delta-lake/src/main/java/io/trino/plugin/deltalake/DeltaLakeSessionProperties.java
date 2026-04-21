@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -74,7 +74,6 @@ public final class DeltaLakeSessionProperties
     public static final String EXTENDED_STATISTICS_COLLECT_ON_WRITE = "extended_statistics_collect_on_write";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
-    private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
     private static final String STORE_TABLE_METADATA = "store_table_metadata";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -208,10 +207,10 @@ public final class DeltaLakeSessionProperties
                 enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing new data files",
-                        HiveCompressionCodec.class,
+                        HiveCompressionOption.class,
                         deltaLakeConfig.getCompressionCodec(),
                         value -> {
-                            if (value == HiveCompressionCodec.LZ4) {
+                            if (value == HiveCompressionOption.LZ4) {
                                 // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
                             }
@@ -226,11 +225,6 @@ public final class DeltaLakeSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         deltaLakeConfig.isQueryPartitionFilterRequired(),
-                        false),
-                booleanProperty(
-                        CHECKPOINT_FILTERING_ENABLED,
-                        "Use filter in checkpoint reader",
-                        deltaLakeConfig.isCheckpointFilteringEnabled(),
                         false),
                 booleanProperty(
                         STORE_TABLE_METADATA,
@@ -335,9 +329,9 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(EXTENDED_STATISTICS_COLLECT_ON_WRITE, Boolean.class);
     }
 
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    public static HiveCompressionOption getCompressionCodec(ConnectorSession session)
     {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
@@ -348,11 +342,6 @@ public final class DeltaLakeSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
-    }
-
-    public static boolean isCheckpointFilteringEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CHECKPOINT_FILTERING_ENABLED, Boolean.class);
     }
 
     public static boolean isStoreTableMetadataInMetastoreEnabled(ConnectorSession session)

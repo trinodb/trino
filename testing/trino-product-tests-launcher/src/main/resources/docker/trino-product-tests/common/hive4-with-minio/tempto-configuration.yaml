@@ -1,0 +1,18 @@
+databases:
+    hive:
+        host: hiveserver2
+        jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+        jdbc_url: jdbc:hive2://${databases.hive.host}:10000
+        jdbc_user: hive
+        jdbc_password: na
+        jdbc_pooling: false
+        schema: default
+        prepare_statement:
+            - USE ${databases.hive.schema}
+            # Hive 4 gathers stats by default. For test purposes we need to disable this behavior.
+            - SET hive.stats.column.autogather=false
+        table_manager_type: hive
+        warehouse_directory_path: s3a://${S3_BUCKET}/
+        metastore:
+            host: metastore
+            port: 9083

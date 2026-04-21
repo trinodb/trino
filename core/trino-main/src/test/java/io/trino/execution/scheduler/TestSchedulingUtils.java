@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -69,6 +70,34 @@ public class TestSchedulingUtils
                 ImmutableList.of(valuesSubPlan("a")));
 
         assertThat(SchedulingUtils.canStream(parentSubPlan, valuesSubPlan("a"))).isTrue();
+    }
+
+    @Test
+    public void testCanStreamUnion()
+    {
+        /*
+                  parent(union)
+                   /    \    \
+     -------------------------------------- stage boundary
+                  a     b     c
+         */
+        SubPlan aSubPlan = valuesSubPlan("a");
+        RemoteSourceNode remoteSourceA = remoteSource("a");
+
+        SubPlan bSubPlan = valuesSubPlan("b");
+        RemoteSourceNode remoteSourceB = remoteSource("b");
+
+        SubPlan cSubPlan = valuesSubPlan("c");
+        RemoteSourceNode remoteSourceC = remoteSource("c");
+
+        SubPlan parentSubPlan = createSubPlan(
+                "parent",
+                union("union", ImmutableList.of(remoteSourceA, remoteSourceB, remoteSourceC)),
+                ImmutableList.of(aSubPlan, bSubPlan, cSubPlan));
+
+        assertThat(SchedulingUtils.canStream(parentSubPlan, aSubPlan)).isTrue();
+        assertThat(SchedulingUtils.canStream(parentSubPlan, bSubPlan)).isTrue();
+        assertThat(SchedulingUtils.canStream(parentSubPlan, cSubPlan)).isTrue();
     }
 
     @Test
@@ -293,8 +322,6 @@ public class TestSchedulingUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
     }
@@ -309,8 +336,6 @@ public class TestSchedulingUtils
                 right.getOutputSymbols().get(0),
                 new Symbol(UNKNOWN, id),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty());
     }
 
@@ -321,9 +346,7 @@ public class TestSchedulingUtils
                 IndexJoinNode.Type.INNER,
                 left,
                 right,
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty());
+                ImmutableList.of());
     }
 
     private static SpatialJoinNode spatialJoin(String id, PlanNode left, PlanNode right)
@@ -364,9 +387,10 @@ public class TestSchedulingUtils
                 plan,
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

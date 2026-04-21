@@ -58,7 +58,7 @@ final class S3Input
             return;
         }
 
-        String range = "bytes=%s-%s".formatted(position, (position + length) - 1);
+        String range = "bytes=" + position + "-" + ((position + length) - 1);
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
         int n = read(buffer, offset, length, rangeRequest);
@@ -77,7 +77,7 @@ final class S3Input
             return 0;
         }
 
-        String range = "bytes=-%s".formatted(length);
+        String range = "bytes=-" + length;
         GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
 
         return read(buffer, offset, length, rangeRequest);
@@ -102,7 +102,7 @@ final class S3Input
     {
         try {
             return client.getObject(rangeRequest, (_, inputStream) -> {
-                try {
+                try (inputStream) {
                     return inputStream.readNBytes(buffer, offset, length);
                 }
                 catch (AbortedException _) {

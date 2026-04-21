@@ -19,7 +19,7 @@ public final class TrinoVerifier
 {
     private TrinoVerifier() {}
 
-    public static void main(String[] args)
+    static void main(String[] args)
     {
         new CommandLine(new VerifyCommand()).execute(args);
     }

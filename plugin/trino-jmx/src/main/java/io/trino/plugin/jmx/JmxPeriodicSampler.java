@@ -22,11 +22,9 @@ import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class JmxPeriodicSampler
@@ -34,20 +32,23 @@ public class JmxPeriodicSampler
 {
     private static final Logger log = Logger.get(JmxPeriodicSampler.class);
 
+    private final ScheduledExecutorService executor;
     private final JmxHistoricalData jmxHistoricalData;
     private final JmxRecordSetProvider jmxRecordSetProvider;
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%s"));
     private final long period;
     private final List<JmxTableHandle> tableHandles;
+
     private long lastDumpTimestamp;
 
     @Inject
     public JmxPeriodicSampler(
+            ScheduledExecutorService executor,
             JmxHistoricalData jmxHistoricalData,
             JmxMetadata jmxMetadata,
             JmxRecordSetProvider jmxRecordSetProvider,
             JmxConnectorConfig jmxConfig)
     {
+        this.executor = requireNonNull(executor, "executor is null");
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
         requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
@@ -67,7 +68,7 @@ public class JmxPeriodicSampler
     @PostConstruct
     public void start()
     {
-        if (tableHandles.size() > 0) {
+        if (!tableHandles.isEmpty()) {
             lastDumpTimestamp = roundToPeriod(currentTimeMillis());
             schedule();
         }
@@ -128,10 +129,5 @@ public class JmxPeriodicSampler
         }
 
         schedule();
-    }
-
-    public void shutdown()
-    {
-        executor.shutdown();
     }
 }

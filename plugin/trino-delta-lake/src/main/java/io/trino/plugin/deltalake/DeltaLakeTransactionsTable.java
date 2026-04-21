@@ -15,7 +15,8 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -24,7 +25,6 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 
@@ -41,20 +41,18 @@ public class DeltaLakeTransactionsTable
     private static final JsonCodec<List<DeltaLakeTransactionLogEntry>> TRANSACTION_LOG_ENTRIES_CODEC = listJsonCodec(DeltaLakeTransactionLogEntry.class);
 
     public DeltaLakeTransactionsTable(
-            SchemaTableName tableName,
-            String tableLocation,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaMetastoreTable table,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager)
     {
         super(
-                tableName,
-                tableLocation,
+                requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,
                 new ConnectorTableMetadata(
-                        requireNonNull(tableName, "tableName is null"),
+                        requireNonNull(table.schemaTableName(), "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
                                 .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
@@ -62,12 +60,13 @@ public class DeltaLakeTransactionsTable
     }
 
     @Override
-    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions)
+    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
     {
         for (Transaction transaction : transactions) {
             pagesBuilder.beginRow();
             pagesBuilder.appendBigint(transaction.transactionId());
-            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(transaction.transactionEntries()));
+            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(
+                    transaction.transactionEntries().getEntriesList(fileSystem)));
             pagesBuilder.endRow();
         }
         return pagesBuilder.build();

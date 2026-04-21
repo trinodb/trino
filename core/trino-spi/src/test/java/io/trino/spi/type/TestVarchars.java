@@ -24,8 +24,22 @@ import static io.trino.spi.type.Varchars.truncateToLength;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestVarchars
+final class TestVarchars
 {
+    @Test
+    public void testShortLengthEncoding()
+    {
+        byte[] bytes = new byte[8];
+        for (int i = 0; i <= 256; i++) {
+            AbstractVariableWidthType.writeFlatVariableLength(i, bytes, 0);
+            assertThat(AbstractVariableWidthType.readVariableWidthLength(bytes, 0))
+                    .isEqualTo(i);
+        }
+        AbstractVariableWidthType.writeFlatVariableLength(Integer.MAX_VALUE, bytes, 0);
+        assertThat(AbstractVariableWidthType.readVariableWidthLength(bytes, 0))
+                .isEqualTo(Integer.MAX_VALUE);
+    }
+
     @Test
     public void testTruncateToLength()
     {

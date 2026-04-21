@@ -120,7 +120,7 @@ public class RemoveUnsupportedDynamicFilters
         public PlanWithConsumedDynamicFilters visitJoin(JoinNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
         {
             Map<DynamicFilterId, Symbol> currentJoinDynamicFilters = getJoinDynamicFilters(node);
-            ImmutableSet<DynamicFilterId> allowedDynamicFilterIdsProbeSide = ImmutableSet.<DynamicFilterId>builder()
+            Set<DynamicFilterId> allowedDynamicFilterIdsProbeSide = ImmutableSet.<DynamicFilterId>builder()
                     .addAll(currentJoinDynamicFilters.keySet())
                     .addAll(allowedDynamicFilterIds)
                     .build();
@@ -156,8 +156,6 @@ public class RemoveUnsupportedDynamicFilters
                         node.getRightOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         filter,
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         // When there was no dynamic filter in join, it should remain empty
@@ -241,8 +239,6 @@ public class RemoveUnsupportedDynamicFilters
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
                         node.getDistributionType(),
                         // When there was no dynamic filter in semi-join, it should remain empty
                         node.getDynamicFilterId().isEmpty() ? Optional.empty() : newFilterId),

@@ -26,11 +26,11 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracing.TracingModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class TrinoProxy
 {
-    private static final String VERSION = firstNonNull(TrinoProxy.class.getPackage().getImplementationVersion(), "unknown");
+    private static final String VERSION = requireNonNullElse(TrinoProxy.class.getPackage().getImplementationVersion(), "unknown");
 
     private TrinoProxy() {}
 
@@ -60,7 +60,7 @@ public final class TrinoProxy
         }
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         start();
     }

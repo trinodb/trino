@@ -18,10 +18,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hudi.model.HudiTableType;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.model.HoodieTableType;
 
 import java.util.List;
 import java.util.Set;
@@ -35,7 +35,7 @@ public class HudiTableHandle
     private final String schemaName;
     private final String tableName;
     private final String basePath;
-    private final HudiTableType tableType;
+    private final HoodieTableType tableType;
     private final List<HiveColumnHandle> partitionColumns;
     // Used only for validation when config property hudi.query-partition-filter-required is enabled
     private final Set<HiveColumnHandle> constraintColumns;
@@ -47,7 +47,7 @@ public class HudiTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("basePath") String basePath,
-            @JsonProperty("tableType") HudiTableType tableType,
+            @JsonProperty("tableType") HoodieTableType tableType,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
             @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates)
@@ -59,7 +59,7 @@ public class HudiTableHandle
             String schemaName,
             String tableName,
             String basePath,
-            HudiTableType tableType,
+            HoodieTableType tableType,
             List<HiveColumnHandle> partitionColumns,
             Set<HiveColumnHandle> constraintColumns,
             TupleDomain<HiveColumnHandle> partitionPredicates,
@@ -94,7 +94,7 @@ public class HudiTableHandle
     }
 
     @JsonProperty
-    public HudiTableType getTableType()
+    public HoodieTableType getTableType()
     {
         return tableType;
     }

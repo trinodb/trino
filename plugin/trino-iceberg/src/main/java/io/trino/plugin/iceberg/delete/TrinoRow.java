@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
 
@@ -27,7 +27,7 @@ final class TrinoRow
 {
     private final Object[] values;
 
-    public TrinoRow(Type[] types, Page page, int position)
+    public TrinoRow(Type[] types, SourcePage page, int position)
     {
         checkArgument(types.length == page.getChannelCount(), "mismatched types for page");
         values = new Object[types.length];

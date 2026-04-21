@@ -14,6 +14,7 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
@@ -26,8 +27,6 @@ import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryIOMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
-import io.trino.spi.eventlistener.SplitStatistics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -51,12 +50,10 @@ public final class TestUtils
     private static final QueryIOMetadata queryIOMetadata;
     private static final QueryContext queryContext;
     private static final QueryMetadata queryMetadata;
-    private static final SplitStatistics splitStatistics;
     private static final QueryStatistics queryStatistics;
 
     private static final Optional<QueryFailureInfo> queryFailureInfo;
 
-    static final SplitCompletedEvent splitCompletedEvent;
     static final QueryCreatedEvent queryCreatedEvent;
     static final QueryCompletedEvent queryCompletedEvent;
 
@@ -68,6 +65,7 @@ public final class TestUtils
         queryContext = new QueryContext(
                 "user",
                 "originalUser",
+                Set.of(),
                 Optional.of("principal"),
                 Set.of(),
                 Set.of(), // groups
@@ -103,16 +101,6 @@ public final class TestUtils
                 Optional.empty(),
                 Optional.empty());
 
-        splitStatistics = new SplitStatistics(
-                ofSeconds(1),
-                ofSeconds(2),
-                ofSeconds(3),
-                ofSeconds(4),
-                1,
-                2,
-                Optional.of(Duration.ofMillis(100)),
-                Optional.of(Duration.ofMillis(200)));
-
         queryStatistics = new QueryStatistics(
                 ofSeconds(1),
                 ofSeconds(1),
@@ -131,8 +119,7 @@ public final class TestUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0L,
-                0L,
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -158,6 +145,9 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
@@ -169,18 +159,6 @@ public final class TestUtils
                         Optional.of("host"),
                         "testJson"));
 
-        splitCompletedEvent = new SplitCompletedEvent(
-                "queryId",
-                "stageId",
-                "taskId",
-                Optional.of("catalogName"),
-                Instant.now(),
-                Optional.of(Instant.now()),
-                Optional.of(Instant.now()),
-                splitStatistics,
-                Optional.empty(),
-                "payload");
-
         queryCreatedEvent = new QueryCreatedEvent(
                 Instant.now(),
                 queryContext,
@@ -191,6 +169,7 @@ public final class TestUtils
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 queryFailureInfo,
                 List.of(new TrinoWarning(new WarningCode(101, "TestCode"), "Test error message")),
                 Instant.now(),

@@ -20,7 +20,6 @@ import com.google.common.io.Files;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -28,8 +27,7 @@ import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
@@ -48,7 +46,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,9 +53,9 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 public class StaticCatalogManager
@@ -66,7 +63,8 @@ public class StaticCatalogManager
 {
     private static final Logger log = Logger.get(StaticCatalogManager.class);
 
-    private enum State { CREATED, INITIALIZED, STOPPED }
+    private enum State
+    { CREATED, INITIALIZED, STOPPED }
 
     private final CatalogFactory catalogFactory;
     private final List<CatalogProperties> catalogProperties;
@@ -80,7 +78,7 @@ public class StaticCatalogManager
     public StaticCatalogManager(CatalogFactory catalogFactory, StaticCatalogManagerConfig config, @ForStartup Executor executor)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
-        List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
+        List<String> disabledCatalogs = requireNonNullElse(config.getDisabledCatalogs(), ImmutableList.of());
 
         ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
         for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
@@ -108,7 +106,8 @@ public class StaticCatalogManager
             }
 
             catalogProperties.add(new CatalogProperties(
-                    createRootCatalogHandle(new CatalogName(catalogName), new CatalogVersion("default")),
+                    new CatalogName(catalogName),
+                    new CatalogVersion("default"),
                     new ConnectorName(connectorName),
                     ImmutableMap.copyOf(properties)));
         }
@@ -156,7 +155,7 @@ public class StaticCatalogManager
                 executor,
                 catalogProperties.stream()
                         .map(catalog -> (Callable<?>) () -> {
-                            CatalogName catalogName = catalog.catalogHandle().getCatalogName();
+                            CatalogName catalogName = catalog.name();
                             log.info("-- Loading catalog %s --", catalogName);
                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                             catalogs.put(catalogName, newCatalog);
@@ -180,10 +179,10 @@ public class StaticCatalogManager
     }
 
     @Override
-    public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
+    public void ensureCatalogsLoaded(List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !this.catalogs.containsKey(catalog.catalogHandle().getCatalogName()))
+                .filter(catalog -> !this.catalogs.containsKey(catalog.name()))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {
@@ -192,7 +191,19 @@ public class StaticCatalogManager
     }
 
     @Override
-    public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+    public PrunableState getPrunableState()
+    {
+        return PrunableState.empty();
+    }
+
+    @Override
+    public Set<CatalogHandle> getReachableDynamicCatalogs()
+    {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
     {
         // static catalogs do not need management
     }
@@ -202,13 +213,6 @@ public class StaticCatalogManager
     {
         // static catalog manager does not propagate catalogs between machines
         return Optional.empty();
-    }
-
-    @Override
-    public Set<CatalogHandle> getActiveCatalogs()
-    {
-        // Static catalog manager does not differentiate between active and not. Nor does it need to prune
-        return ImmutableSet.of();
     }
 
     @Override

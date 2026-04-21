@@ -20,8 +20,8 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -55,9 +55,11 @@ public class JmxSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
+    public String toString()
     {
-        return Map.of("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")));
+        return toStringHelper(this)
+                .add("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
+                .toString();
     }
 
     @Override

@@ -13,25 +13,18 @@
  */
 package io.trino.type;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.trino.block.BlockJsonSerde;
 import io.trino.json.ir.IrJsonPath;
-import io.trino.server.SliceSerialization;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.util.Objects.requireNonNull;
 
 public class JsonPath2016Type
         extends AbstractVariableWidthType
@@ -40,14 +33,20 @@ public class JsonPath2016Type
 
     private final JsonCodec<IrJsonPath> jsonPathCodec;
 
-    public JsonPath2016Type(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
+    public JsonPath2016Type(JsonCodec<IrJsonPath> jsonPathCodec)
     {
         super(new TypeSignature(NAME), IrJsonPath.class);
-        this.jsonPathCodec = getCodec(typeDeserializer, blockEncodingSerde);
+        this.jsonPathCodec = requireNonNull(jsonPathCodec, "jsonPathCodec is null");
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -67,8 +66,7 @@ public class JsonPath2016Type
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
-        return jsonPathCodec.fromJson(json);
+        return jsonPathCodec.fromJson(valueBlock.getSlice(valuePosition).getInput());
     }
 
     @Override
@@ -77,17 +75,5 @@ public class JsonPath2016Type
         String json = jsonPathCodec.toJson((IrJsonPath) value);
         Slice bytes = utf8Slice(json);
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
-    }
-
-    private static JsonCodec<IrJsonPath> getCodec(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
-    {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde),
-                Slice.class, new SliceSerialization.SliceSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, typeDeserializer,
-                Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)));
-        return new JsonCodecFactory(provider).jsonCodec(IrJsonPath.class);
     }
 }

@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +33,9 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -43,7 +47,7 @@ public class IcebergColumnHandle
 
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE;
-    public static final String TRINO_ROW_ID_NAME = "$row_id";
+    public static final String TRINO_MERGE_ROW_ID_NAME = "$merge_row_id";
 
     public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 1;
     public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 2;
@@ -57,6 +61,8 @@ public class IcebergColumnHandle
     public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
 
+    public static final int TRINO_MERGE_SOURCE_ROW_ID = Integer.MIN_VALUE + 7;
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
@@ -67,6 +73,11 @@ public class IcebergColumnHandle
     // Cache of ColumnIdentity#getId to ensure quick access, even with dereferences
     private final int id;
 
+    /**
+     * @deprecated This constructor is intended to be used by JSON deserialization only.
+     * Use {@link #builder(ColumnIdentity)}, {@link #required(ColumnIdentity)} or {@link #optional(ColumnIdentity)} instead.
+     */
+    @Deprecated
     @JsonCreator
     public IcebergColumnHandle(
             @JsonProperty("baseColumnIdentity") ColumnIdentity baseColumnIdentity,
@@ -176,6 +187,18 @@ public class IcebergColumnHandle
     }
 
     @JsonIgnore
+    public boolean isRowIdColumn()
+    {
+        return id == ROW_ID.getId();
+    }
+
+    @JsonIgnore
+    public boolean isLastUpdatedSequenceNumberColumn()
+    {
+        return id == LAST_UPDATED_SEQUENCE_NUMBER.getId();
+    }
+
+    @JsonIgnore
     public boolean isRowPositionColumn()
     {
         return id == ROW_POSITION.fieldId();
@@ -194,6 +217,12 @@ public class IcebergColumnHandle
     public boolean isIsDeletedColumn()
     {
         return id == IS_DELETED.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isPartitionColumn()
+    {
+        return id == PARTITION.getId();
     }
 
     @JsonIgnore
@@ -243,15 +272,59 @@ public class IcebergColumnHandle
                 + sizeOf(id);
     }
 
+    public static IcebergColumnHandle rowIdColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(ROW_ID))
+                .columnType(ROW_ID.getType())
+                .build();
+    }
+
+    public static ColumnMetadata rowIdColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(ROW_ID.getColumnName())
+                .setType(ROW_ID.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle lastUpdatedSequenceNumberColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(LAST_UPDATED_SEQUENCE_NUMBER))
+                .columnType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .build();
+    }
+
+    public static ColumnMetadata lastUpdatedSequenceNumberColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName())
+                .setType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle partitionColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(PARTITION))
+                .columnType(PARTITION.getType())
+                .build();
+    }
+
+    public static ColumnMetadata partitionColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(PARTITION.getColumnName())
+                .setType(PARTITION.getType())
+                .setHidden(true)
+                .build();
+    }
+
     public static IcebergColumnHandle pathColumnHandle()
     {
-        return new IcebergColumnHandle(
-                columnIdentity(FILE_PATH),
-                FILE_PATH.getType(),
-                ImmutableList.of(),
-                FILE_PATH.getType(),
-                false,
-                Optional.empty());
+        return IcebergColumnHandle.required(columnIdentity(FILE_PATH))
+                .columnType(FILE_PATH.getType())
+                .build();
     }
 
     public static ColumnMetadata pathColumnMetadata()
@@ -265,13 +338,9 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle fileModifiedTimeColumnHandle()
     {
-        return new IcebergColumnHandle(
-                columnIdentity(FILE_MODIFIED_TIME),
-                FILE_MODIFIED_TIME.getType(),
-                ImmutableList.of(),
-                FILE_MODIFIED_TIME.getType(),
-                false,
-                Optional.empty());
+        return IcebergColumnHandle.required(columnIdentity(FILE_MODIFIED_TIME))
+                .columnType(FILE_MODIFIED_TIME.getType())
+                .build();
     }
 
     public static ColumnMetadata fileModifiedTimeColumnMetadata()
@@ -291,5 +360,97 @@ public class IcebergColumnHandle
     public boolean isPathColumn()
     {
         return getColumnIdentity().getId() == FILE_PATH.getId();
+    }
+
+    public static Builder builder(ColumnIdentity columnIdentity)
+    {
+        return new Builder(columnIdentity);
+    }
+
+    public static Builder optional(ColumnIdentity columnIdentity)
+    {
+        return new Builder(columnIdentity)
+                .nullable(true);
+    }
+
+    public static Builder required(ColumnIdentity columnIdentity)
+    {
+        return new Builder(columnIdentity)
+                .nullable(false);
+    }
+
+    public static final class Builder
+    {
+        private ColumnIdentity baseColumnIdentity;
+        private Type baseType;
+        private List<Integer> path = ImmutableList.of();
+        private Type type;
+        private boolean nullable = true;
+        private Optional<String> comment = Optional.empty();
+
+        public Builder(ColumnIdentity columnIdentity)
+        {
+            this.baseColumnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
+        }
+
+        public Builder(IcebergColumnHandle handle)
+        {
+            requireNonNull(handle, "handle is null");
+            this.baseColumnIdentity = handle.getBaseColumnIdentity();
+            this.baseType = handle.getBaseType();
+            this.path = handle.getPath();
+            this.type = handle.getType();
+            this.nullable = handle.isNullable();
+            this.comment = handle.getComment();
+        }
+
+        public Builder baseColumnIdentity(ColumnIdentity baseColumnIdentity)
+        {
+            this.baseColumnIdentity = baseColumnIdentity;
+            return this;
+        }
+
+        public Builder path(List<Integer> path)
+        {
+            this.path = path;
+            return this;
+        }
+
+        public Builder path(Integer... path)
+        {
+            this.path = Arrays.asList(path);
+            return this;
+        }
+
+        public Builder columnType(Type type)
+        {
+            this.baseType = type;
+            this.type = type;
+            return this;
+        }
+
+        public Builder fieldType(Type baseType, Type type)
+        {
+            this.baseType = baseType;
+            this.type = type;
+            return this;
+        }
+
+        public Builder nullable(boolean nullable)
+        {
+            this.nullable = nullable;
+            return this;
+        }
+
+        public Builder comment(String comment)
+        {
+            this.comment = Optional.ofNullable(comment);
+            return this;
+        }
+
+        public IcebergColumnHandle build()
+        {
+            return new IcebergColumnHandle(baseColumnIdentity, baseType, path, type, nullable, comment);
+        }
     }
 }

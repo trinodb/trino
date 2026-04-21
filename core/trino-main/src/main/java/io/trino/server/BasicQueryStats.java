@@ -21,12 +21,13 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,10 +38,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class BasicQueryStats
 {
-    private final DateTime createTime;
-    private final DateTime endTime;
+    private final Instant createTime;
+    private final Instant endTime;
 
     private final Duration queuedTime;
+    private final Duration resourceWaitingTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
 
@@ -52,21 +54,25 @@ public class BasicQueryStats
     private final int completedDrivers;
     private final int blockedDrivers;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
+    private final long processedInputPositions;
     private final DataSize spilledDataSize;
     private final DataSize physicalInputDataSize;
     private final DataSize physicalWrittenDataSize;
+    private final DataSize internalNetworkInputDataSize;
     private final double cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
+    private final Duration planningTime;
+    private final Duration analysisTime;
     private final Duration totalCpuTime;
     private final Duration failedCpuTime;
     private final Duration totalScheduledTime;
     private final Duration failedScheduledTime;
+    private final Duration finishingTime;
+    private final Duration physicalInputReadTime;
 
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
@@ -76,9 +82,10 @@ public class BasicQueryStats
 
     @JsonCreator
     public BasicQueryStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("failedTasks") int failedTasks,
@@ -87,21 +94,25 @@ public class BasicQueryStats
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
             @JsonProperty("blockedDrivers") int blockedDrivers,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("failedCumulativeUserMemory") double failedCumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("planningTime") Duration planningTime,
+            @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("failedCpuTime") Duration failedCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("failedScheduledTime") Duration failedScheduledTime,
+            @JsonProperty("finishingTime") Duration finishingTime,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
@@ -111,6 +122,7 @@ public class BasicQueryStats
         this.endTime = endTime;
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
@@ -128,11 +140,11 @@ public class BasicQueryStats
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.rawInputPositions = rawInputPositions;
+        this.processedInputPositions = processedInputPositions;
         this.spilledDataSize = spilledDataSize;
         this.physicalInputDataSize = physicalInputDataSize;
         this.physicalWrittenDataSize = physicalWrittenDataSize;
+        this.internalNetworkInputDataSize = internalNetworkInputDataSize;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.failedCumulativeUserMemory = failedCumulativeUserMemory;
@@ -140,10 +152,14 @@ public class BasicQueryStats
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
         this.peakTotalMemoryReservation = peakTotalMemoryReservation;
+        this.planningTime = planningTime;
+        this.analysisTime = analysisTime;
         this.totalCpuTime = totalCpuTime;
         this.failedCpuTime = failedCpuTime;
         this.totalScheduledTime = totalScheduledTime;
         this.failedScheduledTime = failedScheduledTime;
+        this.finishingTime = finishingTime;
+        this.physicalInputReadTime = physicalInputReadTime;
 
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
@@ -157,6 +173,7 @@ public class BasicQueryStats
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
                 queryStats.getQueuedTime(),
+                queryStats.getResourceWaitingTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getFailedTasks(),
@@ -165,21 +182,25 @@ public class BasicQueryStats
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getBlockedDrivers(),
-                queryStats.getRawInputDataSize(),
-                queryStats.getRawInputPositions(),
+                queryStats.getProcessedInputPositions(),
                 queryStats.getSpilledDataSize(),
                 queryStats.getPhysicalInputDataSize(),
                 queryStats.getPhysicalWrittenDataSize(),
+                queryStats.getInternalNetworkInputDataSize(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getFailedCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
+                queryStats.getPlanningTime(),
+                queryStats.getAnalysisTime(),
                 queryStats.getTotalCpuTime(),
                 queryStats.getFailedCpuTime(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getFailedScheduledTime(),
+                queryStats.getFinishingTime(),
+                queryStats.getPhysicalInputReadTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
                 queryStats.getProgressPercentage(),
@@ -188,34 +209,39 @@ public class BasicQueryStats
 
     public static BasicQueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         return new BasicQueryStats(
                 now,
                 now,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 0,
                 0,
                 0,
                 0,
                 0,
-                0,
-                DataSize.ofBytes(0),
-                0,
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
                 0,
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 OptionalDouble.empty(),
@@ -223,13 +249,13 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }
@@ -238,6 +264,12 @@ public class BasicQueryStats
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    @JsonProperty
+    public Duration getResourceWaitingTime()
+    {
+        return resourceWaitingTime;
     }
 
     @JsonProperty
@@ -289,15 +321,9 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
+    public long getProcessedInputPositions()
     {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
+        return processedInputPositions;
     }
 
     @JsonProperty
@@ -316,6 +342,12 @@ public class BasicQueryStats
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getInternalNetworkInputDataSize()
+    {
+        return internalNetworkInputDataSize;
     }
 
     @JsonProperty
@@ -355,6 +387,18 @@ public class BasicQueryStats
     }
 
     @JsonProperty
+    public Duration getPlanningTime()
+    {
+        return planningTime;
+    }
+
+    @JsonProperty
+    public Duration getAnalysisTime()
+    {
+        return analysisTime;
+    }
+
+    @JsonProperty
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
@@ -376,6 +420,18 @@ public class BasicQueryStats
     public Duration getFailedScheduledTime()
     {
         return failedScheduledTime;
+    }
+
+    @JsonProperty
+    public Duration getFinishingTime()
+    {
+        return finishingTime;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
     }
 
     @JsonProperty

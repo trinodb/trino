@@ -16,7 +16,6 @@ package io.trino.spi.function;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -29,7 +28,6 @@ import java.util.stream.Collectors;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class FunctionDependencyDeclaration
 {
     public static final FunctionDependencyDeclaration NO_DEPENDENCIES = builder().build();

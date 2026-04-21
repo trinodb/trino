@@ -22,6 +22,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.stream.IntStream;
 
@@ -41,7 +42,7 @@ final class TestPostgreSqlVectorType
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer("pgvector/pgvector:0.7.2-pg16", false));
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer(DockerImageName.parse("pgvector/pgvector:0.7.2-pg16")));
         // 'SCHEMA public' is required until the connector supports pushdown vector type which is installed in other schemas
         postgreSqlServer.execute("CREATE EXTENSION vector SCHEMA public");
         return PostgreSqlQueryRunner.builder(postgreSqlServer).build();
@@ -354,8 +355,8 @@ final class TestPostgreSqlVectorType
                     .isNotFullyPushedDown(ProjectNode.class);
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[REAL 'NaN']) LIMIT 1"))
                     .isNotFullyPushedDown(ProjectNode.class);
-            assertQueryFails("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1",
-                    "Vector magnitude cannot be zero");
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, NULL) LIMIT 1"))
                     .isNotFullyPushedDown(ProjectNode.class);
         }

@@ -24,7 +24,6 @@ import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
 
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
 import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.normalizeOrExpression;
 import static io.trino.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
@@ -64,6 +63,6 @@ public class SimplifyExpressions
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> rewrite(expression, context.getSession(), newOptimizer(plannerContext));
+        return (expression, context) -> rewrite(expression, context.getSession(), plannerContext.getExpressionOptimizer());
     }
 }

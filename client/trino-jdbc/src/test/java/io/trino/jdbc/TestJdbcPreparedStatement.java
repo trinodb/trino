@@ -30,7 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -56,7 +55,6 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.stream.LongStream;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.asList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
@@ -251,7 +249,7 @@ public class TestJdbcPreparedStatement
                 ParameterMetaData parameterMetaData = statement.getParameterMetaData();
                 assertThat(parameterMetaData.getParameterCount()).isEqualTo(15);
 
-                assertThat(parameterMetaData.getParameterClassName(1)).isEqualTo("unknown");
+                assertThat(parameterMetaData.getParameterClassName(1)).isEqualTo("java.lang.Object");
                 assertThat(parameterMetaData.getParameterType(1)).isEqualTo(Types.NULL);
                 assertThat(parameterMetaData.getParameterTypeName(1)).isEqualTo("unknown");
                 assertThat(parameterMetaData.isNullable(1)).isEqualTo(parameterNullableUnknown);
@@ -296,21 +294,21 @@ public class TestJdbcPreparedStatement
                 assertThat(parameterMetaData.isSigned(6)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(6)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(7)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(7)).isEqualTo("io.trino.jdbc.Row");
                 assertThat(parameterMetaData.getParameterType(7)).isEqualTo(Types.JAVA_OBJECT);
                 assertThat(parameterMetaData.getParameterTypeName(7)).isEqualTo("row");
                 assertThat(parameterMetaData.isNullable(7)).isEqualTo(parameterNullableUnknown);
                 assertThat(parameterMetaData.isSigned(7)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(7)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(8)).isEqualTo(Array.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(8)).isEqualTo("java.sql.Array");
                 assertThat(parameterMetaData.getParameterType(8)).isEqualTo(Types.ARRAY);
                 assertThat(parameterMetaData.getParameterTypeName(8)).isEqualTo("array");
                 assertThat(parameterMetaData.isNullable(8)).isEqualTo(parameterNullableUnknown);
                 assertThat(parameterMetaData.isSigned(8)).isFalse();
                 assertThat(parameterMetaData.getParameterMode(8)).isEqualTo(parameterModeUnknown);
 
-                assertThat(parameterMetaData.getParameterClassName(9)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterClassName(9)).isEqualTo("java.util.Map");
                 assertThat(parameterMetaData.getParameterType(9)).isEqualTo(Types.JAVA_OBJECT);
                 assertThat(parameterMetaData.getParameterTypeName(9)).isEqualTo("map");
                 assertThat(parameterMetaData.isNullable(9)).isEqualTo(parameterNullableUnknown);
@@ -422,7 +420,7 @@ public class TestJdbcPreparedStatement
         try (Connection connection = createConnection(explicitPrepare)) {
             for (int i = 0; i < 200; i++) {
                 try {
-                    connection.prepareStatement("SELECT '" + repeat("a", 300) + "'").close();
+                    connection.prepareStatement("SELECT '" + "a".repeat(300) + "'").close();
                 }
                 catch (Exception e) {
                     throw new RuntimeException("Failed at " + i, e);
@@ -462,7 +460,7 @@ public class TestJdbcPreparedStatement
     {
         int elements = HEADER_SIZE_LIMIT + 1;
         try (Connection connection = createConnection(explicitPrepare);
-                PreparedStatement statement = connection.prepareStatement("VALUES ?" + repeat(", ?", elements - 1))) {
+                PreparedStatement statement = connection.prepareStatement("VALUES ?" + ", ?".repeat(elements - 1))) {
             for (int i = 0; i < elements; i++) {
                 statement.setLong(i + 1, i);
             }
@@ -657,7 +655,7 @@ public class TestJdbcPreparedStatement
     private void testPrepareLarge(boolean explicitPrepare)
             throws Exception
     {
-        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        String sql = format("SELECT '%s' = '%s'", "x".repeat(100_000), "y".repeat(100_000));
         try (Connection connection = createConnection(explicitPrepare);
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet rs = statement.executeQuery()) {
@@ -1093,11 +1091,11 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP_WITH_TIMEZONE), explicitPrepare)
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp with time zone");
 
-        LocalDate jvmGapDate = LocalDate.of(1970, 1, 1);
+        LocalDate jvmGapDate = LocalDate.of(1932, 4, 1);
         checkIsGap(ZoneId.systemDefault(), jvmGapDate.atTime(LocalTime.MIDNIGHT));
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate), explicitPrepare)
-                .resultsIn("date", "DATE '1970-01-01'")
+                .resultsIn("date", "DATE '1932-04-01'")
                 .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate));
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE), explicitPrepare)
@@ -1496,14 +1494,14 @@ public class TestJdbcPreparedStatement
     private Connection createConnection(boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s?explicitPrepare=" + explicitPrepare, server.getAddress());
+        String url = format("jdbc:trino://%s?explicitPrepare=%s", server.getAddress(), explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema, boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=" + explicitPrepare, server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=%s", server.getAddress(), catalog, schema, explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 

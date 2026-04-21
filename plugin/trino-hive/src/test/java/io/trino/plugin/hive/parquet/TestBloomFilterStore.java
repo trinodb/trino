@@ -37,8 +37,9 @@ import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,87 +95,68 @@ public class TestBloomFilterStore
     // here PrimitiveType#getPrimitiveTypeName is dummy, since predicate matches is via column name
     ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {COLUMN_NAME}, new PrimitiveType(REQUIRED, BINARY, COLUMN_NAME), 0, 0);
 
-    @DataProvider
-    public Object[][] bloomFilterTypeTests()
+    static Stream<BloomFilterTypeTestCase> bloomFilterTypeTests()
     {
-        return new Object[][] {
-                {
-                        // varchar test case
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList("hello", "parquet", "bloom", "filter"),
-                                Arrays.asList("NotExist", "fdsvit"),
-                                createVarcharType(255),
-                                javaStringObjectInspector)
-                },
-                {
-                        // integer test case, 32-bit signed two’s complement integer, between -2^31 and 2^31 - 1
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList(12321, 3344, 72334, 321, Integer.MAX_VALUE, Integer.MIN_VALUE),
-                                Arrays.asList(89899, 897773),
-                                INTEGER,
-                                javaIntObjectInspector)
-                },
-                {
-                        // double test case, 64-bit inexact
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList(892.22d, 341112.2222d, 43232.222121d, 99988.22d, Double.MAX_VALUE, Double.POSITIVE_INFINITY, Double.MIN_VALUE, Double.NEGATIVE_INFINITY),
-                                Arrays.asList(321.44d, 776541.3214d, Double.MAX_VALUE / 2),
-                                DOUBLE,
-                                javaDoubleObjectInspector)
-                },
-                {
-                        // real test case, 32-bit inexact
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList(32.22f, 341112.2222f, 43232.222121f, 32322.22f, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.MIN_VALUE, Float.MAX_VALUE),
-                                Arrays.asList(321.44f, 321.3214f, Float.MIN_VALUE / 2),
-                                REAL,
-                                javaFloatObjectInspector)
-                },
-                {
-                        // tinyint test case, 8 bits signed integer, between -2^7 and 2^7 - 1
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList((byte) 32, (byte) 67, Byte.MAX_VALUE, Byte.MAX_VALUE, (byte) 89),
-                                Arrays.asList((byte) 0, (byte) 33, (byte) 75),
-                                TINYINT,
-                                javaByteObjectInspector)
-                },
-                {
-                        // smallint test case, 16 bits signed integer, between -2^15 and 2^15 - 1
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList((short) 32, (short) 3000, Short.MIN_VALUE, Short.MAX_VALUE),
-                                Arrays.asList((short) 0, (short) 33, (short) 43),
-                                SMALLINT,
-                                javaShortObjectInspector)
-                },
-                {
-                        // date test case
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList(ofEpochDay(0), ofEpochDay(325), ofEpochDay(99875553), ofEpochDay(2456524)),
-                                Arrays.asList(ofEpochDay(45), ofEpochDay(67439216)),
-                                DATE,
-                                javaDateObjectInspector)
-                },
-                {
-                        // varbinary test case, variable length binary data.
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList("hello".getBytes(StandardCharsets.UTF_8), "parquet  ".getBytes(StandardCharsets.UTF_8), "bloom".getBytes(StandardCharsets.UTF_8), "filter".getBytes(StandardCharsets.UTF_8)),
-                                Arrays.asList("not".getBytes(StandardCharsets.UTF_8), "exist".getBytes(StandardCharsets.UTF_8), "testcaseX".getBytes(StandardCharsets.UTF_8), "parquet".getBytes(StandardCharsets.UTF_8)),
-                                VARBINARY,
-                                javaByteArrayObjectInspector)
-                },
-                {
-                        // uuid test case, represents a UUID
-                        new BloomFilterTypeTestCase(
-                                Arrays.asList(uuidToBytes(UUID.fromString("783176de-b6c5-4c5a-905d-0460ae103050")), uuidToBytes(UUID.fromString("b1a71c78-bd96-4117-a91a-18671530196a"))),
-                                Arrays.asList(uuidToBytes(UUID.fromString("98a5f99c-7adb-4a92-ae10-6d2469d59423")), uuidToBytes(UUID.fromString("19fd9aed-7a93-4ada-8966-f89014f499ec"))),
-                                UuidType.UUID,
-                                javaByteArrayObjectInspector)
-                }
-        };
+        return Stream.of(
+                // varchar test case
+                new BloomFilterTypeTestCase(
+                        Arrays.asList("hello", "parquet", "bloom", "filter"),
+                        Arrays.asList("NotExist", "fdsvit"),
+                        createVarcharType(255),
+                        javaStringObjectInspector),
+                // integer test case, 32-bit signed two’s complement integer, between -2^31 and 2^31 - 1
+                new BloomFilterTypeTestCase(
+                        Arrays.asList(12321, 3344, 72334, 321, Integer.MAX_VALUE, Integer.MIN_VALUE),
+                        Arrays.asList(89899, 897773),
+                        INTEGER,
+                        javaIntObjectInspector),
+                // double test case, 64-bit inexact
+                new BloomFilterTypeTestCase(
+                        Arrays.asList(892.22d, 341112.2222d, 43232.222121d, 99988.22d, Double.MAX_VALUE, Double.POSITIVE_INFINITY, Double.MIN_VALUE, Double.NEGATIVE_INFINITY),
+                        Arrays.asList(321.44d, 776541.3214d, Double.MAX_VALUE / 2),
+                        DOUBLE,
+                        javaDoubleObjectInspector),
+                // real test case, 32-bit inexact
+                new BloomFilterTypeTestCase(
+                        Arrays.asList(32.22f, 341112.2222f, 43232.222121f, 32322.22f, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.MIN_VALUE, Float.MAX_VALUE),
+                        Arrays.asList(321.44f, 321.3214f, Float.MIN_VALUE / 2),
+                        REAL,
+                        javaFloatObjectInspector),
+                // tinyint test case, 8 bits signed integer, between -2^7 and 2^7 - 1
+                new BloomFilterTypeTestCase(
+                        Arrays.asList((byte) 32, (byte) 67, Byte.MAX_VALUE, Byte.MAX_VALUE, (byte) 89),
+                        Arrays.asList((byte) 0, (byte) 33, (byte) 75),
+                        TINYINT,
+                        javaByteObjectInspector),
+                // smallint test case, 16 bits signed integer, between -2^15 and 2^15 - 1
+                new BloomFilterTypeTestCase(
+                        Arrays.asList((short) 32, (short) 3000, Short.MIN_VALUE, Short.MAX_VALUE),
+                        Arrays.asList((short) 0, (short) 33, (short) 43),
+                        SMALLINT,
+                        javaShortObjectInspector),
+                // date test case
+                new BloomFilterTypeTestCase(
+                        Arrays.asList(ofEpochDay(0), ofEpochDay(325), ofEpochDay(99875553), ofEpochDay(2456524)),
+                        Arrays.asList(ofEpochDay(45), ofEpochDay(67439216)),
+                        DATE,
+                        javaDateObjectInspector),
+                // varbinary test case, variable length binary data.
+                new BloomFilterTypeTestCase(
+                        Arrays.asList("hello".getBytes(StandardCharsets.UTF_8), "parquet  ".getBytes(StandardCharsets.UTF_8), "bloom".getBytes(StandardCharsets.UTF_8), "filter".getBytes(StandardCharsets.UTF_8)),
+                        Arrays.asList("not".getBytes(StandardCharsets.UTF_8), "exist".getBytes(StandardCharsets.UTF_8), "testcaseX".getBytes(StandardCharsets.UTF_8), "parquet".getBytes(StandardCharsets.UTF_8)),
+                        VARBINARY,
+                        javaByteArrayObjectInspector),
+                // uuid test case, represents a UUID
+                new BloomFilterTypeTestCase(
+                        Arrays.asList(uuidToBytes(UUID.fromString("783176de-b6c5-4c5a-905d-0460ae103050")), uuidToBytes(UUID.fromString("b1a71c78-bd96-4117-a91a-18671530196a"))),
+                        Arrays.asList(uuidToBytes(UUID.fromString("98a5f99c-7adb-4a92-ae10-6d2469d59423")), uuidToBytes(UUID.fromString("19fd9aed-7a93-4ada-8966-f89014f499ec"))),
+                        UuidType.UUID,
+                        javaByteArrayObjectInspector));
     }
 
-    @Test(dataProvider = "bloomFilterTypeTests")
-    public void testReadBloomFilter(BloomFilterTypeTestCase typeTestCase)
+    @ParameterizedTest
+    @MethodSource("bloomFilterTypeTests")
+    void testReadBloomFilter(BloomFilterTypeTestCase typeTestCase)
             throws Exception
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
@@ -195,8 +178,9 @@ public class TestBloomFilterStore
         }
     }
 
-    @Test(dataProvider = "bloomFilterTypeTests")
-    public void testMatchesWithBloomFilter(BloomFilterTypeTestCase typeTestCase)
+    @ParameterizedTest
+    @MethodSource("bloomFilterTypeTests")
+    void testMatchesWithBloomFilter(BloomFilterTypeTestCase typeTestCase)
             throws Exception
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
@@ -306,12 +290,12 @@ public class TestBloomFilterStore
                 DateTimeZone.getDefault());
 
         TrinoInputFile inputFile = new LocalInputFile(tempFile.getFile());
-        TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats());
+        TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
 
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ColumnChunkMetadata columnChunkMetaData = getOnlyElement(getOnlyElement(parquetMetadata.getBlocks()).columns());
 
-        return new BloomFilterStore(dataSource, getOnlyElement(parquetMetadata.getBlocks()), Set.of(columnChunkMetaData.getPath()));
+        return new BloomFilterStore(dataSource, getOnlyElement(parquetMetadata.getBlocks()), Set.of(columnChunkMetaData.getPath()), Optional.empty());
     }
 
     private static class BloomFilterTypeTestCase

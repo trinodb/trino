@@ -21,9 +21,8 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -54,7 +53,7 @@ public class TopologyAwareNodeSelector
 {
     private static final Logger log = Logger.get(TopologyAwareNodeSelector.class);
 
-    private final InternalNodeManager nodeManager;
+    private final InternalNode currentNode;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -66,7 +65,7 @@ public class TopologyAwareNodeSelector
     private final NetworkTopology networkTopology;
 
     public TopologyAwareNodeSelector(
-            InternalNodeManager nodeManager,
+            InternalNode currentNode,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
@@ -77,7 +76,7 @@ public class TopologyAwareNodeSelector
             List<CounterStat> topologicalSplitCounters,
             NetworkTopology networkTopology)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
@@ -106,7 +105,7 @@ public class TopologyAwareNodeSelector
     public InternalNode selectCurrentNode()
     {
         // TODO: this is a hack to force scheduling on the coordinator
-        return nodeManager.getCurrentNode();
+        return currentNode;
     }
 
     @Override

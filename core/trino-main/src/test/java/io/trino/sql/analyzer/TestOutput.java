@@ -18,17 +18,18 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.execution.Column;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOutput
 {
-    private static final JsonCodec<Output> codec = JsonCodec.jsonCodec(Output.class);
+    private static final JsonCodec<Output> codec = jsonCodec(Output.class);
 
     @Test
     public void testRoundTrip()

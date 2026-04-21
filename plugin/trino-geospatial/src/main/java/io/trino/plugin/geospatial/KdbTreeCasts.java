@@ -19,6 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -29,11 +30,11 @@ public final class KdbTreeCasts
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)
-    @SqlType(KdbTreeType.NAME)
+    @SqlType(StandardTypes.KDB_TREE)
     public static Object castVarcharToKdbTree(@SqlType("varchar(x)") Slice json)
     {
         try {
-            return KdbTreeUtils.fromJson(json.toStringUtf8());
+            return KdbTreeUtils.fromJson(json);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid JSON string for KDB tree", e);

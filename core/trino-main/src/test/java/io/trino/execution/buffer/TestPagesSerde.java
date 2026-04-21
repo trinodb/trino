@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -45,14 +44,13 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
-import static io.trino.execution.buffer.PagesSerdeFactory.createCompressor;
-import static io.trino.execution.buffer.PagesSerdeFactory.createDecompressor;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +66,7 @@ public class TestPagesSerde
     @BeforeAll
     public void setup()
     {
-        blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+        blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, TESTING_TYPE_MANAGER);
     }
 
     @AfterAll
@@ -146,8 +144,10 @@ public class TestPagesSerde
     {
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes, compressionCodec.maxCompressedLength(blockSizeInBytes));
-            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes, compressionCodec.maxCompressedLength(blockSizeInBytes));
+            PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec, blockSizeInBytes);
+            PageSerializer serializer = pagesSerdeFactory.createSerializer(encryptionKey);
+            PageDeserializer deserializer = pagesSerdeFactory.createDeserializer(encryptionKey);
+
             for (Page page : pages) {
                 Slice serialized = serializer.serialize(page);
                 Page deserialized = deserializer.deserialize(serialized);
@@ -187,14 +187,14 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertThat(pageSize).isEqualTo(40);
+        assertThat(pageSize).isEqualTo(35);
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(9); // value size + value overhead
+        assertThat(firstValueSize).isEqualTo(8); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
@@ -211,20 +211,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertThat(pageSize).isEqualTo(48);
+        assertThat(pageSize).isEqualTo(43);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
-        pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
+        pageSize = 43; // Now we have moved to the normal block implementation so the page size overhead is 43
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(4 + 5); // ending offset + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(4 + 3); // one additional ending offset + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
@@ -270,8 +270,9 @@ public class TestPagesSerde
         RolloverBlockSerde blockSerde = new RolloverBlockSerde();
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         for (CompressionCodec compressionCodec : CompressionCodec.values()) {
-            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize, compressionCodec.maxCompressedLength(blockSize));
-            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize, compressionCodec.maxCompressedLength(blockSize));
+            PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockSerde, compressionCodec, blockSize);
+            PageSerializer serializer = pagesSerdeFactory.createSerializer(encryptionKey);
+            PageDeserializer deserializer = pagesSerdeFactory.createDeserializer(encryptionKey);
 
             Page page = createTestPage(numberOfEntries);
             Slice serialized = serializer.serialize(page);

@@ -37,6 +37,7 @@ public class TestS3SecurityMapping
 {
     private static final String IAM_ROLE_CREDENTIAL_NAME = "IAM_ROLE_CREDENTIAL_NAME";
     private static final String KMS_KEY_ID_CREDENTIAL_NAME = "KMS_KEY_ID_CREDENTIAL_NAME";
+    private static final String CUSTOMER_KEY_CREDENTIAL_NAME = "CUSTOMER_KEY_CREDENTIAL_NAME";
     private static final String DEFAULT_PATH = "s3://default/";
     private static final String DEFAULT_USER = "testuser";
 
@@ -47,6 +48,7 @@ public class TestS3SecurityMapping
                 .setConfigFile(getResourceFile("security-mapping.json"))
                 .setRoleCredentialName(IAM_ROLE_CREDENTIAL_NAME)
                 .setKmsKeyIdCredentialName(KMS_KEY_ID_CREDENTIAL_NAME)
+                .setSseCustomerKeyCredentialName(CUSTOMER_KEY_CREDENTIAL_NAME)
                 .setColonReplacement("#");
 
         var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
@@ -103,6 +105,45 @@ public class TestS3SecurityMapping
                         .withExtraCredentialKmsKeyId("kmsKey_12"),
                 credentials("AKIAxxxaccess", "iXbXxxxsecret")
                         .withKmsKeyId("kmsKey_12"));
+
+        // matches prefix exactly -- mapping provides credentials, customer key from extra credentials matching default
+        assertMapping(
+                provider,
+                path("s3://baz/")
+                        .withExtraCredentialCustomerKey("customerKey_10"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withSseCustomerKey("customerKey_10"));
+
+        // matches prefix exactly -- mapping provides credentials, customer key from extra credentials, allowed, different from default
+        assertMapping(
+                provider,
+                path("s3://baz/")
+                        .withExtraCredentialCustomerKey("customerKey_11"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withSseCustomerKey("customerKey_11"));
+
+        // matches prefix exactly -- mapping provides credentials, customer key from extra credentials, not allowed
+        assertMappingFails(
+                provider,
+                path("s3://baz/")
+                        .withExtraCredentialCustomerKey("customerKey_not_allowed"),
+                "Provided SSE Customer Key is not allowed");
+
+        // matches prefix exactly -- mapping provides credentials, customer key from extra credentials, all keys are allowed, different from default
+        assertMapping(
+                provider,
+                path("s3://baz_all_customer_keys_allowed/")
+                        .withExtraCredentialCustomerKey("customerKey_777"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withSseCustomerKey("customerKey_777"));
+
+        // matches prefix exactly -- mapping provides credentials, customer key from extra credentials, allowed, no default key
+        assertMapping(
+                provider,
+                path("s3://baz_no_customer_default_key/")
+                        .withExtraCredentialCustomerKey("customerKey_12"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withSseCustomerKey("customerKey_12"));
 
         // no role selected and mapping has no default role
         assertMappingFails(
@@ -320,6 +361,8 @@ public class TestS3SecurityMapping
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
@@ -337,6 +380,8 @@ public class TestS3SecurityMapping
                         Optional.empty(),
                         Optional.empty(),
                         iamRole,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -368,11 +413,67 @@ public class TestS3SecurityMapping
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         useClusterDefault,
                         Optional.empty(),
                         Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("KMS key ID cannot be provided together with useClusterDefault");
+    }
+
+    @Test
+    public void testMappingWithSseCustomerKeyAndFallbackShouldFail()
+    {
+        Optional<Boolean> useClusterDefault = Optional.of(true);
+        Optional<String> sseCustomerKey = Optional.of("CLIENT_S3CRT_CUSTOMER_KEY");
+
+        assertThatThrownBy(() ->
+                new S3SecurityMapping(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        sseCustomerKey,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        useClusterDefault,
+                        Optional.empty(),
+                        Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("SSE Customer key cannot be provided together with useClusterDefault");
+    }
+
+    @Test
+    public void testMappingWithSseCustomerAndKMSKeysShouldFail()
+    {
+        Optional<String> kmsKeyId = Optional.of("CLIENT_S3CRT_KEY_ID");
+        Optional<String> sseCustomerKey = Optional.of("CLIENT_S3CRT_CUSTOMER_KEY");
+
+        assertThatThrownBy(() ->
+                new S3SecurityMapping(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of("arn:aws:iam::123456789101:role/allow_path"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        kmsKeyId,
+                        Optional.empty(),
+                        sseCustomerKey,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("SSE Customer key cannot be provided together with KMS key ID");
     }
 
     @Test
@@ -387,6 +488,8 @@ public class TestS3SecurityMapping
                         Optional.empty(),
                         Optional.empty(),
                         roleSessionName,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -414,6 +517,7 @@ public class TestS3SecurityMapping
             assertThat(actual.iamRole()).isEqualTo(expected.iamRole());
             assertThat(actual.roleSessionName()).isEqualTo(expected.roleSessionName());
             assertThat(actual.kmsKeyId()).isEqualTo(expected.kmsKeyId());
+            assertThat(actual.sseCustomerKey()).isEqualTo(expected.sseCustomerKey());
             assertThat(actual.endpoint()).isEqualTo(expected.endpoint());
             assertThat(actual.region()).isEqualTo(expected.region());
         });
@@ -440,7 +544,7 @@ public class TestS3SecurityMapping
 
         public static MappingSelector path(String location)
         {
-            return new MappingSelector(DEFAULT_USER, ImmutableSet.of(), Location.of(location), Optional.empty(), Optional.empty());
+            return new MappingSelector(DEFAULT_USER, ImmutableSet.of(), Location.of(location), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         private final String user;
@@ -448,14 +552,16 @@ public class TestS3SecurityMapping
         private final Location location;
         private final Optional<String> extraCredentialIamRole;
         private final Optional<String> extraCredentialKmsKeyId;
+        private final Optional<String> extraCredentialCustomerKey;
 
-        private MappingSelector(String user, Set<String> groups, Location location, Optional<String> extraCredentialIamRole, Optional<String> extraCredentialKmsKeyId)
+        private MappingSelector(String user, Set<String> groups, Location location, Optional<String> extraCredentialIamRole, Optional<String> extraCredentialKmsKeyId, Optional<String> extraCredentialCustomerKey)
         {
             this.user = requireNonNull(user, "user is null");
             this.groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
             this.location = requireNonNull(location, "location is null");
             this.extraCredentialIamRole = requireNonNull(extraCredentialIamRole, "extraCredentialIamRole is null");
             this.extraCredentialKmsKeyId = requireNonNull(extraCredentialKmsKeyId, "extraCredentialKmsKeyId is null");
+            this.extraCredentialCustomerKey = requireNonNull(extraCredentialCustomerKey, "extraCredentialCustomerKey is null");
         }
 
         public Location location()
@@ -465,22 +571,27 @@ public class TestS3SecurityMapping
 
         public MappingSelector withExtraCredentialIamRole(String role)
         {
-            return new MappingSelector(user, groups, location, Optional.of(role), extraCredentialKmsKeyId);
+            return new MappingSelector(user, groups, location, Optional.of(role), extraCredentialKmsKeyId, extraCredentialCustomerKey);
         }
 
         public MappingSelector withExtraCredentialKmsKeyId(String kmsKeyId)
         {
-            return new MappingSelector(user, groups, location, extraCredentialIamRole, Optional.of(kmsKeyId));
+            return new MappingSelector(user, groups, location, extraCredentialIamRole, Optional.of(kmsKeyId), Optional.empty());
+        }
+
+        public MappingSelector withExtraCredentialCustomerKey(String customerKey)
+        {
+            return new MappingSelector(user, groups, location, extraCredentialIamRole, Optional.empty(), Optional.of(customerKey));
         }
 
         public MappingSelector withUser(String user)
         {
-            return new MappingSelector(user, groups, location, extraCredentialIamRole, extraCredentialKmsKeyId);
+            return new MappingSelector(user, groups, location, extraCredentialIamRole, extraCredentialKmsKeyId, extraCredentialCustomerKey);
         }
 
         public MappingSelector withGroups(String... groups)
         {
-            return new MappingSelector(user, ImmutableSet.copyOf(groups), location, extraCredentialIamRole, extraCredentialKmsKeyId);
+            return new MappingSelector(user, ImmutableSet.copyOf(groups), location, extraCredentialIamRole, extraCredentialKmsKeyId, extraCredentialCustomerKey);
         }
 
         public ConnectorIdentity identity()
@@ -488,6 +599,7 @@ public class TestS3SecurityMapping
             Map<String, String> extraCredentials = new HashMap<>();
             extraCredentialIamRole.ifPresent(role -> extraCredentials.put(IAM_ROLE_CREDENTIAL_NAME, role));
             extraCredentialKmsKeyId.ifPresent(kmsKeyId -> extraCredentials.put(KMS_KEY_ID_CREDENTIAL_NAME, kmsKeyId));
+            extraCredentialCustomerKey.ifPresent(customerKey -> extraCredentials.put(CUSTOMER_KEY_CREDENTIAL_NAME, customerKey));
 
             return ConnectorIdentity.forUser(user)
                     .withGroups(groups)
@@ -507,6 +619,7 @@ public class TestS3SecurityMapping
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
@@ -519,6 +632,7 @@ public class TestS3SecurityMapping
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
@@ -527,6 +641,7 @@ public class TestS3SecurityMapping
         private final Optional<String> iamRole;
         private final Optional<String> roleSessionName;
         private final Optional<String> kmsKeyId;
+        private final Optional<String> sseCustomerKey;
         private final Optional<String> endpoint;
         private final Optional<String> region;
 
@@ -536,6 +651,7 @@ public class TestS3SecurityMapping
                 Optional<String> iamRole,
                 Optional<String> roleSessionName,
                 Optional<String> kmsKeyId,
+                Optional<String> sseCustomerKey,
                 Optional<String> endpoint,
                 Optional<String> region)
         {
@@ -543,6 +659,7 @@ public class TestS3SecurityMapping
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
             this.iamRole = requireNonNull(iamRole, "role is null");
             this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
+            this.sseCustomerKey = requireNonNull(sseCustomerKey, "sseCustomerKey is null");
             this.endpoint = requireNonNull(endpoint, "endpoint is null");
             this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
             this.region = requireNonNull(region, "region is null");
@@ -550,22 +667,27 @@ public class TestS3SecurityMapping
 
         public MappingResult withEndpoint(String endpoint)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, Optional.of(endpoint), region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, Optional.of(endpoint), region);
         }
 
         public MappingResult withKmsKeyId(String kmsKeyId)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.of(kmsKeyId), endpoint, region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.of(kmsKeyId), Optional.empty(), endpoint, region);
+        }
+
+        public MappingResult withSseCustomerKey(String customerKey)
+        {
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.empty(), Optional.of(customerKey), endpoint, region);
         }
 
         public MappingResult withRegion(String region)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, endpoint, Optional.of(region));
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, Optional.of(region));
         }
 
         public MappingResult withRoleSessionName(String roleSessionName)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.of(roleSessionName), kmsKeyId, Optional.empty(), region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.of(roleSessionName), kmsKeyId, sseCustomerKey, Optional.empty(), region);
         }
 
         public Optional<String> accessKey()
@@ -591,6 +713,11 @@ public class TestS3SecurityMapping
         public Optional<String> kmsKeyId()
         {
             return kmsKeyId;
+        }
+
+        public Optional<String> sseCustomerKey()
+        {
+            return sseCustomerKey;
         }
 
         public Optional<String> endpoint()

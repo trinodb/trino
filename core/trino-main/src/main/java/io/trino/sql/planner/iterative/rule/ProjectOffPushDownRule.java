@@ -59,7 +59,7 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     {
         N targetNode = captures.get(targetCapture);
 
-        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().getExpressions())
+        return pruneInputs(targetNode.getOutputSymbols(), parent.getAssignments().expressions())
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context, targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
                 .map(Result::ofPlanNode)

@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import io.trino.FeaturesConfig;
-import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -27,6 +26,8 @@ import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
 import io.trino.operator.aggregation.ArbitraryAggregationFunction;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
+import io.trino.operator.aggregation.BigintAverageAggregations;
+import io.trino.operator.aggregation.BigintSumAggregation;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
 import io.trino.operator.aggregation.BitwiseOrAggregation;
 import io.trino.operator.aggregation.BitwiseXorAggregation;
@@ -56,8 +57,6 @@ import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
 import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
-import io.trino.operator.aggregation.LongAverageAggregations;
-import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
@@ -68,6 +67,8 @@ import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinByAggregationFunction;
+import io.trino.operator.aggregation.NumberAverageAggregation;
+import io.trino.operator.aggregation.NumberSumAggregation;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -100,9 +101,11 @@ import io.trino.operator.scalar.ArrayDistinctFunction;
 import io.trino.operator.scalar.ArrayElementAtFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
+import io.trino.operator.scalar.ArrayFirstFunction;
 import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
 import io.trino.operator.scalar.ArrayJoin;
+import io.trino.operator.scalar.ArrayLastFunction;
 import io.trino.operator.scalar.ArrayMaxFunction;
 import io.trino.operator.scalar.ArrayMinFunction;
 import io.trino.operator.scalar.ArrayNgramsFunction;
@@ -230,6 +233,7 @@ import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZ
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timestamptz.ToUnixTime;
 import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timetz.CurrentTime;
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneOperators;
@@ -249,6 +253,8 @@ import io.trino.operator.window.NthValueFunction;
 import io.trino.operator.window.PercentRankFunction;
 import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
+import io.trino.spi.NodeVersion;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;
@@ -264,6 +270,7 @@ import io.trino.type.IntervalDayTimeOperators;
 import io.trino.type.IntervalYearMonthOperators;
 import io.trino.type.IpAddressOperators;
 import io.trino.type.LikeFunctions;
+import io.trino.type.NumberOperators;
 import io.trino.type.QuantileDigestOperators;
 import io.trino.type.RealOperators;
 import io.trino.type.SmallintOperators;
@@ -271,6 +278,8 @@ import io.trino.type.TDigestOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.UuidOperators;
 import io.trino.type.VarcharOperators;
+import io.trino.type.VariantFunctions;
+import io.trino.type.VariantOperators;
 import io.trino.type.setdigest.BuildSetDigestAggregation;
 import io.trino.type.setdigest.MergeSetDigestAggregation;
 import io.trino.type.setdigest.SetDigestFunctions;
@@ -283,6 +292,7 @@ import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static io.trino.operator.scalar.ArrayToVariantCast.ARRAY_TO_VARIANT;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
 import static io.trino.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static io.trino.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
@@ -304,6 +314,7 @@ import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
 import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static io.trino.operator.scalar.MapToVariantCast.MAP_TO_VARIANT;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
@@ -311,7 +322,11 @@ import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRe
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static io.trino.operator.scalar.RowToVariantCast.ROW_TO_VARIANT;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
+import static io.trino.operator.scalar.VariantToArrayCast.VARIANT_TO_ARRAY;
+import static io.trino.operator.scalar.VariantToMapCast.VARIANT_TO_MAP;
+import static io.trino.operator.scalar.VariantToRowCast.VARIANT_TO_ROW;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION;
@@ -323,22 +338,30 @@ import static io.trino.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_NUMBER_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_REAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_SMALLINT_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_TINYINT_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_VARIANT_CAST;
 import static io.trino.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.NUMBER_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.VARIANT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
+import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_ADD_OPERATOR;
+import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_DIVIDE_OPERATOR;
+import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_MULTIPLY_OPERATOR;
+import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_SUBTRACT_OPERATOR;
 import static io.trino.type.DecimalSaturatedFloorCasts.BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
@@ -391,12 +414,14 @@ public final class SystemFunctionBundle
                 .aggregates(BooleanOrAggregation.class)
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(RealSumAggregation.class)
-                .aggregates(LongSumAggregation.class)
+                .aggregates(BigintSumAggregation.class)
+                .aggregates(NumberSumAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
-                .aggregates(LongAverageAggregations.class)
+                .aggregates(BigintAverageAggregations.class)
                 .aggregates(DoubleAverageAggregations.class)
                 .aggregates(RealAverageAggregation.class)
+                .aggregates(NumberAverageAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
@@ -439,6 +464,9 @@ public final class SystemFunctionBundle
                 .scalar(MathFunctions.TruncateN.class)
                 .scalar(MathFunctions.Ceiling.class)
                 .scalar(MathFunctions.Floor.class)
+                .scalar(MathFunctions.IsFinite.class)
+                .scalar(MathFunctions.IsInfinite.class)
+                .scalar(MathFunctions.IsNan.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
@@ -446,6 +474,17 @@ public final class SystemFunctionBundle
                 .scalars(JsonInputFunctions.class)
                 .scalars(JsonOutputFunctions.class)
                 .functions(JSON_OBJECT_FUNCTION, JSON_ARRAY_FUNCTION)
+                .scalars(VariantOperators.class)
+                .scalar(VariantOperators.VariantToTimeCast.class)
+                .scalar(VariantOperators.VariantFromTimeCast.class)
+                .scalar(VariantOperators.VariantToTimestampCast.class)
+                .scalar(VariantOperators.VariantFromTimestampCast.class)
+                .scalar(VariantOperators.VariantToTimestampWithTimeZoneCasts.class)
+                .scalar(VariantOperators.VariantFromTimestampWithTimeZoneCasts.class)
+                .functions(VARIANT_TO_ARRAY, ARRAY_TO_VARIANT)
+                .functions(VARIANT_TO_MAP, MAP_TO_VARIANT)
+                .functions(VARIANT_TO_ROW, ROW_TO_VARIANT)
+                .scalars(VariantFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
@@ -457,6 +496,7 @@ public final class SystemFunctionBundle
                 .scalars(TinyintOperators.class)
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class)
+                .scalars(NumberOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(DateOperators.class)
                 .scalars(IntervalDayTimeOperators.class)
@@ -488,6 +528,8 @@ public final class SystemFunctionBundle
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
+                .scalars(ArrayFirstFunction.class)
+                .scalar(ArrayLastFunction.class)
                 .scalar(ArraySortFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)
@@ -539,8 +581,14 @@ public final class SystemFunctionBundle
                 .aggregates(MultimapAggregationFunction.class)
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
+                .functions(NUMBER_TO_DECIMAL_CAST, DECIMAL_TO_NUMBER_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
-                .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
+                .functions(VARIANT_TO_DECIMAL_CAST, DECIMAL_TO_VARIANT_CAST)
+                .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_ADD_OPERATOR : DECIMAL_ADD_OPERATOR)
+                .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_SUBTRACT_OPERATOR : DECIMAL_SUBTRACT_OPERATOR)
+                .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_MULTIPLY_OPERATOR : DECIMAL_MULTIPLY_OPERATOR)
+                .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_DIVIDE_OPERATOR : DECIMAL_DIVIDE_OPERATOR)
+                .functions(DECIMAL_MODULUS_OPERATOR)
                 .function(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST, BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
@@ -583,7 +631,7 @@ public final class SystemFunctionBundle
                 .function(new GenericComparisonUnorderedFirstOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
-                .function(new VersionFunction(nodeVersion.getVersion()))
+                .function(new VersionFunction(nodeVersion.version()))
                 .aggregates(MergeSetDigestAggregation.class)
                 .aggregates(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -670,7 +718,7 @@ public final class SystemFunctionBundle
                 .scalar(io.trino.operator.scalar.timestamptz.DateDiff.class)
                 .scalar(io.trino.operator.scalar.timestamptz.DateFormat.class)
                 .scalar(io.trino.operator.scalar.timestamptz.FormatDateTime.class)
-                .scalar(io.trino.operator.scalar.timestamptz.ToUnixTime.class)
+                .scalar(ToUnixTime.class)
                 .scalar(io.trino.operator.scalar.timestamptz.LastDayOfMonth.class)
                 .scalar(AtTimeZone.class)
                 .scalar(AtTimeZoneWithOffset.class)

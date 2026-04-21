@@ -18,22 +18,28 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.lang.System.getenv;
 
 public class TestFileSystemConfig
 {
+    private static final boolean RUNNING_IN_CI = getenv("CONTINUOUS_INTEGRATION") != null;
+
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
                 .setHadoopEnabled(false)
                 .setAlluxioEnabled(false)
-                .setNativeAzureEnabled(false)
-                .setNativeS3Enabled(false)
-                .setNativeGcsEnabled(false)
-                .setCacheEnabled(false));
+                .setAzureEnabled(false)
+                .setS3Enabled(false)
+                .setGcsEnabled(false)
+                .setLocalEnabled(false)
+                .setCacheEnabled(false)
+                .setTrackingEnabled(RUNNING_IN_CI));
     }
 
     @Test
@@ -42,20 +48,80 @@ public class TestFileSystemConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.hadoop.enabled", "true")
                 .put("fs.alluxio.enabled", "true")
-                .put("fs.native-azure.enabled", "true")
-                .put("fs.native-s3.enabled", "true")
-                .put("fs.native-gcs.enabled", "true")
+                .put("fs.azure.enabled", "true")
+                .put("fs.s3.enabled", "true")
+                .put("fs.gcs.enabled", "true")
+                .put("fs.local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.tracking.enabled", Boolean.toString(!RUNNING_IN_CI))
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(true)
                 .setAlluxioEnabled(true)
-                .setNativeAzureEnabled(true)
-                .setNativeS3Enabled(true)
-                .setNativeGcsEnabled(true)
-                .setCacheEnabled(true);
+                .setAzureEnabled(true)
+                .setS3Enabled(true)
+                .setGcsEnabled(true)
+                .setLocalEnabled(true)
+                .setCacheEnabled(true)
+                .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testLegacyPropertyMappings()
+    {
+        assertDeprecatedEquivalence(
+                FileSystemConfig.class,
+                Map.of(
+                        "fs.azure.enabled", "true",
+                        "fs.s3.enabled", "false",
+                        "fs.gcs.enabled", "false",
+                        "fs.local.enabled", "false"),
+                Map.of(
+                        "fs.native-azure.enabled", "true",
+                        "fs.native-s3.enabled", "false",
+                        "fs.native-gcs.enabled", "false",
+                        "fs.native-local.enabled", "false"));
+
+        assertDeprecatedEquivalence(
+                FileSystemConfig.class,
+                Map.of(
+                        "fs.azure.enabled", "false",
+                        "fs.s3.enabled", "true",
+                        "fs.gcs.enabled", "false",
+                        "fs.local.enabled", "false"),
+                Map.of(
+                        "fs.native-azure.enabled", "false",
+                        "fs.native-s3.enabled", "true",
+                        "fs.native-gcs.enabled", "false",
+                        "fs.native-local.enabled", "false"));
+
+        assertDeprecatedEquivalence(
+                FileSystemConfig.class,
+                Map.of(
+                        "fs.azure.enabled", "false",
+                        "fs.s3.enabled", "false",
+                        "fs.gcs.enabled", "true",
+                        "fs.local.enabled", "false"),
+                Map.of(
+                        "fs.native-azure.enabled", "false",
+                        "fs.native-s3.enabled", "false",
+                        "fs.native-gcs.enabled", "true",
+                        "fs.native-local.enabled", "false"));
+
+        assertDeprecatedEquivalence(
+                FileSystemConfig.class,
+                Map.of(
+                        "fs.azure.enabled", "false",
+                        "fs.s3.enabled", "false",
+                        "fs.gcs.enabled", "false",
+                        "fs.local.enabled", "true"),
+                Map.of(
+                        "fs.native-azure.enabled", "false",
+                        "fs.native-s3.enabled", "false",
+                        "fs.native-gcs.enabled", "false",
+                        "fs.native-local.enabled", "true"));
     }
 }

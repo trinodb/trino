@@ -14,7 +14,6 @@
 package io.trino.decoder.protobuf;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 public class ProtobufColumnDecoder
 {
     // Trino JSON types are expected to be sorted by key
-    private static final ObjectMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
+    private static final JsonMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
     private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
 
@@ -117,19 +116,16 @@ public class ProtobufColumnDecoder
             return true;
         }
 
-        if (type instanceof ArrayType) {
-            checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
-            return isSupportedType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            return isSupportedType(arrayType.getElementType());
         }
 
-        if (type instanceof MapType) {
-            List<Type> typeParameters = type.getTypeParameters();
-            checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
-            return isSupportedType(typeParameters.get(0)) && isSupportedType(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            return isSupportedType(mapType.getKeyType()) && isSupportedType(mapType.getValueType());
         }
 
-        if (type instanceof RowType) {
-            for (Type fieldType : type.getTypeParameters()) {
+        if (type instanceof RowType rowType) {
+            for (Type fieldType : rowType.getFieldTypes()) {
                 if (!isSupportedType(fieldType)) {
                     return false;
                 }
@@ -142,7 +138,7 @@ public class ProtobufColumnDecoder
 
     private static boolean isSupportedPrimitive(Type type)
     {
-        return (type instanceof TimestampType && ((TimestampType) type).isShort()) ||
+        return (type instanceof TimestampType timestampType && timestampType.isShort()) ||
                 type instanceof VarcharType ||
                 SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }

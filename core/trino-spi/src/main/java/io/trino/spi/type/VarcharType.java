@@ -21,7 +21,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
@@ -34,6 +33,8 @@ import static java.util.Collections.singletonList;
 public final class VarcharType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "varchar";
+
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
@@ -76,8 +77,8 @@ public final class VarcharType
     {
         super(
                 new TypeSignature(
-                        StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter(length))),
+                        NAME,
+                        singletonList(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -108,6 +109,12 @@ public final class VarcharType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME + (isUnbounded() ? "" : "(" + length + ")");
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;
@@ -126,7 +133,7 @@ public final class VarcharType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

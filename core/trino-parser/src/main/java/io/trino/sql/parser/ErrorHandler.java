@@ -44,7 +44,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.logging.Level.SEVERE;
 import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
 
@@ -81,8 +81,8 @@ class ErrorHandler
                 currentToken = e.getOffendingToken();
                 context = e.getCtx();
 
-                if (e instanceof NoViableAltException) {
-                    currentToken = ((NoViableAltException) e).getStartToken();
+                if (e instanceof NoViableAltException noViableAltException) {
+                    currentToken = noViableAltException.getStartToken();
                 }
             }
             else {
@@ -148,7 +148,7 @@ class ErrorHandler
         {
             Token token = parser.getTokenStream().get(tokenIndex);
 
-            String text = firstNonNull(token.getText(), "?");
+            String text = requireNonNullElse(token.getText(), "?");
             if (text != null) {
                 text = text.replace("\\", "\\\\");
                 text = text.replace("\n", "\\n");
@@ -299,8 +299,8 @@ class ErrorHandler
                             activeStates.push(new ParsingState(ruleTransition.followState, endToken, suppressed && endToken == currentToken, parser));
                         }
                     }
-                    else if (transition instanceof PrecedencePredicateTransition) {
-                        if (precedence < ((PrecedencePredicateTransition) transition).precedence) {
+                    else if (transition instanceof PrecedencePredicateTransition precedencePredicateTransition) {
+                        if (precedence < precedencePredicateTransition.precedence) {
                             activeStates.push(new ParsingState(transition.target, tokenIndex, suppressed, parser));
                         }
                     }

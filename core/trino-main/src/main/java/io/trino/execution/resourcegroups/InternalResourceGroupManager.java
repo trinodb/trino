@@ -79,7 +79,7 @@ public final class InternalResourceGroupManager<C>
     private final ResourceGroupConfigurationManager<?> legacyManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
-    private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
+    private final AtomicLong lastQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
 
@@ -104,14 +104,6 @@ public final class InternalResourceGroupManager<C>
         InternalResourceGroup resourceGroup = groups.get(id);
         return Optional.ofNullable(resourceGroup)
                 .map(InternalResourceGroup::getFullInfo);
-    }
-
-    @Override
-    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
-    {
-        InternalResourceGroup resourceGroup = groups.get(id);
-        return Optional.ofNullable(resourceGroup)
-                .map(InternalResourceGroup::getPathToRoot);
     }
 
     @Override
@@ -202,19 +194,19 @@ public final class InternalResourceGroupManager<C>
     private void refreshAndStartQueries()
     {
         long nanoTime = System.nanoTime();
-        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastCpuQuotaGenerationNanos.get());
+        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastQuotaGenerationNanos.get());
         if (elapsedSeconds > 0) {
-            // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
-            lastCpuQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
+            // Only advance our clock on second boundaries to avoid calling generateQuotas() too frequently, and because it would be a no-op for zero seconds.
+            lastQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
         }
         else if (elapsedSeconds < 0) {
             // nano time has overflowed
-            lastCpuQuotaGenerationNanos.set(nanoTime);
+            lastQuotaGenerationNanos.set(nanoTime);
         }
         for (InternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
-                    group.generateCpuQuota(elapsedSeconds);
+                    group.generateQuotas(elapsedSeconds);
                 }
             }
             catch (RuntimeException e) {
@@ -229,36 +221,44 @@ public final class InternalResourceGroupManager<C>
         }
     }
 
-    private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
+    private void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
         ResourceGroupId id = context.getResourceGroupId();
         InternalResourceGroup currentGroup = groups.get(id);
-        if (currentGroup == null) {
-            InternalResourceGroup group;
-            if (id.getParent().isPresent()) {
-                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
-                InternalResourceGroup parent = groups.get(id.getParent().get());
-                requireNonNull(parent, "parent is null");
-                group = parent.getOrCreateSubGroup(id.getLastSegment());
-            }
-            else {
-                InternalResourceGroup root = new InternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
-                group = root;
-                rootGroups.add(root);
-            }
-            configurationManager.get().configure(group, context);
-            checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+
+        if (currentGroup != null && !currentGroup.isDisabled()) {
+            return;
         }
-        else if (currentGroup.isDisabled()) {
-            if (id.getParent().isPresent()) {
-                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
-                InternalResourceGroup parent = groups.get(id.getParent().get());
-                requireNonNull(parent, "parent is null");
-                InternalResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment());
-                checkState(group == currentGroup, "Unexpected resource group instance");
+
+        synchronized (this) {
+            currentGroup = groups.get(id);
+            if (currentGroup == null) {
+                InternalResourceGroup group;
+                if (id.getParent().isPresent()) {
+                    createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
+                    InternalResourceGroup parent = groups.get(id.getParent().get());
+                    requireNonNull(parent, "parent is null");
+                    group = parent.getOrCreateSubGroup(id.getLastSegment());
+                }
+                else {
+                    InternalResourceGroup root = new InternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                    group = root;
+                    rootGroups.add(root);
+                }
+                configurationManager.get().configure(group, context);
+                checkState(groups.put(id, group) == null, "Unexpected existing resource group");
             }
-            configurationManager.get().configure(currentGroup, context);
-            currentGroup.setDisabled(false);
+            else if (currentGroup.isDisabled()) {
+                if (id.getParent().isPresent()) {
+                    createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
+                    InternalResourceGroup parent = groups.get(id.getParent().get());
+                    requireNonNull(parent, "parent is null");
+                    InternalResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment());
+                    checkState(group == currentGroup, "Unexpected resource group instance");
+                }
+                configurationManager.get().configure(currentGroup, context);
+                currentGroup.setDisabled(false);
+            }
         }
     }
 

@@ -13,12 +13,13 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -41,9 +42,10 @@ public class TestMongoTableHandle
 
     public TestMongoTableHandle()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(MongoTableHandle.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        codec = new JsonCodecFactory(jsonMapper).jsonCodec(MongoTableHandle.class);
     }
 
     @Test

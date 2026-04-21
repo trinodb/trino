@@ -14,23 +14,28 @@
 package io.trino.type;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractLongType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 public final class IntervalDayTimeType
         extends AbstractLongType
 {
+    public static final String NAME = "interval day to second";
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
 
     private IntervalDayTimeType()
     {
-        super(new TypeSignature(StandardTypes.INTERVAL_DAY_TO_SECOND));
+        super(new TypeSignature(NAME));
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

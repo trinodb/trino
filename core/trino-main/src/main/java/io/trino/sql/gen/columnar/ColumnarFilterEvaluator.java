@@ -14,8 +14,8 @@
 package io.trino.sql.gen.columnar;
 
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
@@ -33,13 +33,13 @@ public final class ColumnarFilterEvaluator
     }
 
     @Override
-    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page)
+    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
         if (activePositions.isEmpty()) {
             return new SelectionResult(activePositions, 0);
         }
         // Should load only the blocks necessary for evaluating the kernel and unwrap lazy blocks
-        Page loadedPage = filter.getInputChannels().getInputChannels(page);
+        SourcePage loadedPage = filter.getInputChannels().getInputChannels(page);
         if (outputPositions.length < activePositions.size()) {
             outputPositions = new int[activePositions.size()];
         }

@@ -35,8 +35,8 @@ public class HostAddressFactory
     public HostAddress toHostAddress(Node node)
     {
         SocketAddress address = node.getEndPoint().resolve();
-        if (address instanceof InetSocketAddress) {
-            return toHostAddress(((InetSocketAddress) address).getAddress().getHostAddress());
+        if (address instanceof InetSocketAddress inetSocketAddress) {
+            return toHostAddress(inetSocketAddress.getAddress().getHostAddress());
         }
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,

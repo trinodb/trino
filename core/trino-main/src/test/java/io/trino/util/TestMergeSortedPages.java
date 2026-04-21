@@ -323,7 +323,7 @@ public class TestMergeSortedPages
                 ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types)
                         .row(1)
                         .build())),
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
                 (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
@@ -358,7 +358,7 @@ public class TestMergeSortedPages
         List<Type> types = ImmutableList.of(INTEGER);
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
                 ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types).build())),
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
                 (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
@@ -381,7 +381,10 @@ public class TestMergeSortedPages
         List<WorkProcessor<Page>> pageProducers = sortedPages.stream()
                 .map(WorkProcessor::fromIterable)
                 .collect(toImmutableList());
-        PageWithPositionComparator comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrder, TYPE_OPERATORS_CACHE);
+        List<Type> sortTypes = sortChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
+        PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrder, TYPE_OPERATORS_CACHE);
 
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newAggregatedMemoryContext();
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(

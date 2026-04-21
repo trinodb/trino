@@ -13,9 +13,8 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HexFormat;
 
 import static java.lang.Math.min;
@@ -42,7 +41,6 @@ public final class SqlVarbinary
         return Arrays.compare(bytes, obj.bytes);
     }
 
-    @JsonValue
     public byte[] getBytes()
     {
         return bytes;
@@ -69,6 +67,11 @@ public final class SqlVarbinary
 
     @Override
     public String toString()
+    {
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public String toHexString()
     {
         if (bytes.length == 0) {
             return "";

@@ -16,7 +16,7 @@ package io.trino.security;
 import io.trino.spi.connector.ConnectorAccessControl;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestInjectedConnectorAccessControl
 {

@@ -17,13 +17,14 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
-import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSession;
+
+import java.time.Duration;
 
 import static java.lang.Math.pow;
 import static java.util.Objects.requireNonNull;
-import static org.threeten.bp.temporal.ChronoUnit.MILLIS;
 
 public class RetryOptionsConfigurer
         implements BigQueryOptionsConfigurer
@@ -38,8 +39,8 @@ public class RetryOptionsConfigurer
     {
         requireNonNull(rpcConfig, "rpcConfig is null");
         this.retries = rpcConfig.getRetries();
-        this.timeout = rpcConfig.getTimeout();
-        this.retryDelay = rpcConfig.getRetryDelay();
+        this.timeout = rpcConfig.getTimeout().toJavaTime();
+        this.retryDelay = rpcConfig.getRetryDelay().toJavaTime();
         this.retryMultiplier = rpcConfig.getRetryMultiplier();
     }
 
@@ -77,16 +78,17 @@ public class RetryOptionsConfigurer
         }
     }
 
-    private RetrySettings retrySettings()
+    @VisibleForTesting
+    RetrySettings retrySettings()
     {
         long maxDelay = retryDelay.toMillis() * (long) pow(retryMultiplier, retries);
 
         return RetrySettings.newBuilder()
                 .setMaxAttempts(retries)
-                .setTotalTimeout(org.threeten.bp.Duration.of(timeout.toMillis(), MILLIS))
-                .setInitialRetryDelay(org.threeten.bp.Duration.of(retryDelay.toMillis(), MILLIS))
+                .setTotalTimeoutDuration(timeout)
+                .setInitialRetryDelayDuration(retryDelay)
                 .setRetryDelayMultiplier(retryMultiplier)
-                .setMaxRetryDelay(org.threeten.bp.Duration.of(maxDelay, MILLIS))
+                .setMaxRetryDelayDuration(Duration.ofMillis(maxDelay))
                 .build();
     }
 }

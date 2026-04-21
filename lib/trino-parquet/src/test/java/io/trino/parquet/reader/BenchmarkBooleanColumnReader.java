@@ -83,7 +83,7 @@ public class BenchmarkBooleanColumnReader
         return batch;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkBooleanColumnReader.class);

@@ -149,11 +149,7 @@ public class RangerSystemAccessControl
         }
 
         UserGroupInformation.setConfiguration(hadoopConf);
-        RangerPluginConfig pluginConfig = new RangerPluginConfig(RANGER_TRINO_SERVICETYPE, config.getServiceName(), RANGER_TRINO_APPID, null, null, null);
-
-        for (File configPath : config.getPluginConfigResource()) {
-            pluginConfig.addResourceIfReadable(configPath.getAbsolutePath());
-        }
+        RangerPluginConfig pluginConfig = new RangerPluginConfig(RANGER_TRINO_SERVICETYPE, config.getServiceName(), RANGER_TRINO_APPID, null, null, config.getPluginConfigResource(), null);
 
         rangerPlugin = new RangerBasePlugin(pluginConfig);
         rangerPlugin.init();
@@ -180,7 +176,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
-        if (!hasPermission(RangerTrinoResource.forQueryId(queryId.getId()), identity, queryId, EXECUTE, "ExecuteQuery")) {
+        if (!hasPermission(RangerTrinoResource.forQueryId(queryId.id()), identity, queryId, EXECUTE, "ExecuteQuery")) {
             denyExecuteQuery();
         }
     }
@@ -658,84 +654,52 @@ public class RangerSystemAccessControl
     }
 
     @Override
-    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee, boolean withGrantOption)
-    {
-    }
+    public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee, boolean withGrantOption) {}
 
     @Override
-    public void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal revokee, boolean grantOptionFor)
-    {
-    }
+    public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal revokee, boolean grantOptionFor) {}
 
     @Override
-    public void checkCanGrantEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenyEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenyEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeEntityPrivilege(SystemSecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanDropRole(SystemSecurityContext context, String role)
-    {
-    }
+    public void checkCanDropRole(SystemSecurityContext context, String role) {}
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context)
-    {
-    }
+    public void checkCanShowRoles(SystemSecurityContext context) {}
 
     @Override
-    public void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanGrantRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanRevokeRoles(SystemSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanShowCurrentRoles(SystemSecurityContext context)
-    {
-    }
+    public void checkCanShowCurrentRoles(SystemSecurityContext context) {}
 
     @Override
-    public void checkCanShowRoleGrants(SystemSecurityContext context)
-    {
-    }
+    public void checkCanShowRoleGrants(SystemSecurityContext context) {}
 
     @Override
     public void checkCanExecuteProcedure(SystemSecurityContext context, CatalogSchemaRoutineName procedure)
@@ -803,7 +767,7 @@ public class RangerSystemAccessControl
         Set<SchemaFunctionName> toExclude = new HashSet<>();
 
         for (SchemaFunctionName functionName : functionNames) {
-            RangerTrinoResource resource = RangerTrinoResource.forSchemaFunction(catalogName, functionName.getSchemaName(), functionName.getFunctionName());
+            RangerTrinoResource resource = RangerTrinoResource.forSchemaFunction(catalogName, functionName.schemaName(), functionName.functionName());
 
             if (!hasPermissionForFilter(resource, context, _ANY, "filterFunctions")) {
                 toExclude.add(functionName);
@@ -920,22 +884,22 @@ public class RangerSystemAccessControl
 
     private Optional<String> getClientAddress(QueryId queryId)
     {
-        return queryId != null ? eventListener.getClientAddress(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getClientAddress(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getClientType(QueryId queryId)
     {
-        return queryId != null ? eventListener.getClientType(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getClientType(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getQueryText(QueryId queryId)
     {
-        return queryId != null ? eventListener.getQueryText(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getQueryText(queryId.id()) : Optional.empty();
     }
 
     private Optional<Instant> getQueryTime(QueryId queryId)
     {
-        return queryId != null ? eventListener.getQueryTime(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getQueryTime(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getClientAddress(SystemSecurityContext context)

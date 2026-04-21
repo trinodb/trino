@@ -19,13 +19,11 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -54,7 +52,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 class TestFlatHashStrategy
 {
@@ -62,7 +59,7 @@ class TestFlatHashStrategy
     private static final int VARIABLE_CHUNK_OFFSET = 17;
 
     private final TypeOperators typeOperators = new TypeOperators();
-    private final FlatHashStrategyCompiler compiler = new FlatHashStrategyCompiler(typeOperators);
+    private final FlatHashStrategyCompiler compiler = new FlatHashStrategyCompiler(typeOperators, new NullSafeHashCompiler(typeOperators));
 
     @Test
     void test()
@@ -87,12 +84,12 @@ class TestFlatHashStrategy
                 assertThat(fixedChunk).startsWith(new byte[FIXED_CHUNK_OFFSET]);
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);
 
-                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk)).isEqualTo(manualHash(types, blocks, position));
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
+                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET)).isEqualTo(manualHash(types, blocks, position));
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, position)).isTrue();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, 3)).isFalse();
 
                 BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
-                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
+                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));
                 Page expectedPage = new Page(blocks).getSingleValuePage(position);
@@ -102,35 +99,24 @@ class TestFlatHashStrategy
     }
 
     @Test
-    void testBatchedRawHashesZeroLength()
-    {
-        List<Type> types = createTestingTypes(typeOperators);
-        FlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(types);
-
-        int positionCount = 10;
-        // Attempting to touch any of the blocks would result in a NullPointerException
-        assertThatCode(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
     void testBatchedRawHashesMatchSinglePositionHashes()
     {
         List<Type> types = createTestingTypes(typeOperators);
         FlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(types);
+        InterpretedHashGenerator hashGenerator = compiler.getInterpretedHashGenerator(types);
 
         int positionCount = 1024;
         Block[] blocks = createRandomData(types, positionCount, 0.25f);
 
         long[] hashes = new long[positionCount];
-        flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
+        hashGenerator.hashBlocksBatched(blocks, hashes, 0, positionCount);
         assertHashesEqual(types, blocks, hashes, flatHashStrategy);
 
         // Convert all blocks to RunLengthEncoded and re-check results match
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(0), positionCount);
         }
-        flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
+        hashGenerator.hashBlocksBatched(blocks, hashes, 0, positionCount);
         assertHashesEqual(types, blocks, hashes, flatHashStrategy);
 
         // Ensure the formatting logic produces a real string and doesn't blow up since otherwise this code wouldn't be exercised
@@ -224,14 +210,13 @@ class TestFlatHashStrategy
 
     private static String singleRowTypesAndValues(List<Type> types, Block[] blocks, int position)
     {
-        ConnectorSession connectorSession = TestingSession.testSessionBuilder().build().toConnectorSession();
         StringBuilder builder = new StringBuilder();
         int column = 0;
         for (Type type : types) {
             builder.append("\n\t");
             builder.append(type);
             builder.append(": ");
-            builder.append(type.getObjectValue(connectorSession, blocks[column], position));
+            builder.append(type.getObjectValue(blocks[column], position));
             column++;
         }
         return builder.toString();

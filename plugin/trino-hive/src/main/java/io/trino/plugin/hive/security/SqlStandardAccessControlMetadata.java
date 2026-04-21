@@ -125,11 +125,11 @@ public class SqlStandardAccessControlMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        // Hive does not support the CREATE privilege, so ignore. Normally we would throw
+        // Hive does not support the CREATE (BRANCH) privilege, so ignore. Normally we would throw
         // an error for this, but when the Trino engine sees ALL_PRIVILEGES, it sends the
         // enumerated list of privileges instead of an Optional.empty
         privileges = privileges.stream()
-                .filter(not(Privilege.CREATE::equals))
+                .filter(not(Privilege.CREATE::equals).and(not(Privilege.CREATE_BRANCH::equals)))
                 .collect(toImmutableSet());
 
         metastore.grantTablePrivileges(
@@ -153,7 +153,7 @@ public class SqlStandardAccessControlMetadata
         // an error for this, but when the Trino engine sees ALL_PRIVILEGES, it sends the
         // enumerated list of privileges instead of an Optional.empty
         privileges = privileges.stream()
-                .filter(not(Privilege.CREATE::equals))
+                .filter(not(Privilege.CREATE::equals).and(not(Privilege.CREATE_BRANCH::equals)))
                 .collect(toImmutableSet());
 
         metastore.revokeTablePrivileges(

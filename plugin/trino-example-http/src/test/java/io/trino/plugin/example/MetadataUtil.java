@@ -13,25 +13,18 @@
  */
 package io.trino.plugin.example;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import io.trino.spi.type.StandardTypes;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
+import io.trino.type.TypeDeserializer;
 
 import java.util.List;
 import java.util.Map;
 
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class MetadataUtil
 {
@@ -42,37 +35,11 @@ public final class MetadataUtil
     public static final JsonCodec<ExampleColumnHandle> COLUMN_CODEC;
 
     static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
-        JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
+        JsonCodecFactory codecFactory = new JsonCodecFactory(new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get());
         CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(ExampleTable.class));
         TABLE_CODEC = codecFactory.jsonCodec(ExampleTable.class);
         COLUMN_CODEC = codecFactory.jsonCodec(ExampleColumnHandle.class);
-    }
-
-    public static final class TestingTypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BOOLEAN, BOOLEAN,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.INTEGER, INTEGER,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, createUnboundedVarcharType());
-
-        public TestingTypeDeserializer()
-        {
-            super(Type.class);
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = types.get(value.toLowerCase(ENGLISH));
-            if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
-            }
-            return type;
-        }
     }
 }

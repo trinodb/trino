@@ -81,7 +81,7 @@ public class PushDownDereferencesThroughWindow
         // Extract dereferences for pushdown
         Set<FieldReference> dereferences = extractRowSubscripts(
                 ImmutableList.<Expression>builder()
-                        .addAll(projectNode.getAssignments().getExpressions())
+                        .addAll(projectNode.getAssignments().expressions())
                         // also include dereference projections used in window functions
                         .addAll(windowNode.getWindowFunctions().values().stream()
                                 .flatMap(function -> function.getArguments().stream())
@@ -109,7 +109,7 @@ public class PushDownDereferencesThroughWindow
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
@@ -144,7 +144,6 @@ public class PushDownDereferencesThroughWindow
                                                             oldFunction.isIgnoreNulls(),
                                                             oldFunction.isDistinct());
                                                 })),
-                                windowNode.getHashSymbol(),
                                 windowNode.getPrePartitionedInputs(),
                                 windowNode.getPreSortedOrderPrefix()),
                         newAssignments));

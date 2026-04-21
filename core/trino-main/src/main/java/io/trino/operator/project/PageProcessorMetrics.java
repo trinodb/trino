@@ -35,6 +35,7 @@ public class PageProcessorMetrics
     private boolean hasProjection;
     private long dynamicFilterTimeNanos;
     private long dynamicFilterOutputPositions;
+    private boolean hasDynamicFilter;
 
     public void recordFilterTime(long filterTimeNanos)
     {
@@ -46,6 +47,7 @@ public class PageProcessorMetrics
     {
         dynamicFilterTimeNanos += filterTimeNanos;
         dynamicFilterOutputPositions += outputPositions;
+        hasDynamicFilter = true;
     }
 
     public void recordProjectionTime(long projectionTimeNanos)
@@ -56,11 +58,14 @@ public class PageProcessorMetrics
 
     public Metrics getMetrics()
     {
-        ImmutableMap.Builder<String, Metric<?>> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Metric<?>> builder = ImmutableMap.builderWithExpectedSize(
+                (hasFilter ? 1 : 0) +
+                (hasDynamicFilter ? 2 : 0) +
+                (hasProjection ? 1 : 0));
         if (hasFilter) {
             builder.put(FILTER_TIME, new DurationTiming(new Duration(filterTimeNanos, NANOSECONDS)));
         }
-        if (dynamicFilterOutputPositions > 0) {
+        if (hasDynamicFilter) {
             builder.put(DYNAMIC_FILTER_TIME, new DurationTiming(new Duration(dynamicFilterTimeNanos, NANOSECONDS)));
             builder.put(DYNAMIC_FILTER_OUTPUT_POSITIONS, new LongCount(dynamicFilterOutputPositions));
         }

@@ -8,7 +8,7 @@ column-masking, row-filtering and audit logging.
 ## Requirements
 
 * Access to a Apache Ranger deployment with the desired authorization policies.
-* Access to an audit store using Solr, HDFS, Log4J, or S3 to save audit logs.
+* Access to an audit store using Solr, HDFS, Log4J, Elasticsearch, or S3 to save audit logs.
 * Apache Ranger 2.5.0 and greater include the required Trino service definition.
   Earlier versions of Apache Ranger require an [update to the service definition
   available on
@@ -25,17 +25,7 @@ access-control.name=ranger
 ```
 
 To combine Ranger access control with file-based or other access control
-systems, create the file `etc/access-control.properties` on the coordinator,
-with the following configuration that lists multiple access control
-configuration file paths:
-
-```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/ranger.properties
-```
-
-Order the configuration files list in the desired order of the different systems
-for overall access control. Configure each access-control system in the
-specified files.
+systems, follow the instructions about [](multiple-access-control).
 
 The following table lists the configuration properties for the Ranger access control:
 
@@ -95,6 +85,30 @@ The following table lists the configuration properties for the Ranger access con
     <value></value>
     <description>Comma separated list of group names. Users in supergroups will be authorized for all accesses, without requiring explicit policy grants</description>
   </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.initialize</name>
+    <value>false</value>
+    <description>Initialize the kerberos identity used to authenticate with Ranger admin server</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.login.type</name>
+    <value></value>
+    <description>Valid value: keytab</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.keytab.principal</name>
+    <value></value>
+    <description>Kerberos principal. Example: trino@EXAMPLE.COM</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.keytab.file</name>
+    <value></value>
+    <description>Location of keytab file. Example: /etc/trino/trino.keytab</description>
+  </property>
 </configuration>
 ```
 
@@ -120,6 +134,49 @@ The following table lists the configuration properties for the Ranger access con
     <value></value>
     <description>URL to Solr deployment where the plugin should send access audits to</description>
   </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch</name>
+    <value>disabled</value>
+    <description>Is es audit enabled? Allowed values to enable: enable, enabled, true</description>
+  </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.urls</name>
+    <value>host1,host2</value>
+    <description>Comma (,) separated list of es hosts.</description>
+  </property>
+  
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.index</name>
+    <value>ranger_audits_write</value>
+    <description>The index to write audits to. Default: ranger_audits</description>
+  </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.port</name>
+    <value>9200</value>
+    <description>The port for es. Default: 9200</description>
+  </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.protocol</name>
+    <value>http</value>
+    <description>The http protocol to use during communication. Default: http</description>
+  </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.user</name>
+    <value>write_user</value>
+    <description>The username to authenticate towards es.</description>
+  </property>
+
+  <property>
+    <name>xasecure.audit.destination.elasticsearch.password</name>
+    <value>changeme</value>
+    <description>The password to authenticate towards es.</description>
+  </property>
+
 </configuration>
 ```
 
@@ -169,13 +226,44 @@ The following table lists the configuration properties for the Ranger access con
 
 ## Required policies
 
-* Users must have permission to execute queries in Trino. Without a policy in
-  Apache Ranger to grant this permission, users are not be able to execute any
-  query.
-  * To allow this, create a policy in Apache Ranger for a `queryId` resource
-    with a value `*` and with the `execute` permission for the user `{USER}`.
-* Users must have permission to impersonate themselves in Trino. Without a
-  policy in Apache Ranger to grant this permission, users are not able to
-  execute any query.
-  * To allow this, create a policy in Apache Ranger for a `trinouser` resource
-    with value `{USER}` and with the `impersonate` permission for user `{USER}`.
+:::{list-table}
+:widths: 52, 22, 10, 16
+:header-rows: 1
+
+* - Description
+  - Resource
+  - User
+  - Permission(s)
+* - Users must have permission to execute queries in Trino. Without a policy in
+    Apache Ranger to grant this permission, users are not able to execute any
+    query.
+  - Query ID `*`
+  - `{USER}`
+  - `execute`
+* - Users must have permission to impersonate themselves in Trino. Without a
+    policy in Apache Ranger to grant this permission, users are not able to
+    execute any query.
+  - Trino User `{USER}`
+  - `{USER}`
+  - `impersonate`
+* - External clients can use the `system.runtime.kill_query()` procedure to
+    kill running queries.
+  - Schema `system`
+    Database `runtime`
+    Procedure `kill_query`
+  - `{USER}`
+  - `execute`
+* - (Optional) In order to perform a graceful shutdown of a worker, a separate 
+    user can be created. Note that it is possible to set up an
+    additional {doc}`password file <password-file>` authentication for this.
+  - System Information
+  - Any
+  - `write_sysinfo`
+* - (Optional) In order to retrieve metrics from the `/metrics` endpoint, a 
+    special user can be created. Note that it is possible to set up an 
+    additional {doc}`password file <password-file>` authentication for this.
+  - System Information
+  - Any
+  - `read_sysinfo`
+
+:::

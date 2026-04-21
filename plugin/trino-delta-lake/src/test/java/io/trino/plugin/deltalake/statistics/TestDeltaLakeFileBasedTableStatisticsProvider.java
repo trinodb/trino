@@ -14,18 +14,24 @@
 package io.trino.plugin.deltalake.statistics;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ColumnHandle;
@@ -50,9 +56,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -68,6 +76,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR, Optional.empty());
 
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statistics;
     private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
@@ -80,15 +89,19 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
+        transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()));
+
         transactionLogAccess = new TransactionLogAccess(
                 typeManager,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
-                HDFS_FILE_SYSTEM_FACTORY,
-                new ParquetReaderConfig());
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
+                new ParquetReaderConfig(),
+                newDirectExecutorService(),
+                transactionLogReaderFactory);
 
-        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
+        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()), new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
                 transactionLogAccess,
@@ -106,12 +119,12 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, HDFS_FILE_SYSTEM_FACTORY.create(SESSION), tableSnapshot);
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
@@ -121,9 +134,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 TupleDomain.all(),
                 TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 0,
@@ -253,10 +264,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.withColumnDomains(ImmutableMap.of((DeltaLakeColumnHandle) COLUMN_HANDLE, Domain.singleValue(DOUBLE, 42.0))),
-                tableHandle.getWriteType(),
+                tableHandle.isMerge(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());
@@ -279,10 +288,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProtocolEntry(),
                 TupleDomain.none(),
                 TupleDomain.all(),
-                tableHandle.getWriteType(),
+                tableHandle.isMerge(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());
@@ -295,10 +302,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getProtocolEntry(),
                 TupleDomain.all(),
                 TupleDomain.none(),
-                tableHandle.getWriteType(),
+                tableHandle.isMerge(),
                 tableHandle.getProjectedColumns(),
-                tableHandle.getUpdatedColumns(),
-                tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
                 tableHandle.isTimeTravel());
@@ -319,15 +324,27 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     public void testStatisticsParquetParsedStatistics()
     {
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
-        DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics");
-        ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
+        DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics")
+                .withProjectedColumns(ImmutableSet.<DeltaLakeColumnHandle>builder()
+                        .add(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR, Optional.empty()))
+                        .build());
+
+        ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(new DeltaLakeSessionProperties(
-                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
+                        new DeltaLakeConfig(),
                         new ParquetReaderConfig(),
                         new ParquetWriterConfig())
                         .getSessionProperties())
                 .build();
-        TableStatistics stats = getTableStatistics(activeDataFileCacheSession, tableHandle);
+        TableStatistics stats = getTableStatistics(session, tableHandle);
         assertThat(stats.getRowCount()).isEqualTo(Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
@@ -462,19 +479,18 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        TableStatistics tableStatistics = tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
-        return tableStatistics;
+        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
     }
 
     private Optional<ExtendedStatistics> readExtendedStatisticsFromTableResource(String tableLocationResourceName)
     {
         SchemaTableName name = new SchemaTableName("some_ignored_schema", "some_ignored_name");
         String tableLocation = Resources.getResource(tableLocationResourceName).toExternalForm();
-        return statistics.readExtendedStatistics(SESSION, name, tableLocation);
+        return statistics.readExtendedStatistics(SESSION, name, tableLocation, VendedCredentialsHandle.empty(tableLocation));
     }
 }

@@ -1,26 +1,16 @@
 # SPI overview
 
-When you implement a new Trino plugin, you implement interfaces and
-override methods defined by the Service Provider Interface (SPI).
+Trino uses a plugin architecture to extend its capabilities and integrate with
+various data sources and other systems. Plugins must implement the interfaces
+and override methods defined by the Service Provider Interface (SPI).
 
-Plugins can provide additional:
+General user information about plugins is available in the [Plugin
+documentation](/installation/plugins), and specific details are documented in
+dedicated pages about each plugin.
 
-- {doc}`connectors`,
-- block encodings,
-- {doc}`types`,
-- {doc}`functions`,
-- {doc}`system-access-control`,
-- {doc}`group-provider`,
-- {doc}`password-authenticator`,
-- {doc}`header-authenticator`,
-- {doc}`certificate-authenticator`,
-- {doc}`event-listener`,
-- resource group configuration managers,
-- session property configuration managers,
-- and exchange managers.
-
-In particular, connectors are the source of all data for queries in
-Trino: they back each catalog available to Trino.
+This section details plugin development including specific pages for
+capabilities of different plugins. A custom plugin enables you to add further
+features to Trino, such as a connector for another data source.
 
 ## Code
 
@@ -89,25 +79,55 @@ For an example `pom.xml` file, see the example HTTP connector in the
 
 ## Deploying a custom plugin
 
-Because Trino plugins use the `trino-plugin` packaging type, building
-a plugin will create a ZIP file in the `target` directory. This file
-contains the plugin JAR and all its dependencies JAR files.
+Trino plugins must use the `trino-plugin` Maven packaging type provided by the
+[trino-maven-plugin](https://github.com/trinodb/trino-maven-plugin). Building a
+plugin generates the required service descriptor and invokes
+[Provisio](https://github.com/jvanzyl/provisio) to create a ZIP file in the
+`target` directory. The file contains the plugin JAR and all its dependencies as
+JAR files, and is suitable for [plugin installation](plugins-installation).
 
-In order to add a custom plugin to a Trino installation, extract the plugin
-ZIP file and move the extracted directory into the Trino plugin directory.
-For example, for a plugin called `my-functions`, with a version of 1.0,
-you would extract `my-functions-1.0.zip` and then move `my-functions-1.0`
-to `my-functions` in the Trino plugin directory.
+(spi-compatibility)=
+## Compatibility
 
-:::{note}
-Every Trino plugin should be in a separate directory. Do not put JAR files
-directly into the `plugin` directory. Plugins should only contain JAR files,
-so any subdirectories will not be traversed and will be ignored.
-:::
+Successful [download](plugins-download), [installation](plugins-installation),
+and use of a plugin depends on compatibility of the plugin with the target Trino
+cluster. Full compatibility is only guaranteed when using the same Trino version
+used for the plugin build and the deployment, and therefore using the same
+version is recommended.
 
-By default, the plugin directory is the `plugin` directory relative to the
-directory in which Trino is installed, but it is configurable using the
-configuration variable `plugin.dir`. In order for Trino to pick up
-the new plugin, you must restart Trino.
+For example, a Trino plugin compiled for Trino 470 may not work with older or
+newer versions of Trino such as Trino 430 or Trino 490. This is specifically
+important when installing plugins from other projects, vendors, or your custom
+development. 
 
-Plugins must be installed on all nodes in the Trino cluster (coordinator and workers).
+Trino plugins implement the SPI, which may change with every Trino release.
+There are no runtime checks for SPI compatibility by default, and it is up to
+the plugin author to verify compatibility using runtime testing. 
+
+If the source code of a plugin is available, you can confirm the Trino version
+by inspecting the `pom.xml`. A plugin must declare a dependency to the SPI, and
+therefore compatibility with the Trino release specified in the `version` tag:
+
+```xml
+<dependency>
+    <groupId>io.trino</groupId>
+    <artifactId>trino-spi</artifactId>
+    <version>470</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+A good practice for plugins is to use a property for the version value, which is
+then declared elsewhere in the `pom.xml`:
+
+```xml
+...
+<dep.trino.version>470</dep.trino.version>
+...
+<dependency>
+    <groupId>io.trino</groupId>
+    <artifactId>trino-spi</artifactId>
+    <version>${dep.trino.version}</version>
+    <scope>provided</scope>
+</dependency>
+```

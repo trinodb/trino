@@ -1,0 +1,67 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"money\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is tomorrow\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_01RqSvyUUV8x4oi51FX4apuY\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"{\\\"money\\\": null}\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":76,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":8}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:32Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:32Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "46" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:36Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:32Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122aeedb8426464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:32 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01VqSochJeCRgPpatSLUTmns" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T20:51:32-08:00"
+  }
+}

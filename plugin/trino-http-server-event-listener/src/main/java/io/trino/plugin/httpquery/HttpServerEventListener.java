@@ -24,7 +24,6 @@ import io.trino.cache.SafeCaches;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -35,7 +34,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
@@ -59,7 +57,7 @@ public class HttpServerEventListener
         requireNonNull(config, "http event listener config is null");
         events = SafeCaches.buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(config.getEventBufferSize())
-                .expireAfterWrite(config.getEventTTL().toMillis(), TimeUnit.MILLISECONDS));
+                .expireAfterWrite(config.getEventTTL().toJavaTime()));
     }
 
     @GET
@@ -92,12 +90,6 @@ public class HttpServerEventListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         events.put(queryCompletedEvent.getMetadata().getQueryId(), queryCompletedEvent);
-    }
-
-    @Override
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        // split completion events not supported
     }
 
     @VisibleForTesting

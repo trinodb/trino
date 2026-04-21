@@ -13,7 +13,7 @@
  */
 package io.trino.execution;
 
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.spi.QueryId;
 
 import java.net.URI;

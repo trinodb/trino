@@ -15,7 +15,6 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -492,10 +491,10 @@ public class OrcWriteValidation
             return new WriteChecksumBuilder(readTypes);
         }
 
-        public void addStripe(int rowCount)
+        public void addStripe(long rowCount)
         {
-            longSlice.setInt(0, rowCount);
-            stripeHash.update(longBuffer, 0, Integer.BYTES);
+            longSlice.setLong(0, rowCount);
+            stripeHash.update(longBuffer, 0, Long.BYTES);
         }
 
         public void addPage(Page page)
@@ -670,25 +669,25 @@ public class OrcWriteValidation
                 fieldExtractor = _ -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof ArrayType) {
+            else if (type instanceof ArrayType arrayType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> ImmutableList.of(toColumnarArray(block).getElementsBlock());
-                fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(Iterables.getOnlyElement(type.getTypeParameters())));
+                fieldBuilders = ImmutableList.of(new ColumnStatisticsValidation(arrayType.getElementType()));
             }
-            else if (type instanceof MapType) {
+            else if (type instanceof MapType mapType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = block -> {
                     ColumnarMap columnarMap = toColumnarMap(block);
                     return ImmutableList.of(columnarMap.getKeysBlock(), columnarMap.getValuesBlock());
                 };
-                fieldBuilders = type.getTypeParameters().stream()
-                        .map(ColumnStatisticsValidation::new)
-                        .collect(toImmutableList());
+                fieldBuilders = ImmutableList.of(
+                        new ColumnStatisticsValidation(mapType.getKeyType()),
+                        new ColumnStatisticsValidation(mapType.getValueType()));
             }
-            else if (type instanceof RowType) {
+            else if (type instanceof RowType rowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
-                fieldExtractor = block -> RowBlock.getRowFieldsFromBlock(block.getLoadedBlock());
-                fieldBuilders = type.getTypeParameters().stream()
+                fieldExtractor = RowBlock::getRowFieldsFromBlock;
+                fieldBuilders = rowType.getFieldTypes().stream()
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
             }
@@ -885,7 +884,7 @@ public class OrcWriteValidation
             return this;
         }
 
-        public OrcWriteValidationBuilder addStripe(int rowCount)
+        public OrcWriteValidationBuilder addStripe(long rowCount)
         {
             checksum.addStripe(rowCount);
             return this;

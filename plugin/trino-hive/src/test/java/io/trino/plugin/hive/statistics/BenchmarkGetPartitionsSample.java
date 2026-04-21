@@ -68,7 +68,7 @@ public class BenchmarkGetPartitionsSample
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkGetPartitionsSample.class).run();

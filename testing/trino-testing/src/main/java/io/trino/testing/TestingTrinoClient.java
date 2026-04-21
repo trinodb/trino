@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
@@ -37,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import io.trino.util.variant.VariantWriter;
 import okhttp3.OkHttpClient;
 
 import java.math.BigDecimal;
@@ -64,11 +66,13 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -76,6 +80,7 @@ import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class TestingTrinoClient
@@ -100,6 +105,7 @@ public class TestingTrinoClient
             .append(timestampFormat)
             .appendPattern(" VV")
             .toFormatter();
+    private static final VariantWriter JSON_VARIANT_WRITER = VariantWriter.create(JSON);
 
     public TestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession)
     {
@@ -119,14 +125,14 @@ public class TestingTrinoClient
     @Override
     protected ResultsSession<MaterializedResult> getResultSession(Session session)
     {
-        return new MaterializedResultSession();
+        return new MaterializedResultSession(session);
     }
 
     private class MaterializedResultSession
             implements ResultsSession<MaterializedResult>
     {
+        private final Session session;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
         private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
         private final AtomicReference<String> queryDataEncoding = new AtomicReference<>();
@@ -134,6 +140,11 @@ public class TestingTrinoClient
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
         private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
+
+        public MaterializedResultSession(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         @Override
         public void setUpdateType(String type)
@@ -186,6 +197,7 @@ public class TestingTrinoClient
         {
             checkState(types.get() != null, "never received types for the query");
             return new MaterializedResult(
+                    Optional.of(session),
                     rows.build(),
                     types.get(),
                     columnNames.get(),
@@ -249,6 +261,14 @@ public class TestingTrinoClient
         }
         if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        if (type == NUMBER) {
+            return switch ((String) value) {
+                case "NaN" -> Double.NaN;
+                case "+Infinity" -> Double.POSITIVE_INFINITY;
+                case "-Infinity" -> Double.NEGATIVE_INFINITY;
+                case String string -> new BigDecimal(string);
+            };
         }
         if (type == UUID) {
             return java.util.UUID.fromString((String) value);
@@ -314,6 +334,9 @@ public class TestingTrinoClient
             //noinspection RedundantCast
             return (String) value;
         }
+        if (type == VARIANT) {
+            return JSON_VARIANT_WRITER.write(Slices.utf8Slice((String) value));
+        }
         if (type instanceof ArrayType arrayType) {
             return ((List<?>) value).stream()
                     .map(element -> convertToRowValue(arrayType.getElementType(), element))
@@ -327,8 +350,8 @@ public class TestingTrinoClient
                             convertToRowValue(mapType.getValueType(), v)));
             return result;
         }
-        if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
+        if (type instanceof RowType rowType) {
+            List<Type> fieldTypes = rowType.getFieldTypes();
             List<Object> fieldValues = ((Row) value).getFields().stream()
                     .map(RowField::getValue)
                     .collect(toList()); // nullable

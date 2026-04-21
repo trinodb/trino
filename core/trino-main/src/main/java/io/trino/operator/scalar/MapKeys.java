@@ -21,7 +21,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
-@ScalarFunction("map_keys")
+@ScalarFunction(value = "map_keys", neverFails = true)
 @Description("Returns the keys of the given map(K,V) as an array")
 public final class MapKeys
 {

@@ -37,17 +37,17 @@ public class FlattenLogical
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Logical logical)) {
+        if (!(expression instanceof Logical(Logical.Operator operator, List<Expression> terms))) {
             return Optional.empty();
         }
 
-        if (logical.terms().stream().noneMatch(e -> e instanceof Logical inner && inner.operator() == logical.operator())) {
+        if (terms.stream().noneMatch(e -> e instanceof Logical inner && inner.operator() == operator)) {
             return Optional.empty();
         }
 
-        ImmutableList.Builder<Expression> terms = ImmutableList.builder();
-        flatten(logical.operator(), logical.terms(), terms);
-        return Optional.of(new Logical(logical.operator(), terms.build()));
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        flatten(operator, terms, builder);
+        return Optional.of(new Logical(operator, builder.build()));
     }
 
     private void flatten(Logical.Operator operator, List<Expression> terms, ImmutableList.Builder<Expression> accumulator)

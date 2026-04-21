@@ -14,53 +14,119 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
+import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
+import io.airlift.slice.Slice;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
+import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.sql.relational.CallExpression;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.connector.SourcePage;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.Signature;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
+import io.trino.sql.planner.Symbol;
+import io.trino.transaction.TransactionManager;
+import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.STATIC;
+import static io.airlift.bytecode.Access.a;
+import static io.airlift.bytecode.Parameter.arg;
+import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.slice.Slices.allocate;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.Reflection.constructorMethodHandle;
+import static io.trino.util.Reflection.field;
+import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.insertArguments;
+import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageFunctionCompiler
 {
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final CallExpression ADD_10_EXPRESSION = call(
+    private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
+    private static final Call ADD_10_EXPRESSION = call(
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-            field(0, BIGINT),
-            constant(10L, BIGINT));
+            new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 10L));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()
     {
         PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
 
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty());
+        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
         PageProjection projection = projectionSupplier.get();
 
         // process good page and verify we got the expected number of result rows
-        Page goodPage = createLongBlockPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        Page goodPage = createPageWithDataAtChannel2(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
         Block goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
         assertThat(goodPage.getPositionCount()).isEqualTo(goodResult.getPositionCount());
 
         // addition will throw due to integer overflow
-        Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
+        Page badPage = createPageWithDataAtChannel2(0, 1, 2, 3, 4, Long.MAX_VALUE);
         assertTrinoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 100)))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
@@ -71,41 +137,293 @@ public class TestPageFunctionCompiler
     }
 
     @Test
-    public void testGeneratedClassName()
+    public void testProjectionWithPrivateJavaType()
     {
-        PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
 
-        String planNodeId = "7";
-        String stageId = "20170707_223500_67496_zguwn.2";
-        String classSuffix = stageId + "_" + planNodeId;
-        Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of(classSuffix));
-        PageProjection projection = projectionSupplier.get();
-        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
-        // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
-        assertThat(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId)).isTrue();
+        TransactionManager transactionManager = createTestTransactionManager();
+        PlannerContext plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .addType(hiddenType)
+                .addFunctions(InternalFunctionBundle.builder()
+                        .function(new HiddenFunction("test_hidden_constructor", hiddenType, hiddenFunctions.constructor(), ImmutableList.of()))
+                        .function(new HiddenFunction("test_hidden_identity", hiddenType, hiddenFunctions.identity(), ImmutableList.of(hiddenType)))
+                        .build())
+                .build();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution(transactionManager, plannerContext);
+
+        ResolvedFunction constructor = functionResolution.resolveFunction("test_hidden_constructor", fromTypes());
+        ResolvedFunction identity = functionResolution.resolveFunction("test_hidden_identity", fromTypes(hiddenType));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(call(identity, call(constructor)), ImmutableMap.of(), Optional.empty())
+                .get();
+
+        Page page = createLongBlockPage(0, 1);
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(result.getPositionCount()).isEqualTo(page.getPositionCount());
+        assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+        assertThat(hiddenType.getObjectValue(result, 1)).isEqualTo(42);
     }
 
     @Test
-    public void testCache()
+    public void testTransformWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
+        ArrayType inputArrayType = new ArrayType(BIGINT);
+        ArrayType outputArrayType = new ArrayType(hiddenType);
+        TestingFunctionResolution functionResolution = createFunctionResolution(
+                hiddenType,
+                new HiddenFunction("test_hidden_constructor", hiddenType, hiddenFunctions.constructor(), ImmutableList.of()));
+
+        ResolvedFunction constructor = functionResolution.resolveFunction("test_hidden_constructor", fromTypes());
+        ResolvedFunction transform = functionResolution.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(inputArrayType, new FunctionType(ImmutableList.of(BIGINT), hiddenType)));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(transform,
+                                new Reference(inputArrayType, "$col_0"),
+                                new Lambda(ImmutableList.of(new Symbol(BIGINT, "x")), call(constructor))),
+                        ImmutableMap.of(new Symbol(inputArrayType, "$col_0"), 0),
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleArrayPage(inputArrayType, 1);
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(outputArrayType.getObjectValue(result, 0)).isEqualTo(ImmutableList.of(42));
+    }
+
+    @Test
+    public void testTransformValuesWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
+        MapType inputMapType = new MapType(BIGINT, BIGINT, TYPE_OPERATORS);
+        MapType outputMapType = new MapType(BIGINT, hiddenType, TYPE_OPERATORS);
+        TestingFunctionResolution functionResolution = createFunctionResolution(
+                hiddenType,
+                new HiddenFunction("test_hidden_constructor", hiddenType, hiddenFunctions.constructor(), ImmutableList.of()));
+
+        ResolvedFunction constructor = functionResolution.resolveFunction("test_hidden_constructor", fromTypes());
+        ResolvedFunction transformValues = functionResolution.resolveFunction("transform_values", fromTypes(inputMapType, new FunctionType(ImmutableList.of(BIGINT, BIGINT), hiddenType)));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(transformValues,
+                                new Reference(inputMapType, "$col_0"),
+                                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(BIGINT, "v")), call(constructor))),
+                        ImmutableMap.of(new Symbol(inputMapType, "$col_0"), 0),
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleLongMapPage(inputMapType, 1, 11);
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(outputMapType.getObjectValue(result, 0)).isEqualTo(ImmutableMap.of(1L, 42));
+    }
+
+    @Test
+    public void testTransformKeysWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
+        MapType mapType = new MapType(BIGINT, hiddenType, TYPE_OPERATORS);
+        TestingFunctionResolution functionResolution = createFunctionResolution(hiddenType);
+
+        ResolvedFunction transformKeys = functionResolution.resolveFunction("transform_keys", fromTypes(mapType, new FunctionType(ImmutableList.of(BIGINT, hiddenType), BIGINT)));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(transformKeys,
+                                new Reference(mapType, "$col_0"),
+                                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(hiddenType, "v")), new Reference(BIGINT, "k"))),
+                        ImmutableMap.of(new Symbol(mapType, "$col_0"), 0),
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleHiddenValueMapPage(mapType, hiddenType, 1, createHiddenValue(hiddenFunctions));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(mapType.getObjectValue(result, 0)).isEqualTo(ImmutableMap.of(1L, 42));
+    }
+
+    @Test
+    public void testMapFilterWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
+        MapType mapType = new MapType(BIGINT, hiddenType, TYPE_OPERATORS);
+        TestingFunctionResolution functionResolution = createFunctionResolution(hiddenType);
+
+        ResolvedFunction mapFilter = functionResolution.resolveFunction("map_filter", fromTypes(mapType, new FunctionType(ImmutableList.of(BIGINT, hiddenType), BOOLEAN)));
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(
+                        call(mapFilter,
+                                new Reference(mapType, "$col_0"),
+                                new Lambda(ImmutableList.of(new Symbol(BIGINT, "k"), new Symbol(hiddenType, "v")), new Constant(BOOLEAN, true))),
+                        ImmutableMap.of(new Symbol(mapType, "$col_0"), 0),
+                        Optional.empty())
+                .get();
+
+        Page page = createSingleHiddenValueMapPage(mapType, hiddenType, 1, createHiddenValue(hiddenFunctions));
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(mapType.getObjectValue(result, 0)).isEqualTo(ImmutableMap.of(1L, 42));
+    }
+
+    @Test
+    public void testRowConstructorAndDereferenceWithPrivateJavaType()
+    {
+        HiddenFunctions hiddenFunctions = createHiddenFunctions();
+        Type hiddenType = hiddenFunctions.type();
+        RowType rowType = RowType.anonymous(ImmutableList.of(hiddenType));
+        TestingFunctionResolution functionResolution = createFunctionResolution(
+                hiddenType,
+                new HiddenFunction("test_hidden_constructor", hiddenType, hiddenFunctions.constructor(), ImmutableList.of()));
+
+        ResolvedFunction constructor = functionResolution.resolveFunction("test_hidden_constructor", fromTypes());
+        Expression row = new Row(ImmutableList.of(call(constructor)), rowType);
+        Expression dereference = new FieldReference(row, 0);
+        PageProjection projection = functionResolution.getPageFunctionCompiler()
+                .compileProjection(dereference, ImmutableMap.of(), Optional.empty())
+                .get();
+
+        Page page = createLongBlockPage(0);
+        Block result = project(projection, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
+        assertThat(hiddenType.getObjectValue(result, 0)).isEqualTo(42);
+    }
+
+    @Test
+    public void testProjectionCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
-        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
-        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
-        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
-        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        Page page = createPageWithDataAtChannel2(0, 1, 2, 3);
 
+        // First compile: cache miss → triggers class compilation
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(1);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
+
+        // Second compile with same expression: cache hit → no new compilation
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty());
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(2);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
+
+        // classNameSuffix does not affect cache key
+        cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.of("hint"));
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(3);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
+
+        // Cached projections produce correct results
+        PageProjection projection = cacheCompiler.compileProjection(ADD_10_EXPRESSION, LAYOUT, Optional.empty()).get();
+        assertThat(project(projection, page, SelectedPositions.positionsRange(0, 4)).getPositionCount()).isEqualTo(4);
+
+        // No-cache compiler always compiles
         PageFunctionCompiler noCacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
-        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
-        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
-        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
-        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        assertThat(noCacheCompiler.getProjectionCache()).isNull();
+    }
+
+    @Test
+    public void testProjectionCacheWithDifferentLayouts()
+    {
+        // The column is at position 2 in the first layout and position 3 in the second.
+        // Both should reuse the same cached compiled class but bind correct InputChannels.
+        PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
+        Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);
+
+        PageProjection projection1 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout1, Optional.empty()).get();
+        PageProjection projection2 = cacheCompiler.compileProjection(ADD_10_EXPRESSION, layout2, Optional.empty()).get();
+
+        // Verify cache hit: only one compilation despite two calls with different layouts
+        assertThat(cacheCompiler.getProjectionCache().getRequestCount()).isEqualTo(2);
+        assertThat(cacheCompiler.getProjectionCache().getLoadCount()).isEqualTo(1);
+
+        // Page with four columns: channels 0-1 are padding, channel 2 is [100, 200, 300], channel 3 is [1, 2, 3]
+        SourcePage sourcePage = SourcePage.create(new Page(
+                createRepeatedValuesBlock(0L, 3),
+                createRepeatedValuesBlock(0L, 3),
+                createLongBlockPage(100, 200, 300).getBlock(0),
+                createLongBlockPage(1, 2, 3).getBlock(0)));
+
+        // projection1 reads from source column 2 via InputChannels: expects 110, 210, 310
+        SourcePage inputPage1 = projection1.getInputChannels().getInputChannels(sourcePage);
+        Block result1 = projection1.project(SESSION, inputPage1, SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(result1, 0)).isEqualTo(110);
+        assertThat(BIGINT.getLong(result1, 1)).isEqualTo(210);
+
+        // projection2 reads from source column 3 via InputChannels: expects 11, 12, 13
+        SourcePage inputPage2 = projection2.getInputChannels().getInputChannels(sourcePage);
+        Block result2 = projection2.project(SESSION, inputPage2, SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(result2, 0)).isEqualTo(11);
+        assertThat(BIGINT.getLong(result2, 1)).isEqualTo(12);
+    }
+
+    @Test
+    public void testFilterCache()
+    {
+        PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Expression filter = new Comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
+
+        // First compile: cache miss
+        cacheCompiler.compileFilter(filter, layout, Optional.empty());
+        assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(1);
+        assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
+
+        // Second compile: cache hit
+        cacheCompiler.compileFilter(filter, layout, Optional.empty());
+        assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(2);
+        assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
+
+        // classNameSuffix does not affect cache key
+        cacheCompiler.compileFilter(filter, layout, Optional.of("hint"));
+        assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(3);
+        assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
+
+        // Cached filter produces correct results
+        Page page = createPageWithDataAtChannel2(0, 1, 2, 3, 4);
+        PageFilter compiled = cacheCompiler.compileFilter(filter, layout, Optional.empty()).get();
+        SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
+        SelectedPositions result = compiled.filter(SESSION, inputPage);
+        assertThat(result.size()).isEqualTo(2); // values > 2 at positions 3, 4
+    }
+
+    @Test
+    public void testFilterCacheWithDifferentLayouts()
+    {
+        // Filter: $col_0 > 2, with column at different positions in each layout
+        PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Expression filter = new Comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
+
+        Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
+        Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);
+
+        PageFilter filter1 = cacheCompiler.compileFilter(filter, layout1, Optional.empty()).get();
+        PageFilter filter2 = cacheCompiler.compileFilter(filter, layout2, Optional.empty()).get();
+
+        // Verify cache hit: only one compilation despite two calls with different layouts
+        assertThat(cacheCompiler.getFilterCache().getRequestCount()).isEqualTo(2);
+        assertThat(cacheCompiler.getFilterCache().getLoadCount()).isEqualTo(1);
+
+        // Page with four columns: channels 0-1 are padding, channel 2 is [0, 1, 2, 3, 4], channel 3 is [10, 20, 30, 40, 50]
+        SourcePage sourcePage = SourcePage.create(new Page(
+                createRepeatedValuesBlock(0L, 5),
+                createRepeatedValuesBlock(0L, 5),
+                createLongBlockPage(0, 1, 2, 3, 4).getBlock(0),
+                createLongBlockPage(10, 20, 30, 40, 50).getBlock(0)));
+
+        // filter1 reads source column 2 via InputChannels: values > 2 are at positions 3, 4
+        SourcePage inputPage1 = filter1.getInputChannels().getInputChannels(sourcePage);
+        SelectedPositions result1 = filter1.filter(SESSION, inputPage1);
+        assertThat(result1.size()).isEqualTo(2);
+
+        // filter2 reads source column 3 via InputChannels: all values > 2, so all 5 positions selected
+        SourcePage inputPage2 = filter2.getInputChannels().getInputChannels(sourcePage);
+        SelectedPositions result2 = filter2.filter(SESSION, inputPage2);
+        assertThat(result2.size()).isEqualTo(5);
     }
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
-        Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), page, selectedPositions);
-        assertThat(work.process()).isTrue();
-        return work.getResult();
+        SourcePage sourcePage = SourcePage.create(page);
+        SourcePage inputPage = projection.getInputChannels().getInputChannels(sourcePage);
+        return projection.project(SESSION, inputPage, selectedPositions);
     }
 
     private static Page createLongBlockPage(long... values)
@@ -115,5 +433,208 @@ public class TestPageFunctionCompiler
             BIGINT.writeLong(builder, value);
         }
         return new Page(builder.build());
+    }
+
+    private static Page createPageWithDataAtChannel2(long... values)
+    {
+        Page data = createLongBlockPage(values);
+        return new Page(createRepeatedValuesBlock(0L, values.length), createRepeatedValuesBlock(0L, values.length), data.getBlock(0));
+    }
+
+    private static Page createSingleArrayPage(ArrayType arrayType, long... values)
+    {
+        ArrayBlockBuilder builder = arrayType.createBlockBuilder(null, 1);
+        builder.buildEntry(elementBuilder -> {
+            for (long value : values) {
+                BIGINT.writeLong(elementBuilder, value);
+            }
+        });
+        return new Page(builder.build());
+    }
+
+    private static Page createSingleLongMapPage(MapType mapType, long key, long value)
+    {
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, key);
+            BIGINT.writeLong(valueBuilder, value);
+        });
+        return new Page(builder.build());
+    }
+
+    private static Page createSingleHiddenValueMapPage(MapType mapType, Type hiddenType, long key, Object value)
+    {
+        MapBlockBuilder builder = mapType.createBlockBuilder(null, 1);
+        builder.buildEntry((keyBuilder, valueBuilder) -> {
+            BIGINT.writeLong(keyBuilder, key);
+            hiddenType.writeObject(valueBuilder, value);
+        });
+        return new Page(builder.build());
+    }
+
+    private static TestingFunctionResolution createFunctionResolution(Type hiddenType, SqlScalarFunction... functions)
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        InternalFunctionBundle.InternalFunctionBundleBuilder functionBundle = InternalFunctionBundle.builder();
+        for (SqlScalarFunction function : functions) {
+            functionBundle.function(function);
+        }
+        PlannerContext plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .addType(hiddenType)
+                .addFunctions(functionBundle.build())
+                .build();
+        return new TestingFunctionResolution(transactionManager, plannerContext);
+    }
+
+    private static Object createHiddenValue(HiddenFunctions hiddenFunctions)
+    {
+        try {
+            return hiddenFunctions.constructor().invoke();
+        }
+        catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static HiddenFunctions createHiddenFunctions()
+    {
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("HiddenValue"),
+                type(Object.class));
+        FieldDefinition valueField = classDefinition.declareField(a(PUBLIC), "value", int.class);
+
+        Parameter constructorValue = arg("value", int.class);
+        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), constructorValue);
+        constructor.getBody()
+                .append(constructor.getThis())
+                .invokeConstructor(Object.class)
+                .append(constructor.getThis().setField(valueField, constructorValue))
+                .ret();
+
+        Parameter identityValue = arg("value", classDefinition.getType());
+        MethodDefinition identity = classDefinition.declareMethod(a(PUBLIC, STATIC), "identity", classDefinition.getType(), identityValue);
+        identity.getBody()
+                .append(identityValue.ret());
+
+        Class<?> hiddenClass = defineClass(classDefinition, Object.class, new DynamicClassLoader(TestPageFunctionCompiler.class.getClassLoader()));
+        return new HiddenFunctions(
+                new HiddenType(hiddenClass),
+                insertArguments(constructorMethodHandle(hiddenClass, int.class), 0, 42),
+                methodHandle(hiddenClass, "identity", hiddenClass));
+    }
+
+    private record HiddenFunctions(Type type, MethodHandle constructor, MethodHandle identity) {}
+
+    private static final class HiddenFunction
+            extends SqlScalarFunction
+    {
+        private final MethodHandle methodHandle;
+        private final List<InvocationArgumentConvention> argumentConventions;
+
+        private HiddenFunction(String name, Type returnType, MethodHandle methodHandle, List<Type> argumentTypes)
+        {
+            super(functionMetadata(name, returnType, argumentTypes));
+            this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+            this.argumentConventions = nCopies(argumentTypes.size(), NEVER_NULL);
+        }
+
+        @Override
+        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+        {
+            return new ChoicesSpecializedSqlScalarFunction(boundSignature, FAIL_ON_NULL, argumentConventions, methodHandle);
+        }
+
+        private static FunctionMetadata functionMetadata(String name, Type returnType, List<Type> argumentTypes)
+        {
+            Signature.Builder signature = Signature.builder()
+                    .returnType(returnType);
+            argumentTypes.forEach(signature::argumentType);
+            return FunctionMetadata.scalarBuilder(name)
+                    .signature(signature.build())
+                    .hidden()
+                    .description("test hidden type function")
+                    .build();
+        }
+    }
+
+    private static final class HiddenType
+            extends AbstractVariableWidthType
+    {
+        private static final TypeSignature TYPE_SIGNATURE = new TypeSignature("test_hidden");
+
+        private final Constructor<?> constructor;
+        private final Field valueField;
+
+        private HiddenType(Class<?> javaType)
+        {
+            super(TYPE_SIGNATURE, javaType);
+            try {
+                constructor = javaType.getConstructor(int.class);
+            }
+            catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+            valueField = field(javaType, "value");
+        }
+
+        @Override
+        public String getDisplayName()
+        {
+            return TYPE_SIGNATURE.toString();
+        }
+
+        @Override
+        public Object getObjectValue(Block block, int position)
+        {
+            if (block.isNull(position)) {
+                return null;
+            }
+            return getSlice(block, position).getInt(0);
+        }
+
+        @Override
+        public Object getObject(Block block, int position)
+        {
+            try {
+                return constructor.newInstance(getSlice(block, position).getInt(0));
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public Slice getSlice(Block block, int position)
+        {
+            VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+            return valueBlock.getSlice(block.getUnderlyingValuePosition(position));
+        }
+
+        @Override
+        public void writeSlice(BlockBuilder blockBuilder, Slice value)
+        {
+            writeSlice(blockBuilder, value, 0, value.length());
+        }
+
+        @Override
+        public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
+        {
+            ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
+        }
+
+        @Override
+        public void writeObject(BlockBuilder blockBuilder, Object value)
+        {
+            try {
+                Slice slice = allocate(Integer.BYTES);
+                slice.setInt(0, valueField.getInt(value));
+                writeSlice(blockBuilder, slice);
+            }
+            catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

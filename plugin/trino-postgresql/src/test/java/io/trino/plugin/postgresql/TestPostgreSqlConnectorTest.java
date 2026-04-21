@@ -58,11 +58,9 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -88,6 +86,9 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @see TestPostgreSqlConnectorSmokeTest
+ */
 public class TestPostgreSqlConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -108,15 +109,6 @@ public class TestPostgreSqlConnectorTest
                 .build();
     }
 
-    @Override
-    protected Session getSession()
-    {
-        Session session = super.getSession();
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
-                .build();
-    }
-
     @BeforeAll
     public void setExtensions()
     {
@@ -127,27 +119,19 @@ public class TestPostgreSqlConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> {
-                // TODO remove once super has this set to true
-                verify(!super.hasBehavior(connectorBehavior));
-                yield true;
-            }
             // Arrays are supported conditionally. Check the defaults.
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
-                    SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
-                    SUPPORTS_ROW_TYPE -> false;
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -171,7 +155,7 @@ public class TestPostgreSqlConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
+                "(one bigint, two interval, three varchar(10))");
     }
 
     @Test
@@ -194,8 +178,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTable(String inputType, String expectedType)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
                 format("(a %s)", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(expectedType);
@@ -234,8 +217,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
@@ -277,8 +259,7 @@ public class TestPostgreSqlConnectorTest
 
     private void testTimestampPrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType)
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a WITH NO DATA", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
@@ -638,9 +619,8 @@ public class TestPostgreSqlConnectorTest
                         Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                 .collect(toImmutableList());
 
-        try (TestTable nationLowercaseTable = new TestTable(
+        try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                getQueryRunner()::execute,
                 "nation_lowercase",
                 "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
             // basic case
@@ -828,13 +808,40 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
+    public void testCoalescePredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE COALESCE(nationkey, 1) = nationkey"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE COALESCE(nationkey, regionkey, 1) = nationkey"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_coalesce_predicate_pushdown",
+                "(a_varchar varchar, b_varchar varchar, c_varchar varchar)",
+                List.of(
+                        "NULL, NULL, 'third not null'",
+                        "'1', '2', 'first and second not null'",
+                        "NULL, '2', 'second not null'"))) {
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar) = '1'"))
+                    .matches("VALUES VARCHAR 'first and second not null'")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar) = '2'"))
+                    .matches("VALUES VARCHAR 'second not null'")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_varchar FROM " + table.getName() + " WHERE COALESCE(a_varchar, b_varchar, c_varchar) = 'third not null'"))
+                    .matches("VALUES VARCHAR 'third not null'")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testLikePredicatePushdown()
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
                 .isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_like_predicate_pushdown",
                 "(id integer, a_varchar varchar(1))",
                 List.of(
@@ -856,8 +863,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%' ESCAPE '\\'"))
                 .isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_like_with_escape_predicate_pushdown",
                 "(id integer, a_varchar varchar(4))",
                 List.of(
@@ -878,8 +884,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -896,8 +901,7 @@ public class TestPostgreSqlConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -935,8 +939,7 @@ public class TestPostgreSqlConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%' ESCAPE '\\')")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(2))",
                 List.of(
@@ -952,8 +955,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testInPredicatePushdown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_in_predicate_pushdown",
                 "(id varchar(1), id2 varchar(1))",
                 List.of(
@@ -1095,8 +1097,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testReverseFunctionProjectionPushDown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_reverse_pushdown_for_project",
                 "(id BIGINT, varchar_col VARCHAR)",
                 ImmutableList.of("1, 'abc'", "2, null"))) {
@@ -1123,7 +1124,7 @@ public class TestPostgreSqlConnectorTest
                                                 .equals(new PreparedQuery(
                                                         "SELECT \"id\", REVERSE(\"_pfgnrtd_3\") AS \"_pfgnrtd_4\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_2\") AS \"_pfgnrtd_3\" FROM " +
                                                                 "(SELECT \"id\", REVERSE(\"_pfgnrtd_1\") AS \"_pfgnrtd_2\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_0\") AS \"_pfgnrtd_1\" FROM " +
-                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"%s\") o) o) o) o"
+                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"tpch\".\"%s\") o) o) o) o"
                                                                         .formatted(table.getName()),
                                                         ImmutableList.of()));
                                     },
@@ -1138,12 +1139,12 @@ public class TestPostgreSqlConnectorTest
                     .isNotFullyPushedDown(ProjectNode.class)
                     .hasPlan(output(
                             project(ImmutableMap.of("expr", expression(
-                                    new Call(
-                                            FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                            ImmutableList.of(
-                                                    new Call(
-                                                            FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                                            ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
+                                            new Call(
+                                                    FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                    ImmutableList.of(
+                                                            new Call(
+                                                                    FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                                    ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
                                     tableScan(table.getName(), ImmutableMap.of("varchar_col", "varchar_col")))));
         }
     }
@@ -1151,8 +1152,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testPartialProjectionPushDown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_partial_projection_pushdown",
                 "(id BIGINT, cola VARCHAR, colb VARCHAR)",
                 ImmutableList.of("1, 'abc', 'def'"))) {
@@ -1188,7 +1188,7 @@ public class TestPostgreSqlConnectorTest
                                                         assertThat(jdbcTableHandle.isSynthetic()).isTrue();
                                                         return ((JdbcQueryRelationHandle) jdbcTableHandle.getRelationHandle()).getPreparedQuery()
                                                                 .equals(new PreparedQuery(
-                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"%s\"".formatted(table.getName()),
+                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"tpch\".\"%s\"".formatted(table.getName()),
                                                                         ImmutableList.of()));
                                                     },
                                                     TupleDomain.all(),
@@ -1202,8 +1202,7 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testProjectionsNotPushDownWhenFilterAppliedOnProjectedColumn()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_projection_push_down_with_filter",
                 "(id BIGINT, cola VARCHAR, colb VARCHAR)",
                 ImmutableList.of("1, 'abc', 'def'"))) {
@@ -1306,6 +1305,90 @@ public class TestPostgreSqlConnectorTest
                     .isNotFullyPushedDown(ProjectNode.class);
             assertThat(query(session, "SELECT cosine_distance(v, CAST(ARRAY[4.0,5.0,6.0] AS array(real))) FROM " + table.getName()))
                     .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test
+    public void testJoinPushdownWithImplicitCast()
+    {
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "left_table_",
+                "(id int, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                ImmutableList.of(
+                        "(11, 12, 12, 12, 12, 12.34, 12.34, 12.34)",
+                        "(12, 123, 123, 123, 123, 123.67, 123.67, 123.67)"));
+                TestTable rightTable = new TestTable(
+                        getQueryRunner()::execute,
+                        "right_table_",
+                        "(id int, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                        ImmutableList.of(
+                                "(21, 12, 12, 12, 12, 12.34, 12.34, 12.34)",
+                                "(22, 234, 234, 234, 234, 234.67, 234.67, 234.67)"))) {
+            Session session = joinPushdownEnabled(getSession());
+            String joinQuery = "SELECT l.id FROM " + leftTable.getName() + " l %s " + rightTable.getName() + " r ON %s";
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_tinyint = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_tinyint = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_smallint = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_smallint = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_integer = r.c_bigint")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_integer = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            // Below cases try to implicit cast from bigint type to real/double/decimal type.
+            // CAST pushdown with real/double/decimal type is not supported yet.
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_real = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_double_precision = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            assertThat(query(session, joinQuery.formatted("LEFT JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("RIGHT JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            assertThat(query(session, joinQuery.formatted("INNER JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
         }
     }
 

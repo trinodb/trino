@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -29,16 +28,18 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -163,19 +164,19 @@ public class FailedDispatchQuery
     public void recordHeartbeat() {}
 
     @Override
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return basicQueryInfo.getQueryStats().getEndTime();
     }
 
     @Override
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return basicQueryInfo.getQueryStats().getCreateTime();
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public Optional<Instant> getExecutionStartTime()
     {
         return getEndTime();
     }
@@ -187,7 +188,7 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public Optional<Instant> getEndTime()
     {
         return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
     }
@@ -195,7 +196,7 @@ public class FailedDispatchQuery
     @Override
     public Duration getTotalCpuTime()
     {
-        return new Duration(0, MILLISECONDS);
+        return succinctDuration(0, MILLISECONDS);
     }
 
     @Override
@@ -234,6 +235,7 @@ public class FailedDispatchQuery
                 Optional.empty(),
                 Optional.empty(),
                 false,
+                ImmutableSet.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
@@ -244,9 +246,10 @@ public class FailedDispatchQuery
                 null,
                 Optional.empty(),
                 failureCause,
-                failureCause.getErrorCode(),
+                failureCause.errorCode(),
                 ImmutableList.of(),
                 ImmutableSet.of(),
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -262,22 +265,22 @@ public class FailedDispatchQuery
 
     private static QueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         return new QueryStats(
                 now,
                 now,
                 now,
                 now,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -289,6 +292,7 @@ public class FailedDispatchQuery
                 0,
                 0,
                 0,
+                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -301,19 +305,19 @@ public class FailedDispatchQuery
                 false,
                 OptionalDouble.empty(),
                 OptionalDouble.empty(),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 0,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
@@ -322,22 +326,20 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 0,
                 0,
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 0,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                DataSize.ofBytes(0),
-                DataSize.ofBytes(0),
-                0,
-                0,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
                 DynamicFiltersStats.EMPTY,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableList.of(),
                 ImmutableList.of());
     }

@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Minute of the hour of the given timestamp")
-@ScalarFunction("minute")
-public class ExtractMinute
+@ScalarFunction(value = "minute", neverFails = true)
+public final class ExtractMinute
 {
     private ExtractMinute() {}
 

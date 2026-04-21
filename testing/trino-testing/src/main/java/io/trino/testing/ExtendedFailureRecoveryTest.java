@@ -102,7 +102,7 @@ public abstract class ExtendedFailureRecoveryTest
                             .isEqualTo(1);
                     DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
                     assertThat(domainStats.getSimplifiedDomain())
-                            .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+                            .isEqualTo(singleValue(BIGINT, 1L).toString());
                 });
     }
 

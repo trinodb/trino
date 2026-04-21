@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
-import org.jdbi.v3.sqlobject.customizer.BindBean;
+import org.jdbi.v3.sqlobject.customizer.BindMethods;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 public interface QueryDao
@@ -231,5 +231,5 @@ public interface QueryDao
             " :retryPolicy,\n" +
             " :operatorSummariesJson\n" +
             ")")
-    void store(@BindBean QueryEntity entity);
+    void store(@BindMethods QueryEntity entity);
 }

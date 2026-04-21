@@ -18,12 +18,8 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -39,8 +35,6 @@ import java.sql.SQLException;
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -84,6 +78,7 @@ public class TestDruidConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
@@ -96,7 +91,8 @@ public class TestDruidConnectorTest
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -232,47 +228,6 @@ public class TestDruidConnectorTest
                 .row("totalprice_x", "double", "", "")
                 .build();
         assertThat(query("DESCRIBE " + datasourceB)).result().matches(expectedColumns);
-    }
-
-    @Test
-    public void testLimitPushDown()
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
-        // with filter over numeric column
-        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
-
-        // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
-
-        // with aggregation
-        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // global aggregation, LIMIT removed TODO https://github.com/trinodb/trino/pull/4313
-        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
-
-        // distinct limit can be pushed down even without aggregation pushdown
-        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
-
-        // with aggregation and filter over numeric column
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
-        // with aggregation and filter over varchar column
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class); // TODO https://github.com/trinodb/trino/pull/4313
-
-        // with TopN over numeric column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
-        // with TopN over varchar column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
-
-        // with join
-        PlanMatchPattern joinOverTableScans = node(JoinNode.class,
-                anyTree(node(TableScanNode.class)),
-                anyTree(node(TableScanNode.class)));
-        assertThat(query(
-                joinPushdownEnabled(getSession()),
-                "SELECT n.name, r.name " +
-                        "FROM nation n " +
-                        "LEFT JOIN region r USING (regionkey) " +
-                        "LIMIT 30"))
-                .isNotFullyPushedDown(joinOverTableScans);
     }
 
     @Test

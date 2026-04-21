@@ -14,18 +14,22 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.types.Conversions;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
 public record DeleteFile(
@@ -35,20 +39,27 @@ public record DeleteFile(
         long recordCount,
         long fileSizeInBytes,
         List<Integer> equalityFieldIds,
-        Optional<Long> rowPositionLowerBound,
-        Optional<Long> rowPositionUpperBound,
-        long dataSequenceNumber)
+        OptionalLong rowPositionLowerBound,
+        OptionalLong rowPositionUpperBound,
+        long dataSequenceNumber,
+        OptionalLong contentOffset,
+        Optional<Integer> contentSizeInBytes)
 {
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
-        Optional<Long> rowPositionLowerBound = Optional.ofNullable(deleteFile.lowerBounds())
-                .map(bounds -> bounds.get(DELETE_FILE_POS.fieldId()))
-                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), bytes));
-        Optional<Long> rowPositionUpperBound = Optional.ofNullable(deleteFile.upperBounds())
-                .map(bounds -> bounds.get(DELETE_FILE_POS.fieldId()))
-                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), bytes));
+        ByteBuffer lowerBoundPosition = requireNonNullElse(deleteFile.lowerBounds(), ImmutableMap.<Integer, ByteBuffer>of()).get(DELETE_FILE_POS.fieldId());
+        ByteBuffer upperBoundPosition = requireNonNullElse(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of()).get(DELETE_FILE_POS.fieldId());
+
+        OptionalLong rowPositionLowerBound = lowerBoundPosition == null ?
+                OptionalLong.empty() : OptionalLong.of(Conversions.fromByteBuffer(DELETE_FILE_POS.type(), lowerBoundPosition));
+
+        OptionalLong rowPositionUpperBound = upperBoundPosition == null ?
+                OptionalLong.empty() : OptionalLong.of(Conversions.fromByteBuffer(DELETE_FILE_POS.type(), upperBoundPosition));
+
+        OptionalLong contentOffset = deleteFile.contentOffset() == null ? OptionalLong.empty() : OptionalLong.of(deleteFile.contentOffset());
+        Optional<Integer> contentSizeInBytes = Optional.ofNullable(deleteFile.contentSizeInBytes()).map(Math::toIntExact);
 
         return new DeleteFile(
                 deleteFile.content(),
@@ -59,7 +70,9 @@ public record DeleteFile(
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 rowPositionLowerBound,
                 rowPositionUpperBound,
-                deleteFile.dataSequenceNumber());
+                deleteFile.dataSequenceNumber(),
+                contentOffset,
+                contentSizeInBytes);
     }
 
     public DeleteFile
@@ -70,6 +83,16 @@ public record DeleteFile(
         equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         requireNonNull(rowPositionLowerBound, "rowPositionLowerBound is null");
         requireNonNull(rowPositionUpperBound, "rowPositionUpperBound is null");
+        requireNonNull(contentOffset, "contentOffset is null");
+        requireNonNull(contentSizeInBytes, "contentSizeInBytes is null");
+    }
+
+    public boolean isDeletionVector()
+    {
+        return content == FileContent.POSITION_DELETES
+                && format == FileFormat.PUFFIN
+                && contentOffset.isPresent()
+                && contentSizeInBytes.isPresent();
     }
 
     public long retainedSizeInBytes()
@@ -83,7 +106,11 @@ public record DeleteFile(
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(path)
+                .omitEmptyValues()
+                .add("format", format)
+                .add("path", path)
+                .add("offset", contentOffset)
+                .add("size", contentSizeInBytes)
                 .add("records", recordCount)
                 .toString();
     }

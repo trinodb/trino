@@ -32,12 +32,13 @@ public class OpenLineageListenerFactory
     @Override
     public EventListener create(Map<String, String> config, EventListenerContext context)
     {
-        Bootstrap app = new Bootstrap(new OpenLineageListenerModule());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.listener." + getName(), new OpenLineageListenerModule());
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(OpenLineageListener.class);
+        return injector.getInstance(EventListener.class);
     }
 }

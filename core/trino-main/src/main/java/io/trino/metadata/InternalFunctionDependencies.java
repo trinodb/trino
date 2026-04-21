@@ -62,7 +62,7 @@ public class InternalFunctionDependencies
         this.specialization = specialization;
         this.types = ImmutableMap.copyOf(typeDependencies);
         this.functions = functionDependencies.stream()
-                .filter(function -> !isOperatorName(function.signature().getName().getFunctionName()))
+                .filter(function -> !isOperatorName(function.signature().getName().functionName()))
                 .collect(toImmutableMap(FunctionKey::new, identity()));
         this.operators = functionDependencies.stream()
                 .filter(InternalFunctionDependencies::isOperator)
@@ -192,13 +192,13 @@ public class InternalFunctionDependencies
     private static boolean isOperator(ResolvedFunction function)
     {
         CatalogSchemaFunctionName name = function.signature().getName();
-        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) != CAST;
+        return isBuiltinFunctionName(name) && isOperatorName(name.functionName()) && unmangleOperator(name.functionName()) != CAST;
     }
 
     private static boolean isCast(ResolvedFunction function)
     {
         CatalogSchemaFunctionName name = function.signature().getName();
-        return isBuiltinFunctionName(name) && isOperatorName(name.getFunctionName()) && unmangleOperator(name.getFunctionName()) == CAST;
+        return isBuiltinFunctionName(name) && isOperatorName(name.functionName()) && unmangleOperator(name.functionName()) == CAST;
     }
 
     public static final class FunctionKey
@@ -256,7 +256,7 @@ public class InternalFunctionDependencies
 
         private OperatorKey(ResolvedFunction resolvedFunction)
         {
-            operatorType = unmangleOperator(resolvedFunction.signature().getName().getFunctionName());
+            operatorType = unmangleOperator(resolvedFunction.signature().getName().functionName());
             argumentTypes = toTypeSignatures(resolvedFunction.signature().getArgumentTypes());
         }
 

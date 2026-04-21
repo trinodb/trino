@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.join.JoinBridge;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.TrackingLookupSourceSupplier;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +47,7 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> outputTypes;
     private final List<Type> hashChannelTypes;
     private final boolean outer;
-    private final TypeOperators typeOperators;
+    private final NullSafeHashCompiler hashCompiler;
 
     @GuardedBy("this")
     private final Supplier<LookupSource>[] partitions;
@@ -66,7 +66,7 @@ public final class PartitionedLookupSourceFactory
     @GuardedBy("this")
     private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, TypeOperators typeOperators)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, NullSafeHashCompiler hashCompiler)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
@@ -77,7 +77,7 @@ public final class PartitionedLookupSourceFactory
         //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-        this.typeOperators = typeOperators;
+        this.hashCompiler = hashCompiler;
     }
 
     public List<Type> getTypes()
@@ -162,7 +162,7 @@ public final class PartitionedLookupSourceFactory
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, typeOperators);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, hashCompiler);
             }
             else if (outer) {
                 lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);

@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -25,19 +26,19 @@ import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestQueryStats
 {
@@ -47,6 +48,7 @@ public class TestQueryStats
                     11,
                     12,
                     new PlanNodeId("13"),
+                    Optional.of(new PlanNodeId("131")),
                     TableWriterOperator.class.getSimpleName(),
                     14L,
                     15L,
@@ -58,7 +60,6 @@ public class TestQueryStats
                     succinctBytes(182L),
                     1822,
                     succinctBytes(18L),
-                    succinctBytes(19L),
                     110L,
                     111.0,
                     112L,
@@ -88,6 +89,7 @@ public class TestQueryStats
                     21,
                     22,
                     new PlanNodeId("23"),
+                    Optional.of(new PlanNodeId("231")),
                     FilterAndProjectOperator.class.getSimpleName(),
                     24L,
                     25L,
@@ -99,7 +101,6 @@ public class TestQueryStats
                     succinctBytes(282L),
                     2822,
                     succinctBytes(28L),
-                    succinctBytes(29L),
                     210L,
                     211.0,
                     212L,
@@ -129,6 +130,7 @@ public class TestQueryStats
                     31,
                     32,
                     new PlanNodeId("33"),
+                    Optional.of(new PlanNodeId("331")),
                     TableWriterOperator.class.getSimpleName(),
                     34L,
                     35L,
@@ -140,7 +142,6 @@ public class TestQueryStats
                     succinctBytes(382L),
                     3822,
                     succinctBytes(38L),
-                    succinctBytes(39L),
                     310L,
                     311.0,
                     312L,
@@ -179,10 +180,10 @@ public class TestQueryStats
                     0));
 
     public static final QueryStats EXPECTED = new QueryStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
-            new DateTime(4),
+            Instant.ofEpochMilli(1),
+            Instant.ofEpochMilli(2),
+            Instant.ofEpochMilli(3),
+            Instant.ofEpochMilli(4),
             new Duration(6, NANOSECONDS),
             new Duration(5, NANOSECONDS),
             new Duration(31, NANOSECONDS),
@@ -217,6 +218,7 @@ public class TestQueryStats
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
             DataSize.ofBytes(27),
+            DataSize.ofBytes(28),
 
             true,
             OptionalDouble.of(8.88),
@@ -240,11 +242,6 @@ public class TestQueryStats
             DataSize.ofBytes(243),
             253,
             254,
-
-            DataSize.ofBytes(35),
-            DataSize.ofBytes(36),
-            37,
-            38,
 
             DataSize.ofBytes(39),
             DataSize.ofBytes(40),
@@ -275,14 +272,15 @@ public class TestQueryStats
                     107)),
 
             DynamicFiltersStats.EMPTY,
-
+            ImmutableMap.of(),
+            ImmutableMap.of(),
             operatorSummaries,
             optimizerRulesSummaries);
 
     @Test
     public void testJson()
     {
-        JsonCodec<QueryStats> codec = JsonCodec.jsonCodec(QueryStats.class);
+        JsonCodec<QueryStats> codec = jsonCodec(QueryStats.class);
 
         String json = codec.toJson(EXPECTED);
         QueryStats actual = codec.fromJson(json);
@@ -292,10 +290,10 @@ public class TestQueryStats
 
     public static void assertExpectedQueryStats(QueryStats actual)
     {
-        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
-        assertThat(actual.getExecutionStartTime()).isEqualTo(new DateTime(2, UTC));
-        assertThat(actual.getLastHeartbeat()).isEqualTo(new DateTime(3, UTC));
-        assertThat(actual.getEndTime()).isEqualTo(new DateTime(4, UTC));
+        assertThat(actual.getCreateTime()).isEqualTo(Instant.ofEpochMilli(1));
+        assertThat(actual.getExecutionStartTime()).isEqualTo(Instant.ofEpochMilli(2));
+        assertThat(actual.getLastHeartbeat()).isEqualTo(Instant.ofEpochMilli(3));
+        assertThat(actual.getEndTime()).isEqualTo(Instant.ofEpochMilli(4));
 
         assertThat(actual.getElapsedTime()).isEqualTo(new Duration(6, NANOSECONDS));
         assertThat(actual.getQueuedTime()).isEqualTo(new Duration(5, NANOSECONDS));
@@ -331,7 +329,7 @@ public class TestQueryStats
         assertThat(actual.getPeakTaskUserMemory()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getPeakTaskRevocableMemory()).isEqualTo(DataSize.ofBytes(26));
         assertThat(actual.getPeakTaskTotalMemory()).isEqualTo(DataSize.ofBytes(27));
-        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(693));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(28));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(28, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(29, NANOSECONDS));
@@ -350,11 +348,6 @@ public class TestQueryStats
         assertThat(actual.getFailedInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(243));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(253);
         assertThat(actual.getFailedInternalNetworkInputPositions()).isEqualTo(254);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(35));
-        assertThat(actual.getFailedRawInputDataSize()).isEqualTo(DataSize.ofBytes(36));
-        assertThat(actual.getRawInputPositions()).isEqualTo(37);
-        assertThat(actual.getFailedRawInputPositions()).isEqualTo(38);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(39));
         assertThat(actual.getFailedProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(40));
@@ -386,7 +379,7 @@ public class TestQueryStats
         assertThat(gcStatistics.getAverageFullGcSec()).isEqualTo(107);
 
         assertThat(420).isEqualTo(actual.getWrittenPositions());
-        assertThat(58).isEqualTo(actual.getLogicalWrittenDataSize().toBytes());
+        assertThat(56).isEqualTo(actual.getLogicalWrittenDataSize().toBytes());
 
         assertThat(DynamicFiltersStats.EMPTY).isEqualTo(actual.getDynamicFiltersStats());
         assertThat(actual.getOptimizerRulesSummaries()).hasSize(optimizerRulesSummaries.size());

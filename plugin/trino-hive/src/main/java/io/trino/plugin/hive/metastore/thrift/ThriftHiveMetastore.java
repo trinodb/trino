@@ -69,11 +69,10 @@ import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -269,6 +268,30 @@ public final class ThriftHiveMetastore
     }
 
     @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getTableNamesWithParameters", () -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
+                        }
+                    });
+        }
+        catch (NoSuchObjectException e) {
+            return ImmutableList.of();
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         try {
@@ -301,7 +324,8 @@ public final class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames)));
+                            List<ColumnStatisticsObj> tableColumnStatistics = client.getTableColumnStatistics(databaseName, tableName, ImmutableList.copyOf(columnNames));
+                            return groupStatisticsByColumn(databaseName, tableName, tableColumnStatistics);
                         }
                     }));
         }
@@ -323,7 +347,7 @@ public final class ThriftHiveMetastore
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> groupStatisticsByColumn(entry.getValue())));
+                        entry -> groupStatisticsByColumn(databaseName, tableName, entry.getValue())));
     }
 
     @Override
@@ -379,11 +403,11 @@ public final class ThriftHiveMetastore
         }
     }
 
-    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics)
+    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
     {
         Map<String, HiveColumnStatistics> statisticsByColumn = new HashMap<>();
         for (ColumnStatisticsObj stats : statistics) {
-            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats);
+            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(databaseName, tableName, stats);
             if (statisticsByColumn.containsKey(stats.getColName())) {
                 HiveColumnStatistics existingColumnStatistics = statisticsByColumn.get(stats.getColName());
                 if (!newColumnStatistics.equals(existingColumnStatistics)) {
@@ -411,7 +435,7 @@ public final class ThriftHiveMetastore
         if (acidWriteId.isPresent()) {
             modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
-        alterTable(databaseName, tableName, modifiedTable);
+        alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 
         io.trino.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.columnStatistics().entrySet().stream()
@@ -939,7 +963,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table table)
+    public void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext)
     {
         if (!Objects.equals(databaseName, table.getDbName())) {
             validateObjectName(table.getDbName());
@@ -957,7 +981,10 @@ public final class ThriftHiveMetastore
                             // This prevents Hive 3.x from collecting basic table stats at table creation time.
                             // These stats are not useful by themselves and can take a very long time to collect when creating an
                             // external table over a large data set.
-                            context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
+                            context.setProperties(ImmutableMap.<String, String>builder()
+                                    .put("DO_NOT_UPDATE_STATS", "true")
+                                    .putAll(environmentContext)
+                                    .buildOrThrow());
                             client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
                         return null;
@@ -965,6 +992,13 @@ public final class ThriftHiveMetastore
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (InvalidOperationException e) {
+            // Use text matching because InvalidOperationException doesn't provide an error code
+            if (e.isSetMessage() && e.getMessage().contains("table not found")) {
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -1579,16 +1613,9 @@ public final class ThriftHiveMetastore
 
     private long acquireLock(String context, LockRequest lockRequest)
     {
+        LockResponse response = acquireLock(lockRequest);
+        long lockId = response.getLockid();
         try {
-            LockResponse response = retry()
-                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
-                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return metastoreClient.acquireLock(lockRequest);
-                        }
-                    }));
-
-            long lockId = response.getLockid();
             long waitStart = nanoTime();
             while (response.getState() == LockState.WAITING) {
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
@@ -1612,6 +1639,25 @@ public final class ThriftHiveMetastore
             }
 
             return response.getLockid();
+        }
+        catch (TException e) {
+            throw unlockSuppressing(lockId, new TrinoException(HIVE_METASTORE_ERROR, e));
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private LockResponse acquireLock(LockRequest lockRequest)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
+                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
+                            return metastoreClient.acquireLock(lockRequest);
+                        }
+                    }));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

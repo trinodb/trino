@@ -83,7 +83,7 @@ are also available. They are discussed later in this topic.
 * - `hive.user-metastore-cache-ttl`
   - [Duration](prop-type-duration) of how long cached metastore statistics, which are user specific
     in user impersonation scenarios, are considered valid.
-  - `10s`
+  - `0s`
 * - `hive.user-metastore-cache-maximum-size`
   - Maximum number of metastore data objects in the Hive metastore cache,
     which are user specific in user impersonation scenarios.
@@ -157,9 +157,6 @@ properties:
 * - `hive.metastore.thrift.client.ssl.trust-certificate-password`
   - Password for the trust store.
   -
-* - `hive.metastore.thrift.batch-fetch.enabled`
-  - Enable fetching tables and views from all schemas in a single request.
-  - `true`
 * - `hive.metastore.service.principal`
   - The Kerberos principal of the Hive metastore service.
   -
@@ -211,32 +208,37 @@ properties:
   -
 :::
 
-Use the following configuration properties for HTTP client transport mode, so
-when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
+(iceberg-hive-catalog)=
+### Iceberg-specific Hive catalog configuration properties
 
-:::{list-table} Thrift metastore HTTP configuration properties
-:widths: 40, 60
+When using the Hive catalog, the Iceberg connector supports the same
+{ref}`general Thrift metastore configuration properties <hive-thrift-metastore>` 
+as previously described with the following additional property:
+
+:::{list-table} Iceberg Hive catalog configuration property
+:widths: 35, 50, 15
 :header-rows: 1
 
 * - Property name
   - Description
-* - `hive.metastore.http.client.authentication.type`
-  - The authentication type to use with the HTTP client transport mode. When set
-    to the only supported value of `BEARER`, the token configured in
-    `hive.metastore.http.client.bearer-token` is used to authenticate to the
-    metastore service.
-* - `hive.metastore.http.client.bearer-token`
-  - Bearer token to use for authentication with the metastore service when HTTPS
-    transport mode is used by using a `https://` protocol in
-    `hive.metastore.uri`. This must not be set with `http://`.
-* - `hive.metastore.http.client.additional-headers`
-  - Additional headers to send with metastore service requests. These headers
-    must be comma-separated and delimited using `:`. For example,
-    `header1:value1,header2:value2` sends two headers `header1` and `header2`
-    with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
-    characters in a header name or value with a backslash (`\`). Use
-    `X-Databricks-Catalog-Name:[catalog_name]` to configure the required
-    header values for Unity catalog.
+  - Default
+* - `iceberg.hive-catalog.locking-enabled`
+  - Commit to tables using Hive locks.
+  - `true`
+:::
+
+:::{warning}
+Setting `iceberg.hive-catalog.locking-enabled=false` will cause the catalog to
+commit to tables without using Hive locks. This should only be set to false if all
+following conditions are met:
+
+* [HIVE-26882](https://issues.apache.org/jira/browse/HIVE-26882) is available on
+  the Hive metastore server. Requires version 2.3.10, 4.0.0-beta-1 or later.
+* [HIVE-28121](https://issues.apache.org/jira/browse/HIVE-28121) is available on
+  the Hive metastore server, if it is backed by MySQL or MariaDB. Requires version
+  2.3.10, 4.1.0, 4.0.1 or later.
+* All other catalogs committing to tables that this catalogs commits to are also
+  on Iceberg 1.3 or later, and disabled Hive locks on commit.
 :::
 
 (hive-thrift-metastore-authentication)=
@@ -298,7 +300,7 @@ properties:
     metadata is removed, and the data continues to consume disk space. This
     occurs because the Hive metastore is responsible for deleting the internal
     table data. When the metastore is configured to use Kerberos authentication,
-    all of the HDFS operations performed by the metastore are impersonated.
+    all the HDFS operations performed by the metastore are impersonated.
     Errors deleting data are silently ignored.
   -
 * - `hive.metastore.client.keytab`
@@ -485,11 +487,19 @@ following properties:
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
-  - The type of security to use (default: `NONE`).  `OAUTH2` requires either a
-    `token` or `credential`. Example: `OAUTH2`
+  - The type of security to use (default: `NONE`). Possible values are `NONE`, 
+    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.connection-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed for socket connection
+    requests to complete before timing out.
+* - `iceberg.rest-catalog.socket-timeout`
+  - Maximum time [Duration](prop-type-duration) allowed socket read/write operations
+    before timing out.
+* - `iceberg.rest-catalog.session-timeout`
+  - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
   - The bearer token used for interactions with the server. A `token` or
     `credential` is required for `OAUTH2` security. Example: `AbCdEf123456`
@@ -502,12 +512,25 @@ following properties:
     when using `credential`.
 * - `iceberg.rest-catalog.oauth2.server-uri`
   - The endpoint to retrieve access token from OAuth2 Server.
+* - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
+  - Controls whether a token should be refreshed if information about its expiration time is available.
+    Defaults to `true`
+* - `iceberg.rest-catalog.oauth2.token-exchange-enabled`
+  - Controls whether to use the token exchange flow to acquire new tokens.
+    Defaults to `true` 
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
+* - `iceberg.rest-catalog.view-endpoints-enabled`
+  - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.signing-name`
+  - AWS SigV4 signing service name. Defaults to `execute-api`.
+* - `iceberg.rest-catalog.google-project-id`
+  - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
+    config property is set to `GOOGLE`. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
@@ -536,6 +559,22 @@ iceberg.rest-catalog.security=OAUTH2
 iceberg.rest-catalog.oauth2.token=***
 ```
 
+`iceberg.rest-catalog.security` must be `GOOGLE` when connecting to BigLake metastore
+using an Iceberg REST catalog.
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.unique-table-location=false
+iceberg.rest-catalog.warehouse=gs://example-bucket
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.security=GOOGLE
+iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.view-endpoints-enabled=false
+fs.gcs.enabled=true
+gcs.json-key-file-path=/path/to/gcs_keyfile.json
+```
+
 The REST catalog supports [view management](sql-view-management) 
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 
@@ -562,7 +601,7 @@ directory.
 * - `iceberg.jdbc-catalog.connection-url`
   - The URI to connect to the JDBC server.
 * - `iceberg.jdbc-catalog.connection-user`
-  - User name for JDBC client.
+  - Username for JDBC client.
 * - `iceberg.jdbc-catalog.connection-password`
   - Password for JDBC client.
 * - `iceberg.jdbc-catalog.catalog-name`

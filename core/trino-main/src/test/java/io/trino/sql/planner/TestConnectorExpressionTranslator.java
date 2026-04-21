@@ -19,8 +19,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.ConnectorExpression;
@@ -37,6 +37,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -68,6 +69,7 @@ import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
@@ -200,6 +202,26 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
+    public void testTranslateTrivialLogicalExpression()
+    {
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Logical(
+                        Logical.Operator.AND,
+                        List.of(
+                                new Constant(BOOLEAN, true),
+                                new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                new io.trino.spi.expression.Call(
+                        BOOLEAN,
+                        StandardFunctions.AND_FUNCTION_NAME,
+                        List.of(
+                                new io.trino.spi.expression.Call(
+                                        BOOLEAN,
+                                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
+    }
+
+    @Test
     public void testTranslateComparisonExpression()
     {
         for (Comparison.Operator operator : Comparison.Operator.values()) {
@@ -323,7 +345,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateLike()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -399,10 +421,27 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
+    public void testTranslateCoalesce()
+    {
+        assertTranslationRoundTrips(
+                new Coalesce(
+                        new Reference(VARCHAR_TYPE, "varchar_symbol_1"),
+                        new Constant(VARCHAR_TYPE, null),
+                        new Constant(VARCHAR_TYPE, utf8Slice("fallback"))),
+                new io.trino.spi.expression.Call(
+                        VARCHAR_TYPE,
+                        COALESCE_FUNCTION_NAME,
+                        List.of(
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new io.trino.spi.expression.Constant(null, VARCHAR_TYPE),
+                                new io.trino.spi.expression.Constant(utf8Slice("fallback"), VARCHAR_TYPE))));
+    }
+
+    @Test
     public void testTranslateTryCast()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -422,7 +461,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateResolvedFunction()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -444,7 +483,7 @@ public class TestConnectorExpressionTranslator
         // and are not exposed to connectors within ConnectorExpression. Instead, they are replaced with a varchar pattern.
 
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
@@ -520,7 +559,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateCastPlusJsonParse()
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {

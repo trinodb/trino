@@ -23,6 +23,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.Identity;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 
@@ -175,7 +177,7 @@ public class TestQueues
             QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
             QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
-            ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
+            Set<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
             waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
         }
@@ -225,6 +227,24 @@ public class TestQueues
     }
 
     @Test
+    public void testOriginalUserBasedSelection()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = createQueryRunner()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_original_user.json")));
+            // match both
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.of("usr-foo-original")), LONG_LASTING_QUERY, createResourceGroupId("global", "a"));
+            // match only "user"
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.empty()), LONG_LASTING_QUERY, createResourceGroupId("global", "c"));
+            assertResourceGroup(queryRunner, newSessionWithUsers("usr-foo", Optional.of("other")), LONG_LASTING_QUERY, createResourceGroupId("global", "c"));
+            // match only "originalUser"
+            assertResourceGroup(queryRunner, newSessionWithUsers("other", Optional.of("usr-foo-original")), LONG_LASTING_QUERY, createResourceGroupId("global", "b"));
+        }
+    }
+
+    @Test
     @Timeout(240)
     public void testSelectorResourceEstimateBasedSelection()
             throws Exception
@@ -237,7 +257,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.of(DataSize.of(400, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
@@ -246,7 +266,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.of(DataSize.of(600, MEGABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
@@ -255,7 +275,7 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofMinutes(4)),
+                            Optional.of(Duration.ofMinutes(4)),
                             Optional.empty(),
                             Optional.empty())),
                     LONG_LASTING_QUERY,
@@ -264,8 +284,8 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofSeconds(1)),
-                            Optional.of(java.time.Duration.ofSeconds(1)),
+                            Optional.of(Duration.ofSeconds(1)),
+                            Optional.of(Duration.ofSeconds(1)),
                             Optional.of(DataSize.of(6, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "huge_memory"));
@@ -273,11 +293,25 @@ public class TestQueues
             assertResourceGroup(
                     queryRunner,
                     newSessionWithResourceEstimates(new ResourceEstimates(
-                            Optional.of(java.time.Duration.ofHours(100)),
+                            Optional.of(Duration.ofHours(100)),
                             Optional.empty(),
                             Optional.of(DataSize.of(4, TERABYTE).toBytes()))),
                     LONG_LASTING_QUERY,
                     createResourceGroupId("global", "other"));
+        }
+    }
+
+    @Test
+    @Timeout(240)
+    public void testQueryTextBasedSelection()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_text_based_config.json")));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 1", createResourceGroupId("global", "select_1"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 2", createResourceGroupId("global", "select_2"));
         }
     }
 
@@ -302,14 +336,20 @@ public class TestQueues
             throws InterruptedException
     {
         QueryId queryId = createQuery(queryRunner, session, query);
-        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHING, FINISHED));
-        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
-        assertThat(resourceGroupId.isPresent())
-                .describedAs("Query should have a resource group")
-                .isTrue();
-        assertThat(resourceGroupId.get())
-                .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
-                .isEqualTo(expectedResourceGroup);
+        try {
+            waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHING, FINISHED));
+            Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
+            assertThat(resourceGroupId.isPresent())
+                    .describedAs("Query should have a resource group")
+                    .isTrue();
+            assertThat(resourceGroupId.get())
+                    .describedAs(format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()))
+                    .isEqualTo(expectedResourceGroup);
+        }
+        finally {
+            cancelQuery(queryRunner, queryId);
+            waitForQueryState(queryRunner, queryId, ImmutableSet.of(FINISHED, FAILED));
+        }
     }
 
     private void testRejection()
@@ -378,15 +418,26 @@ public class TestQueues
         return newSession("sessionWithTags", ImmutableSet.of(), resourceEstimates);
     }
 
+    private static Session newSessionWithUsers(String user, Optional<String> originalUser)
+    {
+        Session.SessionBuilder builder = newSessionBuilder()
+                .setIdentity(Identity.ofUser(user));
+        originalUser.ifPresent(usr -> builder.setOriginalIdentity(Identity.ofUser(usr)));
+        return builder.build();
+    }
+
     private static Session newSession(String source, Set<String> clientTags, ResourceEstimates resourceEstimates)
     {
-        return testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
+        return newSessionBuilder()
                 .setSource(source)
                 .setClientTags(clientTags)
                 .setResourceEstimates(resourceEstimates)
                 .build();
+    }
+
+    private static Session.SessionBuilder newSessionBuilder()
+    {
+        return testSessionBuilder().setCatalog("tpch").setSchema("sf100000");
     }
 
     public static ResourceGroupId createResourceGroupId(String root, String... subGroups)

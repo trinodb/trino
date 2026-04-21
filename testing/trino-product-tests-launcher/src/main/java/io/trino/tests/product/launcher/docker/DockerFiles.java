@@ -25,7 +25,6 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermissions;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -131,7 +130,7 @@ public final class DockerFiles
         Path temporaryDirectoryForDocker;
         try {
             // Cannot use Files.createTempDirectory() because on Mac by default it uses /var/folders/ which is not visible to Docker for Mac
-            temporaryDirectoryForDocker = Files.createDirectory(Paths.get("/tmp/docker-files-" + randomUUID().toString()));
+            temporaryDirectoryForDocker = Files.createDirectory(Path.of("/tmp/docker-files-" + randomUUID().toString()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

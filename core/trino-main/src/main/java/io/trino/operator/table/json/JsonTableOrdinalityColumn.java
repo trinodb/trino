@@ -14,6 +14,4 @@
 package io.trino.operator.table.json;
 
 public record JsonTableOrdinalityColumn(int outputIndex)
-        implements JsonTableColumn
-{
-}
+        implements JsonTableColumn {}

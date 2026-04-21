@@ -54,6 +54,7 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -153,8 +154,8 @@ public class ParametricScalarImplementation
     public Optional<SpecializedSqlScalarFunction> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
-        for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(functionBinding.getTypeVariable(entry.getKey()).getJavaType())) {
+        for (Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
+            if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
@@ -403,16 +404,6 @@ public class ParametricScalarImplementation
         public List<Class<?>> getLambdaInterfaces()
         {
             return lambdaInterfaces;
-        }
-
-        public boolean checkDependencies()
-        {
-            for (int i = 1; i < getDependencies().size(); i++) {
-                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
-                    return false;
-                }
-            }
-            return true;
         }
 
         @VisibleForTesting
@@ -702,8 +693,8 @@ public class ParametricScalarImplementation
                 checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
-                if (annotation instanceof TypeParameter) {
-                    checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParameterNames, method);
+                if (annotation instanceof TypeParameter typeParameter) {
+                    checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParameterNames, method);
                 }
                 constructorDependencies.add(createDependency(annotation, literalParameters, constructor.getParameterTypes()[i]));
             }

@@ -14,18 +14,17 @@
 package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -37,19 +36,19 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class KdbTreeType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "KdbTree";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(KdbTreeType.class, lookup(), Object.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final KdbTreeType KDB_TREE = new KdbTreeType();
-    public static final String NAME = "KdbTree";
 
     private KdbTreeType()
     {
@@ -60,13 +59,19 @@ public final class KdbTreeType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         return getObject(block, position);
     }
@@ -86,14 +91,13 @@ public final class KdbTreeType
         }
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
-        return KdbTreeUtils.fromJson(json);
+        return KdbTreeUtils.fromJson(valueBlock.getSlice(valuePosition));
     }
 
     @Override
     public int getFlatFixedSize()
     {
-        return 8;
+        return Integer.BYTES;
     }
 
     @Override
@@ -104,9 +108,8 @@ public final class KdbTreeType
     }
 
     @Override
-    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    public int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
     {
-        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
         return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
 
@@ -114,12 +117,11 @@ public final class KdbTreeType
     private static Object readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] variableSizeSlice)
+            @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset)
     {
         int length = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
-        int offset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
-
-        return KdbTreeUtils.fromJson(new String(variableSizeSlice, offset, length, UTF_8));
+        return KdbTreeUtils.fromJson(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
     }
 
     @ScalarOperator(READ_VALUE)
@@ -127,12 +129,11 @@ public final class KdbTreeType
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
             @FlatVariableWidth byte[] variableSizeSlice,
+            @FlatVariableOffset int variableSizeOffset,
             BlockBuilder blockBuilder)
     {
         int length = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
-        int offset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
-
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(Slices.wrappedBuffer(variableSizeSlice, offset, length));
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
     }
 
     @ScalarOperator(READ_VALUE)
@@ -147,7 +148,6 @@ public final class KdbTreeType
         System.arraycopy(bytes, 0, variableWidthSlice, variableSizeOffset, bytes.length);
 
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, bytes.length);
-        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
     }
 
     @ScalarOperator(READ_VALUE)
@@ -165,6 +165,5 @@ public final class KdbTreeType
         bytes.getBytes(0, variableSizeSlice, variableSizeOffset, bytes.length());
 
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, bytes.length());
-        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
     }
 }

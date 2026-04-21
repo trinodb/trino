@@ -14,19 +14,20 @@
 package io.trino.orc.reader;
 
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReader.FieldMapperFactory;
 import io.trino.orc.metadata.OrcType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VariantType;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BINARY;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static io.trino.orc.reader.ReaderUtils.invalidStreamType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -35,6 +36,7 @@ public final class ColumnReaders
 {
     public static final String ICEBERG_BINARY_TYPE = "iceberg.binary-type";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
+    public static final String ICEBERG_VARIANT_TYPE_KIND = "iceberg.variant-type";
 
     private ColumnReaders() {}
 
@@ -43,7 +45,6 @@ public final class ColumnReaders
             OrcColumn column,
             OrcReader.ProjectedLayout projectedLayout,
             AggregatedMemoryContext memoryContext,
-            OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
@@ -56,12 +57,16 @@ public final class ColumnReaders
             return new TimeColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
         }
         if (type instanceof UuidType) {
-            checkArgument(orcTypeKind == BINARY, "UUID type can only be read from BINARY column but got %s", column);
-            checkArgument(
-                    "UUID".equals(column.getAttributes().get(ICEBERG_BINARY_TYPE)),
-                    "Expected ORC column for UUID data to be annotated with %s=UUID: %s",
-                    ICEBERG_BINARY_TYPE, column);
+            if (orcTypeKind != BINARY || !"UUID".equals(column.getAttributes().get(ICEBERG_BINARY_TYPE))) {
+                throw invalidStreamType(column, type);
+            }
             return new UuidColumnReader(column);
+        }
+        if (type instanceof VariantType) {
+            if (orcTypeKind != STRUCT || !"true".equals(column.getAttributes().get(ICEBERG_VARIANT_TYPE_KIND))) {
+                throw invalidStreamType(column, type);
+            }
+            return new VariantColumnReader(column, memoryContext);
         }
 
         return switch (orcTypeKind) {
@@ -77,11 +82,11 @@ public final class ColumnReaders
             case DOUBLE -> new DoubleColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case BINARY, STRING, VARCHAR, CHAR -> new SliceColumnReader(type, column, memoryContext);
             case TIMESTAMP, TIMESTAMP_INSTANT -> new TimestampColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case LIST -> new ListColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
-            case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
-            case MAP -> new MapColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case LIST -> new ListColumnReader(type, column, memoryContext, fieldMapperFactory);
+            case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, fieldMapperFactory);
+            case MAP -> new MapColumnReader(type, column, memoryContext, fieldMapperFactory);
             case DECIMAL -> new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case UNION -> new UnionColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case UNION -> new UnionColumnReader((RowType) type, column, memoryContext, fieldMapperFactory);
         };
     }
 }

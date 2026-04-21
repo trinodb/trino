@@ -20,11 +20,11 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -81,7 +81,9 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo(dictionaryBlock.getDictionary().getSizeInBytes() + (100 * SIZE_OF_INT));
+        ValueBlock dictionary = dictionaryBlock.getDictionary();
+        double averageEntrySize = dictionary.getSizeInBytes() / (double) dictionary.getPositionCount();
+        assertThat(dictionaryBlock.getSizeInBytes()).isEqualTo((long) (averageEntrySize * 100) + (100 * SIZE_OF_INT));
     }
 
     @Test
@@ -101,7 +103,7 @@ public class TestDictionaryBlock
         Slice firstExpectedValue = expectedValues[0];
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        int[] positionsToCopy = new int[] {0, 10, 20, 30, 40};
+        int[] positionsToCopy = {0, 10, 20, 30, 40};
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertThat(copiedBlock.getDictionary().getPositionCount()).isEqualTo(1);
@@ -116,7 +118,7 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        int[] positionsToCopy = new int[] {50, 55, 40, 45, 60};
+        int[] positionsToCopy = {50, 55, 40, 45, 60};
 
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
@@ -132,7 +134,7 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        int[] positionsToCopy = new int[] {52, 52, 52};
+        int[] positionsToCopy = {52, 52, 52};
 
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
@@ -149,7 +151,7 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(1);
         DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
 
-        int[] positionsToCopy = new int[] {0, 2, 4, 5};
+        int[] positionsToCopy = {0, 2, 4, 5};
         DictionaryBlock copiedBlock = (DictionaryBlock) dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length);
 
         assertThat(copiedBlock.getPositionCount()).isEqualTo(positionsToCopy.length);
@@ -309,32 +311,27 @@ public class TestDictionaryBlock
         assertDictionarySizeMethods(createSlicesBlock(createExpectedValues(100)));
     }
 
-    private static void assertDictionarySizeMethods(Block block)
+    private static void assertDictionarySizeMethods(Block dictionary)
     {
-        assertThat(block).isNotInstanceOf(DictionaryBlock.class);
+        assertThat(dictionary).isNotInstanceOf(DictionaryBlock.class);
 
-        int positions = block.getPositionCount();
-        assertThat(positions > 0).isTrue();
+        int entryCount = dictionary.getPositionCount();
+        assertThat(entryCount > 0).isTrue();
 
-        int[] allIds = IntStream.range(0, positions).toArray();
-        assertThat(DictionaryBlock.create(allIds.length, block, allIds).getSizeInBytes()).isEqualTo(block.getSizeInBytes() + (Integer.BYTES * (long) positions));
+        double averageEntrySize = dictionary.getSizeInBytes() / (double) entryCount;
 
-        int firstHalfLength = positions / 2;
-        int secondHalfLength = positions - firstHalfLength;
+        int[] allIds = IntStream.range(0, entryCount).toArray();
+        assertThat(DictionaryBlock.create(allIds.length, dictionary, allIds).getSizeInBytes()).isEqualTo(dictionary.getSizeInBytes() + (Integer.BYTES * (long) entryCount));
+
+        int firstHalfLength = entryCount / 2;
+        int secondHalfLength = entryCount - firstHalfLength;
         int[] firstHalfIds = IntStream.range(0, firstHalfLength).toArray();
-        int[] secondHalfIds = IntStream.range(firstHalfLength, positions).toArray();
+        int[] secondHalfIds = IntStream.range(firstHalfLength, entryCount).toArray();
 
-        boolean[] selectedPositions = new boolean[positions];
-        selectedPositions[0] = true;
-        assertThat(DictionaryBlock.create(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, 1)).isEqualTo(block.getPositionsSizeInBytes(selectedPositions, 1) + Integer.BYTES);
-
-        Arrays.fill(selectedPositions, true);
-        assertThat(DictionaryBlock.create(allIds.length, block, allIds).getPositionsSizeInBytes(selectedPositions, positions)).isEqualTo(block.getSizeInBytes() + (Integer.BYTES * (long) positions));
-
-        assertThat(DictionaryBlock.create(firstHalfIds.length, block, firstHalfIds).getSizeInBytes()).isEqualTo(block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-        assertThat(DictionaryBlock.create(secondHalfIds.length, block, secondHalfIds).getSizeInBytes()).isEqualTo(block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
-        assertThat(DictionaryBlock.create(allIds.length, block, allIds).getRegionSizeInBytes(0, firstHalfLength)).isEqualTo(block.getRegionSizeInBytes(0, firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
-        assertThat(DictionaryBlock.create(allIds.length, block, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength)).isEqualTo(block.getRegionSizeInBytes(firstHalfLength, secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+        assertThat(DictionaryBlock.create(firstHalfIds.length, dictionary, firstHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+        assertThat(DictionaryBlock.create(secondHalfIds.length, dictionary, secondHalfIds).getSizeInBytes()).isEqualTo((long) (averageEntrySize * secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
+        assertThat(DictionaryBlock.create(allIds.length, dictionary, allIds).getRegionSizeInBytes(0, firstHalfLength)).isEqualTo((long) (averageEntrySize * firstHalfLength) + (Integer.BYTES * (long) firstHalfLength));
+        assertThat(DictionaryBlock.create(allIds.length, dictionary, allIds).getRegionSizeInBytes(firstHalfLength, secondHalfLength)).isEqualTo((long) (averageEntrySize * secondHalfLength) + (Integer.BYTES * (long) secondHalfLength));
     }
 
     private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)

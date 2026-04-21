@@ -56,9 +56,13 @@ public abstract class BaseMariaDbConnectorTest
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -82,7 +86,7 @@ public abstract class BaseMariaDbConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
+                "(one bigint, two bit(10), three varchar(10))");
     }
 
     @Test
@@ -190,7 +194,7 @@ public abstract class BaseMariaDbConnectorTest
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Should fail to add not null column without a default value to a non-empty table");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
@@ -269,7 +273,7 @@ public abstract class BaseMariaDbConnectorTest
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
@@ -282,7 +286,7 @@ public abstract class BaseMariaDbConnectorTest
             assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+        try (TestTable table = newTrinoTable("commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector

@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorMergeTableHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +32,8 @@ public class JdbcMergeTableHandle
 {
     private final JdbcTableHandle tableHandle;
     private final JdbcOutputTableHandle outputTableHandle;
+    private final Map<Integer, JdbcOutputTableHandle> updateOutputTableHandle;
+    private final Optional<JdbcOutputTableHandle> deleteOutputTableHandle;
     private final List<JdbcColumnHandle> primaryKeys;
     private final List<JdbcColumnHandle> dataColumns;
     private final Map<Integer, Collection<ColumnHandle>> updateCaseColumns;
@@ -39,12 +42,16 @@ public class JdbcMergeTableHandle
     public JdbcMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
             @JsonProperty("outputTableHandle") JdbcOutputTableHandle outputTableHandle,
+            @JsonProperty("updateOutputTableHandle") Map<Integer, JdbcOutputTableHandle> updateOutputTableHandle,
+            @JsonProperty("deleteOutputTableHandle") Optional<JdbcOutputTableHandle> deleteOutputTableHandle,
             @JsonProperty("primaryKeys") List<JdbcColumnHandle> primaryKeys,
             @JsonProperty("dataColumns") List<JdbcColumnHandle> dataColumns,
             @JsonProperty("updateCaseColumns") Map<Integer, Collection<ColumnHandle>> updateCaseColumns)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.outputTableHandle = requireNonNull(outputTableHandle, "outputTableHandle is null");
+        this.updateOutputTableHandle = requireNonNull(updateOutputTableHandle, "updateOutputTableHandle is null");
+        this.deleteOutputTableHandle = requireNonNull(deleteOutputTableHandle, "deleteOutputTableHandle is null");
         this.primaryKeys = ImmutableList.copyOf(requireNonNull(primaryKeys, "primaryKeys is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.updateCaseColumns = ImmutableMap.copyOf(requireNonNull(updateCaseColumns, "updateCaseColumns is null"));
@@ -61,6 +68,18 @@ public class JdbcMergeTableHandle
     public JdbcOutputTableHandle getOutputTableHandle()
     {
         return outputTableHandle;
+    }
+
+    @JsonProperty
+    public Map<Integer, JdbcOutputTableHandle> getUpdateOutputTableHandle()
+    {
+        return updateOutputTableHandle;
+    }
+
+    @JsonProperty
+    public Optional<JdbcOutputTableHandle> getDeleteOutputTableHandle()
+    {
+        return deleteOutputTableHandle;
     }
 
     @JsonProperty

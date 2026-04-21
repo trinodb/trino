@@ -18,6 +18,7 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.Plugin;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -106,7 +107,7 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(plannerContext.getFunctionManager(), getPageFunctionCompiler(), getColumnarFilterCompiler());
+        return new ExpressionCompiler(getPageFunctionCompiler(), getColumnarFilterCompiler());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()
@@ -116,7 +117,7 @@ public class TestingFunctionResolution
 
     public PageFunctionCompiler getPageFunctionCompiler(int expressionCacheSize)
     {
-        return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
+        return new PageFunctionCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), plannerContext.getTypeManager(), expressionCacheSize);
     }
 
     public Collection<FunctionMetadata> listGlobalFunctions()
@@ -131,7 +132,7 @@ public class TestingFunctionResolution
 
     public ColumnarFilterCompiler getColumnarFilterCompiler(int expressionCacheSize)
     {
-        return new ColumnarFilterCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
+        return new ColumnarFilterCompiler(plannerContext.getFunctionManager(), plannerContext.getMetadata(), expressionCacheSize);
     }
 
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)

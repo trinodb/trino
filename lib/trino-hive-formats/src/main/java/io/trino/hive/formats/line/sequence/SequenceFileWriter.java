@@ -38,7 +38,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.hive.formats.ReadWriteUtils.computeVIntLength;
 import static io.trino.hive.formats.ReadWriteUtils.writeLengthPrefixedString;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
@@ -69,7 +68,8 @@ public class SequenceFileWriter
             OutputStream rawOutput,
             Optional<CompressionKind> compressionKind,
             boolean blockCompression,
-            Map<String, String> metadata)
+            Map<String, String> metadata,
+            ValueType valueType)
             throws IOException
     {
         try {
@@ -88,7 +88,7 @@ public class SequenceFileWriter
 
             // write key and value class names
             writeLengthPrefixedString(output, utf8Slice("org.apache.hadoop.io.BytesWritable"));
-            writeLengthPrefixedString(output, utf8Slice("org.apache.hadoop.io.Text"));
+            writeLengthPrefixedString(output, utf8Slice(valueType.getClassName()));
 
             // write compression info
             output.writeBoolean(compressionKind.isPresent());
@@ -112,10 +112,10 @@ public class SequenceFileWriter
 
             Optional<Codec> codec = compressionKind.map(CompressionKind::createCodec);
             if (blockCompression) {
-                valueWriter = new BlockCompressionValueWriter(output, codec.orElseThrow(), syncFirst, syncSecond);
+                valueWriter = new BlockCompressionValueWriter(output, codec.orElseThrow(), syncFirst, syncSecond, valueType);
             }
             else {
-                valueWriter = new SingleValueWriter(output, codec, syncFirst, syncSecond);
+                valueWriter = new SingleValueWriter(output, codec, syncFirst, syncSecond, valueType);
             }
         }
         catch (Throwable e) {
@@ -178,6 +178,7 @@ public class SequenceFileWriter
         private final long syncSecond;
         private final ValueCompressor valueCompressor;
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
+        private final ValueType valueType;
 
         // SliceOutput does not have a long position, so track it manually
         private long currentPosition;
@@ -185,7 +186,7 @@ public class SequenceFileWriter
 
         private final Closer closer = Closer.create();
 
-        public SingleValueWriter(DataOutputStream output, Optional<Codec> codec, long syncFirst, long syncSecond)
+        public SingleValueWriter(DataOutputStream output, Optional<Codec> codec, long syncFirst, long syncSecond, ValueType valueType)
                 throws IOException
         {
             try {
@@ -199,6 +200,7 @@ public class SequenceFileWriter
                 }
                 this.syncFirst = syncFirst;
                 this.syncSecond = syncSecond;
+                this.valueType = valueType;
                 currentPosition += output.longSize();
             }
             catch (Throwable e) {
@@ -213,10 +215,9 @@ public class SequenceFileWriter
                 throws IOException
         {
             try {
-                // prefix the value with the vInt length before compression
-                // NOTE: this length is not part of the SequenceFile specification, and instead comes from Text readFields
+                // prefix the value with the length before compression
                 uncompressedBuffer.reset();
-                writeVInt(uncompressedBuffer, value.length());
+                valueType.writeLengthField(uncompressedBuffer, value.length());
                 uncompressedBuffer.writeBytes(value);
                 value = uncompressedBuffer.slice();
 
@@ -281,6 +282,7 @@ public class SequenceFileWriter
         private final DataOutputStream output;
         private final long syncFirst;
         private final long syncSecond;
+        private final ValueType valueType;
 
         private MemoryCompressedSliceOutput keyLengthOutput;
         private MemoryCompressedSliceOutput keyOutput;
@@ -291,7 +293,7 @@ public class SequenceFileWriter
 
         private final Closer closer = Closer.create();
 
-        public BlockCompressionValueWriter(DataOutputStream output, Codec trinoCodec, long syncFirst, long syncSecond)
+        public BlockCompressionValueWriter(DataOutputStream output, Codec trinoCodec, long syncFirst, long syncSecond, ValueType valueType)
                 throws IOException
         {
             try {
@@ -299,6 +301,7 @@ public class SequenceFileWriter
                 requireNonNull(trinoCodec, "trinoCodec is null");
                 this.syncFirst = syncFirst;
                 this.syncSecond = syncSecond;
+                this.valueType = valueType;
 
                 this.keyLengthOutput = trinoCodec.createMemoryCompressedSliceOutput(OTHER_MIN_BUFFER_SIZE, OTHER_MAX_BUFFER_SIZE);
                 closer.register(keyLengthOutput::destroy);
@@ -348,9 +351,8 @@ public class SequenceFileWriter
 
                 // write value
                 // Full length of the value including the vInt added by text writable
-                writeVInt(valueLengthOutput, value.length() + computeVIntLength(value.length()));
-                // NOTE: this length is not part of the SequenceFile specification, and instead comes from Text readFields
-                writeVInt(valueOutput, value.length());
+                writeVInt(valueLengthOutput, value.length() + valueType.computeLengthOfLengthField(value.length()));
+                valueType.writeLengthField(valueOutput, value.length());
                 valueOutput.writeBytes(value);
 
                 valueCount++;

@@ -13,45 +13,27 @@
  */
 package io.trino.plugin.thrift;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
-public class ThriftConnectorSplit
+public record ThriftConnectorSplit(TrinoThriftId splitId, List<HostAddress> addresses)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(ThriftConnectorSplit.class);
 
-    private final TrinoThriftId splitId;
-    private final List<HostAddress> addresses;
-
-    @JsonCreator
-    public ThriftConnectorSplit(
-            @JsonProperty("splitId") TrinoThriftId splitId,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+    public ThriftConnectorSplit
     {
-        this.splitId = requireNonNull(splitId, "splitId is null");
-        this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-    }
-
-    @JsonProperty
-    public TrinoThriftId getSplitId()
-    {
-        return splitId;
+        requireNonNull(splitId, "splitId is null");
+        addresses = ImmutableList.copyOf(addresses);
     }
 
     @Override
@@ -62,47 +44,10 @@ public class ThriftConnectorSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of(
-                "addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")),
-                "splitId", splitId.toString());
-    }
-
-    @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + splitId.getRetainedSizeInBytes()
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        ThriftConnectorSplit other = (ThriftConnectorSplit) obj;
-        return Objects.equals(this.splitId, other.splitId) &&
-                Objects.equals(this.addresses, other.addresses);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(splitId, addresses);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("splitId", splitId)
-                .add("addresses", addresses)
-                .toString();
     }
 }

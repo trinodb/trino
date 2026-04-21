@@ -35,12 +35,12 @@ import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestOpaAccessControlPermissionManagementOperations
+final class TestOpaAccessControlPermissionManagementOperations
 {
     private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
 
     @Test
-    public void testTablePrivilegeGrantingOperationsDeniedOrAllowedByConfig()
+    void testTablePrivilegeGrantingOperationsDeniedOrAllowedByConfig()
     {
         CatalogSchemaTableName sampleTableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
         TrinoPrincipal samplePrincipal = new TrinoPrincipal(PrincipalType.USER, "some_user");
@@ -54,7 +54,7 @@ public class TestOpaAccessControlPermissionManagementOperations
     }
 
     @Test
-    public void testSchemaPrivilegeGrantingOperationsDeniedOrAllowedByConfig()
+    void testSchemaPrivilegeGrantingOperationsDeniedOrAllowedByConfig()
     {
         CatalogSchemaName sampleSchemaName = new CatalogSchemaName("some_catalog", "some_schema");
         TrinoPrincipal samplePrincipal = new TrinoPrincipal(PrincipalType.USER, "some_user");
@@ -68,21 +68,21 @@ public class TestOpaAccessControlPermissionManagementOperations
     }
 
     @Test
-    public void testCanCreateRoleAllowedOrDeniedByConfig()
+    void testCanCreateRoleAllowedOrDeniedByConfig()
     {
         testOperationAllowedOrDeniedByConfig(
                 authorizer -> authorizer.checkCanCreateRole(TEST_SECURITY_CONTEXT, "some_role", Optional.empty()));
     }
 
     @Test
-    public void testCanDropRoleAllowedOrDeniedByConfig()
+    void testCanDropRoleAllowedOrDeniedByConfig()
     {
         testOperationAllowedOrDeniedByConfig(
                 authorizer -> authorizer.checkCanDropRole(TEST_SECURITY_CONTEXT, "some_role"));
     }
 
     @Test
-    public void testCanGrantRolesAllowedOrDeniedByConfig()
+    void testCanGrantRolesAllowedOrDeniedByConfig()
     {
         Set<String> roles = ImmutableSet.of("role_one", "role_two");
         Set<TrinoPrincipal> grantees = ImmutableSet.of(new TrinoPrincipal(PrincipalType.USER, "some_principal"));
@@ -91,19 +91,19 @@ public class TestOpaAccessControlPermissionManagementOperations
     }
 
     @Test
-    public void testShowRolesAlwaysAllowedRegardlessOfConfig()
+    void testShowRolesAlwaysAllowedRegardlessOfConfig()
     {
         testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoles(TEST_SECURITY_CONTEXT));
     }
 
     @Test
-    public void testShowCurrentRolesAlwaysAllowedRegardlessOfConfig()
+    void testShowCurrentRolesAlwaysAllowedRegardlessOfConfig()
     {
         testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowCurrentRoles(TEST_SECURITY_CONTEXT));
     }
 
     @Test
-    public void testShowRoleGrantsAlwaysAllowedRegardlessOfConfig()
+    void testShowRoleGrantsAlwaysAllowedRegardlessOfConfig()
     {
         testOperationAlwaysAllowedRegardlessOfConfig(authorizer -> authorizer.checkCanShowRoleGrants(TEST_SECURITY_CONTEXT));
     }

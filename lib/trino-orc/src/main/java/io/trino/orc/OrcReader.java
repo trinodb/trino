@@ -34,7 +34,7 @@ import io.trino.orc.metadata.PostScript;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
-import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -252,6 +252,7 @@ public class OrcReader
     public OrcRecordReader createRecordReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
+            boolean appendRowNumberColumn,
             OrcPredicate predicate,
             DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext memoryUsage,
@@ -263,6 +264,7 @@ public class OrcReader
                 readColumns,
                 readTypes,
                 Collections.nCopies(readColumns.size(), fullyProjectedLayout()),
+                appendRowNumberColumn,
                 predicate,
                 0,
                 orcDataSource.getEstimatedSize(),
@@ -277,6 +279,7 @@ public class OrcReader
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             List<ProjectedLayout> readLayouts,
+            boolean appendRowNumberColumn,
             OrcPredicate predicate,
             long offset,
             long length,
@@ -291,6 +294,7 @@ public class OrcReader
                 requireNonNull(readColumns, "readColumns is null"),
                 requireNonNull(readTypes, "readTypes is null"),
                 requireNonNull(readLayouts, "readLayouts is null"),
+                appendRowNumberColumn,
                 requireNonNull(predicate, "predicate is null"),
                 footer.getNumberOfRows(),
                 footer.getStripes(),
@@ -416,6 +420,7 @@ public class OrcReader
             try (OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,
+                    false,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
@@ -424,9 +429,9 @@ public class OrcReader
                         throwIfUnchecked(exception);
                         return new RuntimeException(exception);
                     })) {
-                for (Page page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
+                for (SourcePage page = orcRecordReader.nextPage(); page != null; page = orcRecordReader.nextPage()) {
                     // fully load the page
-                    page.getLoadedPage();
+                    page.getPage();
                 }
             }
         }

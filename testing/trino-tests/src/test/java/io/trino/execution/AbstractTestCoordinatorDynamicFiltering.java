@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
@@ -56,6 +57,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -67,8 +69,6 @@ import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PARTITIONING_ENABLED;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
@@ -112,7 +112,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         getQueryRunner().createCatalog(
                 "tpch",
                 "tpch",
-                ImmutableMap.of(TPCH_PARTITIONING_ENABLED, "false", TPCH_SPLITS_PER_NODE, "16"));
+                ImmutableMap.of("tpch.partitioning-enabled", "false", "tpch.splits-per-node", "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of("memory.splits-per-node", "16"));
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
@@ -621,6 +621,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         ConnectorSession session,
                         ConnectorSplit split,
                         ConnectorTableHandle table,
+                        Optional<ConnectorTableCredentials> tableCredentials,
                         List<ColumnHandle> columns,
                         DynamicFilter dynamicFilter)
                 {
@@ -663,5 +664,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         {
             return new TestingPageSinkProvider();
         }
+
+        @Override
+        public void shutdown() {}
     }
 }

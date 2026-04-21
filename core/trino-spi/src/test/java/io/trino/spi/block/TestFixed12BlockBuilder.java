@@ -16,7 +16,7 @@ package io.trino.spi.block;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestFixed12BlockBuilder
+final class TestFixed12BlockBuilder
         extends AbstractTestBlockBuilder<TestFixed12BlockBuilder.Fixed12>
 {
     @Override

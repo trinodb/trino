@@ -24,6 +24,8 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -42,7 +44,6 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
@@ -60,6 +61,7 @@ import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +70,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -92,13 +95,14 @@ public class TrinoJdbcCatalog
         extends AbstractTrinoCatalog
 {
     private static final Logger LOG = Logger.get(TrinoJdbcCatalog.class);
+    private static final Pattern METADATA_SUFFIX_PATTERN = Pattern.compile("/metadata/[^/]*$");
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
 
     private final JdbcCatalog jdbcCatalog;
     private final IcebergJdbcClient jdbcClient;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final String defaultWarehouseDir;
+    private final SchemaVersion schemaVersion;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -111,14 +115,16 @@ public class TrinoJdbcCatalog
             JdbcCatalog jdbcCatalog,
             IcebergJdbcClient jdbcClient,
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             boolean useUniqueTableLocation,
-            String defaultWarehouseDir)
+            String defaultWarehouseDir,
+            SchemaVersion schemaVersion)
     {
-        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
+        super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.defaultWarehouseDir = requireNonNull(defaultWarehouseDir, "defaultWarehouseDir is null");
+        this.schemaVersion = requireNonNull(schemaVersion, "schemaVersion is null");
     }
 
     @Override
@@ -201,6 +207,26 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        List<String> namespaces = listNamespaces(session, namespace);
+
+        // Build as a set and convert to list for removing duplicate entries due to case difference
+        Set<SchemaTableName> tablesListBuilder = new HashSet<>();
+        for (String schemaName : namespaces) {
+            try {
+                listTableIdentifiers(schemaName, () -> jdbcCatalog.listTables(Namespace.of(schemaName))).stream()
+                        .map(tableId -> SchemaTableName.schemaTableName(schemaName, tableId.name()))
+                        .forEach(tablesListBuilder::add);
+            }
+            catch (NoSuchNamespaceException e) {
+                // Namespace may have been deleted
+            }
+        }
+        return ImmutableList.copyOf(tablesListBuilder);
+    }
+
+    @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
         List<String> namespaces = listNamespaces(session, namespace);
@@ -263,7 +289,7 @@ public class TrinoJdbcCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties)
     {
         return newCreateTableTransaction(
@@ -317,7 +343,7 @@ public class TrinoJdbcCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
+        BaseTable table = loadTable(session, schemaTableName);
 
         jdbcCatalog.dropTable(toIdentifier(schemaTableName), false);
         try {
@@ -342,7 +368,7 @@ public class TrinoJdbcCatalog
         if (metadataLocation.isEmpty()) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Could not find metadata_location for table %s", schemaTableName));
         }
-        String tableLocation = metadataLocation.get().replaceFirst("/metadata/[^/]*$", "");
+        String tableLocation = METADATA_SUFFIX_PATTERN.matcher(metadataLocation.get()).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
         invalidateTableCache(schemaTableName);
     }
@@ -360,14 +386,14 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         TableMetadata metadata;
         try {
             metadata = uncheckedCacheGet(
                     tableMetadataCache,
                     schemaTableName,
-                    () -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+                    () -> loadIcebergTable(this, tableOperationsProvider, session, schemaTableName).operations().current());
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
@@ -441,6 +467,10 @@ public class TrinoJdbcCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
+        if (schemaVersion == SchemaVersion.V0) {
+            throw new TrinoException(NOT_SUPPORTED, "Schema version V0 does not support views");
+        }
+
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
@@ -505,6 +535,11 @@ public class TrinoJdbcCatalog
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewIdentifier)
     {
+        if (schemaVersion == SchemaVersion.V0) {
+            // V0 doesn't support views
+            return Optional.empty();
+        }
+
         if (!jdbcCatalog.viewExists(toIdentifier(viewIdentifier))) {
             return Optional.empty();
         }

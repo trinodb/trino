@@ -50,13 +50,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
     })
     public int size;
 
-    @Param({
-            "RANDOM",
-            "ONLY_NULLS",
-            "ONLY_NON_NULLS",
-            "MIXED_RANDOM_AND_SMALL_GROUPS",
-            "MIXED_RANDOM_AND_BIG_GROUPS",
-    })
+    @Param
     public DataGenerator dataGenerator;
 
     @Param({
@@ -161,7 +155,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
         DataGenerator() {}
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkFlatDefinitionLevelDecoder.class)

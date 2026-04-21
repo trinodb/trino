@@ -47,10 +47,10 @@ import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestOpaBatchAccessControlFiltering
+final class TestOpaBatchAccessControlFiltering
 {
     @Test
-    public void testFilterViewQueryOwnedBy()
+    void testFilterViewQueryOwnedBy()
     {
         Identity identityOne = Identity.ofUser("user-one");
         Identity identityTwo = Identity.ofUser("user-two");
@@ -91,7 +91,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterCatalogs()
+    void testFilterCatalogs()
     {
         String expectedRequest =
                 """
@@ -121,7 +121,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterSchemas()
+    void testFilterSchemas()
     {
         String expectedRequest =
                 """
@@ -158,7 +158,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterTables()
+    void testFilterTables()
     {
         String expectedRequest =
                 """
@@ -198,7 +198,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterColumns()
+    void testFilterColumns()
     {
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
@@ -256,7 +256,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testEmptyFilterColumns()
+    void testEmptyFilterColumns()
     {
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 accessControl -> accessControl.filterColumns(TEST_SECURITY_CONTEXT, "my_catalog", ImmutableMap.of()).entrySet());
@@ -272,7 +272,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterColumnErrorCases()
+    void testFilterColumnErrorCases()
     {
         assertAccessControlMethodThrowsForIllegalResponses(
                 accessControl -> accessControl.filterColumns(
@@ -284,7 +284,7 @@ public class TestOpaBatchAccessControlFiltering
     }
 
     @Test
-    public void testFilterFunctions()
+    void testFilterFunctions()
     {
         String expectedRequest =
                 """

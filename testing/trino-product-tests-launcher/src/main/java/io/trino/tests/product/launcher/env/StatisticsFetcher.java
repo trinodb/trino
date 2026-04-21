@@ -34,12 +34,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.statisticsAreEmpty;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class StatisticsFetcher
         implements AutoCloseable
@@ -97,7 +97,7 @@ public class StatisticsFetcher
         }
 
         Stats stats = new Stats();
-        stats.systemCpuUsage = firstNonNull(statistics.getCpuStats().getSystemCpuUsage(), -1L);
+        stats.systemCpuUsage = requireNonNullElse(statistics.getCpuStats().getSystemCpuUsage(), -1L);
         stats.totalCpuUsage = Optional.ofNullable(statistics.getCpuStats().getCpuUsage()).map(CpuUsageConfig::getTotalUsage).orElse(-1L);
         stats.cpuUsagePerc = 0.0;
 
@@ -111,10 +111,10 @@ public class StatisticsFetcher
         }
 
         MemoryStatsConfig memoryStats = statistics.getMemoryStats();
-        stats.memoryLimit = DataSize.ofBytes(firstNonNull(memoryStats.getLimit(), 0L)).to(GIGABYTE);
-        stats.memoryUsage = DataSize.ofBytes(firstNonNull(memoryStats.getUsage(), 0L)).to(GIGABYTE);
-        stats.memoryUsagePerc = 100.0 * firstNonNull(memoryStats.getUsage(), 0L) / firstNonNull(memoryStats.getLimit(), 1L);
-        stats.pids = firstNonNull(statistics.getPidsStats().getCurrent(), -1L);
+        stats.memoryLimit = DataSize.ofBytes(requireNonNullElse(memoryStats.getLimit(), 0L)).to(GIGABYTE);
+        stats.memoryUsage = DataSize.ofBytes(requireNonNullElse(memoryStats.getUsage(), 0L)).to(GIGABYTE);
+        stats.memoryUsagePerc = 100.0 * requireNonNullElse(memoryStats.getUsage(), 0L) / requireNonNullElse(memoryStats.getLimit(), 1L);
+        stats.pids = requireNonNullElse(statistics.getPidsStats().getCurrent(), -1L);
 
         Supplier<Stream<StatisticNetworksConfig>> stream = () -> Optional.ofNullable(statistics.getNetworks()).map(Map::values).orElse(emptyList()).stream();
         stats.networkReceived = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getRxBytes).filter(Objects::nonNull).reduce(0L, Long::sum)).succinct();

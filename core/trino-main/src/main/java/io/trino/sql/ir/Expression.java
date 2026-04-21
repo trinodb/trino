@@ -50,6 +50,15 @@ public sealed interface Expression
 {
     Type type();
 
+    @Override
+    boolean equals(Object other);
+
+    @Override
+    int hashCode();
+
+    @Override
+    String toString();
+
     /**
      * Accessible for {@link IrVisitor}, use {@link IrVisitor#process(Expression, Object)} instead.
      */

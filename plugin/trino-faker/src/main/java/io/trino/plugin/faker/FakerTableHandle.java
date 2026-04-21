@@ -14,29 +14,21 @@
 
 package io.trino.plugin.faker;
 
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 
-public record FakerTableHandle(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> constraint, long limit)
+public record FakerTableHandle(SchemaTableName schemaTableName, long limit)
         implements ConnectorTableHandle
 {
     public FakerTableHandle
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
-        requireNonNull(constraint, "constraint is null");
-    }
-
-    public FakerTableHandle withConstraint(TupleDomain<ColumnHandle> constraint)
-    {
-        return new FakerTableHandle(schemaTableName, constraint, limit);
     }
 
     public FakerTableHandle withLimit(long limit)
     {
-        return new FakerTableHandle(schemaTableName, constraint, limit);
+        return new FakerTableHandle(schemaTableName, limit);
     }
 }

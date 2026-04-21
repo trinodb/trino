@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.KafkaColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoderSpec;
@@ -55,7 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestJsonEncoder
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder().build();
-    private static final JsonRowEncoderFactory ENCODER_FACTORY = new JsonRowEncoderFactory(new ObjectMapper());
+    private static final JsonRowEncoderFactory ENCODER_FACTORY = new JsonRowEncoderFactory(new JsonMapper());
     private static final String TOPIC = "topic";
 
     private static void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)

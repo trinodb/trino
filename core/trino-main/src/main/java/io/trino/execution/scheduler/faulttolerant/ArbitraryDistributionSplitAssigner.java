@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -370,7 +370,7 @@ class ArbitraryDistributionSplitAssigner
             return new NodeRequirements(catalogRequirement, Optional.empty(), true);
         }
         HostAddress selectedAddress = split.getAddresses().stream()
-                .min(Comparator.comparing(this::rank))
+                .min(Comparator.comparingLong(this::rank))
                 .orElseThrow();
         return new NodeRequirements(catalogRequirement, Optional.of(selectedAddress), split.isRemotelyAccessible());
     }

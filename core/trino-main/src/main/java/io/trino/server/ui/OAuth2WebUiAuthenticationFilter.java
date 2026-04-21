@@ -34,11 +34,9 @@ import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -47,6 +45,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class OAuth2WebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
@@ -59,7 +58,6 @@ public class OAuth2WebUiAuthenticationFilter
     private final TokenPairSerializer tokenPairSerializer;
     private final Optional<Duration> tokenExpiration;
     private final UserMapping userMapping;
-    private final Optional<String> groupsField;
 
     @Inject
     public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Client client, TokenPairSerializer tokenPairSerializer, @ForRefreshTokens Optional<Duration> tokenExpiration, OAuth2Config oauth2Config)
@@ -70,7 +68,6 @@ public class OAuth2WebUiAuthenticationFilter
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
-        groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");
     }
 
     @Override
@@ -111,12 +108,10 @@ public class OAuth2WebUiAuthenticationFilter
             String principalName = (String) principal;
             Identity.Builder builder = Identity.forUser(userMapping.mapUser(principalName));
             builder.withPrincipal(new BasicPrincipal(principalName));
-            groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
-                    .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
             setAuthenticatedIdentity(request, builder.build());
         }
         catch (UserMappingException e) {
-            sendErrorMessage(request, UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
+            sendErrorMessage(request, UNAUTHORIZED, requireNonNullElse(e.getMessage(), "Unauthorized"));
         }
     }
 
@@ -139,7 +134,7 @@ public class OAuth2WebUiAuthenticationFilter
 
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
-        return client.getClaims(tokenPair.accessToken());
+        return client.getAccessTokenClaims(tokenPair.accessToken());
     }
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
@@ -192,6 +187,6 @@ public class OAuth2WebUiAuthenticationFilter
 
     private static boolean isValidPrincipal(Object principal)
     {
-        return principal instanceof String && !((String) principal).isEmpty();
+        return principal instanceof String string && !string.isEmpty();
     }
 }

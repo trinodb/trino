@@ -50,11 +50,11 @@ public class MapColumnWriter
     {
         ColumnarMap columnarMap = ColumnarMap.toColumnarMap(columnChunk.getBlock());
 
-        ImmutableList<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
+        List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
                 .addAll(columnChunk.getDefLevelWriterProviders())
                 .add(DefLevelWriterProviders.of(columnarMap, maxDefinitionLevel)).build();
 
-        ImmutableList<RepLevelWriterProvider> repLevelIterables = ImmutableList.<RepLevelWriterProvider>builder()
+        List<RepLevelWriterProvider> repLevelIterables = ImmutableList.<RepLevelWriterProvider>builder()
                 .addAll(columnChunk.getRepLevelWriterProviders())
                 .add(RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel)).build();
 

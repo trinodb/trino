@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.trino.dispatcher.DispatchExecutor;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2TokenExchange.TokenPoll;
@@ -41,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.Futures.transform;
@@ -55,6 +55,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path(OAuth2TokenExchangeResource.TOKEN_ENDPOINT)
+@ResourceSecurity(PUBLIC)
 public class OAuth2TokenExchangeResource
 {
     static final String TOKEN_ENDPOINT = "/oauth2/token/";
@@ -67,15 +68,14 @@ public class OAuth2TokenExchangeResource
     private final ScheduledExecutorService timeoutExecutor;
 
     @Inject
-    public OAuth2TokenExchangeResource(OAuth2TokenExchange tokenExchange, OAuth2Service service, DispatchExecutor executor)
+    public OAuth2TokenExchangeResource(OAuth2TokenExchange tokenExchange, OAuth2Service service, @ForOAuth2 ExecutorService responseExecutor, @ForOAuth2 ScheduledExecutorService timeoutExecutor)
     {
         this.tokenExchange = requireNonNull(tokenExchange, "tokenExchange is null");
         this.service = requireNonNull(service, "service is null");
-        this.responseExecutor = executor.getExecutor();
-        this.timeoutExecutor = executor.getScheduledExecutor();
+        this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("initiate/{authIdHash}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -84,7 +84,6 @@ public class OAuth2TokenExchangeResource
         return service.startOAuth2Challenge(externalUriInfo.absolutePath(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("{authId}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -119,7 +118,6 @@ public class OAuth2TokenExchangeResource
         return Response.ok(jsonMap("nextUri", request.getRequestURL()), APPLICATION_JSON_TYPE).build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
     public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)

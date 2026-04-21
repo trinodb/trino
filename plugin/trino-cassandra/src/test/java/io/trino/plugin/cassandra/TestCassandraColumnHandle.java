@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -30,9 +31,10 @@ public class TestCassandraColumnHandle
 
     public TestCassandraColumnHandle()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(CassandraColumnHandle.class);
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        codec = new JsonCodecFactory(mapper).jsonCodec(CassandraColumnHandle.class);
     }
 
     @Test

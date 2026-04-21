@@ -19,7 +19,6 @@ import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
 import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.metastore.Column;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
@@ -45,9 +44,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
@@ -66,12 +67,11 @@ import static java.util.stream.Collectors.joining;
 
 public final class ViewReaderUtil
 {
-    private ViewReaderUtil()
-    {}
+    private ViewReaderUtil() {}
 
     public interface ViewReader
     {
-        ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
+        ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName);
     }
 
     public static ViewReader createViewReader(
@@ -128,8 +128,7 @@ public final class ViewReaderUtil
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
-    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC = new JsonCodecFactory().jsonCodec(ConnectorViewDefinition.class);
 
     /**
      * Returns true if table represents a Hive view, Trino/Presto view, materialized view or anything
@@ -200,9 +199,9 @@ public final class ViewReaderUtil
             implements ViewReader
     {
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName)
         {
-            return decodeViewData(viewData);
+            return decodeViewData(viewData.orElseThrow(() -> new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Cannot decode view data, view original sql is empty")));
         }
 
         public static ConnectorViewDefinition decodeViewData(String viewData)
@@ -236,7 +235,7 @@ public final class ViewReaderUtil
         }
 
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(Optional<String> viewSql, Table table, CatalogName catalogName)
         {
             try {
                 HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
@@ -244,11 +243,16 @@ public final class ViewReaderUtil
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
+
+                Map<String, String> columnComments = Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
+                        .filter(column -> column.getComment().isPresent())
+                        .collect(toImmutableMap(Column::getName, column -> column.getComment().get()));
+
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
                                 typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
-                                Optional.empty()))
+                                Optional.ofNullable(columnComments.get(field.getName()))))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
                         trinoSql,

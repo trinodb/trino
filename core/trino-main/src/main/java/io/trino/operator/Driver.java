@@ -114,7 +114,7 @@ public class Driver
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(firstOperator, "firstOperator is null");
         requireNonNull(otherOperators, "otherOperators is null");
-        ImmutableList<Operator> operators = ImmutableList.<Operator>builder()
+        List<Operator> operators = ImmutableList.<Operator>builder()
                 .add(firstOperator)
                 .add(otherOperators)
                 .build();
@@ -246,7 +246,7 @@ public class Driver
             // add new splits
             SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
             for (ScheduledSplit newSplit : newSplits) {
-                Split split = newSplit.getSplit();
+                Split split = newSplit.split();
 
                 sourceOperator.addSplit(split);
             }

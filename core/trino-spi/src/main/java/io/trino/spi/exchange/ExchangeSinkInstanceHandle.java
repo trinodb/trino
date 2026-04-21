@@ -13,6 +13,4 @@
  */
 package io.trino.spi.exchange;
 
-public interface ExchangeSinkInstanceHandle
-{
-}
+public interface ExchangeSinkInstanceHandle {}

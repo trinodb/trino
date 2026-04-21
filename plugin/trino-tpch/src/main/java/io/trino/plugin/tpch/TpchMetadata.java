@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.tpch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.tpch.statistics.ColumnStatisticsData;
@@ -134,10 +135,17 @@ public class TpchMetadata
 
     public TpchMetadata()
     {
-        this(ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty());
+        this(new JsonMapperProvider().get(), ColumnNaming.SIMPLIFIED, DecimalTypeMapping.DOUBLE, true, true, Optional.empty(), Optional.empty());
+    }
+
+    @Inject
+    public TpchMetadata(TpchConfig config, JsonMapper mapper)
+    {
+        this(mapper, config.getColumnNaming(), config.getDecimalTypeMapping(), config.isPredicatePushdownEnabled(), config.isPartitioningEnabled(), Optional.ofNullable(config.getTableScanRedirectionCatalog()), Optional.ofNullable(config.getTableScanRedirectionSchema()));
     }
 
     public TpchMetadata(
+            JsonMapper jsonMapper,
             ColumnNaming columnNaming,
             DecimalTypeMapping decimalTypeMapping,
             boolean predicatePushdownEnabled,
@@ -154,7 +162,7 @@ public class TpchMetadata
         this.decimalTypeMapping = decimalTypeMapping;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.partitioningEnabled = partitioningEnabled;
-        this.statisticsEstimator = createStatisticsEstimator();
+        this.statisticsEstimator = createStatisticsEstimator(jsonMapper);
         this.destinationCatalog = destinationCatalog;
         this.destinationSchema = destinationSchema;
 
@@ -169,11 +177,9 @@ public class TpchMetadata
                 .collect(toSet());
     }
 
-    private static StatisticsEstimator createStatisticsEstimator()
+    private static StatisticsEstimator createStatisticsEstimator(JsonMapper jsonMapper)
     {
-        ObjectMapper objectMapper = new ObjectMapper()
-                .registerModule(new Jdk8Module());
-        TableStatisticsDataRepository tableStatisticsDataRepository = new TableStatisticsDataRepository(objectMapper);
+        TableStatisticsDataRepository tableStatisticsDataRepository = new TableStatisticsDataRepository(jsonMapper);
         return new StatisticsEstimator(tableStatisticsDataRepository);
     }
 
@@ -359,15 +365,15 @@ public class TpchMetadata
 
     private static double toDouble(Object value, Type columnType)
     {
-        if (value instanceof String && columnType.equals(DATE)) {
-            return LocalDate.parse((CharSequence) value).toEpochDay();
+        if (value instanceof String string && columnType.equals(DATE)) {
+            return LocalDate.parse(string).toEpochDay();
         }
-        if (value instanceof Number) {
+        if (value instanceof Number number) {
             if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
-                return ((Number) value).longValue();
+                return number.longValue();
             }
             if (columnType.equals(DOUBLE) || columnType instanceof DecimalType) {
-                return ((Number) value).doubleValue();
+                return number.doubleValue();
             }
         }
         throw new IllegalArgumentException("unsupported column type " + columnType);

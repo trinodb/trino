@@ -40,7 +40,7 @@ public class TestRandom
         assertThat(assertions.query(
                 """
                 WITH t(a, b) AS (SELECT random(), random())
-                SELECT a = b 
+                SELECT a = b
                 FROM t
                 """))
                 .matches("VALUES false");
@@ -48,7 +48,7 @@ public class TestRandom
         assertThat(assertions.query(
                 """
                 WITH t(a, b) AS (VALUES (random(), random()))
-                SELECT a = b 
+                SELECT a = b
                 FROM t
                 """))
                 .matches("VALUES false");
@@ -56,7 +56,7 @@ public class TestRandom
         assertThat(assertions.query(
                 """
                 WITH t(a, b) AS (SELECT transform(array[1], x -> random())[1], transform(array[1], x -> random())[1])
-                SELECT a = b 
+                SELECT a = b
                 FROM t
                 """))
                 .matches("VALUES false");

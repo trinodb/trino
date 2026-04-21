@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,11 +34,11 @@ public class TestAccessControlConfig
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings(@TempDir Path tempDir)
             throws IOException
     {
-        Path config1 = Files.createTempFile(null, null);
-        Path config2 = Files.createTempFile(null, null);
+        Path config1 = Files.createTempFile(tempDir, null, null);
+        Path config2 = Files.createTempFile(tempDir, null, null);
 
         Map<String, String> properties = ImmutableMap.of("access-control.config-files", config1.toString() + "," + config2.toString());
 

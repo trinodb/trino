@@ -28,6 +28,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -76,6 +77,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -294,9 +296,13 @@ public class MongoMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
-        mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
+        }
     }
 
     @Override
@@ -574,12 +580,12 @@ public class MongoMetadata
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
 
         for (MongoIndex index : tableInfo.indexes()) {
-            for (MongodbIndexKey key : index.getKeys()) {
-                if (key.getSortOrder().isEmpty()) {
+            for (MongodbIndexKey key : index.keys()) {
+                if (key.sortOrder().isEmpty()) {
                     continue;
                 }
-                if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                if (columns.get(key.name()) != null) {
+                    localProperties.add(new SortingProperty<>(columns.get(key.name()), key.sortOrder().get()));
                 }
             }
         }
@@ -639,7 +645,7 @@ public class MongoMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
 
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 Type columnType = columnHandle.type();
@@ -717,7 +723,7 @@ public class MongoMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<MongoColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
@@ -823,11 +829,11 @@ public class MongoMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryFunctionHandle)) {
+        if (!(handle instanceof QueryFunctionHandle queryFunctionHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = queryFunctionHandle.getTableHandle();
         List<ColumnHandle> columnHandles = getColumnHandles(session, tableHandle).values().stream()
                 .filter(column -> !((MongoColumnHandle) column).hidden())
                 .collect(toImmutableList());
@@ -868,7 +874,7 @@ public class MongoMetadata
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(m.getName(), ImmutableList.of(), m.getType(), m.isHidden(), false, Optional.ofNullable(m.getComment())))
+                .map(m -> new MongoColumnHandle(m.getName(), ImmutableList.of(), m.getType(), m.isHidden(), false, m.getComment()))
                 .collect(toList());
     }
 

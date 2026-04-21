@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import it.unimi.dsi.fastutil.Arrays;
 
 import java.util.List;
 
@@ -117,7 +118,7 @@ public final class ApproximateDoublePercentileArrayAggregations
             sortedPercentiles[i] = percentiles.get(i);
         }
 
-        it.unimi.dsi.fastutil.Arrays.quickSort(0, percentiles.size(), (a, b) -> Doubles.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
+        Arrays.quickSort(0, percentiles.size(), (a, b) -> Doubles.compare(sortedPercentiles[a], sortedPercentiles[b]), (a, b) -> {
             double tempPercentile = sortedPercentiles[a];
             sortedPercentiles[a] = sortedPercentiles[b];
             sortedPercentiles[b] = tempPercentile;

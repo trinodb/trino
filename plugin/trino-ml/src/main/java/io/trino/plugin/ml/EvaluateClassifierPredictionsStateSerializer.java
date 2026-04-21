@@ -15,9 +15,9 @@ package io.trino.plugin.ml;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -35,7 +35,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class EvaluateClassifierPredictionsStateSerializer
         implements AccumulatorStateSerializer<EvaluateClassifierPredictionsState>
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private static final String TRUE_POSITIVES = "truePositives";
     private static final String FALSE_POSITIVES = "falsePositives";
     private static final String FALSE_NEGATIVES = "falseNegatives";
@@ -54,7 +54,7 @@ public class EvaluateClassifierPredictionsStateSerializer
         jsonState.put(FALSE_POSITIVES, state.getFalsePositives());
         jsonState.put(FALSE_NEGATIVES, state.getFalseNegatives());
         try {
-            VARCHAR.writeSlice(out, Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(jsonState)));
+            VARCHAR.writeSlice(out, Slices.utf8Slice(JSON_MAPPER.writeValueAsString(jsonState)));
         }
         catch (JsonProcessingException e) {
             throw new RuntimeException(e);
@@ -67,7 +67,7 @@ public class EvaluateClassifierPredictionsStateSerializer
         Slice slice = VARCHAR.getSlice(block, index);
         Map<String, Map<String, Integer>> jsonState;
         try {
-            jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<>() {});
+            jsonState = JSON_MAPPER.readValue(slice.getBytes(), new TypeReference<>() {});
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

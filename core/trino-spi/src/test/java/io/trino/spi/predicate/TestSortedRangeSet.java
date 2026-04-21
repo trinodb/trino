@@ -13,10 +13,9 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestSortedRangeSet
+class TestSortedRangeSet
 {
     @Test
     public void testEmptySet()
@@ -119,7 +119,7 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 2L, true, 4L, true),
                 Range.range(BIGINT, 4L, false, 5L, true));
 
-        ImmutableList<Range> normalizedResult = ImmutableList.of(
+        List<Range> normalizedResult = ImmutableList.of(
                 Range.equal(BIGINT, 0L),
                 Range.range(BIGINT, 2L, true, 5L, true),
                 Range.range(BIGINT, 9L, true, 11L, false));
@@ -144,8 +144,8 @@ public class TestSortedRangeSet
         assertThat(rangeSet.containsValue(7L)).isFalse();
         assertThat(rangeSet.containsValue(9L)).isTrue();
         assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], [2,5], [9,11)}]");
-        assertThat(rangeSet.toString(ToStringSession.INSTANCE, 2)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ..., [9,11)}]");
-        assertThat(rangeSet.toString(ToStringSession.INSTANCE, 1)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ...}]");
+        assertThat(rangeSet.toString(2)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ..., [9,11)}]");
+        assertThat(rangeSet.toString(1)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ...}]");
     }
 
     @Test
@@ -159,7 +159,7 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 1L, false, 2L, false),
                 Range.range(BIGINT, 9L, false, 11L, false));
 
-        ImmutableList<Range> normalizedResult = ImmutableList.of(
+        List<Range> normalizedResult = ImmutableList.of(
                 Range.lessThanOrEqual(BIGINT, 0L),
                 Range.range(BIGINT, 1L, false, 6L, false),
                 Range.greaterThan(BIGINT, 9L));
@@ -809,14 +809,13 @@ public class TestSortedRangeSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         SortedRangeSet set = SortedRangeSet.all(BIGINT);
         assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));

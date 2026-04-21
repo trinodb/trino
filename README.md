@@ -8,39 +8,28 @@
     See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.
 </p>
 <p align="center">
-  <a href="https://trino.io/download.html" style="text-decoration: none">
-    <img src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino" alt="Trino download" />
-  </a>
-  <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json" alt="Reproducible builds supported" />
-  </a>
-  <a href="https://trino.io/slack.html"  style="text-decoration: none">
-    <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Trino Slack" />
-  </a>
-  <a href="https://trino.io/trino-the-definitive-guide.html"  style="text-decoration: none">
-    <img src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Trino: The Definitive Guide book download" />
-  </a>
+  <a href="https://trino.io/download.html" style="text-decoration: none"><img
+    src="https://img.shields.io/github/v/release/trinodb/trino"
+    alt="Trino download"
+  /></a>
+  <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none"><img
+    src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json"
+    alt="Reproducible builds supported"
+  /></a>
+  <a href="https://trino.io/slack.html" style="text-decoration: none"><img
+    src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358"
+    alt="Trino Slack"
+  /></a>
+  <a href="https://trino.io/trino-the-definitive-guide.html" style="text-decoration: none"><img
+    src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen"
+    alt="Trino: The Definitive Guide book download"
+  /></a>
 </p>
 
 ## Development
 
-Learn about development for all Trino organization projects:
-
-* [Vision](https://trino.io/development/vision)
-* [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
-
-Further information in the [development section of the
-website](https://trino.io/development) includes different roles, like
-contributors, reviewers, and maintainers, related processes, and other aspects.
-
-See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
-the client protocol, writing tests and other lower level details.
-
-See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
-development process, and guidelines.
+See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about development and release process,
+code style and guidelines for implementors of Trino plugins.
 
 See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
 
@@ -54,7 +43,10 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 23.0.0+, 64-bit
+  * Note that some npm packages used to build the web UI are only available
+    for x86 architectures, so if you're building on Apple Silicon, you need 
+    to have Rosetta 2 installed
+* Java 25.0.1+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -90,8 +82,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 23 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 23
+* In the SDKs section, ensure that JDK 25 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 25
 
 ### Running a testing server
 
@@ -99,7 +91,17 @@ The simplest way to run Trino for development is to run the `TpchQueryRunner`
 class. It will start a development version of the server that is configured with
 the TPCH connector. You can then use the CLI to execute queries against this
 server. Many other connectors have their own `*QueryRunner` class that you can
-use when working on a specific connector.
+use when working on a specific connector. The generally required VM option 
+here is `--add-modules jdk.incubator.vector` but various `*QueryRunner` classes
+might require additional options (if necessary, check the `air.test.jvm.additional-arguments` 
+property in the `pom.xml` file of the module from which the runner comes).
+
+### Running tests from the IDE
+
+When running individual test classes directly from IntelliJ, you need to
+configure the JUnit run configuration template. Go to Run/Debug Configurations >
+Edit Configuration Templates > JUnit > VM options and set the value to
+`-ea --add-modules=jdk.incubator.vector`.
 
 ### Running the full server
 
@@ -107,7 +109,7 @@ Trino comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:
 
 * Main Class: `io.trino.server.DevelopmentServer`
-* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
+* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true --sun-misc-unsafe-memory-access=allow --add-modules jdk.incubator.vector`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `trino-server-dev`
 

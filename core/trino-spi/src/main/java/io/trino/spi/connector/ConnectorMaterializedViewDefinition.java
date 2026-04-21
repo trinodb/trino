@@ -27,12 +27,19 @@ import static java.util.stream.Collectors.joining;
 
 public class ConnectorMaterializedViewDefinition
 {
+    public enum WhenStaleBehavior
+    {
+        INLINE,
+        FAIL,
+    }
+
     private final String originalSql;
     private final Optional<CatalogSchemaTableName> storageTable;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<Duration> gracePeriod;
+    private final Optional<WhenStaleBehavior> whenStaleBehavior;
     private final Optional<String> comment;
     private final Optional<String> owner;
     private final List<CatalogSchemaName> path;
@@ -44,6 +51,7 @@ public class ConnectorMaterializedViewDefinition
             Optional<String> schema,
             List<Column> columns,
             Optional<Duration> gracePeriod,
+            Optional<WhenStaleBehavior> whenStaleBehavior,
             Optional<String> comment,
             Optional<String> owner,
             List<CatalogSchemaName> path)
@@ -55,6 +63,7 @@ public class ConnectorMaterializedViewDefinition
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
         this.gracePeriod = gracePeriod;
+        this.whenStaleBehavior = requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.path = List.copyOf(path);
@@ -97,6 +106,11 @@ public class ConnectorMaterializedViewDefinition
         return gracePeriod;
     }
 
+    public Optional<WhenStaleBehavior> getWhenStaleBehavior()
+    {
+        return whenStaleBehavior;
+    }
+
     public Optional<String> getComment()
     {
         return comment;
@@ -122,6 +136,7 @@ public class ConnectorMaterializedViewDefinition
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         gracePeriod.ifPresent(value -> joiner.add("gracePeriod=" + gracePeriod));
+        whenStaleBehavior.ifPresent(value -> joiner.add("whenStaleBehavior=" + value.name()));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(joining(", ", "path=(", ")")));
@@ -144,6 +159,7 @@ public class ConnectorMaterializedViewDefinition
                 Objects.equals(schema, that.schema) &&
                 Objects.equals(columns, that.columns) &&
                 Objects.equals(gracePeriod, that.gracePeriod) &&
+                Objects.equals(whenStaleBehavior, that.whenStaleBehavior) &&
                 Objects.equals(comment, that.comment) &&
                 Objects.equals(owner, that.owner) &&
                 Objects.equals(path, that.path);
@@ -152,7 +168,7 @@ public class ConnectorMaterializedViewDefinition
     @Override
     public int hashCode()
     {
-        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, path);
+        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, whenStaleBehavior, comment, owner, path);
     }
 
     public static final class Column

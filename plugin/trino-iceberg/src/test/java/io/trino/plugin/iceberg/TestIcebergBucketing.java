@@ -19,8 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.UuidType;
 import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.transforms.Transforms;
@@ -63,6 +61,7 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -75,8 +74,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergBucketing
 {
-    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
-
     @Test
     public void testBucketNumberCompare()
     {
@@ -196,7 +193,7 @@ public class TestIcebergBucketing
                 .hasMessage("Cannot bucket by type: %s", type);
 
         assertThatThrownBy(() -> computeTrinoBucket(type, null, 1))
-                .hasMessage("Unsupported type for 'bucket': %s", toTrinoType(type, TYPE_MANAGER));
+                .hasMessage("Unsupported type for 'bucket': %s", toTrinoType(type, TESTING_TYPE_MANAGER));
     }
 
     public static Object[][] unsupportedBucketingTypes()
@@ -270,7 +267,7 @@ public class TestIcebergBucketing
 
     private Integer computeTrinoBucket(Type icebergType, Object icebergValue, int bucketCount)
     {
-        io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
+        io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TESTING_TYPE_MANAGER);
         ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
         Function<Block, Block> blockTransform = transform.blockTransform();
 
@@ -294,7 +291,7 @@ public class TestIcebergBucketing
 
     private static Object toTrinoValue(Type icebergType, Object icebergValue)
     {
-        io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
+        io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TESTING_TYPE_MANAGER);
 
         if (icebergValue == null) {
             return null;

@@ -22,13 +22,12 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -36,9 +35,9 @@ public class PipelineStats
 {
     private final int pipelineId;
 
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
+    private final Instant firstStartTime;
+    private final Instant lastStartTime;
+    private final Instant lastEndTime;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -56,6 +55,8 @@ public class PipelineStats
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
+    private final DataSize spilledDataSize;
+
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
 
@@ -71,9 +72,6 @@ public class PipelineStats
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
 
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
@@ -94,9 +92,9 @@ public class PipelineStats
     public PipelineStats(
             @JsonProperty("pipelineId") int pipelineId,
 
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
+            @JsonProperty("firstStartTime") Instant firstStartTime,
+            @JsonProperty("lastStartTime") Instant lastStartTime,
+            @JsonProperty("lastEndTime") Instant lastEndTime,
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
@@ -114,6 +112,8 @@ public class PipelineStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
 
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
+
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
 
@@ -129,9 +129,6 @@ public class PipelineStats
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
-
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -179,6 +176,8 @@ public class PipelineStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
@@ -196,10 +195,6 @@ public class PipelineStats
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -227,21 +222,21 @@ public class PipelineStats
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public Instant getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public Instant getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public Instant getLastEndTime()
     {
         return lastEndTime;
     }
@@ -325,6 +320,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
+    @JsonProperty
     public DistributionSnapshot getQueuedTime()
     {
         return queuedTime;
@@ -388,18 +389,6 @@ public class PipelineStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
     }
 
     @JsonProperty
@@ -482,6 +471,7 @@ public class PipelineStats
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
@@ -494,8 +484,6 @@ public class PipelineStats
                 physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
-                rawInputDataSize,
-                rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
                 inputBlockedTime,
@@ -505,53 +493,6 @@ public class PipelineStats
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
-    }
-
-    public PipelineStats pruneDigests()
-    {
-        return new PipelineStats(
-                pipelineId,
-                firstStartTime,
-                lastStartTime,
-                lastEndTime,
-                inputPipeline,
-                outputPipeline,
-                totalDrivers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                queuedPartitionedSplitsWeight,
-                runningDrivers,
-                runningPartitionedDrivers,
-                runningPartitionedSplitsWeight,
-                blockedDrivers,
-                completedDrivers,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                queuedTime,
-                elapsedTime,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
-                fullyBlocked,
-                blockedReasons,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                rawInputDataSize,
-                rawInputPositions,
-                processedInputDataSize,
-                processedInputPositions,
-                inputBlockedTime,
-                outputDataSize,
-                outputPositions,
-                outputBlockedTime,
-                physicalWrittenDataSize,
-                operatorSummaries.stream()
-                        .map(io.trino.execution.DistributionSnapshot::pruneOperatorStats)
-                        .collect(toImmutableList()),
-                drivers);
     }
 
     private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)

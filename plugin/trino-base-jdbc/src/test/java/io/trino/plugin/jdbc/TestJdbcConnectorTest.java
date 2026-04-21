@@ -67,16 +67,20 @@ public class TestJdbcConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

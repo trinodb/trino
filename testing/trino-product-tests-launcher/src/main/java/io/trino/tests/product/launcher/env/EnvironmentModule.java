@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
+import io.trino.tests.product.launcher.env.common.Hive4WithMinio;
 import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HttpsProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
@@ -35,14 +36,14 @@ import io.trino.tests.product.launcher.env.common.OpenLdapReferral;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TaskRetriesMultinode;
-import io.trino.tests.product.launcher.env.jdk.DistributionDownloadingJdkProvider;
+import io.trino.tests.product.launcher.env.environment.SpoolingMinio;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.tests.product.launcher.Configurations.canonicalJdkProviderName;
@@ -93,10 +94,12 @@ public final class EnvironmentModule
         binder.bind(TaskRetriesMultinode.class).in(SINGLETON);
         binder.bind(Kerberos.class).in(SINGLETON);
         binder.bind(Minio.class).in(SINGLETON);
+        binder.bind(SpoolingMinio.class).in(SINGLETON);
         binder.bind(OpenLdap.class).in(SINGLETON);
         binder.bind(OpenLdapReferral.class).in(SINGLETON);
         binder.bind(HttpProxy.class).in(SINGLETON);
         binder.bind(HttpsProxy.class).in(SINGLETON);
+        binder.bind(Hive4WithMinio.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
@@ -121,9 +124,9 @@ public final class EnvironmentModule
     @Singleton
     public JdkProvider provideJdk(Map<String, JdkProvider> jdkProviders, EnvironmentOptions options)
     {
-        String version = firstNonNull(options.jdkVersion, "").trim().toLowerCase(ENGLISH);
+        String version = requireNonNullElse(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
         if (version.isBlank()) {
-            throw new IllegalArgumentException("Expected non-empty --trino-jdk-version");
+            throw new IllegalArgumentException("Expected non-empty --trino-jdk-release");
         }
 
         JdkProvider jdkProvider = jdkProviders.get(canonicalJdkProviderName(version));
@@ -131,7 +134,7 @@ public final class EnvironmentModule
             return jdkProvider;
         }
 
-        return new DistributionDownloadingJdkProvider(requireNonNull(options.jdkDistributions, "--trino-jdk-paths is empty"), version, options.jdkDownloadPath);
+        return new TemurinJdkProvider(version, options.jdkDownloadPath);
     }
 
     @Provides
@@ -172,5 +175,13 @@ public final class EnvironmentModule
     public boolean provideTracing(EnvironmentOptions options)
     {
         return options.tracing;
+    }
+
+    @Provides
+    @Singleton
+    @Ipv6
+    public boolean provideIpv6(EnvironmentOptions options)
+    {
+        return options.ipv6;
     }
 }

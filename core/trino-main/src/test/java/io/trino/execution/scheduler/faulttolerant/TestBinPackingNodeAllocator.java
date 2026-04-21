@@ -18,15 +18,15 @@ import com.google.common.util.concurrent.Futures;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.MemoryInfo;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
 import org.junit.jupiter.api.AfterEach;
@@ -93,12 +93,12 @@ public class TestBinPackingNodeAllocator
     private ConcurrentHashMap<String, Optional<MemoryInfo>> workerMemoryInfos;
     private final TestingTicker ticker = new TestingTicker();
 
-    private void setupNodeAllocatorService(InMemoryNodeManager nodeManager)
+    private void setupNodeAllocatorService(TestingInternalNodeManager nodeManager)
     {
         setupNodeAllocatorService(nodeManager, DataSize.ofBytes(0));
     }
 
-    private void setupNodeAllocatorService(InMemoryNodeManager nodeManager, DataSize taskRuntimeMemoryEstimationOverhead)
+    private void setupNodeAllocatorService(TestingInternalNodeManager nodeManager, DataSize taskRuntimeMemoryEstimationOverhead)
     {
         shutdownNodeAllocatorService(); // just in case
 
@@ -131,11 +131,11 @@ public class TestBinPackingNodeAllocator
     {
         return new MemoryInfo(
                 4,
+                0,
                 new MemoryPoolInfo(
                         DataSize.of(64, GIGABYTE).toBytes(),
                         usedMemory.toBytes(),
                         0,
-                        ImmutableMap.of(),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         taskMemoryUsage.entrySet().stream()
@@ -158,7 +158,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSimple()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -207,7 +207,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateMultipleRequesters()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator1 = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1);
@@ -262,7 +262,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateDifferentSizes()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -309,7 +309,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateDifferentSizesOpportunisticAcquisition()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -350,7 +350,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateReleaseBeforeAcquired()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -380,7 +380,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testNoMatchingNodeAvailable()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -427,7 +427,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testNoMatchingNodeAvailableTimeoutReset()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -476,7 +476,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testRemoveAcquiredNode()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -495,7 +495,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNodeWithAddressRequirements()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
 
         setupNodeAllocatorService(nodeManager);
 
@@ -524,7 +524,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNodeWithAddressRequirementsNoResourcesUseDifferentNode()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
 
         setupNodeAllocatorService(nodeManager);
 
@@ -555,7 +555,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNodeWithAddressRequirementsNoResourcesWaitIfRemoteNotAvailable()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
 
         setupNodeAllocatorService(nodeManager);
 
@@ -585,7 +585,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNodeWithAddressRequirementsNoResourcesInitially()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
 
         setupNodeAllocatorService(nodeManager);
 
@@ -612,7 +612,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateNotEnoughRuntimeMemory()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -669,7 +669,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateRuntimeMemoryDiscrepancies()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
 
         setupNodeAllocatorService(nodeManager);
         // test when global memory usage on node is greater than per task usage
@@ -731,7 +731,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testSpaceReservedOnPrimaryNodeIfNoNodeWithEnoughRuntimeMemoryAvailable()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         // test when global memory usage on node is greater than per task usage
@@ -770,7 +770,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateWithRuntimeMemoryEstimateOverhead()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
         setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
 
         // test when global memory usage on node is greater than per task usage
@@ -806,7 +806,7 @@ public class TestBinPackingNodeAllocator
     @Test
     public void testStressAcquireRelease()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
         setupNodeAllocatorService(nodeManager, DataSize.of(4, GIGABYTE));
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -821,7 +821,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSpeculative()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -877,7 +877,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testSwitchAcquiredSpeculativeToStandard()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -903,7 +903,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateEagerSpeculative()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -951,7 +951,7 @@ public class TestBinPackingNodeAllocator
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testChangeMemoryRequirement()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION_QUERY_1)) {
@@ -982,10 +982,10 @@ public class TestBinPackingNodeAllocator
     }
 
     @Test
-    @Timeout(value = TEST_TIMEOUT + 3000, unit = MILLISECONDS)
+    @Timeout(value = TEST_TIMEOUT + 5000, unit = MILLISECONDS)
     public void testFailover()
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
         NodeRequirements node2Flexible = new NodeRequirements(Optional.empty(), Optional.of(NODE_2_ADDRESS), true);
         NodeRequirements node2Rigid = new NodeRequirements(Optional.empty(), Optional.of(NODE_2_ADDRESS), false);

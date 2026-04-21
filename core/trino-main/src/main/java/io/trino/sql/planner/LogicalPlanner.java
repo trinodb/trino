@@ -22,6 +22,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -43,11 +44,9 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -121,6 +120,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -134,7 +135,6 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -146,6 +146,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -183,7 +184,6 @@ public class LogicalPlanner
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
     private final PlannerContext plannerContext;
-    private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -196,14 +196,13 @@ public class LogicalPlanner
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            SpoolingManagerRegistry spoolingManagerRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             CachingTableStatsProvider tableStatsProvider)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, spoolingManagerRegistry, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
     }
 
     public LogicalPlanner(
@@ -212,7 +211,6 @@ public class LogicalPlanner
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
-            SpoolingManagerRegistry spoolingManagerRegistry,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
@@ -224,7 +222,6 @@ public class LogicalPlanner
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
         this.metadata = plannerContext.getMetadata();
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -331,13 +328,11 @@ public class LogicalPlanner
         if (!Span.fromContext(Context.current()).isRecording()) {
             return null;
         }
+        String optimizerName = (optimizer instanceof IterativeOptimizer iterative)
+                ? "Iterative:" + iterative.getName()
+                : optimizer.getClass().getSimpleName();
         SpanBuilder builder = plannerContext.getTracer().spanBuilder("optimize")
-                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizer.getClass().getSimpleName());
-        if (optimizer instanceof IterativeOptimizer iterative) {
-            builder.setAttribute(TrinoAttributes.OPTIMIZER_RULES, iterative.getRules().stream()
-                    .map(x -> x.getClass().getSimpleName())
-                    .toList());
-        }
+                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizerName);
         return scopedSpan(builder.startSpan());
     }
 
@@ -354,39 +349,39 @@ public class LogicalPlanner
 
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect) {
+        if (statement instanceof CreateTableAsSelect createTableAsSelect) {
             if (analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) {
                 throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
-            return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
+            return createTableCreationPlan(analysis, createTableAsSelect.getQuery());
         }
-        if (statement instanceof Analyze) {
-            return createAnalyzePlan(analysis, (Analyze) statement);
+        if (statement instanceof Analyze analyze) {
+            return createAnalyzePlan(analysis, analyze);
         }
-        if (statement instanceof Insert) {
+        if (statement instanceof Insert insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            return createInsertPlan(analysis, (Insert) statement);
+            return createInsertPlan(analysis, insert);
         }
         if (statement instanceof RefreshMaterializedView) {
             return createRefreshMaterializedViewPlan(analysis);
         }
-        if (statement instanceof Delete) {
-            return createDeletePlan(analysis, (Delete) statement);
+        if (statement instanceof Delete delete) {
+            return createDeletePlan(analysis, delete);
         }
-        if (statement instanceof Update) {
-            return createUpdatePlan(analysis, (Update) statement);
+        if (statement instanceof Update update) {
+            return createUpdatePlan(analysis, update);
         }
-        if (statement instanceof Merge) {
-            return createMergePlan(analysis, (Merge) statement);
+        if (statement instanceof Merge merge) {
+            return createMergePlan(analysis, merge);
         }
-        if (statement instanceof Query) {
-            return createRelationPlan(analysis, (Query) statement);
+        if (statement instanceof Query query) {
+            return createRelationPlan(analysis, query);
         }
-        if (statement instanceof ExplainAnalyze) {
-            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute) {
-            return createTableExecutePlan(analysis, (TableExecute) statement);
+        if (statement instanceof TableExecute tableExecute) {
+            return createTableExecutePlan(analysis, tableExecute);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -495,7 +490,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, create.isReplace());
 
         return createTableWriterPlan(
                 analysis,
@@ -524,7 +519,10 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
+        Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValues(table);
         Assignments.Builder assignments = Assignments.builder();
         boolean supportsMissingColumnsOnInsert = metadata.supportsMissingColumnsOnInsert(session, tableHandle);
         ImmutableList.Builder<ColumnMetadata> insertedColumnsBuilder = ImmutableList.builder();
@@ -536,12 +534,20 @@ public class LogicalPlanner
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             Expression expression;
             Type tableType = column.getType();
-            int index = insertColumns.indexOf(columns.get(column.getName()));
+            ColumnHandle columnHandle = columns.get(column.getName());
+            int index = insertColumns.indexOf(columnHandle);
             if (index < 0) {
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Constant(column.getType(), null);
+                if (column.getDefaultValue().isPresent()) {
+                    io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
+                    expression = planBuilder.rewrite(defaultExpression);
+                    expression = noTruncationCast(metadata, expression, expression.type(), tableType);
+                }
+                else {
+                    expression = new Constant(column.getType(), null);
+                }
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
@@ -595,10 +601,12 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
-            RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
+            RefreshType refreshType = materializedViewRefreshWriterTarget.get().hasNonDeterministicFunctions()
+                    ? RefreshType.FULL
+                    : IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
             WriterTarget writerTarget = materializedViewRefreshWriterTarget.get().withRefreshType(refreshType);
             return createTableWriterPlan(
                     analysis,
@@ -629,7 +637,7 @@ public class LogicalPlanner
         if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
-        return noTruncationCast(fieldMapping.toSymbolReference(), queryType, tableType);
+        return noTruncationCast(metadata, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
@@ -681,11 +689,16 @@ public class LogicalPlanner
         List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
                 .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
                 .collect(toImmutableList());
+        // TODO: For time-based functions (current_date, current_timestamp) smarter freshness tracking
+        // could avoid treating the MV as stale when the time hasn't meaningfully changed. See https://github.com/trinodb/trino/issues/28731
+        boolean hasNonDeterministicFunctions = analysis.getResolvedFunctions().stream().anyMatch(function -> !function.deterministic())
+                || containsCurrentTimeFunctions(query);
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
                 tableFunctions,
+                hasNonDeterministicFunctions,
                 // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree
                 RefreshType.FULL);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
@@ -703,9 +716,9 @@ public class LogicalPlanner
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
 
         int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
-        Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
-                : Optional.empty();
+        OptionalInt maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                ? OptionalInt.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                : OptionalInt.empty();
 
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
@@ -728,9 +741,9 @@ public class LogicalPlanner
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
-                        Optional.empty(),
                         false,
                         Optional.empty(),
+                        OptionalInt.empty(),
                         maxWritersNodesCount));
             }
         }
@@ -764,7 +777,7 @@ public class LogicalPlanner
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -785,7 +798,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -802,17 +815,17 @@ public class LogicalPlanner
     TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
     TODO This workaround is insufficient to handle structural types
      */
-    private Expression noTruncationCast(Expression expression, Type fromType, Type toType)
+    public static Expression noTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
     {
         if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
             return new Cast(expression, toType);
         }
         int targetLength;
-        if (toType instanceof VarcharType) {
-            if (((VarcharType) toType).isUnbounded()) {
+        if (toType instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
                 return new Cast(expression, toType);
             }
-            targetLength = ((VarcharType) toType).getBoundedLength();
+            targetLength = varcharType.getBoundedLength();
         }
         else {
             targetLength = ((CharType) toType).getLength();
@@ -850,7 +863,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -867,7 +880,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -883,7 +896,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 mergeNode,
                 mergeNode.getTarget(),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -906,11 +919,6 @@ public class LogicalPlanner
             outputs.add(symbol);
 
             columnNumber++;
-        }
-
-        if (session.getQueryDataEncoding().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
-            names.add(SPOOLING_METADATA_SYMBOL.name());
-            outputs.add(SPOOLING_METADATA_SYMBOL);
         }
         return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
     }
@@ -966,9 +974,11 @@ public class LogicalPlanner
         if (!analysis.isTableExecuteReadsData()) {
             SimpleTableExecuteNode node = new SimpleTableExecuteNode(
                     idAllocator.getNextId(),
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(
+                            symbolAllocator.newSymbol("metricName", VARCHAR),
+                            symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
-            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+            return new RelationPlan(node, analysis.getScope(statement), node.getOutputSymbols(), Optional.empty());
         }
 
         TableHandle tableHandle = analysis.getTableHandle(table);
@@ -983,22 +993,32 @@ public class LogicalPlanner
 
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.columns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
                 executeHandle,
                 Optional.empty(),
                 tableName.asSchemaTableName(),
                 metadata.getInsertWriterScalingOptions(session, tableHandle));
 
+        Map<String, ColumnHandle> tableColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        Set<ColumnHandle> expectedColumnHandles = metadata.getColumnHandlesForTableExecute(session, executeHandle);
+
+        RelationType descriptor = tableScanPlan.getDescriptor();
+        List<String> columnNames = new ArrayList<>();
+        List<Symbol> symbols = new ArrayList<>();
+        List<Field> fields = List.copyOf(descriptor.getAllFields());
+        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+            Field field = fields.get(fieldIndex);
+            String fieldName = field.getName().orElseThrow();
+            ColumnHandle columnHandle = tableColumnHandles.get(fieldName);
+            verify(columnHandle != null, "No column handle for field name %s", fieldName);
+            if (expectedColumnHandles.contains(columnHandle)) {
+                columnNames.add(fieldName);
+                symbols.add(tableScanPlan.getFieldMappings().get(fieldIndex));
+            }
+        }
+        verify(expectedColumnHandles.size() == columnNames.size(), "Expected column handles %s do not match actual column names %s", expectedColumnHandles, columnNames);
+
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
-
-        List<Symbol> symbols = visibleFields(tableScanPlan);
-
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (layout.isPresent()) {
@@ -1020,20 +1040,26 @@ public class LogicalPlanner
             else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
                 int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
-                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
-                        : Optional.empty();
+                OptionalInt maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? OptionalInt.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : OptionalInt.empty();
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
-                        Optional.empty(),
                         false,
                         Optional.empty(),
+                        OptionalInt.empty(),
                         maxWritersNodesCount));
             }
         }
 
         verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .add(symbolAllocator.newSymbol("metricName", VARCHAR))
+                .add(symbolAllocator.newSymbol("metricValue", BIGINT))
+                .build();
+
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 new TableExecuteNode(
@@ -1046,11 +1072,11 @@ public class LogicalPlanner
                         columnNames,
                         partitioningScheme),
                 tableExecuteTarget,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                outputSymbols,
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(statement), outputSymbols, Optional.empty());
     }
 
     private static class Key

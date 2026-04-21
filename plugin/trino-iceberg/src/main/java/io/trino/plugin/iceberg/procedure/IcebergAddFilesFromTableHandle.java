@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import io.trino.metastore.Table;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import jakarta.annotation.Nullable;
 
@@ -21,7 +22,7 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public record IcebergAddFilesFromTableHandle(
-        io.trino.metastore.Table table,
+        Table table,
         @Nullable Map<String, String> partitionFilter,
         RecursiveDirectory recursiveDirectory)
         implements IcebergProcedureHandle

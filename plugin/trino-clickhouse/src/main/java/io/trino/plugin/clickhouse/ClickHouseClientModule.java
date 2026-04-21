@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.jdbc.ClickHouseDriver;
+import com.clickhouse.jdbc.DriverV1;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -35,9 +35,11 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import java.util.Properties;
 
 import static com.clickhouse.client.config.ClickHouseClientOption.USE_BINARY_STRING;
+import static com.clickhouse.jdbc.JdbcConfig.PROP_EXTERNAL_DATABASE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.clickhouse.ClickHouseClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
@@ -52,7 +54,7 @@ public class ClickHouseClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
-        binder.install(new DecimalModule());
+        binder.install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
@@ -64,7 +66,12 @@ public class ClickHouseClientModule
         Properties properties = new Properties();
         // The connector expects byte array for FixedString and String types
         properties.setProperty(USE_BINARY_STRING.getKey(), "true");
-        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new ClickHouseDriver(), config.getConnectionUrl(), credentialProvider)
+        // externalDatabase=false is needed because Schema listing fetch is extremely slow on Clickhouse-server 24.3+
+        // https://github.com/ClickHouse/clickhouse-java/issues/1245
+        // https://github.com/ClickHouse/clickhouse-java/issues/1584
+        // in Clickhouse itself it has been left `true` by default only for backward compatibility.
+        properties.setProperty(PROP_EXTERNAL_DATABASE, "false");
+        return new ClickHouseConnectionFactory(DriverConnectionFactory.builder(new DriverV1(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build());

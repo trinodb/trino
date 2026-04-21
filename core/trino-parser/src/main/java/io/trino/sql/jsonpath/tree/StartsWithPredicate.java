@@ -28,7 +28,7 @@ public class StartsWithPredicate
     {
         requireNonNull(whole, "whole is null");
         requireNonNull(initial, "initial is null");
-        checkArgument(initial instanceof NamedVariable || (initial instanceof SqlValueLiteral && ((SqlValueLiteral) initial).getValue() instanceof StringLiteral), "initial must be a named variable or a string literal");
+        checkArgument(initial instanceof NamedVariable || (initial instanceof SqlValueLiteral sqlValueLiteral && sqlValueLiteral.getValue() instanceof StringLiteral), "initial must be a named variable or a string literal");
 
         this.whole = whole;
         this.initial = initial;

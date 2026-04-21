@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -59,19 +59,19 @@ public class BenchmarkSTXMin
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice complexGeometry;
-        private Slice simpleGeometry;
+        private Geometry complexGeometry;
+        private Geometry simpleGeometry;
 
         @Setup
         public void setup()
                 throws IOException
         {
             complexGeometry = stGeometryFromText(utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((1 1, 4 1, 1 4))"));
+            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((1 1, 4 1, 1 4, 1 1))"));
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkSTXMin.class).run();

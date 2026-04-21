@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.type.ArrayType;
@@ -27,7 +27,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -36,6 +35,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.plugin.geospatial.BingTile.fromCoordinates;
 import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
+import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -71,11 +71,11 @@ public class TestBingTileFunctions
     public void testSerialization()
             throws Exception
     {
-        ObjectMapper objectMapper = new ObjectMapper();
+        JsonMapper jsonMapper = new JsonMapper();
         BingTile tile = fromCoordinates(1, 2, 3);
-        String json = objectMapper.writeValueAsString(tile);
+        String json = jsonMapper.writeValueAsString(tile);
         assertThat("{\"x\":1,\"y\":2,\"zoom\":3}").isEqualTo(json);
-        assertThat(tile).isEqualTo(objectMapper.readerFor(BingTile.class).readValue(json));
+        assertThat(tile).isEqualTo(jsonMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test
@@ -448,13 +448,12 @@ public class TestBingTileFunctions
     @Test
     public void testBingTilePolygon()
     {
-        assertThat(assertions.function("ST_AsText", "bing_tile_polygon(bing_tile('123030123010121'))"))
-                .hasType(VARCHAR)
-                .isEqualTo("POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
+        assertSpatialEquals(assertions, "bing_tile_polygon(bing_tile('123030123010121'))",
+                "POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
 
         assertThat(assertions.function("ST_AsText", "ST_Centroid(bing_tile_polygon(bing_tile('123030123010121')))"))
                 .hasType(VARCHAR)
-                .isEqualTo("POINT (60.0018310546875 30.121372973521975)");
+                .isEqualTo("POINT (60.0018310546875 30.12137297352197)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertThat(assertions.function("ST_AsText", "apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g)))"))
@@ -554,6 +553,10 @@ public class TestBingTileFunctions
                     .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt))
                     .binding("zoom", Integer.toString(zoomLevel)))
                     .isEqualTo(tileCount);
+            assertThat(assertions.expression("ST_Within(geometry, geometry_union(transform(geometry_to_bing_tiles(geometry, zoom), bing_tile -> bing_tile_polygon(bing_tile))))")
+                    .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt))
+                    .binding("zoom", Integer.toString(zoomLevel)))
+                    .isEqualTo(true);
         }
     }
 
@@ -565,8 +568,8 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10))", 6, ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221"));
 
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
@@ -606,7 +609,7 @@ public class TestBingTileFunctions
                 .hasMessage("Longitude span for the geometry must be in [-180.00, 180.00] range");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(geometry, zoom)")
-                .binding("geometry", "ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15))')")
+                .binding("geometry", "ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15, 1000 10))')")
                 .binding("zoom", Integer.toString(10))
                 .evaluate())
                 .hasMessage("Longitude span for the geometry must be in [-180.00, 180.00] range");
@@ -619,7 +622,7 @@ public class TestBingTileFunctions
                 .hasMessage("Latitude span for the geometry must be in [-85.05, 85.05] range");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(geometry, zoom)")
-                .binding("geometry", "ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15))')")
+                .binding("geometry", "ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15, 10 1000))')")
                 .binding("zoom", Integer.toString(10))
                 .evaluate())
                 .hasMessage("Latitude span for the geometry must be in [-85.05, 85.05] range");
@@ -647,7 +650,7 @@ public class TestBingTileFunctions
         // Input polygon too complex
         String filePath = new File(getResource("too_large_polygon.txt").toURI()).getPath();
         String largeWkt;
-        try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+        try (Stream<String> lines = Files.lines(Path.of(filePath))) {
             largeWkt = lines.collect(onlyElement());
         }
         assertTrinoExceptionThrownBy(assertions.expression("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)")::evaluate)

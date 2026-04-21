@@ -20,12 +20,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.SessionRepresentation;
-import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
@@ -62,6 +63,7 @@ public class QueryInfo
     private final Optional<String> setPath;
     private final Optional<String> setAuthorizationUser;
     private final boolean resetAuthorizationUser;
+    private final Set<SelectedRole> setOriginalRoles;
     private final Map<String, String> setSessionProperties;
     private final Set<String> resetSessionProperties;
     private final Map<String, SelectedRole> setRoles;
@@ -70,7 +72,7 @@ public class QueryInfo
     private final Optional<TransactionId> startedTransactionId;
     private final boolean clearTransactionId;
     private final String updateType;
-    private final Optional<StageInfo> outputStage;
+    private final Optional<StagesInfo> stages;
     private final List<TableInfo> referencedTables;
     private final List<RoutineInfo> routines;
     private final ExecutionFailureInfo failureInfo;
@@ -79,6 +81,7 @@ public class QueryInfo
     private final List<TrinoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
+    private final Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo;
     private final boolean finalQueryInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
@@ -101,6 +104,7 @@ public class QueryInfo
             @JsonProperty("setPath") Optional<String> setPath,
             @JsonProperty("setAuthorizationUser") Optional<String> setAuthorizationUser,
             @JsonProperty("resetAuthorizationUser") boolean resetAuthorizationUser,
+            @JsonProperty("setOriginalRoles") Set<SelectedRole> setOriginalRoles,
             @JsonProperty("setSessionProperties") Map<String, String> setSessionProperties,
             @JsonProperty("resetSessionProperties") Set<String> resetSessionProperties,
             @JsonProperty("setRoles") Map<String, SelectedRole> setRoles,
@@ -109,12 +113,13 @@ public class QueryInfo
             @JsonProperty("startedTransactionId") Optional<TransactionId> startedTransactionId,
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("outputStage") Optional<StageInfo> outputStage,
+            @JsonProperty("stages") Optional<StagesInfo> stages,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("warnings") List<TrinoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
+            @JsonProperty("selectColumnsLineageInfo") Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
             @JsonProperty("routines") List<RoutineInfo> routines,
             @JsonProperty("finalQueryInfo") boolean finalQueryInfo,
@@ -134,6 +139,7 @@ public class QueryInfo
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
         requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
+        requireNonNull(setOriginalRoles, "setOriginalRoles is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(addedPreparedStatements, "addedPreparedStatements is null");
@@ -141,7 +147,7 @@ public class QueryInfo
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(preparedQuery, "preparedQuery is null");
-        requireNonNull(outputStage, "outputStage is null");
+        requireNonNull(stages, "stages is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(referencedTables, "referencedTables is null");
@@ -151,6 +157,7 @@ public class QueryInfo
         requireNonNull(queryType, "queryType is null");
         requireNonNull(retryPolicy, "retryPolicy is null");
         requireNonNull(version, "version is null");
+        requireNonNull(selectColumnsLineageInfo, "selectColumnsLineageInfo is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -165,6 +172,7 @@ public class QueryInfo
         this.setPath = setPath;
         this.setAuthorizationUser = setAuthorizationUser;
         this.resetAuthorizationUser = resetAuthorizationUser;
+        this.setOriginalRoles = setOriginalRoles;
         this.setSessionProperties = ImmutableMap.copyOf(setSessionProperties);
         this.resetSessionProperties = ImmutableSet.copyOf(resetSessionProperties);
         this.setRoles = ImmutableMap.copyOf(setRoles);
@@ -173,7 +181,7 @@ public class QueryInfo
         this.startedTransactionId = startedTransactionId;
         this.clearTransactionId = clearTransactionId;
         this.updateType = updateType;
-        this.outputStage = outputStage;
+        this.stages = stages;
         this.failureInfo = failureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
@@ -189,6 +197,13 @@ public class QueryInfo
         this.retryPolicy = retryPolicy;
         this.pruned = pruned;
         this.version = version;
+        this.selectColumnsLineageInfo = selectColumnsLineageInfo.map(ImmutableList::copyOf);
+    }
+
+    @JsonProperty
+    public Optional<List<ColumnLineageInfo>> getSelectColumnsLineageInfo()
+    {
+        return selectColumnsLineageInfo;
     }
 
     @JsonProperty
@@ -288,6 +303,12 @@ public class QueryInfo
     }
 
     @JsonProperty
+    public Set<SelectedRole> getSetOriginalRoles()
+    {
+        return setOriginalRoles;
+    }
+
+    @JsonProperty
     public Map<String, String> getSetSessionProperties()
     {
         return setSessionProperties;
@@ -337,9 +358,9 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public Optional<StageInfo> getOutputStage()
+    public Optional<StagesInfo> getStages()
     {
-        return outputStage;
+        return stages;
     }
 
     @Nullable
@@ -437,45 +458,5 @@ public class QueryInfo
                 .add("state", state)
                 .add("fieldNames", fieldNames)
                 .toString();
-    }
-
-    public QueryInfo pruneDigests()
-    {
-        return new QueryInfo(
-                queryId,
-                session,
-                state,
-                self,
-                fieldNames,
-                query,
-                preparedQuery,
-                queryStats,
-                setCatalog,
-                setSchema,
-                setPath,
-                setAuthorizationUser,
-                resetAuthorizationUser,
-                setSessionProperties,
-                resetSessionProperties,
-                setRoles,
-                addedPreparedStatements,
-                deallocatedPreparedStatements,
-                startedTransactionId,
-                clearTransactionId,
-                updateType,
-                outputStage.map(StageInfo::pruneDigests),
-                failureInfo,
-                errorCode,
-                warnings,
-                inputs,
-                output,
-                referencedTables,
-                routines,
-                finalQueryInfo,
-                resourceGroupId,
-                queryType,
-                retryPolicy,
-                pruned,
-                version);
     }
 }

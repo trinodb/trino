@@ -13,41 +13,36 @@
  */
 package io.trino.sql.gen.columnar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.operator.project.InputChannels;
-import io.trino.spi.Page;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.SpecialForm;
+import io.trino.spi.connector.SourcePage;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Reference;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.relational.SpecialForm.Form.IS_NULL;
+import static java.util.Objects.requireNonNull;
 
 public final class IsNullColumnarFilter
         implements ColumnarFilter
 {
     private final InputChannels inputChannels;
 
-    public static Supplier<ColumnarFilter> createIsNullColumnarFilter(SpecialForm specialForm)
+    public static Class<? extends ColumnarFilter> createIsNullColumnarFilter(IsNull isNull)
     {
-        checkArgument(specialForm.form() == IS_NULL, "specialForm %s should be IS_NULL", specialForm);
-        checkArgument(specialForm.arguments().size() == 1, "specialForm %s should have single argument", specialForm);
-        if (!(specialForm.arguments().getFirst() instanceof InputReferenceExpression inputReference)) {
-            throw new UnsupportedOperationException("IS_NULL columnar evaluation is supported only for InputReferenceExpression");
+        checkArgument(isNull.value() != null, "isNull %s should have a value", isNull);
+        if (!(isNull.value() instanceof Reference)) {
+            throw new UnsupportedOperationException("IS_NULL columnar evaluation is supported only for Reference");
         }
-        return () -> new IsNullColumnarFilter(inputReference);
+        return IsNullColumnarFilter.class;
     }
 
-    private IsNullColumnarFilter(InputReferenceExpression inputReference)
+    public IsNullColumnarFilter(InputChannels inputChannels)
     {
-        List<Integer> channels = ImmutableList.of(inputReference.field());
-        this.inputChannels = new InputChannels(channels, channels);
+        this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
 
     @Override
@@ -57,7 +52,7 @@ public final class IsNullColumnarFilter
     }
 
     @Override
-    public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page page)
+    public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage page)
     {
         ValueBlock block = (ValueBlock) page.getBlock(0);
         if (!block.mayHaveNull()) {
@@ -80,7 +75,7 @@ public final class IsNullColumnarFilter
     }
 
     @Override
-    public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page page)
+    public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, SourcePage page)
     {
         ValueBlock block = (ValueBlock) page.getBlock(0);
         if (!block.mayHaveNull()) {

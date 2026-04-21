@@ -1,0 +1,49 @@
+{
+    "format-version": 2,
+    "table-uuid": "34e32361-c24e-40d0-aaec-ca4d0f129fad",
+    "location": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view",
+    "last-sequence-number": 0,
+    "last-updated-ms": 1768503590693,
+    "last-column-id": 1,
+    "current-schema-id": 0,
+    "schemas": [
+        {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {
+                    "id": 1,
+                    "name": "a",
+                    "required": false,
+                    "type": "int"
+                }
+            ]
+        }
+    ],
+    "default-spec-id": 0,
+    "partition-specs": [
+        {
+            "spec-id": 0,
+            "fields": []
+        }
+    ],
+    "last-partition-id": 999,
+    "default-sort-order-id": 0,
+    "sort-orders": [
+        {
+            "order-id": 0,
+            "fields": []
+        }
+    ],
+    "properties": {
+        "write.format.default": "PARQUET",
+        "write.parquet.compression-codec": ""
+    },
+    "current-snapshot-id": -1,
+    "refs": {},
+    "snapshots": [],
+    "statistics": [],
+    "partition-statistics": [],
+    "snapshot-log": [],
+    "metadata-log": []
+}

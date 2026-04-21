@@ -13,12 +13,12 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.Objects;
+
+import static io.trino.spi.type.DecimalType.checkArgument;
 
 public final class SqlDecimal
 {
@@ -36,6 +36,8 @@ public final class SqlDecimal
     public static SqlDecimal decimal(String value, DecimalType type)
     {
         DecimalParseResult parseResult = Decimals.parse(value);
+        checkArgument(parseResult.getType().getScale() == type.getScale(), "Expected value to have scale %s, but was %s", type.getScale(), parseResult.getType().getScale());
+
         BigInteger unscaledValue;
         if (parseResult.getType().isShort()) {
             unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
@@ -81,7 +83,6 @@ public final class SqlDecimal
         return Objects.hash(unscaledValue, precision, scale);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

@@ -27,9 +27,11 @@ import io.trino.hive.formats.line.LineWriter;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
+import org.apache.hadoop.io.BinaryComparable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +47,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -56,6 +60,8 @@ import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static io.trino.hive.formats.compression.CompressionKind.ZSTD;
 import static io.trino.hive.formats.line.sequence.SequenceFileWriter.TRINO_SEQUENCE_FILE_WRITER_VERSION;
 import static io.trino.hive.formats.line.sequence.SequenceFileWriter.TRINO_SEQUENCE_FILE_WRITER_VERSION_METADATA_KEY;
+import static io.trino.hive.formats.line.sequence.ValueType.BYTES;
+import static io.trino.hive.formats.line.sequence.ValueType.TEXT;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
@@ -72,12 +78,12 @@ public class TestSequenceFileReaderWriter
     {
         for (boolean blockCompressed : ImmutableList.of(true)) {
             try (TempFile tempFile = new TempFile()) {
-                assertThatThrownBy(() -> new SequenceFileWriter(new FileOutputStream(tempFile.file()), Optional.of(LZOP), blockCompressed, ImmutableMap.of()))
+                assertThatThrownBy(() -> new SequenceFileWriter(new FileOutputStream(tempFile.file()), Optional.of(LZOP), blockCompressed, ImmutableMap.of(), TEXT))
                         .isInstanceOf(IllegalArgumentException.class);
             }
 
             try (TempFile tempFile = new TempFile()) {
-                writeOld(tempFile.file(), Optional.of(LZOP), ImmutableList.of("test"), blockCompressed);
+                writeOld(tempFile.file(), Optional.of(LZOP), ImmutableList.of("test"), blockCompressed, Text::new, Text.class);
                 assertThatThrownBy(() -> new SequenceFileReader(new LocalInputFile(tempFile.file()), 0, tempFile.file().length()))
                         .isInstanceOf(IllegalArgumentException.class);
             }
@@ -86,6 +92,19 @@ public class TestSequenceFileReaderWriter
 
     @Override
     protected void testRoundTrip(List<String> values)
+            throws Exception
+    {
+        testRoundTrip(values, Text::new, Text::new, Text.class, TEXT);
+    }
+
+    @Test
+    public void testRoundTripBytesWritable()
+            throws Exception
+    {
+        testRoundTrip(List.of("foo", "bar"), BytesWritable::new, value -> new BytesWritable(value.getBytes(UTF_8)), BytesWritable.class, BYTES);
+    }
+
+    protected <T extends Writable> void testRoundTrip(List<String> values, Supplier<T> newWritable, Function<String, T> newStringWritable, Class<T> clazz, ValueType valueType)
             throws Exception
     {
         for (Optional<CompressionKind> compressionKind : COMPRESSION) {
@@ -100,10 +119,10 @@ public class TestSequenceFileReaderWriter
 
                 // write old, read new and old
                 try (TempFile tempFile = new TempFile()) {
-                    writeOld(tempFile.file(), compressionKind, values, blockCompressed);
-                    assertOld(tempFile.file(), values, ImmutableMap.of(), compressionKind, blockCompressed);
-                    assertNew(tempFile.file(), values, ImmutableMap.of());
-                    assertOld(tempFile.file(), values, ImmutableMap.of(), compressionKind, blockCompressed);
+                    writeOld(tempFile.file(), compressionKind, values, blockCompressed, newStringWritable, clazz);
+                    assertOld(tempFile.file(), values, ImmutableMap.of(), compressionKind, blockCompressed, newWritable, clazz);
+                    assertNew(tempFile.file(), values, ImmutableMap.of(), clazz);
+                    assertOld(tempFile.file(), values, ImmutableMap.of(), compressionKind, blockCompressed, newWritable, clazz);
                 }
 
                 // write new, read old and new
@@ -111,21 +130,21 @@ public class TestSequenceFileReaderWriter
                     Map<String, String> metadata = ImmutableMap.of(
                             String.valueOf(ThreadLocalRandom.current().nextLong()),
                             String.valueOf(ThreadLocalRandom.current().nextLong()));
-                    writeNew(tempFile.file(), values, metadata, compressionKind, blockCompressed);
+                    writeNew(tempFile.file(), values, metadata, compressionKind, blockCompressed, valueType);
 
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
                             .putAll(metadata)
                             .put(TRINO_SEQUENCE_FILE_WRITER_VERSION_METADATA_KEY, TRINO_SEQUENCE_FILE_WRITER_VERSION)
                             .buildOrThrow();
 
-                    assertOld(tempFile.file(), values, expectedMetadata, compressionKind, blockCompressed);
-                    assertNew(tempFile.file(), values, expectedMetadata);
+                    assertOld(tempFile.file(), values, expectedMetadata, compressionKind, blockCompressed, newWritable, clazz);
+                    assertNew(tempFile.file(), values, expectedMetadata, clazz);
                 }
             }
         }
     }
 
-    private static void assertNew(File inputFile, List<String> values, Map<String, String> metadata)
+    private static <T extends Writable> void assertNew(File inputFile, List<String> values, Map<String, String> metadata, Class<T> clazz)
             throws IOException
     {
         LineBuffer lineBuffer = createLineBuffer(values);
@@ -134,7 +153,7 @@ public class TestSequenceFileReaderWriter
 
             assertSyncPoint(reader, inputFile);
             assertThat(reader.getKeyClassName()).isEqualTo(BytesWritable.class.getName());
-            assertThat(reader.getValueClassName()).isEqualTo(Text.class.getName());
+            assertThat(reader.getValueClassName()).isEqualTo(clazz.getName());
             assertThat(reader.getMetadata()).isEqualTo(metadata);
 
             for (String expected : values) {
@@ -221,14 +240,15 @@ public class TestSequenceFileReaderWriter
                 inputFile.length());
     }
 
-    private static void writeNew(File outputFile, List<String> values, Map<String, String> metadata, Optional<CompressionKind> compressionKind, boolean blockCompressed)
+    private static void writeNew(File outputFile, List<String> values, Map<String, String> metadata, Optional<CompressionKind> compressionKind, boolean blockCompressed, ValueType valueType)
             throws Exception
     {
         try (LineWriter writer = new SequenceFileWriter(
                 new FileOutputStream(outputFile),
                 compressionKind,
                 blockCompressed,
-                metadata)) {
+                metadata,
+                valueType)) {
             for (String value : values) {
                 writer.write(Slices.utf8Slice(value));
             }
@@ -236,7 +256,7 @@ public class TestSequenceFileReaderWriter
         }
     }
 
-    private static void assertOld(File inputFile, List<String> values, Map<String, String> metadata, Optional<CompressionKind> compressionKind, boolean blockCompressed)
+    private static <T extends Writable> void assertOld(File inputFile, List<String> values, Map<String, String> metadata, Optional<CompressionKind> compressionKind, boolean blockCompressed, Supplier<T> newWritable, Class<T> clazz)
             throws IOException
     {
         JobConf jobConf = new JobConf(false);
@@ -244,7 +264,7 @@ public class TestSequenceFileReaderWriter
         Path path = new Path(inputFile.toURI());
         try (SequenceFile.Reader reader = new SequenceFile.Reader(jobConf, SequenceFile.Reader.file(path))) {
             assertThat(reader.getKeyClassName()).isEqualTo(BytesWritable.class.getName());
-            assertThat(reader.getValueClassName()).isEqualTo(Text.class.getName());
+            assertThat(reader.getValueClassName()).isEqualTo(clazz.getName());
 
             Map<String, String> actualMetadata = reader.getMetadata().getMetadata().entrySet().stream()
                     .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().toString()));
@@ -263,29 +283,33 @@ public class TestSequenceFileReaderWriter
             }
 
             BytesWritable key = new BytesWritable();
-            Text text = new Text();
+            T value = newWritable.get();
             for (String expected : values) {
-                assertThat(reader.next(key, text)).isTrue();
-                assertThat(text.toString()).isEqualTo(expected);
+                assertThat(reader.next(key, value)).isTrue();
+
+                BinaryComparable binaryComparable = (BinaryComparable) value;
+                byte[] buffer = new byte[binaryComparable.getLength()];
+                System.arraycopy(binaryComparable.getBytes(), 0, buffer, 0, binaryComparable.getLength());
+                assertThat(buffer).isEqualTo(expected.getBytes(UTF_8));
             }
 
-            assertThat(reader.next(key, text)).isFalse();
+            assertThat(reader.next(key, value)).isFalse();
         }
     }
 
-    private static void writeOld(File outputFile, Optional<CompressionKind> compressionKind, List<String> values, boolean blockCompressed)
+    private static <T extends Writable> void writeOld(File outputFile, Optional<CompressionKind> compressionKind, List<String> values, boolean blockCompressed, Function<String, T> newStringWritable, Class<T> clazz)
             throws Exception
     {
-        RecordWriter recordWriter = createWriterOld(outputFile, compressionKind, blockCompressed);
+        RecordWriter recordWriter = createWriterOld(outputFile, compressionKind, blockCompressed, clazz);
 
         for (String value : values) {
-            recordWriter.write(new Text(value));
+            recordWriter.write(newStringWritable.apply(value));
         }
 
         recordWriter.close(false);
     }
 
-    private static RecordWriter createWriterOld(File outputFile, Optional<CompressionKind> compressionKind, boolean blockCompressed)
+    private static <T extends Writable> RecordWriter createWriterOld(File outputFile, Optional<CompressionKind> compressionKind, boolean blockCompressed, Class<T> clazz)
             throws IOException
     {
         JobConf jobConf = new JobConf(false);
@@ -298,7 +322,7 @@ public class TestSequenceFileReaderWriter
         return new HiveSequenceFileOutputFormat<>().getHiveRecordWriter(
                 jobConf,
                 new Path(outputFile.toURI()),
-                Text.class,
+                clazz,
                 compressionKind.isPresent(),
                 new Properties(),
                 () -> {});

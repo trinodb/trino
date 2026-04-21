@@ -1,5 +1,0 @@
-/etc/init.d/trino status >/dev/null 2>&1
-if [ "$?" != 3 ]; then
-    echo "Please stop the Trino service before erasing RPM"
-    exit 1
-fi

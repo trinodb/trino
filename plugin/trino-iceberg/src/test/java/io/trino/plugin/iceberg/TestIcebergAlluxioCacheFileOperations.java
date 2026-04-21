@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.trino.plugin.iceberg.util.FileOperationUtils;
+import io.trino.plugin.iceberg.util.FileOperationUtils.FileType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -91,10 +91,8 @@ public class TestIcebergAlluxioCacheFileOperations
                         .addCopies(new CacheOperation("Input.readFully", DATA), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 2)
                         .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 2)
-                        .add(new CacheOperation("Alluxio.readExternalStream", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("Alluxio.readCached", METADATA_JSON))
-                        .add(new CacheOperation("Alluxio.writeCache", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
                         .add(new CacheOperation("InputFile.length", SNAPSHOT))
                         .addCopies(new CacheOperation("Alluxio.readExternalStream", MANIFEST), 2)
@@ -123,10 +121,8 @@ public class TestIcebergAlluxioCacheFileOperations
                         .addCopies(new CacheOperation("Input.readFully", DATA), 3)
                         .addCopies(new CacheOperation("Alluxio.readCached", DATA), 5)
                         .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 3)
-                        .add(new CacheOperation("Alluxio.readExternalStream", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", METADATA_JSON), 2)
-                        .add(new CacheOperation("Alluxio.writeCache", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
                         .add(new CacheOperation("InputFile.length", SNAPSHOT))
                         .addCopies(new CacheOperation("Alluxio.readExternalStream", MANIFEST), 3)
@@ -161,12 +157,12 @@ public class TestIcebergAlluxioCacheFileOperations
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record CacheOperation(String operationName, FileOperationUtils.FileType fileType)
+    private record CacheOperation(String operationName, FileType fileType)
     {
         public static CacheOperation create(SpanData span)
         {
             String path = getFileLocation(span);
-            return new CacheOperation(span.getName(), FileOperationUtils.FileType.fromFilePath(path));
+            return new CacheOperation(span.getName(), FileType.fromFilePath(path));
         }
     }
 }

@@ -24,7 +24,7 @@ import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
@@ -46,7 +46,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.LanguageFunctionManager.QUERY_LOCAL_SCHEMA;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,7 +70,7 @@ public class TestQuerySessionSupplier
             .build());
     private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
             new PreparedStatementEncoder(new ProtocolConfig()),
-            createTestMetadataManager(),
+            createTestingMetadataManager(),
             ImmutableSet::of,
             new AllowAllAccessControl(),
             new ProtocolConfig(),
@@ -86,8 +86,8 @@ public class TestQuerySessionSupplier
         assertThat(session.getQueryId()).isEqualTo(new QueryId("test_query_id"));
         assertThat(session.getUser()).isEqualTo("testUser");
         assertThat(session.getSource().get()).isEqualTo("testSource");
-        assertThat(session.getCatalog().get()).isEqualTo("testCatalog");
-        assertThat(session.getSchema().get()).isEqualTo("testSchema");
+        assertThat(session.getCatalog().get()).isEqualTo("testcatalog"); // lowercased
+        assertThat(session.getSchema().get()).isEqualTo("testschema"); // lowercased
         assertThat(session.getPath().getRawPath()).isEqualTo("testPath");
         assertThat(session.getLocale()).isEqualTo(Locale.TAIWAN);
         assertThat(session.getTimeZoneKey()).isEqualTo(getTimeZoneKey("Asia/Taipei"));
@@ -241,7 +241,7 @@ public class TestQuerySessionSupplier
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder()
+        Metadata metadata = TestingMetadataManager.builder()
                 .withTransactionManager(transactionManager)
                 .build();
         return new QuerySessionSupplier(

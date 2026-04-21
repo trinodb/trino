@@ -16,12 +16,15 @@ package io.trino.filesystem.azure;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class AzureAuthDefaultModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(AzureAuthManagedIdentityConfig.class);
         binder.bind(AzureAuth.class).to(AzureAuthDefault.class);
     }
 }

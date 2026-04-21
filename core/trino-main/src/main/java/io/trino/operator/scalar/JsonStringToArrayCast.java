@@ -20,8 +20,8 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 
 public final class JsonStringToArrayCast
         extends SqlScalarFunction

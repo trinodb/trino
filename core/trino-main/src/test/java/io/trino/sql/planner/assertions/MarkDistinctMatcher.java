@@ -15,14 +15,10 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -36,13 +32,11 @@ public class MarkDistinctMatcher
 {
     private final PlanTestSymbol markerSymbol;
     private final List<PlanTestSymbol> distinctSymbols;
-    private final Optional<PlanTestSymbol> hashSymbol;
 
-    public MarkDistinctMatcher(PlanTestSymbol markerSymbol, List<PlanTestSymbol> distinctSymbols, Optional<PlanTestSymbol> hashSymbol)
+    public MarkDistinctMatcher(PlanTestSymbol markerSymbol, List<PlanTestSymbol> distinctSymbols)
     {
         this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
 
     @Override
@@ -52,17 +46,13 @@ public class MarkDistinctMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         MarkDistinctNode markDistinctNode = (MarkDistinctNode) node;
 
-        if (!markDistinctNode.getHashSymbol().equals(hashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
-            return NO_MATCH;
-        }
-
         if (!ImmutableSet.copyOf(markDistinctNode.getDistinctSymbols())
-                .equals(distinctSymbols.stream().map(alias -> alias.toSymbol(symbolAliases)).collect(toImmutableSet()))) {
+                .equals(distinctSymbols.stream().map(alias -> alias.toSymbol(context.symbolAliases())).collect(toImmutableSet()))) {
             return NO_MATCH;
         }
 
@@ -75,7 +65,6 @@ public class MarkDistinctMatcher
         return toStringHelper(this)
                 .add("markerSymbol", markerSymbol)
                 .add("distinctSymbols", distinctSymbols)
-                .add("hashSymbol", hashSymbol)
                 .toString();
     }
 }

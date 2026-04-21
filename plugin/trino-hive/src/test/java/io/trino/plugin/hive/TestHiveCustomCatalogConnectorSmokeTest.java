@@ -15,9 +15,9 @@ package io.trino.plugin.hive;
 
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
@@ -32,9 +32,9 @@ import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,13 +59,12 @@ public class TestHiveCustomCatalogConnectorSmokeTest
                 .addHiveProperty("hive.metastore", "thrift")
                 .addHiveProperty("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                 .addHiveProperty("hive.metastore.thrift.catalog-name", HIVE_CUSTOM_CATALOG)
-                .addHiveProperty("fs.hadoop.enabled", "false")
-                .addHiveProperty("fs.native-s3.enabled", "true")
+                .addHiveProperty("fs.s3.enabled", "true")
                 .addHiveProperty("s3.path-style-access", "true")
                 .addHiveProperty("s3.region", MINIO_REGION)
                 .addHiveProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .addHiveProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .addHiveProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addHiveProperty("s3.aws-access-key", MINIO_ROOT_USER)
+                .addHiveProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .setCreateTpchSchemas(false) // Create the required tpch tables after the initialisation of the query runner
                 .build();
 

@@ -13,14 +13,15 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.util.List;
 
@@ -28,6 +29,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -42,13 +44,20 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
+    }
+
+    @AfterMethodWithContext
+    public void cleanUp()
+    {
+        s3.close();
+        s3 = null;
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
@@ -90,6 +99,24 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableAndInsertOnTrinoWithSchemaChange()
+    {
+        String tableName = "test_replace_table_and_insert_on_trino_with_schema_change_" + randomNameSuffix();
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
+                               "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
+        try {
+            List<Row> expectedRows = performInsert(onTrino(), tableName, 12);
+
+            onTrino().executeQuery("CREATE OR REPLACE TABLE delta.default." + tableName + " AS SELECT CAST(ts AS TIMESTAMP(6)) as ts FROM " + tableName);
+            assertThat(onDelta().executeQuery("SELECT date_format(ts, \"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\") FROM default." + tableName)).containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCreateOrReplaceTableWithSchemaChangeOnCheckpoint()
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
@@ -113,12 +140,30 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCreateOrReplaceTableWithOnlyFeaturesChangedOnTrino()
+    {
+        String tableName = "test_create_or_replace_table_discard_features_" + randomNameSuffix();
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (x INT) " +
+                "WITH (location = 's3://" + bucketName + "/delta-lake-test-" + tableName + "', deletion_vectors_enabled = true)");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2, 3");
+
+            onTrino().executeQuery("CREATE OR REPLACE TABLE delta.default." + tableName + " (x INT)");
+            assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).hasNoRows();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
     private static List<Row> performInsert(QueryExecutor queryExecutor, String tableName, int numberOfRows)
     {
         ImmutableList.Builder<Row> expectedRowBuilder = ImmutableList.builder();
         // Write to the table until a checkpoint file is written
         for (int i = 0; i < numberOfRows; i++) {
-            queryExecutor.executeQuery("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
+            queryExecutor.executeQuery("INSERT INTO " + tableName + " VALUES '1960-01-01 01:02:03', '1961-01-01 01:02:03', '1962-01-01 01:02:03'");
             expectedRowBuilder.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
         }
         return expectedRowBuilder.build();

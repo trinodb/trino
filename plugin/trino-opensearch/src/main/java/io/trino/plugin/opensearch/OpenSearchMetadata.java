@@ -89,6 +89,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -276,7 +277,7 @@ public class OpenSearchMetadata
     {
         String path = appendPath(prefix, field.name());
 
-        checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
+        checkArgument(!field.asRawJson() || !field.isArray(), "A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path);
 
         if (field.asRawJson()) {
             return new TypeAndDecoder(VARCHAR, new RawJsonDecoder.Descriptor(path));
@@ -509,7 +510,7 @@ public class OpenSearchMetadata
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             OpenSearchColumnHandle column = (OpenSearchColumnHandle) entry.getKey();
 
             if (column.supportsPredicates()) {
@@ -541,12 +542,12 @@ public class OpenSearchMetadata
                         escape = Optional.of((Slice) ((Constant) arguments.get(2)).getValue());
                     }
 
-                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
+                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.schema()
                                     .fields().stream()
                                     .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
-                            newRegexes.put(columnName, likeToRegexp((Slice) pattern, escape));
+                            newRegexes.put(columnName, likeToRegexp(slice, escape));
                             continue;
                         }
                     }
@@ -705,7 +706,7 @@ public class OpenSearchMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<OpenSearchColumnHandle> columns = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ApplyProjectionUtil.ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ApplyProjectionUtil.ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
@@ -784,11 +785,11 @@ public class OpenSearchMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof RawQueryFunctionHandle)) {
+        if (!(handle instanceof RawQueryFunctionHandle rawQueryFunctionHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = rawQueryFunctionHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }

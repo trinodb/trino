@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -142,7 +141,6 @@ public class TestSimplePagesHashStrategy
                 ImmutableList.of(),
                 ImmutableList.of(new ObjectArrayList<>(channelBlocks)),
                 ImmutableList.of(0),
-                OptionalInt.empty(),
                 Optional.of(0),
                 new BlockTypeOperators());
     }

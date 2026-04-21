@@ -13,8 +13,6 @@
  */
 package io.trino.tests.product.launcher.testcontainers;
 
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
 import org.testcontainers.containers.Network;
 
 import static java.util.Objects.requireNonNull;
@@ -37,11 +35,4 @@ public final class ExistingNetwork
 
     @Override
     public void close() {}
-
-    @Override
-    public Statement apply(Statement statement, Description description)
-    {
-        // junit4 integration
-        throw new UnsupportedOperationException();
-    }
 }

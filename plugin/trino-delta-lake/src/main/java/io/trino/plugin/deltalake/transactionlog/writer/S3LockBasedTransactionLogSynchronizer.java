@@ -21,9 +21,10 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.FileNotFoundException;
@@ -55,11 +56,11 @@ public class S3LockBasedTransactionLogSynchronizer
     private static final String LOCK_INFIX = "sb-lock_";
     private static final Pattern LOCK_FILENAME_PATTERN = Pattern.compile("(.*)\\." + LOCK_INFIX + ".*");
 
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final JsonCodec<LockFileContents> lockFileContentsJsonCodec;
 
     @Inject
-    S3LockBasedTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory, JsonCodec<LockFileContents> lockFileContentsJsonCodec)
+    S3LockBasedTransactionLogSynchronizer(DeltaLakeFileSystemFactory fileSystemFactory, JsonCodec<LockFileContents> lockFileContentsJsonCodec)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.lockFileContentsJsonCodec = requireNonNull(lockFileContentsJsonCodec, "lockFileContentsJsonCodec is null");
@@ -72,9 +73,9 @@ public class S3LockBasedTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
         Location locksDirectory = newLogEntryPath.sibling(LOCK_DIRECTORY);
         String newEntryFilename = newLogEntryPath.fileName();
         Optional<LockInfo> myLockInfo = Optional.empty();

@@ -17,9 +17,8 @@ package io.trino.plugin.faker;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.spi.NodeManager;
-import io.trino.spi.type.TypeManager;
-import jakarta.inject.Inject;
+import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionBundleFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -27,28 +26,22 @@ import static java.util.Objects.requireNonNull;
 public class FakerModule
         implements Module
 {
-    private final NodeManager nodeManager;
-    private final TypeManager typeManager;
+    private final FunctionBundleFactory functionBundleFactory;
 
-    @Inject
-    public FakerModule(NodeManager nodeManager, TypeManager typeManager)
+    public FakerModule(FunctionBundleFactory functionBundleFactory)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(NodeManager.class).toInstance(nodeManager);
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         binder.bind(FakerConnector.class).in(Scopes.SINGLETON);
         binder.bind(FakerMetadata.class).in(Scopes.SINGLETON);
         binder.bind(FakerSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(FakerPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(FakerFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionBundle.class).toInstance(functionBundleFactory.builder().functions(FakerFunctions.class).build());
         configBinder(binder).bindConfig(FakerConfig.class);
     }
 }

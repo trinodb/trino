@@ -141,7 +141,7 @@ public class TableChangesFunction
             outputFields.add(new Descriptor.Field(COMMIT_TIMESTAMP_COLUMN_NAME, Optional.of(TIMESTAMP_TZ_MILLIS)));
 
             return TableFunctionAnalysis.builder()
-                    .handle(new TableChangesTableFunctionHandle(schemaTableName, firstReadVersion, tableHandle.getReadVersion(), tableHandle.getLocation(), columnHandles))
+                    .handle(new TableChangesTableFunctionHandle(schemaTableName, firstReadVersion, tableHandle.getReadVersion(), tableHandle.getLocation(), tableHandle.toCredentialsHandle(), columnHandles))
                     .returnedType(new Descriptor(outputFields.build()))
                     .build();
         }

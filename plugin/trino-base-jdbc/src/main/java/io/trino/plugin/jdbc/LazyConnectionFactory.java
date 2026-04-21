@@ -22,7 +22,6 @@ import jakarta.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -70,7 +69,10 @@ public final class LazyConnectionFactory
         protected synchronized Connection delegate()
                 throws SQLException
         {
-            checkState(!closed, "Connection is already closed");
+            if (closed) {
+                throw new ConnectionAlreadyClosedException("Connection is already closed");
+            }
+
             if (connection == null) {
                 connection = requireNonNull(connectionSupplier.get(), "connectionSupplier.get() is null");
             }

@@ -31,6 +31,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.LazyOutputBuffer;
@@ -41,10 +42,11 @@ import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.Partitioning;
@@ -57,16 +59,18 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -95,7 +99,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class MockRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
     private final Executor executor;
     private final ScheduledExecutorService scheduledExecutor;
 
@@ -122,9 +126,10 @@ public class MockRemoteTaskFactory
                         Optional.empty()),
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -141,6 +146,7 @@ public class MockRemoteTaskFactory
                 newNode,
                 false,
                 testFragment,
+                ImmutableMap.of(),
                 initialSplits.build(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
                 partitionedSplitCountTracker,
@@ -157,6 +163,7 @@ public class MockRemoteTaskFactory
             InternalNode node,
             boolean speculative,
             PlanFragment fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -212,7 +219,7 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.getQueryId(),
+            QueryContext queryContext = new QueryContext(taskId.queryId(),
                     DataSize.of(1, MEGABYTE),
                     memoryPool,
                     new TestingGcMonitor(),
@@ -221,7 +228,7 @@ public class MockRemoteTaskFactory
                     scheduledExecutor,
                     DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
-            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, true, true);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, ImmutableMap.of(), TEST_SESSION, () -> {}, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
 
@@ -233,7 +240,7 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     () -> {},
-                    new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
+                    new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -260,7 +267,7 @@ public class MockRemoteTaskFactory
         {
             return new TaskInfo(
                     getTaskStatus(),
-                    DateTime.now(),
+                    Instant.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
@@ -291,13 +298,13 @@ public class MockRemoteTaskFactory
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     outputBuffer.getStatus(),
-                    stats.getOutputDataSize(),
-                    stats.getWriterInputDataSize(),
-                    stats.getPhysicalWrittenDataSize(),
-                    stats.getMaxWriterCount(),
-                    stats.getUserMemoryReservation(),
-                    stats.getPeakUserMemoryReservation(),
-                    stats.getRevocableMemoryReservation(),
+                    stats.outputDataSize(),
+                    stats.writerInputDataSize(),
+                    stats.physicalWrittenDataSize(),
+                    stats.maxWriterCount(),
+                    stats.userMemoryReservation(),
+                    stats.peakUserMemoryReservation(),
+                    stats.revocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -324,12 +331,12 @@ public class MockRemoteTaskFactory
 
         public synchronized void finishSplits(int splits)
         {
-            List<Map.Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
-            Iterator<Map.Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
+            List<Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
+            Iterator<Entry<PlanNodeId, Split>> iterator = this.splits.entries().iterator();
             while (toRemove.size() < splits && iterator.hasNext()) {
                 toRemove.add(iterator.next());
             }
-            for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
+            for (Entry<PlanNodeId, Split> entry : toRemove) {
                 this.splits.remove(entry.getKey(), entry.getValue());
             }
             updateSplitQueueSpace();

@@ -424,11 +424,11 @@ public class SqlMap
 
     private static RuntimeException handleThrowable(Throwable throwable)
     {
-        if (throwable instanceof Error) {
-            throw (Error) throwable;
+        if (throwable instanceof Error error) {
+            throw error;
         }
-        if (throwable instanceof TrinoException) {
-            throw (TrinoException) throwable;
+        if (throwable instanceof TrinoException trinoException) {
+            throw trinoException;
         }
         throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
     }

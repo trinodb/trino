@@ -25,16 +25,13 @@ public abstract class BaseClickHouseConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_DELETE:
-                return false;
-            case SUPPORTS_TRUNCATE:
-                return true;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_UPDATE,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_MERGE -> false;
+            case SUPPORTS_TRUNCATE -> true;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test

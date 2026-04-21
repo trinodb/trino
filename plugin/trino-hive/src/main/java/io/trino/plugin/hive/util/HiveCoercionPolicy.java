@@ -43,7 +43,6 @@ import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveCoercionPolicy
@@ -187,7 +186,7 @@ public final class HiveCoercionPolicy
 
     private static HiveType convertUnionToStruct(HiveType unionType, TypeManager typeManager, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        checkArgument(unionType.getCategory() == Category.UNION, format("Can only convert union type to struct type, given type: %s", getTypeSignature(unionType, hiveTimestampPrecision)));
+        checkArgument(unionType.getCategory() == Category.UNION, "Can only convert union type to struct type, given type: %s", getTypeSignature(unionType, hiveTimestampPrecision));
         return toHiveType(getType(unionType, typeManager, hiveTimestampPrecision));
     }
 }

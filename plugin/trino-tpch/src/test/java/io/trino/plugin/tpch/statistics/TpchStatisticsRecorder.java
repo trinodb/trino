@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -38,11 +39,11 @@ import static java.lang.String.format;
  */
 public class TpchStatisticsRecorder
 {
-    private static final ImmutableList<String> SUPPORTED_SCHEMAS = ImmutableList.of("sf0.01", "sf1.0");
+    private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("sf0.01", "sf1.0");
 
-    public static void main(String[] args)
+    static void main()
     {
-        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(createObjectMapper()));
+        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(createJsonMapper()));
 
         SUPPORTED_SCHEMAS.forEach(schemaName -> {
             TpchTable.getTables()
@@ -61,10 +62,9 @@ public class TpchStatisticsRecorder
         this.tableStatisticsDataRepository = tableStatisticsDataRepository;
     }
 
-    private static ObjectMapper createObjectMapper()
+    private static JsonMapper createJsonMapper()
     {
-        return new ObjectMapper()
-                .registerModule(new Jdk8Module());
+        return new JsonMapperProvider().get();
     }
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table)

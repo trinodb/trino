@@ -41,8 +41,11 @@ public class KafkaSaslPlaintext
         builder.configureContainer(Kafka.KAFKA, container -> container
                 .withStartupAttempts(3)
                 .withStartupTimeout(Duration.ofMinutes(5))
-                .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://kafka:9092")
+                .withEnv("KAFKA_LISTENERS", "SASL_PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093")
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "SASL_PLAINTEXT://kafka:9092")
+                .withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
+                .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "SASL_PLAINTEXT:SASL_PLAINTEXT,CONTROLLER:PLAINTEXT")
+                .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:9093")
                 .withEnv("KAFKA_SECURITY_INTER_BROKER_PROTOCOL", "SASL_PLAINTEXT")
                 .withEnv("KAFKA_SECURITY_PROTOCOL", "SASL_PLAINTEXT")
                 .withEnv("KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL", "PLAIN")
@@ -51,7 +54,8 @@ public class KafkaSaslPlaintext
                 .withEnv("KAFKA_LISTENER_NAME_SASL_PLAINTEXT_PLAIN_SASL_JAAS_CONFIG", "org.apache.kafka.common.security.plain.PlainLoginModule required " +
                         "username=\"admin\" " +
                         "password=\"admin-secret\" " +
-                        "user_admin=\"admin-secret\";")
+                        "user_admin=\"admin-secret\"" +
+                        "serviceName=\"kafka\";")
                 .withEnv("ZOOKEEPER_SASL_ENABLED", "false")
                 .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
         builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container
@@ -62,7 +66,8 @@ public class KafkaSaslPlaintext
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM", "PLAIN")
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG", "org.apache.kafka.common.security.plain.PlainLoginModule required " +
                         "username=\"admin\" " +
-                        "password=\"admin-secret\";")
+                        "password=\"admin-secret\"" +
+                        "serviceName=\"kafka\";")
                 .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-sasl-plaintext/kafka_server_jaas.conf", "/tmp/kafka_server_jaas.conf", BindMode.READ_ONLY));
     }
 

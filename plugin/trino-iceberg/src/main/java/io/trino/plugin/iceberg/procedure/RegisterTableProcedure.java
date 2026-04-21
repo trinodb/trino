@@ -23,7 +23,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -34,12 +34,15 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -63,6 +66,7 @@ public class RegisterTableProcedure
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String TABLE_LOCATION = "TABLE_LOCATION";
     private static final String METADATA_FILE_NAME = "METADATA_FILE_NAME";
+    private static final Pattern S3_SCHEMA_PATTERN = Pattern.compile("^s3[an]://");
 
     static {
         try {
@@ -75,13 +79,19 @@ public class RegisterTableProcedure
 
     private final TrinoCatalogFactory catalogFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final boolean registerTableProcedureEnabled;
 
     @Inject
-    public RegisterTableProcedure(TrinoCatalogFactory catalogFactory, TrinoFileSystemFactory fileSystemFactory, IcebergConfig icebergConfig)
+    public RegisterTableProcedure(
+            TrinoCatalogFactory catalogFactory,
+            TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
+            IcebergConfig icebergConfig)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.registerTableProcedureEnabled = requireNonNull(icebergConfig, "icebergConfig is null").isRegisterTableProcedureEnabled();
     }
 
@@ -147,7 +157,7 @@ public class RegisterTableProcedure
         TableMetadata tableMetadata;
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
-            tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+            tableMetadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(clientSession)), metadataLocation);
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file: " + metadataLocation, e);
@@ -189,7 +199,7 @@ public class RegisterTableProcedure
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Metadata file does not exist: " + location);
             }
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Invalid metadata file location: " + location, e);
         }
     }
@@ -203,7 +213,7 @@ public class RegisterTableProcedure
     {
         // Normalize e.g. s3a to s3, so that table can be registered using s3:// location
         // even if internally it uses s3a:// paths.
-        String normalizedSchema = tableLocation.replaceFirst("^s3[an]://", "s3://");
+        String normalizedSchema = S3_SCHEMA_PATTERN.matcher(tableLocation).replaceFirst("s3://");
         // Remove trailing slashes so that test_dir is equal to test_dir/
         return stripTrailingSlash(normalizedSchema);
     }

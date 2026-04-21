@@ -14,8 +14,7 @@
 package io.trino.tests.product.launcher.env;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
@@ -60,7 +59,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,6 +79,7 @@ import static java.lang.System.getenv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.function.UnaryOperator.identity;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -103,6 +102,7 @@ public final class Environment
     private final Map<String, DockerContainer> containers;
     private final EnvironmentListener listener;
     private final boolean attached;
+    private final boolean ipv6;
     private final Map<String, List<String>> configuredFeatures;
 
     private Environment(
@@ -111,12 +111,14 @@ public final class Environment
             Map<String, DockerContainer> containers,
             EnvironmentListener listener,
             boolean attached,
+            boolean ipv6,
             Map<String, List<String>> configuredFeatures,
             List<Supplier<String>> startupLogs)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
+        this.ipv6 = ipv6;
         this.listener = compose(requireNonNull(listener, "listener is null"), printStartupLogs(startupLogs));
         this.attached = attached;
         this.configuredFeatures = requireNonNull(configuredFeatures, "configuredFeatures is null");
@@ -141,7 +143,7 @@ public final class Environment
         return Failsafe
                 .with(retryPolicy)
                 .with(executorService)
-                .get(this::tryStart);
+                .get(() -> tryStart());
     }
 
     private Environment tryStart()
@@ -159,7 +161,7 @@ public final class Environment
         }
 
         // Create new network when environment tries to start
-        try (Network network = createNetwork(name)) {
+        try (Network network = createNetwork(name, ipv6)) {
             attachNetwork(containers, network);
             Startables.deepStart(containers).get();
 
@@ -178,7 +180,7 @@ public final class Environment
             log.info("Started environment %s with containers:\n%s", name, table.render());
 
             // After deepStart all containers should be running and healthy
-            checkState(allContainersHealthy(containers), format("The containers %s are not running or healthy", unhealthyContainers(containers)));
+            checkState(allContainersHealthy(containers), "The containers %s are not running or healthy", unhealthyContainers(containers));
 
             listener.environmentStarted(this);
             return this;
@@ -372,12 +374,13 @@ public final class Environment
         values.forEach(container -> container.withNetwork(network));
     }
 
-    private static Network createNetwork(String environmentName)
+    private static Network createNetwork(String environmentName, boolean ipv6)
     {
         Network network = Network.builder()
                 .createNetworkCmdModifier(createNetworkCmd ->
                         createNetworkCmd
                                 .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
+                                .withEnableIpv6(ipv6)
                                 .withLabels(ImmutableMap.of(
                                         PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE,
                                         PRODUCT_TEST_LAUNCHER_ENVIRONMENT_LABEL_NAME, environmentName)))
@@ -399,6 +402,7 @@ public final class Environment
         private int startupRetries = 1;
         private Optional<Path> logsBaseDir = Optional.empty();
         private boolean attached;
+        private boolean ipv6;
 
         public Builder(String name, PrintStream printStream)
         {
@@ -632,7 +636,7 @@ public final class Environment
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
                             HostConfig hostConfig = createContainerCmd.getHostConfig();
-                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
+                            for (Bind bind : requireNonNullElse(hostConfig.getBinds(), new Bind[0])) {
                                 binds.put(bind.getVolume().getPath(), bind); // last bind wins
                             }
                             hostConfig.setBinds(binds.values().toArray(new Bind[0]));
@@ -649,6 +653,7 @@ public final class Environment
                     containers,
                     listener,
                     attached,
+                    ipv6,
                     configuredFeatures,
                     startupLogs.build());
         }
@@ -686,11 +691,11 @@ public final class Environment
             DockerContainer testContainer = containers.get(TESTS);
             // write a custom tempto config with list of connectors the environment declares to have configured
             // since it's needed in TestConfiguredFeatures
-            ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
+            YAMLMapper yamlMapper = new YAMLMapper();
             File tempFile;
             try {
                 tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
-                objectMapper.writeValue(tempFile,
+                yamlMapper.writeValue(tempFile,
                         Map.of("databases",
                                 Map.of("trino",
                                         Map.of(
@@ -736,6 +741,12 @@ public final class Environment
         public Builder setAttached(boolean attached)
         {
             this.attached = attached;
+            return this;
+        }
+
+        public Builder setIpv6(boolean ipv6)
+        {
+            this.ipv6 = ipv6;
             return this;
         }
     }

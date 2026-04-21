@@ -731,7 +731,7 @@ public class TestDefaultJdbcQueryBuilder
 
     private static long toTimeRepresentation(int hour, int minute, int second)
     {
-        SqlTime time = sqlTimeOf(hour, minute, second, 0);
+        SqlTime time = sqlTimeOf(3, hour, minute, second, 0);
         return time.getPicos();
     }
 

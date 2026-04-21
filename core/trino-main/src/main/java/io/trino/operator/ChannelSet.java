@@ -24,7 +24,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class ChannelSet
@@ -88,24 +87,14 @@ public class ChannelSet
             return new ChannelSet(set);
         }
 
-        public void addAll(Block valueBlock, Block hashBlock)
+        public void addAll(Block valueBlock)
         {
             if (valueBlock.getPositionCount() == 0) {
                 return;
             }
 
             if (valueBlock instanceof RunLengthEncodedBlock rleBlock) {
-                if (hashBlock != null) {
-                    set.add(rleBlock.getValue(), 0, BIGINT.getLong(hashBlock, 0));
-                }
-                else {
-                    set.add(rleBlock.getValue(), 0);
-                }
-            }
-            else if (hashBlock != null) {
-                for (int position = 0; position < valueBlock.getPositionCount(); position++) {
-                    set.add(valueBlock, position, BIGINT.getLong(hashBlock, position));
-                }
+                set.add(rleBlock.getValue(), 0);
             }
             else {
                 for (int position = 0; position < valueBlock.getPositionCount(); position++) {

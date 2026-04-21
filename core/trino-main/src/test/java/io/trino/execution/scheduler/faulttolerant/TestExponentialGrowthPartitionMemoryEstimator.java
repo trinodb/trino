@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.memory.MemoryInfo;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.sql.planner.Partitioning;
@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -264,9 +265,10 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 new ValuesNode(new PlanNodeId("values"), 1),
                 ImmutableSet.of(),
                 partitioningHandle,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -277,11 +279,11 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     {
         return new MemoryInfo(
                 4,
+                0,
                 new MemoryPoolInfo(
                         DataSize.of(64, GIGABYTE).toBytes(),
                         usedMemory.toBytes(),
                         0,
-                        ImmutableMap.of(),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         ImmutableMap.of(),

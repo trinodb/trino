@@ -40,13 +40,13 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
     private final DockerFiles dockerFiles;
 
-    abstract String databricksTestJdbcUrl();
-
     public AbstractSinglenodeDeltaLakeDatabricks(Standard standard, DockerFiles dockerFiles)
     {
         super(standard);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
+
+    abstract String databricksTestJdbcUrl();
 
     @Override
     public void extendEnvironment(Environment.Builder builder)

@@ -73,7 +73,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
         assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(5)
+                .hasSize(6)
                 .containsEntry("testOperatorMetric", new LongCount(1));
         assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(2)));
@@ -83,7 +83,7 @@ public class TestWorkProcessorSourceOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
         assertThat(context.getOperatorStats().getMetrics().getMetrics())
-                .hasSize(5)
+                .hasSize(6)
                 .containsEntry("testOperatorMetric", new LongCount(2));
         assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(3)));

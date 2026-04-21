@@ -21,23 +21,26 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
+import io.trino.spi.connector.ConnectorTableCredentials;
+
+import java.util.Optional;
 
 public interface PageSinkProvider
 {
     /*
      * Used for CTAS
      */
-    ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle, ConnectorPageSinkId pageSinkId);
+    ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId);
 
     /*
      * Used to insert into an existing table
      */
-    ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, ConnectorPageSinkId pageSinkId);
+    ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId);
 
-    ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle, ConnectorPageSinkId pageSinkId);
+    ConnectorPageSink createPageSink(Session session, TableExecuteHandle tableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId);
 
     /*
      * Used to write the result of SQL MERGE to an existing table
      */
-    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle, ConnectorPageSinkId pageSinkId);
+    ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId);
 }

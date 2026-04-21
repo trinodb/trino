@@ -29,6 +29,7 @@ import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -78,7 +79,7 @@ public final class LambdaCaptureDesugaringRewriter
             }
             newLambdaArguments.addAll(node.arguments());
 
-            ImmutableMap<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
+            Map<Symbol, Symbol> symbolsMap = captureSymbolToExtraSymbol.buildOrThrow();
             Function<Symbol, Expression> symbolMapping = symbol -> symbolsMap.getOrDefault(symbol, symbol).toSymbolReference();
             Lambda lambda = new Lambda(newLambdaArguments.build(), inlineSymbols(symbolMapping, rewrittenBody));
 

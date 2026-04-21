@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.security.Identity;
+import io.trino.util.Case;
 
 import java.io.File;
 import java.util.List;
@@ -26,9 +28,8 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
-import static io.trino.server.security.UserMapping.Case.KEEP;
+import static io.trino.util.Case.KEEP;
 import static java.lang.Boolean.TRUE;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class UserMapping
@@ -69,6 +70,14 @@ public final class UserMapping
         throw new UserMappingException("No user mapping patterns match the principal");
     }
 
+    public Identity mapIdentity(Identity identity)
+            throws UserMappingException
+    {
+        return Identity.from(identity)
+                .withUser(mapUser(identity.getUser()))
+                .build();
+    }
+
     public static final class UserMappingRules
     {
         private final List<Rule> rules;
@@ -84,33 +93,6 @@ public final class UserMapping
         {
             return rules;
         }
-    }
-
-    enum Case
-    {
-        KEEP {
-            @Override
-            public String transform(String value)
-            {
-                return value;
-            }
-        },
-        LOWER {
-            @Override
-            public String transform(String value)
-            {
-                return value.toLowerCase(ENGLISH);
-            }
-        },
-        UPPER {
-            @Override
-            public String transform(String value)
-            {
-                return value.toUpperCase(ENGLISH);
-            }
-        };
-
-        public abstract String transform(String value);
     }
 
     public static final class Rule

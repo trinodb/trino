@@ -19,7 +19,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Random;
 
-public class TestInt128ArrayBlockEncoding
+final class TestInt128ArrayBlockEncoding
         extends BaseBlockEncodingTest<Int128>
 {
     private static final DecimalType TYPE = DecimalType.createDecimalType(30);

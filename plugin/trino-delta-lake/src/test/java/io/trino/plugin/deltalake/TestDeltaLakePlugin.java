@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
@@ -84,30 +83,6 @@ public class TestDeltaLakePlugin
     }
 
     @Test
-    public void testGlueV1Metastore()
-    {
-        ConnectorFactory factory = getConnectorFactory();
-        factory.create(
-                        "test",
-                        ImmutableMap.of(
-                                "hive.metastore", "glue-v1",
-                                "hive.metastore.glue.region", "us-east-2",
-                                "bootstrap.quiet", "true"),
-                        new TestingConnectorContext())
-                .shutdown();
-
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()))
-                .isInstanceOf(ApplicationConfigurationException.class)
-                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
-    }
-
-    @Test
     public void testGlueMetastore()
     {
         ConnectorFactory factory = getConnectorFactory();
@@ -151,7 +126,6 @@ public class TestDeltaLakePlugin
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
-                                "delta.metadata.live-files.cache-ttl", "0s",
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
@@ -165,7 +139,7 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         // Try setting any property provided by HiveConfig class
-                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true",
+                        "hive.partition-projection-enabled", "true",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.partition-projection-enabled' was not used");
@@ -222,6 +196,29 @@ public class TestDeltaLakePlugin
                 .shutdown();
 
         verify(tempFile.delete());
+    }
+
+    @Test
+    public void testConfigureS3LogWriting()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "delta.s3.transaction-log-conditional-writes.enabled", "true",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
+
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "s3.exclusive-create", "true", // legacy option name
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     private static ConnectorFactory getConnectorFactory()

@@ -16,12 +16,14 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -104,8 +106,13 @@ public final class IntervalYearMonthOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return utf8Slice(IntervalYearMonth.formatMonths(toIntExact(value)));
+        Slice slice = utf8Slice(IntervalYearMonth.formatMonths(toIntExact(value)));
+        // slice is all-ASCII, so slice.length() here returns actual code points count
+        if (slice.length() <= x) {
+            return slice;
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", slice.toStringUtf8(), x));
     }
 }

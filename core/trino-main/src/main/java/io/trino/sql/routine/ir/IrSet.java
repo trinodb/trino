@@ -13,11 +13,11 @@
  */
 package io.trino.sql.routine.ir;
 
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 import static java.util.Objects.requireNonNull;
 
-public record IrSet(IrVariable target, RowExpression value)
+public record IrSet(IrVariable target, Expression value)
         implements IrStatement
 {
     public IrSet

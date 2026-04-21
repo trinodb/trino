@@ -62,7 +62,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     private static final int DATA_GENERATION_BATCH_SIZE = 16384;
     private static final int READ_BATCH_SIZE = 4096;
 
-    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
+    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, ParquetReaderOptions.defaultOptions());
     private final List<DataPage> dataPages = new ArrayList<>();
     private int dataPositions;
 
@@ -105,7 +105,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
             throws IOException
     {
         ColumnReader columnReader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
-        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, dataPages.iterator(), false, false);
+        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, dataPages.iterator(), false, false, Optional.empty(), -1, -1);
         columnReader.setPageReader(pageReader, Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
@@ -133,7 +133,8 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
                 OptionalLong.empty(),
                 RLE,
                 RLE,
-                getParquetEncoding(writer.getEncoding()));
+                getParquetEncoding(writer.getEncoding()),
+                0);
     }
 
     protected static void run(Class<?> clazz)

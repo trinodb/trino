@@ -23,6 +23,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
@@ -43,8 +44,9 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -76,7 +78,7 @@ public class TestColumnMask
     {
         QueryRunner runner = new StandaloneQueryRunner(SESSION);
         runner.installPlugin(new TpchPlugin());
-        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
 
         ConnectorViewDefinition view = new ConnectorViewDefinition(
                 "SELECT nationkey, name FROM local.tiny.nation",
@@ -85,6 +87,17 @@ public class TestColumnMask
                 ImmutableList.of(
                         new ConnectorViewDefinition.ViewColumn("nationkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.of(VIEW_OWNER),
+                false,
+                ImmutableList.of());
+        ConnectorViewDefinition viewUpperCase = new ConnectorViewDefinition(
+                "SELECT NATIONKEY, NAME FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorViewDefinition.ViewColumn("NATIONKEY", BigintType.BIGINT.getTypeId(), Optional.empty()),
+                        new ConnectorViewDefinition.ViewColumn("NAME", VarcharType.createVarcharType(25).getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
@@ -123,6 +136,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -138,6 +152,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -152,6 +167,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
@@ -171,11 +187,24 @@ public class TestColumnMask
                 })
                 .withGetViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view,
+                        new SchemaTableName("default", "nation_view_uppercase"), viewUpperCase,
                         new SchemaTableName("default", "view_with_nested"), viewWithNested))
                 .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
                         new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
+                .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_materialized_view"))) {
+                        return new MaterializedViewFreshness(STALE, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_fresh_materialized_view"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "materialized_view_with_casts"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                })
                 .build()));
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
@@ -454,6 +483,23 @@ public class TestColumnMask
                         .expression("reverse(name)")
                         .build());
         assertThat(assertions.query("SELECT name FROM mock.default.nation_view WHERE nationkey = 1")).matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+    }
+
+    @Test
+    public void testViewWithUppercaseColumnName()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view_uppercase"),
+                "name",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("reverse(name)")
+                        .build());
+        assertThat(assertions.query("SELECT name FROM mock.default.nation_view_uppercase WHERE nationkey = 1")).matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
     }
 
     @Test

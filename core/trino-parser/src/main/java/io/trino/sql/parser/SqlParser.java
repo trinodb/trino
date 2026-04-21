@@ -25,6 +25,7 @@ import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
 import org.antlr.v4.runtime.ANTLRErrorListener;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -37,7 +38,9 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.Pair;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -46,6 +49,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class SqlParser
@@ -72,6 +76,15 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_type, "<type>")
             .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
             .build();
+
+    static {
+        // TODO: Remove after https://github.com/antlr/antlr4/issues/4901 is fixed
+        //  This is a temporary workaround to prime the internal cache for Interval
+        //  that is not thread safe and can cause concurrency issues.
+        for (int i = 0; i <= Interval.INTERVAL_POOL_MAX_VALUE; i++) {
+            verify(Interval.of(i, i).length() == 1, "Expected Interval.of(%s, %s) to have length 1", i, i);
+        }
+    }
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
 
@@ -133,42 +146,27 @@ public class SqlParser
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
             initializer.accept(lexer, parser);
 
-            // Override the default error strategy to not attempt inserting or deleting a token.
-            // Otherwise, it messes up error reporting
-            parser.setErrorHandler(new DefaultErrorStrategy()
-            {
-                @Override
-                public Token recoverInline(Parser recognizer)
-                        throws RecognitionException
-                {
-                    if (nextTokensContext == null) {
-                        throw new InputMismatchException(recognizer);
-                    }
-                    throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
-                }
-            });
-
             parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(PARSER_ERROR_HANDLER);
 
             ParserRuleContext tree;
             try {
                 try {
                     // first, try parsing with potentially faster SLL mode
                     parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                    parser.setErrorHandler(new BailErrorStrategy());
                     tree = parseFunction.apply(parser);
                 }
-                catch (ParsingException ex) {
+                catch (ParseCancellationException e) {
                     // if we fail, parse with LL mode
-                    tokenStream.seek(0); // rewind input stream
                     parser.reset();
-
                     parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                    parser.setErrorHandler(new NonRecoveringErrorStrategy());
+                    parser.addErrorListener(PARSER_ERROR_HANDLER);
                     tree = parseFunction.apply(parser);
                 }
             }
@@ -189,6 +187,21 @@ public class SqlParser
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)", location.orElse(new NodeLocation(1, 1)));
+        }
+    }
+
+    // Override the default error strategy to not attempt inserting or deleting a token.
+    // Otherwise, it messes up error reporting.
+    private static final class NonRecoveringErrorStrategy
+            extends DefaultErrorStrategy
+    {
+        @Override
+        public Token recoverInline(Parser recognizer)
+        {
+            if (nextTokensContext == null) {
+                throw new InputMismatchException(recognizer);
+            }
+            throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
         }
     }
 

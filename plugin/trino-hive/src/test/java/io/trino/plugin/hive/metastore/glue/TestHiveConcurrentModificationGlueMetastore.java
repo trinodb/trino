@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.retries.api.RefreshRetryTokenRequest;

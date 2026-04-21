@@ -19,9 +19,9 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.filesystem.Location;
 import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
@@ -35,9 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.util.Objects.requireNonNull;
 
 public final class HudiQueryRunner
@@ -59,10 +59,9 @@ public final class HudiQueryRunner
     public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
     {
         return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
-                .addConnectorProperty("fs.hadoop.enabled", "false")
-                .addConnectorProperty("fs.native-s3.enabled", "true")
-                .addConnectorProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .addConnectorProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addConnectorProperty("fs.s3.enabled", "true")
+                .addConnectorProperty("s3.aws-access-key", MINIO_ROOT_USER)
+                .addConnectorProperty("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .addConnectorProperty("s3.region", MINIO_REGION)
                 .addConnectorProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .addConnectorProperty("s3.path-style-access", "true");
@@ -131,7 +130,7 @@ public final class HudiQueryRunner
     {
         private DefaultHudiQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Logging.initialize();
@@ -151,7 +150,7 @@ public final class HudiQueryRunner
     {
         private HudiMinioQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Logging.initialize();

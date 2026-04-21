@@ -232,7 +232,7 @@ public class NativeLogicalTypesAvroTypeManager
                 return Optional.empty();
             }
             case NonNativeAvroLogicalType ignored -> {
-                log.debug("Unrecognized logical type " + schema);
+                log.debug("Unrecognized logical type %s", schema);
                 return Optional.empty();
             }
             case InvalidNativeAvroLogicalType invalidNativeAvroLogicalType -> {
@@ -256,8 +256,8 @@ public class NativeLogicalTypesAvroTypeManager
             case DATE, DECIMAL, TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS, UUID:
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
-            case LOCAL_TIMESTAMP_MICROS + LOCAL_TIMESTAMP_MILLIS:
-                log.debug("Logical type " + typeName + " not currently supported by by Trino");
+            case LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
+                log.debug("Logical type %s not currently supported by by Trino", typeName);
                 // fall through
             default:
                 return new NonNativeAvroLogicalType(typeName);

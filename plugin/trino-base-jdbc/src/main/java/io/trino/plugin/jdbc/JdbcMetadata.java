@@ -38,7 +38,7 @@ public interface JdbcMetadata
             return tableHandle.getColumns().get();
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return jdbcClient.getColumns(session, schemaTableName, remoteTableName);

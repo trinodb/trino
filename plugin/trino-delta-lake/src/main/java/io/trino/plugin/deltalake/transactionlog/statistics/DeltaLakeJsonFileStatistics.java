@@ -16,13 +16,14 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -60,7 +61,7 @@ public class DeltaLakeJsonFileStatistics
 {
     private static final Logger log = Logger.get(DeltaLakeJsonFileStatistics.class);
     private static final long INSTANCE_SIZE = instanceSize(DeltaLakeJsonFileStatistics.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private final Optional<Long> numRecords;
     private final Optional<Map<CanonicalColumnName, Object>> minValues;
@@ -70,7 +71,7 @@ public class DeltaLakeJsonFileStatistics
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
             throws JsonProcessingException
     {
-        return parseJson(OBJECT_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
+        return parseJson(JSON_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }
 
     @JsonCreator
@@ -141,7 +142,17 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
+
+        Object columnValue;
+        try {
+            columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
+        }
+        catch (TrinoException e) {
+            // Catching exception and returning empty stats so that one un-serializable column doesn't prevent the use of statistics for all columns
+            // TODO ensure that we are able to deserialize all valid values
+            log.debug("Cannot deserialize column value, skipping statistics: %s", e.getMessage());
+            return Optional.empty();
+        }
 
         Type columnType = columnHandle.baseType();
         if (columnType.equals(DATE)) {

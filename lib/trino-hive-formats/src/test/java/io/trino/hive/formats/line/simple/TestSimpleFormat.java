@@ -213,7 +213,7 @@ public class TestSimpleFormat
 
         // verify adding one more nesting level fails
         type = new ArrayType(type);
-        ImmutableList<Column> columns = ImmutableList.of(
+        List<Column> columns = ImmutableList.of(
                 new Column("a", BIGINT, 0),
                 new Column("b", type, 1),
                 new Column("c", BIGINT, 2));
@@ -537,6 +537,42 @@ public class TestSimpleFormat
         assertValue(BOOLEAN, "f", null);
         assertValue(BOOLEAN, "F", null);
         assertValue(BOOLEAN, "0", null);
+
+        assertValue(BOOLEAN, "unknown", null);
+        assertValue(BOOLEAN, "null", null);
+        assertValue(BOOLEAN, "-1", null);
+        assertValue(BOOLEAN, "1.23", null);
+        assertValue(BOOLEAN, "1.23e45", null);
+    }
+
+    @Test
+    public void testExtendedBooleanLiterals()
+            throws Exception
+    {
+        TextEncodingOptions textEncodingOptions = TextEncodingOptions.builder()
+                .extendedBooleanLiteral()
+                .build();
+
+        assertValue(BOOLEAN, "\\N", null, textEncodingOptions);
+        assertValue(BOOLEAN, "NOPE", null, textEncodingOptions);
+
+        // empty value is not allowed
+        assertValue(BOOLEAN, "", null, textEncodingOptions);
+
+        assertValue(BOOLEAN, "true", true, textEncodingOptions);
+        assertValue(BOOLEAN, "TRUE", true, textEncodingOptions);
+        assertValue(BOOLEAN, "tRuE", true, textEncodingOptions);
+
+        assertValue(BOOLEAN, "false", false, textEncodingOptions);
+        assertValue(BOOLEAN, "FALSE", false, textEncodingOptions);
+        assertValue(BOOLEAN, "fAlSe", false, textEncodingOptions);
+
+        assertValueTrino(BOOLEAN, "t", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "T", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "1", true, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "f", false, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "F", false, textEncodingOptions, true);
+        assertValueTrino(BOOLEAN, "0", false, textEncodingOptions, true);
 
         assertValue(BOOLEAN, "unknown", null);
         assertValue(BOOLEAN, "null", null);
@@ -1317,7 +1353,7 @@ public class TestSimpleFormat
             return hasComplexMapKey(arrayType.getElementType());
         }
         else if (type instanceof RowType rowType) {
-            return rowType.getTypeParameters().stream().allMatch(TestSimpleFormat::hasComplexMapKey);
+            return rowType.getFieldTypes().stream().allMatch(TestSimpleFormat::hasComplexMapKey);
         }
         return true;
     }
@@ -1457,11 +1493,11 @@ public class TestSimpleFormat
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
         schema.put(LIST_COLUMNS, columns.stream()
-                .sorted(Comparator.comparing(Column::ordinal))
+                .sorted(Comparator.comparingInt(Column::ordinal))
                 .map(Column::name)
                 .collect(joining(",")));
         schema.put(LIST_COLUMN_TYPES, columns.stream()
-                        .sorted(Comparator.comparing(Column::ordinal))
+                        .sorted(Comparator.comparingInt(Column::ordinal))
                         .map(Column::type)
                         .map(FormatTestUtils::getJavaObjectInspector)
                         .map(ObjectInspector::getTypeName)

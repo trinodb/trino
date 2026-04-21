@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
@@ -20,10 +21,10 @@ import com.google.common.collect.Sets;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.deltalake.TestingDeltaLakeUtils;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -49,6 +50,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -199,6 +201,133 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertQueryFails(
                 "CREATE MATERIALIZED VIEW test_select_mview_where_view AS SELECT age FROM test_select_mview_where_table",
                 "This connector does not support creating materialized views");
+    }
+
+    @Test
+    public void testInformationSchemaColumns()
+    {
+        testInformationSchemaColumns(true);
+        testInformationSchemaColumns(false);
+    }
+
+    public void testInformationSchemaColumns(boolean storeTableMetadata)
+    {
+        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(sessionWithStoreTableMetadata(storeTableMetadata))
+                .setSchema(schemaName)
+                .build();
+
+        int tables = 5;
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_select_i_s_columns" + i);
+
+            assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_other_select_i_s_columns" + i);
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(
+                session,
+                "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build(),
+                storeTableMetadata ?
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                                .addCopies(GET_TABLE, tables * 2)
+                                .addCopies(REPLACE_TABLE, tables * 2)
+                                .build()
+                        :
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                                .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+        assertMetastoreInvocations(session, "DESCRIBE test_select_i_s_columns0",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_ALL_DATABASES)
+                        .add(GET_TABLE)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
+        }
+    }
+
+    @Test
+    public void testSystemMetadataTableComments()
+    {
+        testSystemMetadataTableComments(true);
+        testSystemMetadataTableComments(false);
+    }
+
+    public void testSystemMetadataTableComments(boolean storeTableMetadata)
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(sessionWithStoreTableMetadata(storeTableMetadata))
+                .setSchema(schemaName)
+                .build();
+
+        int tables = 5;
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_select_s_m_t_comments" + i);
+            assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+            removeMetadataCachingPropertiesFromMetastore(schemaName, "test_other_select_s_m_t_comments" + i);
+        }
+
+        // Bulk retrieval
+        assertMetastoreInvocations(
+                session,
+                "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build(),
+                storeTableMetadata ?
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                                .addCopies(GET_TABLE, tables * 2)
+                                .addCopies(REPLACE_TABLE, tables * 2)
+                                .build()
+                        :
+                        ImmutableMultiset.<MetastoreMethod>builder()
+                                .build());
+
+        // Bulk retrieval for two schemas
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLES, 2)
+                        .addCopies(GET_TABLE, tables * 2)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .addCopies(GET_TABLE, 1)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
+        }
     }
 
     @Test
@@ -408,7 +537,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreCommentTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "COMMENT ON TABLE " + table.getName() + " IS 'test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -423,7 +552,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreCommentColumn(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int COMMENT 'test comment')")) {
             assertMetastoreInvocations(session, "COMMENT ON COLUMN " + table.getName() + ".col IS 'new test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -440,7 +569,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
 
         // Use 'name' column mapping mode to allow renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " ADD COLUMN new_col int COMMENT 'test comment'", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " RENAME COLUMN new_col TO renamed_col", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
@@ -460,7 +589,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreSetTableProperties(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -475,7 +604,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreOptimize(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertMetastoreInvocations(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize", ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
@@ -494,7 +623,7 @@ public class TestDeltaLakeMetastoreAccessOperations
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 a")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 a")) {
             assertUpdate("UPDATE " + table.getName() + " SET a = 2", 1);
             assertMetastoreInvocations(
                     session,
@@ -513,7 +642,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreRegisterTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int) COMMENT 'test comment'")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             String tableLocation = metastore.getTable(TPCH_SCHEMA, table.getName()).orElseThrow().getStorage().getLocation();
             metastore.dropTable(TPCH_SCHEMA, table.getName(), false);
@@ -537,7 +666,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
         String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "(col int)")) {
             assertThat(metastore.getTable(TPCH_SCHEMA, table.getName()).orElseThrow().getParameters())
                     .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
 
@@ -563,18 +692,23 @@ public class TestDeltaLakeMetastoreAccessOperations
     private void testStoreMetastoreTruncateTable(boolean storeTableMetadata)
     {
         Session session = sessionWithStoreTableMetadata(storeTableMetadata);
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 col")) {
+        try (TestTable table = newTrinoTable("test_cache_metastore", "AS SELECT 1 col")) {
             assertMetastoreInvocations(session, "TRUNCATE TABLE " + table.getName(), ImmutableMultiset.of(GET_TABLE), asyncInvocations(storeTableMetadata));
         }
     }
 
     private void removeMetadataCachingPropertiesFromMetastore(String tableName)
     {
-        Table table = metastore.getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow();
+        removeMetadataCachingPropertiesFromMetastore(getSession().getSchema().orElseThrow(), tableName);
+    }
+
+    private void removeMetadataCachingPropertiesFromMetastore(String schema, String tableName)
+    {
+        Table table = metastore.getTable(schema, tableName).orElseThrow();
         Table newMetastoreTable = Table.builder(table)
                 .setParameters(Maps.filterKeys(table.getParameters(), key -> !key.equals("trino_last_transaction_version")))
                 .build();
-        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()));
+        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()), ImmutableMap.of());
     }
 
     private Session sessionWithStoreTableMetadata(boolean storeTableMetadata)

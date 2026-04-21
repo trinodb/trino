@@ -20,7 +20,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestMapType
+final class TestMapType
 {
     @Test
     public void testMapDisplayName()

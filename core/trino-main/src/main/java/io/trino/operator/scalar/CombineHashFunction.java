@@ -24,7 +24,7 @@ public final class CombineHashFunction
 {
     private CombineHashFunction() {}
 
-    @ScalarFunction(value = "combine_hash", hidden = true)
+    @ScalarFunction(value = "combine_hash", hidden = true, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {

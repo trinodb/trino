@@ -13,11 +13,14 @@
  */
 package io.trino.client;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -31,20 +34,28 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.ClientStandardTypes.ARRAY;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.ClientStandardTypes.BING_TILE;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
 import static io.trino.client.ClientStandardTypes.CHAR;
+import static io.trino.client.ClientStandardTypes.COLOR;
 import static io.trino.client.ClientStandardTypes.DATE;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
 import static io.trino.client.ClientStandardTypes.GEOMETRY;
+import static io.trino.client.ClientStandardTypes.HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
+import static io.trino.client.ClientStandardTypes.KDB_TREE;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.NUMBER;
+import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
+import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.ROW;
+import static io.trino.client.ClientStandardTypes.SET_DIGEST;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
 import static io.trino.client.ClientStandardTypes.SPHERICAL_GEOGRAPHY;
 import static io.trino.client.ClientStandardTypes.TIME;
@@ -53,7 +64,10 @@ import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
+import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
+import static io.trino.client.ClientStandardTypes.VARIANT;
+import static io.trino.client.JsonIterators.createJsonFactory;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -61,6 +75,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class JsonDecodingUtils
 {
+    static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+
     private JsonDecodingUtils() {}
 
     private static final BigIntegerDecoder BIG_INTEGER_DECODER = new BigIntegerDecoder();
@@ -71,7 +87,9 @@ public final class JsonDecodingUtils
     private static final RealDecoder REAL_DECODER = new RealDecoder();
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
+    private static final VariantDecoder VARIANT_DECODER = new VariantDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
+    private static final ObjectDecoder OBJECT_DECODER = new ObjectDecoder();
 
     public static TypeDecoder[] createTypeDecoders(List<Column> columns)
     {
@@ -106,6 +124,8 @@ public final class JsonDecodingUtils
                 return REAL_DECODER;
             case BOOLEAN:
                 return BOOLEAN_DECODER;
+            case VARIANT:
+                return VARIANT_DECODER;
             case ARRAY:
                 return new ArrayDecoder(signature);
             case MAP:
@@ -124,10 +144,20 @@ public final class JsonDecodingUtils
             case IPADDRESS:
             case UUID:
             case DECIMAL:
+            case NUMBER:
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
+            case COLOR:
                 return STRING_DECODER;
+            case KDB_TREE:
+            case BING_TILE:
+                return OBJECT_DECODER;
+            case QDIGEST:
+            case P4_HYPER_LOG_LOG:
+            case HYPER_LOG_LOG:
+            case SET_DIGEST:
+            case VARBINARY:
             default:
                 return BASE_64_DECODER;
         }
@@ -266,6 +296,21 @@ public final class JsonDecodingUtils
         }
     }
 
+    private static class VariantDecoder
+            implements TypeDecoder
+    {
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            StringWriter writer = new StringWriter();
+            try (JsonGenerator generator = JSON_MAPPER.createGenerator(writer)) {
+                generator.copyCurrentStructure(parser);
+            }
+            return writer.toString();
+        }
+    }
+
     private static class Base64Decoder
             implements TypeDecoder
     {
@@ -387,6 +432,7 @@ public final class JsonDecodingUtils
                 case CHAR:
                 case GEOMETRY:
                 case SPHERICAL_GEOGRAPHY:
+                case BING_TILE:
                     return value;
                 default:
                     return Base64.getDecoder().decode(value);
@@ -409,13 +455,8 @@ public final class JsonDecodingUtils
 
             int index = 0;
             for (ClientTypeSignatureParameter parameter : signature.getArguments()) {
-                checkArgument(
-                        parameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE,
-                        "Unexpected parameter [%s] for row type",
-                        parameter);
-                NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldDecoders[index] = createTypeDecoder(namedTypeSignature.getTypeSignature());
-                fieldNames.add(namedTypeSignature.getName());
+                fieldDecoders[index] = createTypeDecoder(parameter.getTypeSignature());
+                fieldNames.add(parameter.getName());
                 index++;
             }
             this.fieldNames = fieldNames.build();
@@ -444,6 +485,19 @@ public final class JsonDecodingUtils
             }
             verify(parser.nextToken() == END_ARRAY, "Expected end object, but got %s", parser.currentToken());
             return row.build();
+        }
+    }
+
+    private static class ObjectDecoder
+            implements TypeDecoder
+    {
+        private final JsonMapper jsonMapper = new JsonMapper();
+
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            return jsonMapper.readValue(parser, Object.class);
         }
     }
 

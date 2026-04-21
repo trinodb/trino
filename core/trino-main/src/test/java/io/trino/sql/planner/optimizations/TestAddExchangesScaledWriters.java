@@ -110,7 +110,7 @@ public class TestAddExchangesScaledWriters
                 })
                 .withGetLayoutForTableExecute((session, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
-                    if (tableExecuteHandle.getSchemaTableName().getTableName().equals("target_table")) {
+                    if (tableExecuteHandle.schemaTableName().getTableName().equals("target_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
                     }
                     return Optional.empty();

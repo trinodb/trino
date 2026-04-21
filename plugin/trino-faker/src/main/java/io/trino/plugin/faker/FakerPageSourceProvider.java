@@ -13,19 +13,21 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-import jakarta.inject.Inject;
 import net.datafaker.Faker;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Random;
 import java.util.random.RandomGeneratorFactory;
 
@@ -58,6 +60,7 @@ public class FakerPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -66,10 +69,9 @@ public class FakerPageSourceProvider
                 .map(FakerColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        FakerTableHandle fakerTable = (FakerTableHandle) table;
         FakerSplit fakerSplit = (FakerSplit) split;
         Random random = random(fakerSplit.splitNumber());
-        return new FakerPageSource(new Faker(locale, random), random, handles, fakerTable.constraint(), fakerSplit.rowsOffset(), fakerSplit.rowsCount());
+        return new FakerPageSource(new Faker(locale, random), random, handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
     }
 
     private Random random(long index)

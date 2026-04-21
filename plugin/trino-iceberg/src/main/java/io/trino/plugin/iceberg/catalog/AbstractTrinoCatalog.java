@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -23,7 +24,7 @@ import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -71,13 +72,13 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -95,6 +96,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -121,23 +123,26 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
     private final CatalogName catalogName;
+    private final boolean useUniqueTableLocation;
     protected final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
-    private final TrinoFileSystemFactory fileSystemFactory;
-    private final boolean useUniqueTableLocation;
+    protected final TrinoFileSystemFactory fileSystemFactory;
+    protected final ForwardingFileIoFactory fileIoFactory;
 
     protected AbstractTrinoCatalog(
             CatalogName catalogName,
+            boolean useUniqueTableLocation,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
-            boolean useUniqueTableLocation)
+            ForwardingFileIoFactory fileIoFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.useUniqueTableLocation = useUniqueTableLocation;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.useUniqueTableLocation = useUniqueTableLocation;
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
     }
 
     @Override
@@ -201,7 +206,7 @@ public abstract class AbstractTrinoCatalog
                 .getSchemaTableName();
 
         try {
-            Table storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
+            BaseTable storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
             return ImmutableMap.<String, Object>builder()
                     .putAll(getIcebergTableProperties(storageTable))
                     .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
@@ -218,18 +223,18 @@ public abstract class AbstractTrinoCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties,
             Optional<String> owner)
     {
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, location, properties);
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, location.orElse(null), properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
                 this,
                 session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 owner,
-                Optional.of(location));
+                location);
         return createTableTransaction(schemaTableName.toString(), ops, metadata);
     }
 
@@ -246,7 +251,7 @@ public abstract class AbstractTrinoCatalog
         BaseTable table;
         Optional<TableMetadata> metadata = Optional.empty();
         try {
-            table = (BaseTable) loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+            table = loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
             metadata = Optional.of(table.operations().current());
         }
         catch (TableNotFoundException _) {
@@ -322,10 +327,10 @@ public abstract class AbstractTrinoCatalog
         return metadataFileLocation;
     }
 
-    protected void dropMaterializedViewStorage(TrinoFileSystem fileSystem, String storageMetadataLocation)
+    protected void dropMaterializedViewStorage(ConnectorSession session, TrinoFileSystem fileSystem, String storageMetadataLocation)
             throws IOException
     {
-        TableMetadata metadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), storageMetadataLocation);
+        TableMetadata metadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         String storageLocation = metadata.location();
         fileSystem.deleteDirectory(Location.of(storageLocation));
     }
@@ -347,7 +352,7 @@ public abstract class AbstractTrinoCatalog
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, materializedViewProperties, Optional.empty());
         String tableLocation = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> defaultTableLocation(session, tableMetadata.getTable()));
-        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false);
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false, ImmutableList.of());
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
         transaction.commitTransaction();
@@ -356,9 +361,8 @@ public abstract class AbstractTrinoCatalog
 
     private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
-        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
-                definition.getColumns(),
-                column -> {
+        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
+                .map(column -> {
                     Type type = typeManager.getType(column.getType());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
                         // For now preserve timestamptz columns so that we can parse partitioning
@@ -368,7 +372,8 @@ public abstract class AbstractTrinoCatalog
                         type = typeForMaterializedViewStorageTable(type);
                     }
                     return new ColumnMetadata(column.getName(), type);
-                }));
+                })
+                .collect(toImmutableList()));
         PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
         Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
                 .flatMap(partitionField -> {
@@ -382,9 +387,8 @@ public abstract class AbstractTrinoCatalog
                 })
                 .collect(toImmutableSet());
 
-        return mappedCopy(
-                definition.getColumns(),
-                column -> {
+        return definition.getColumns().stream()
+                .map(column -> {
                     Type type = typeManager.getType(column.getType());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
                         // Apply point-in-time semantics to maintain partitioning capabilities
@@ -394,7 +398,8 @@ public abstract class AbstractTrinoCatalog
                         type = typeForMaterializedViewStorageTable(type);
                     }
                     return new ColumnMetadata(column.getName(), type);
-                });
+                })
+                .collect(toImmutableList());
     }
 
     /**
@@ -406,6 +411,9 @@ public abstract class AbstractTrinoCatalog
     {
         if (type == TINYINT || type == SMALLINT) {
             return INTEGER;
+        }
+        if (type == NUMBER) {
+            return VARCHAR;
         }
         if (type instanceof CharType) {
             return VARCHAR;
@@ -463,6 +471,7 @@ public abstract class AbstractTrinoCatalog
                 definition.schema(),
                 toSpiMaterializedViewColumns(definition.columns()),
                 definition.gracePeriod(),
+                definition.whenStaleBehavior(),
                 definition.comment(),
                 owner,
                 definition.path());

@@ -18,7 +18,13 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.server.PluginManager.PluginsProvider;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public final class DevelopmentServer
@@ -29,14 +35,27 @@ public final class DevelopmentServer
     @Override
     protected Iterable<? extends Module> getAdditionalModules()
     {
-        return ImmutableList.of(binder -> {
-            newOptionalBinder(binder, PluginsProvider.class).setBinding()
-                    .to(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(DevelopmentLoaderConfig.class);
-        });
+        try {
+            Path pluginPath = Files.createTempDirectory("plugins");
+
+            return ImmutableList.of(binder -> {
+                newOptionalBinder(binder, PluginsProvider.class).setBinding()
+                        .to(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
+                configBinder(binder).bindConfig(DevelopmentLoaderConfig.class);
+
+                // Use a temporary directory to satisfy configuration validation
+                configBinder(binder).bindConfigDefaults(ServerPluginsProviderConfig.class, config ->
+                        config.setInstalledPluginsDirs(ImmutableList.of(pluginPath)));
+
+                closingBinder(binder).registerCloseable(() -> Files.deleteIfExists(pluginPath));
+            });
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         new DevelopmentServer().start("dev");
     }

@@ -19,7 +19,7 @@ import java.math.BigInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSqlDecimal
+final class TestSqlDecimal
 {
     @Test
     public void testToString()

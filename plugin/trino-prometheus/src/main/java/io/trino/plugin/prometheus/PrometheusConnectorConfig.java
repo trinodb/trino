@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
-import com.google.inject.ConfigurationException;
-import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
@@ -216,22 +213,29 @@ public class PrometheusConnectorConfig
         return this;
     }
 
-    @PostConstruct
-    public void checkConfig()
+    @AssertTrue(message = "prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration")
+    public boolean isMaxQueryRangeDurationValid()
     {
         long maxQueryRangeDuration = (long) getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS);
         long queryChunkSizeDuration = (long) getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS);
-        if (maxQueryRangeDuration < queryChunkSizeDuration) {
-            throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration")));
-        }
-        if (getBearerTokenFile().isPresent() && (getUser().isPresent() || getPassword().isPresent())) {
-            throw new IllegalStateException("Either on of bearer token file or basic authentication should be used");
-        }
-        if (getUser().isPresent() ^ getPassword().isPresent()) {
-            throw new IllegalStateException("Both username and password must be set when using basic authentication");
-        }
-        if (getAdditionalHeaders().containsKey(httpAuthHeaderName)) {
-            throw new IllegalStateException("Additional headers can not include: " + httpAuthHeaderName);
-        }
+        return maxQueryRangeDuration >= queryChunkSizeDuration;
+    }
+
+    @AssertTrue(message = "Either one of bearer token file or basic authentication should be used")
+    public boolean isAuthConfigValid()
+    {
+        return !(getBearerTokenFile().isPresent() && (getUser().isPresent() || getPassword().isPresent()));
+    }
+
+    @AssertTrue(message = "Both username and password must be set when using basic authentication")
+    public boolean isBasicAuthConfigValid()
+    {
+        return getUser().isPresent() == getPassword().isPresent();
+    }
+
+    @AssertTrue(message = "Additional headers can not include authorization header")
+    public boolean isAdditionalHeadersValid()
+    {
+        return !getAdditionalHeaders().containsKey(httpAuthHeaderName);
     }
 }

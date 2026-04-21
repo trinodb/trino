@@ -15,23 +15,25 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInput
 {
-    private static final JsonCodec<Input> codec = JsonCodec.jsonCodec(Input.class);
+    private static final JsonCodec<Input> codec = jsonCodec(Input.class);
 
     @Test
     public void testRoundTrip()
     {
         Input expected = new Input(
+                Optional.of("connectorName"),
                 "connectorId",
                 new CatalogVersion("default"),
                 "schema",

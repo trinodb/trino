@@ -140,8 +140,8 @@ public class DeltaLakeParquetFileStatistics
 
     private static long sizeOfMinMaxStatsEntry(Object value)
     {
-        if (value instanceof Block) {
-            return ((Block) value).getRetainedSizeInBytes();
+        if (value instanceof Block block) {
+            return block.getRetainedSizeInBytes();
         }
 
         return SizeOf.sizeOfObjectArray(1);
@@ -149,8 +149,8 @@ public class DeltaLakeParquetFileStatistics
 
     private static long sizeOfNullCountStatsEntry(Object value)
     {
-        if (value instanceof Block) {
-            return ((Block) value).getRetainedSizeInBytes();
+        if (value instanceof Block block) {
+            return block.getRetainedSizeInBytes();
         }
 
         return SizeOf.sizeOfLongArray(1);

@@ -19,7 +19,7 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.join.JoinStatisticsCounter;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
+import io.trino.operator.join.JoinType;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
@@ -38,8 +38,8 @@ import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
 import static io.trino.operator.WorkProcessor.TransformationState.yielded;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static io.trino.operator.join.JoinType.FULL_OUTER;
+import static io.trino.operator.join.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class PageJoiner

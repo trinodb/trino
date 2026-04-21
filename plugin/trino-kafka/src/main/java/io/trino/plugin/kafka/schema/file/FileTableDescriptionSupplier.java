@@ -30,6 +30,8 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +39,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -78,8 +79,8 @@ public class FileTableDescriptionSupplier
         for (File file : listFiles(tableDescriptionDir)) {
             if (file.isFile() && file.getName().endsWith(".json")) {
                 KafkaTopicDescription table;
-                try {
-                    table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
+                try (InputStream stream = new FileInputStream(file)) {
+                    table = topicDescriptionCodec.fromJson(stream);
                 }
                 catch (Exception e) {
                     throw new IllegalArgumentException("Failed to get table description file for Kafka: " + file, e);

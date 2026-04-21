@@ -7,8 +7,13 @@ sufficient grace period.
 You can invoke the API with a HTTP PUT request:
 
 ```bash
-curl -v -X PUT -d '"SHUTTING_DOWN"' -H "Content-type: application/json" \
+# When using no authorization:
+curl -v -X PUT -d '"SHUTTING_DOWN"' -H 'Content-type: application/json' -H 'X-Trino-User: authorizeduser' \
     http://worker:8081/v1/info/state
+
+# Or when using basic auth:
+curl -v -X PUT -d '"SHUTTING_DOWN"' -H 'Content-type: application/json' -u 'authorizeduser:password' \
+    https://worker/v1/info/state
 ```
 
 A successful invocation is logged with a `Shutdown requested` message at
@@ -22,10 +27,14 @@ Keep the following aspects in mind:
   CA signed, or trusted by the server calling the shut down endpoint.
   Otherwise, you can make the call `--insecure`, but that isn't recommended.
 - The `default` {doc}`/security/built-in-system-access-control` does not allow
-  graceful shutdowns. You can use the `allow-all` system access control, or
+  graceful shutdowns. You can use the `allow-all` system access control,
   configure {ref}`system information rules
   <system-file-auth-system-information>` with the `file` system access
-  control. These configuration must be present on all workers.
+  control or use Apache Ranger {doc}`/security/ranger-access-control`. Note
+  that the access control configuration must be present on all workers.
+- The user must have permissions to write _"system information"_. In Apache 
+  Ranger this permission can be found under
+  _"System Information - Write System Information"_. 
 
 ## Shutdown behavior
 

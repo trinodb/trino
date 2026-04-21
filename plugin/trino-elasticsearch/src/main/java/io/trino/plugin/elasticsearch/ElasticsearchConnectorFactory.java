@@ -16,11 +16,10 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.spi.NodeManager;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -50,19 +49,18 @@ public class ElasticsearchConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new ConnectorObjectNameGeneratorModule("io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
                 new JsonModule(),
-                new TypeDeserializerModule(context.getTypeManager()),
+                new TypeDeserializerModule(),
                 new ElasticsearchConnectorModule(),
-                binder -> {
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                });
+                new ConnectorContextModule(catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

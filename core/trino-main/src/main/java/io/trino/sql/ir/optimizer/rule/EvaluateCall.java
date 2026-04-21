@@ -46,7 +46,7 @@ public class EvaluateCall
 
     public EvaluateCall(PlannerContext context)
     {
-        evaluator = new IrExpressionEvaluator(context);
+        evaluator = context.getExpressionEvaluator();
     }
 
     @Override
@@ -76,8 +76,7 @@ public class EvaluateCall
             return Optional.of(new Constant(expression.type(), evaluator.evaluate(expression, session, ImmutableMap.of())));
         }
         catch (TrinoException e) {
+            return Optional.empty();
         }
-
-        return Optional.empty();
     }
 }

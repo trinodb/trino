@@ -23,7 +23,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Split;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
@@ -35,7 +34,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
-import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -43,8 +41,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTaskContext;
@@ -68,6 +64,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -83,6 +80,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -154,19 +152,18 @@ public class BenchmarkScanFilterAndProjectOperator
                 sourceLayout.put(symbol, i);
             }
 
-            List<RowExpression> projections = getProjections(type);
-            List<Type> types = projections.stream().map(RowExpression::type).collect(toList());
+            List<Expression> projections = getProjections(type);
+            List<Type> types = projections.stream().map(Expression::type).collect(toList());
             List<ColumnHandle> columnHandles = IntStream.range(0, columnCount)
                     .mapToObj(i -> new TestingColumnHandle(Integer.toString(i)))
                     .collect(toImmutableList());
 
-            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-            ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, compiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, compiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), 0);
+            ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), 0);
+            PageProcessor pageProcessor = new ExpressionCompiler(pageFunctionCompiler, compiler).compilePageProcessor(true, Optional.of(getFilter(type)), Optional.empty(), projections, sourceLayout, Optional.empty(), OptionalInt.empty()).apply(DynamicFilter.EMPTY);
 
             createTaskContext();
-            createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, cursorProcessor, columnHandles, types);
+            createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, columnHandles, types);
         }
 
         @TearDown
@@ -176,16 +173,16 @@ public class BenchmarkScanFilterAndProjectOperator
             scheduledExecutor.shutdownNow();
         }
 
-        private void createScanFilterAndProjectOperatorFactories(List<Page> inputPages, PageProcessor pageProcessor, CursorProcessor cursorProcessor, List<ColumnHandle> columnHandles, List<Type> types)
+        private void createScanFilterAndProjectOperatorFactories(List<Page> inputPages, PageProcessor pageProcessor, List<ColumnHandle> columnHandles, List<Type> types)
         {
             operatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
-                    () -> cursorProcessor,
+                    (_) -> (_, _, _, _, _, _) -> new FixedPageSource(inputPages),
                     (_) -> pageProcessor,
                     TEST_TABLE_HANDLE,
+                    Optional.empty(),
                     columnHandles,
                     DynamicFilter.EMPTY,
                     types,
@@ -212,42 +209,31 @@ public class BenchmarkScanFilterAndProjectOperator
             return inputPagesBuilder.build();
         }
 
-        private RowExpression getFilter(Type type)
+        private Expression getFilter(Type type)
         {
             if (type == VARCHAR) {
-                return rowExpression(new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), INTEGER), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+                return new Comparison(EQUAL, call(MODULUS_INTEGER, new Cast(new Reference(VARCHAR, "varchar0"), INTEGER), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L));
             }
             if (type == BIGINT) {
-                return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+                return new Comparison(EQUAL, call(MODULUS_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
             }
             throw new IllegalArgumentException("filter not supported for type : " + type);
         }
 
-        private List<RowExpression> getProjections(Type type)
+        private List<Expression> getProjections(Type type)
         {
-            ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             if (type == BIGINT) {
                 for (int i = 0; i < columnCount; i++) {
-                    builder.add(rowExpression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint" + i), new Constant(BIGINT, 5L)))));
+                    builder.add(call(ADD_BIGINT, new Reference(BIGINT, "bigint" + i), new Constant(BIGINT, 5L)));
                 }
             }
             else if (type == VARCHAR) {
                 for (int i = 0; i < columnCount; i++) {
-                    // alternatively use identity expression rowExpression("varchar" + i, type) or
-                    // rowExpression("substr(varchar" + i + ", 1, 1)", type)
-                    builder.add(rowExpression(new Call(CONCAT, ImmutableList.of(new Reference(VARCHAR, "varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))))));
+                    builder.add(call(CONCAT, new Reference(VARCHAR, "varchar" + i), new Constant(VARCHAR, Slices.utf8Slice("foo"))));
                 }
             }
             return builder.build();
-        }
-
-        private RowExpression rowExpression(Expression expression)
-        {
-            return SqlToRowExpressionTranslator.translate(
-                    expression,
-                    sourceLayout,
-                    PLANNER_CONTEXT.getMetadata(),
-                    PLANNER_CONTEXT.getTypeManager());
         }
 
         private static Page createPage(List<? extends Type> types, int positions, boolean dictionary)
@@ -288,7 +274,7 @@ public class BenchmarkScanFilterAndProjectOperator
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkScanFilterAndProjectOperator.class).run();

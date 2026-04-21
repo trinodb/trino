@@ -107,7 +107,7 @@ public class TestDeltaLakeSystemTables
     @Test
     void testTransactionsTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_transactions", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
             assertThat((String) computeScalar("SELECT transaction FROM \"" + table.getName() + "$transactions\""))
                     .contains("commitInfo", "protocol", "metaData");
         }
@@ -116,7 +116,7 @@ public class TestDeltaLakeSystemTables
     @Test
     void testTransactionsTableAccessControl()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_transactions", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
             // TODO Disallow access to transactions table when the user can't access the base table
             assertAccessAllowed(
                     "SELECT * FROM \"" + table.getName() + "$transactions\"",
@@ -161,10 +161,10 @@ public class TestDeltaLakeSystemTables
             assertQuery("SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
                     """
                     VALUES
-                    ('partition', 'row(_date date)', '', ''),
+                    ('partition', 'row("_date" date)', '', ''),
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
-                    ('data', 'row(_bigint row(min bigint, max bigint, null_count bigint))', '', '')
+                    ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
             assertQuery("SELECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
@@ -217,10 +217,10 @@ public class TestDeltaLakeSystemTables
                 "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
                 """
                 VALUES
-                ('partition', 'row(part_NuMbEr integer, part_StRiNg varchar)', '', ''),
+                ('partition', 'row("part_NuMbEr" integer, "part_StRiNg" varchar)', '', ''),
                 ('file_count', 'bigint', '', ''),
                 ('total_size', 'bigint', '', ''),
-                ('data', 'row(id row(min integer, max integer, null_count bigint))', '', '')
+                ('data', 'row("id" row("min" integer, "max" integer, "null_count" bigint))', '', '')
                 """);
 
         assertQuery("SELECT partition.part_NuMbEr, partition.part_StRiNg FROM \"" + tableName + "$partitions\"", "VALUES (1, 'ala'), (2, 'kota'), (3, 'osla')");
@@ -258,10 +258,10 @@ public class TestDeltaLakeSystemTables
                     "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
                     """
                     VALUES
-                    ('partition', 'row(_date date)', '', ''),
+                    ('partition', 'row("_date" date)', '', ''),
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
-                    ('data', 'row(_bigint row(min bigint, max bigint, null_count bigint))', '', '')
+                    ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
             assertQuery("SELECT partition._date FROM \"" + tableName + "$partitions\"", " VALUES DATE '2019-09-08', DATE '2019-09-09', DATE '2019-09-10', NULL");
@@ -302,10 +302,10 @@ public class TestDeltaLakeSystemTables
                     "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
                     """
                     VALUES
-                    ('partition', 'row(_date date, _varchar varchar)', '', ''),
+                    ('partition', 'row(\"_date\" date, \"_varchar\" varchar)', '', ''),
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
-                    ('data', 'row(_bigint row(min bigint, max bigint, null_count bigint))', '', '')
+                    ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
             assertQuery(
@@ -362,10 +362,10 @@ public class TestDeltaLakeSystemTables
                     "SHOW COLUMNS FROM \"" + tableName + "$partitions\"",
                     """
                     VALUES
-                    ('partition', 'row(_varchar varchar, _date date)', '', ''),
+                    ('partition', 'row(\"_varchar\" varchar, \"_date\" date)', '', ''),
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
-                    ('data', 'row(_bigint row(min bigint, max bigint, null_count bigint))', '', '')
+                    ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint))', '', '')
                     """);
 
             assertQuery(
@@ -539,7 +539,7 @@ public class TestDeltaLakeSystemTables
                     VALUES
                     ('file_count', 'bigint', '', ''),
                     ('total_size', 'bigint', '', ''),
-                    ('data', 'row(_bigint row(min bigint, max bigint, null_count bigint), _date row(min date, max date, null_count bigint))', '', '')
+                    ('data', 'row("_bigint" row("min" bigint, "max" bigint, "null_count" bigint), "_date" row("min" date, "max" date, "null_count" bigint))', '', '')
                     """);
         }
         finally {

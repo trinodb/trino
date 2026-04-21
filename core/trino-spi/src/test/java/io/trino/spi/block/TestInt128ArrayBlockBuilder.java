@@ -18,7 +18,7 @@ import io.trino.spi.type.Int128;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestInt128ArrayBlockBuilder
+final class TestInt128ArrayBlockBuilder
         extends AbstractTestBlockBuilder<Int128>
 {
     @Override

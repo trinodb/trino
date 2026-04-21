@@ -18,17 +18,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,7 +55,7 @@ public class TestingTransactionManager
                 IsolationLevel.READ_UNCOMMITTED,
                 false, //read only
                 false, // auto commit
-                DateTime.now(), // created
+                Instant.now(), // created
                 Duration.succinctNanos(0), // idle
                 ImmutableList.of(), // catalogs
                 Optional.empty(),  // write catalog
@@ -78,12 +77,6 @@ public class TestingTransactionManager
         return transactions.keySet().stream()
                 .map(this::getTransactionInfo)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -120,6 +113,12 @@ public class TestingTransactionManager
 
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName)
     {
         return Optional.empty();
     }
@@ -184,12 +183,6 @@ public class TestingTransactionManager
     {
         checkState(transactions.remove(transactionId) != null, "Transaction is already finished");
         return immediateVoidFuture();
-    }
-
-    @Override
-    public void blockCommit(TransactionId transactionId, String reason)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

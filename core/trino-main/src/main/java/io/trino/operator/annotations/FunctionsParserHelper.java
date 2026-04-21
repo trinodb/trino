@@ -25,12 +25,11 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.Signature.Builder;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -51,6 +50,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -66,14 +66,14 @@ import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
+import static java.util.Comparator.comparing;
 
 public final class FunctionsParserHelper
 {
     private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, HASH_CODE, XX_HASH_64, IDENTICAL, INDETERMINATE);
     private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL);
 
-    private FunctionsParserHelper()
-    {}
+    private FunctionsParserHelper() {}
 
     public static boolean containsAnnotation(Annotation[] annotations, Predicate<Annotation> predicate)
     {
@@ -85,10 +85,10 @@ public final class FunctionsParserHelper
         return containsAnnotation(annotations, ImplementationDependency::isImplementationDependencyAnnotation);
     }
 
-    public static List<TypeVariableConstraint> createTypeVariableConstraints(Collection<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
+    public static List<TypeVariableConstraint> createTypeVariableConstraints(Collection<io.trino.spi.function.TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
     {
         Set<String> typeParameterNames = typeParameters.stream()
-                .map(TypeParameter::value)
+                .map(io.trino.spi.function.TypeParameter::value)
                 .collect(toImmutableSortedSet(CASE_INSENSITIVE_ORDER));
 
         Set<String> orderableRequired = new TreeSet<>(CASE_INSENSITIVE_ORDER);
@@ -176,19 +176,9 @@ public final class FunctionsParserHelper
     {
         checkArgument(!typeParameterNames.contains(typeSignature.getBase()), "Nested type variables are not allowed: %s", rootType);
 
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getTypeSignature(), typeParameterNames);
-                    break;
-                case NAMED_TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getNamedTypeSignature().getTypeSignature(), typeParameterNames);
-                    break;
-                case LONG:
-                case VARIABLE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+        for (TypeParameter parameter : typeSignature.getParameters()) {
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, type, typeParameterNames);
             }
         }
     }
@@ -216,20 +206,27 @@ public final class FunctionsParserHelper
     }
 
     @SafeVarargs
-    public static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
+    public static List<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
     {
-        ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
-        for (Method method : clazz.getDeclaredMethods()) {
-            for (Annotation annotation : method.getAnnotations()) {
-                for (Class<?> annotationClass : annotationClasses) {
-                    if (annotationClass.isInstance(annotation)) {
-                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
-                        methods.add(method);
-                    }
-                }
+        return Stream.of(clazz.getDeclaredMethods())
+                // Make function loading deterministic
+                .sorted(comparing(Method::toString))
+                .flatMap(method -> firstAnnotationPresent(method, annotationClasses)
+                        .map(annotated -> {
+                            checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotated.getSimpleName());
+                            return method;
+                        }).stream())
+                .collect(toImmutableList());
+    }
+
+    private static Optional<Class<? extends Annotation>> firstAnnotationPresent(AnnotatedElement annotatedElement, Class<? extends Annotation>[] annotationClasses)
+    {
+        for (Class<? extends Annotation> annotationClass : annotationClasses) {
+            if (annotatedElement.isAnnotationPresent(annotationClass)) {
+                return Optional.of(annotationClass);
             }
         }
-        return methods.build();
+        return Optional.empty();
     }
 
     public static Optional<Constructor<?>> findConstructor(Class<?> clazz)
@@ -292,12 +289,12 @@ public final class FunctionsParserHelper
                 .forEach(annotation -> signatureBuilder.longVariable(annotation.variable(), annotation.expression()));
     }
 
-    public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<TypeParameter> typeParameters)
+    public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<io.trino.spi.function.TypeParameter> typeParameters)
     {
         Map<String, Class<?>> specializedTypeParameters = new HashMap<>();
         TypeParameterSpecialization[] typeParameterSpecializations = method.getAnnotationsByType(TypeParameterSpecialization.class);
-        ImmutableSet<String> typeParameterNames = typeParameters.stream()
-                .map(TypeParameter::value)
+        Set<String> typeParameterNames = typeParameters.stream()
+                .map(io.trino.spi.function.TypeParameter::value)
                 .collect(toImmutableSet());
         for (TypeParameterSpecialization specialization : typeParameterSpecializations) {
             checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);

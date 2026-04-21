@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
 
@@ -28,12 +27,13 @@ import static java.util.Collections.singletonList;
 public class QuantileDigestType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "qdigest";
     private final Type valueType;
 
     @JsonCreator
     public QuantileDigestType(Type valueType)
     {
-        super(new TypeSignature(StandardTypes.QDIGEST, TypeSignatureParameter.typeParameter(valueType.getTypeSignature())), Slice.class);
+        super(new TypeSignature(NAME, TypeParameter.typeParameter(valueType.getTypeSignature())), Slice.class);
         this.valueType = valueType;
     }
 
@@ -58,7 +58,7 @@ public class QuantileDigestType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -70,6 +70,12 @@ public class QuantileDigestType
     public Type getValueType()
     {
         return valueType;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + valueType.getDisplayName() + ")";
     }
 
     @Override

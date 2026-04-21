@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
@@ -50,6 +49,7 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class FormWebUiAuthenticationFilter
@@ -64,18 +64,26 @@ public class FormWebUiAuthenticationFilter
     static final String UI_LOGIN = "/ui/login";
     static final String UI_LOGOUT = "/ui/logout";
 
+    static final String UI_PREVIEW_BASE = "/ui/preview/";
+
+    static final String UI_PREVIEW_AUTH_INFO = UI_PREVIEW_BASE + "auth/info";
+    static final String UI_PREVIEW_LOGIN_FORM = UI_PREVIEW_BASE + "auth/login";
+    static final String UI_PREVIEW_LOGOUT = UI_PREVIEW_BASE + "auth/logout";
+
     private final JwtParser jwtParser;
     private final Function<String, String> jwtGenerator;
     private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
 
     private static final MultipartUiCookie MULTIPART_COOKIE = new MultipartUiCookie(TRINO_UI_COOKIE, "/ui");
+    private final boolean previewEnabled;
 
     @Inject
     public FormWebUiAuthenticationFilter(
             FormWebUiConfig config,
             FormAuthenticator formAuthenticator,
-            @ForWebUi Optional<Authenticator> authenticator)
+            @ForWebUi Optional<Authenticator> authenticator,
+            WebUiConfig webUiConfig)
     {
         byte[] hmacBytes;
         if (config.getSharedSecret().isPresent()) {
@@ -97,6 +105,7 @@ public class FormWebUiAuthenticationFilter
 
         this.formAuthenticator = requireNonNull(formAuthenticator, "formAuthenticator is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
+        this.previewEnabled = requireNonNull(webUiConfig, "webUiConfig is null").isPreviewEnabled();
     }
 
     @Override
@@ -116,7 +125,7 @@ public class FormWebUiAuthenticationFilter
         }
 
         // login and logout resource is not visible to protocol authenticators
-        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) {
+        if (isLoginResource(path, request.getMethod())) {
             return;
         }
 
@@ -147,6 +156,10 @@ public class FormWebUiAuthenticationFilter
             return;
         }
 
+        if (previewEnabled && path.equals(UI_PREVIEW_BASE)) {
+            return;
+        }
+
         // redirect to login page
         request.abortWith(Response.seeOther(buildLoginFormURI(request)).build());
     }
@@ -171,6 +184,31 @@ public class FormWebUiAuthenticationFilter
         return builder.build();
     }
 
+    private boolean isLoginResource(String path, String method)
+    {
+        if (path.equals(UI_LOGIN) && method.equals("POST")) {
+            return true;
+        }
+
+        if (path.equals(UI_LOGOUT)) {
+            return true;
+        }
+
+        if (!previewEnabled) {
+            return false;
+        }
+
+        if (path.equals(UI_PREVIEW_LOGIN_FORM) && method.equals("POST")) {
+            return true;
+        }
+
+        if (path.equals(UI_PREVIEW_LOGOUT)) {
+            return true;
+        }
+
+        return path.equals(UI_PREVIEW_AUTH_INFO) && method.equals("GET");
+    }
+
     private static void handleProtocolLoginRequest(Authenticator authenticator, ContainerRequestContext request)
     {
         Identity authenticatedIdentity;
@@ -181,7 +219,7 @@ public class FormWebUiAuthenticationFilter
             // authentication failed
             sendWwwAuthenticate(
                     request,
-                    firstNonNull(e.getMessage(), "Unauthorized"),
+                    requireNonNullElse(e.getMessage(), "Unauthorized"),
                     e.getAuthenticateHeader().map(ImmutableSet::of).orElse(ImmutableSet.of()));
             return;
         }
@@ -227,7 +265,7 @@ public class FormWebUiAuthenticationFilter
                 .map(user -> createAuthenticationCookie(user, secure));
     }
 
-    private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
+    Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
         try {
             return MULTIPART_COOKIE.read(request.getCookies()).map(this::parseJwt);

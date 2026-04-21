@@ -14,7 +14,6 @@
 package io.trino.type;
 
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -43,10 +42,13 @@ public final class MapParametricType
         TypeParameter firstParameter = parameters.get(0);
         TypeParameter secondParameter = parameters.get(1);
         checkArgument(
-                firstParameter.getKind() == ParameterKind.TYPE && secondParameter.getKind() == ParameterKind.TYPE,
+                firstParameter instanceof TypeParameter.Type && secondParameter instanceof TypeParameter.Type,
                 "Expected key and type to be types, got %s",
                 parameters);
 
-        return new MapType(firstParameter.getType(), secondParameter.getType(), typeManager.getTypeOperators());
+        return new MapType(
+                typeManager.getType(((TypeParameter.Type) firstParameter).type()),
+                typeManager.getType(((TypeParameter.Type) secondParameter).type()),
+                typeManager.getTypeOperators());
     }
 }

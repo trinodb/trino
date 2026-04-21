@@ -13,11 +13,9 @@
  */
 package io.trino.sql.planner.iterative;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,11 +40,11 @@ public final class Plans
         @Override
         protected PlanNode visitPlan(PlanNode node, Void context)
         {
-            List<PlanNode> children = node.getSources().stream()
-                    .map(child -> child.accept(this, context))
-                    .collect(Collectors.toList());
-
-            return node.replaceChildren(children);
+            ImmutableList.Builder<PlanNode> children = ImmutableList.builderWithExpectedSize(node.getSources().size());
+            for (PlanNode source : node.getSources()) {
+                children.add(source.accept(this, context));
+            }
+            return node.replaceChildren(children.build());
         }
 
         @Override

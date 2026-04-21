@@ -29,8 +29,8 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.metrics.Metrics;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
@@ -70,9 +70,11 @@ public class PipelineContext
     private final AtomicInteger completedDrivers = new AtomicInteger();
     private final AtomicLong completedSplitsWeight = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> lastExecutionEndTime = new AtomicReference<>();
+
+    private final CounterStat spilledDataSize = new CounterStat();
 
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
@@ -88,9 +90,6 @@ public class PipelineContext
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
     private final CounterStat internalNetworkInputPositions = new CounterStat();
 
-    private final CounterStat rawInputDataSize = new CounterStat();
-    private final CounterStat rawInputPositions = new CounterStat();
-
     private final CounterStat processedInputDataSize = new CounterStat();
     private final CounterStat processedInputPositions = new CounterStat();
 
@@ -102,6 +101,9 @@ public class PipelineContext
     private final AtomicLong outputBlockedTime = new AtomicLong();
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
+
+    private final AtomicLong inlinedPositions = new AtomicLong();
+    private final AtomicLong inlinedSize = new AtomicLong();
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
     // pre-merged metrics which are shared among instances of given operator within pipeline
@@ -196,7 +198,7 @@ public class PipelineContext
         }
 
         // always update last execution end time
-        lastExecutionEndTime.set(DateTime.now());
+        lastExecutionEndTime.set(Instant.now());
 
         DriverStats driverStats = driverContext.getDriverStats();
 
@@ -204,6 +206,8 @@ public class PipelineContext
         if (partitioned) {
             completedSplitsWeight.addAndGet(driverContext.getSplitWeight());
         }
+
+        spilledDataSize.update(driverStats.getSpilledDataSize().toBytes());
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -227,9 +231,6 @@ public class PipelineContext
         internalNetworkInputDataSize.update(driverStats.getInternalNetworkInputDataSize().toBytes());
         internalNetworkInputPositions.update(driverStats.getInternalNetworkInputPositions());
 
-        rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
-        rawInputPositions.update(driverStats.getRawInputPositions());
-
         processedInputDataSize.update(driverStats.getProcessedInputDataSize().toBytes());
         processedInputPositions.update(driverStats.getProcessedInputPositions());
 
@@ -245,7 +246,7 @@ public class PipelineContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
+        Instant now = Instant.now();
         executionStartTime.compareAndSet(null, now);
         // always update last execution start time
         lastExecutionStartTime.set(now);
@@ -287,6 +288,16 @@ public class PipelineContext
     public boolean isCpuTimerEnabled()
     {
         return taskContext.isCpuTimerEnabled();
+    }
+
+    public AtomicLong getInlinedPositions()
+    {
+        return inlinedPositions;
+    }
+
+    public AtomicLong getInlinedSize()
+    {
+        return inlinedSize;
     }
 
     public CounterStat getProcessedInputDataSize()
@@ -366,7 +377,7 @@ public class PipelineContext
     {
         // check for end state to avoid callback ordering problems
         if (taskContext.getState().isDone()) {
-            DateTime now = DateTime.now();
+            Instant now = Instant.now();
             executionStartTime.compareAndSet(null, now);
             lastExecutionStartTime.compareAndSet(null, now);
             lastExecutionEndTime.compareAndSet(null, now);
@@ -378,6 +389,8 @@ public class PipelineContext
         PipelineStatusBuilder pipelineStatusBuilder = new PipelineStatusBuilder(totalSplits, completedDrivers, getActivePartitionedSplitsWeight(), partitioned);
 
         int totalDrivers = completedDrivers + driverContexts.size();
+
+        long spilledDataSize = this.spilledDataSize.getTotalCount();
 
         Distribution queuedTime = this.queuedTime.duplicate();
         Distribution elapsedTime = this.elapsedTime.duplicate();
@@ -391,9 +404,6 @@ public class PipelineContext
 
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.getTotalCount();
         long internalNetworkInputPositions = this.internalNetworkInputPositions.getTotalCount();
-
-        long rawInputDataSize = this.rawInputDataSize.getTotalCount();
-        long rawInputPositions = this.rawInputPositions.getTotalCount();
 
         long processedInputDataSize = this.processedInputDataSize.getTotalCount();
         long processedInputPositions = this.processedInputPositions.getTotalCount();
@@ -427,6 +437,8 @@ public class PipelineContext
                 blockedReasons.addAll(driverStats.getBlockedReasons());
             }
 
+            spilledDataSize += driverStats.getSpilledDataSize().toBytes();
+
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
 
@@ -444,9 +456,6 @@ public class PipelineContext
 
             internalNetworkInputDataSize += driverStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += driverStats.getInternalNetworkInputPositions();
-
-            rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
-            rawInputPositions += driverStats.getRawInputPositions();
 
             processedInputDataSize += driverStats.getProcessedInputDataSize().toBytes();
             processedInputPositions += driverStats.getProcessedInputPositions();
@@ -500,17 +509,19 @@ public class PipelineContext
                 outputPipeline,
 
                 totalDrivers,
-                pipelineStatus.getQueuedDrivers(),
-                pipelineStatus.getQueuedPartitionedDrivers(),
-                pipelineStatus.getQueuedPartitionedSplitsWeight(),
-                pipelineStatus.getRunningDrivers(),
-                pipelineStatus.getRunningPartitionedDrivers(),
-                pipelineStatus.getRunningPartitionedSplitsWeight(),
-                pipelineStatus.getBlockedDrivers(),
+                pipelineStatus.queuedDrivers(),
+                pipelineStatus.queuedPartitionedDrivers(),
+                pipelineStatus.queuedPartitionedSplitsWeight(),
+                pipelineStatus.runningDrivers(),
+                pipelineStatus.runningPartitionedDrivers(),
+                pipelineStatus.runningPartitionedSplitsWeight(),
+                pipelineStatus.blockedDrivers(),
                 completedDrivers,
 
                 succinctBytes(pipelineMemoryContext.getUserMemory()),
                 succinctBytes(pipelineMemoryContext.getRevocableMemory()),
+
+                succinctBytes(spilledDataSize),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
@@ -527,9 +538,6 @@ public class PipelineContext
 
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
 
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,

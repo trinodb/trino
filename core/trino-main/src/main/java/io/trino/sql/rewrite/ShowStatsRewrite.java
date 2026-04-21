@@ -52,7 +52,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Query;
-import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.Statement;
@@ -74,6 +73,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
+import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectAll;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -148,7 +148,7 @@ public class ShowStatsRewrite
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }
@@ -176,26 +176,24 @@ public class ShowStatsRewrite
                 String columnName = root.getColumnNames().get(columnIndex);
                 Type columnType = outputSymbol.type();
                 SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
-                ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-                rowValues.add(new StringLiteral(columnName));
-                rowValues.add(toDoubleLiteral(symbolStatistics.getAverageRowSize() * planNodeStatsEstimate.getOutputRowCount() * (1 - symbolStatistics.getNullsFraction())));
-                rowValues.add(toDoubleLiteral(symbolStatistics.getDistinctValuesCount()));
-                rowValues.add(toDoubleLiteral(symbolStatistics.getNullsFraction()));
-                rowValues.add(NULL_DOUBLE);
-                rowValues.add(toStringLiteral(columnType, symbolStatistics.getLowValue()));
-                rowValues.add(toStringLiteral(columnType, symbolStatistics.getHighValue()));
-                rowsBuilder.add(new Row(rowValues.build()));
+                rowsBuilder.add(row(
+                        new StringLiteral(columnName),
+                        toDoubleLiteral(symbolStatistics.getAverageRowSize() * planNodeStatsEstimate.getOutputRowCount() * (1 - symbolStatistics.getNullsFraction())),
+                        toDoubleLiteral(symbolStatistics.getDistinctValuesCount()),
+                        toDoubleLiteral(symbolStatistics.getNullsFraction()),
+                        NULL_DOUBLE,
+                        toStringLiteral(columnType, symbolStatistics.getLowValue()),
+                        toStringLiteral(columnType, symbolStatistics.getHighValue())));
             }
             // Stats for whole table
-            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-            rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(toDoubleLiteral(planNodeStatsEstimate.getOutputRowCount()));
-            rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_VARCHAR);
-            rowsBuilder.add(new Row(rowValues.build()));
+            rowsBuilder.add(row(
+                    NULL_VARCHAR,
+                    NULL_DOUBLE,
+                    NULL_DOUBLE,
+                    NULL_DOUBLE,
+                    toDoubleLiteral(planNodeStatsEstimate.getOutputRowCount()),
+                    NULL_VARCHAR,
+                    NULL_VARCHAR));
             List<Expression> resultRows = rowsBuilder.build();
 
             return simpleQuery(selectAll(selectItems), aliased(new Values(resultRows), "table_stats", statsColumnNames));
@@ -257,16 +255,16 @@ public class ShowStatsRewrite
             if (type.equals(DATE)) {
                 return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
             }
-            if (type instanceof TimestampType) {
+            if (type instanceof TimestampType timestampType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long epochMicros = (long) value;
-                int outputPrecision = min(((TimestampType) type).getPrecision(), TimestampType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(timestampType.getPrecision(), TimestampType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampToVarcharCast.cast(outputPrecision, epochMicros).toStringUtf8());
             }
-            if (type instanceof TimestampWithTimeZoneType) {
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long millisUtc = (long) value;
-                int outputPrecision = min(((TimestampWithTimeZoneType) type).getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(timestampWithTimeZoneType.getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampWithTimeZoneToVarcharCast.cast(outputPrecision, packDateTimeWithZone(millisUtc, UTC_KEY)).toStringUtf8());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);

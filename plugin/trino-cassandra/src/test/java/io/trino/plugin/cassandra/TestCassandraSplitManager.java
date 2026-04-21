@@ -98,8 +98,8 @@ final class TestCassandraSplitManager
         try (ConnectorSplitSource splitSource = splitManager.getSplits(null, null, tableHandle, null, null)) {
             List<ConnectorSplit> splits = splitSource.getNextBatch(100).get().getSplits();
             assertThat(splits).hasSize(2);
-            assertThat(((CassandraSplit) splits.get(0)).getPartitionId()).isEqualTo("\"partition_key\" in (0,1)");
-            assertThat(((CassandraSplit) splits.get(1)).getPartitionId()).isEqualTo("\"partition_key\" in (2)");
+            assertThat(((CassandraSplit) splits.get(0)).partitionId()).isEqualTo("\"partition_key\" in (0,1)");
+            assertThat(((CassandraSplit) splits.get(1)).partitionId()).isEqualTo("\"partition_key\" in (2)");
         }
 
         session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));

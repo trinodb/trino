@@ -166,6 +166,16 @@ public final class ReusableConnectionFactory
         }
 
         @Override
+        public boolean isClosed()
+                throws SQLException
+        {
+            if (closed) {
+                return true;
+            }
+            return delegate().isClosed();
+        }
+
+        @Override
         public void close()
                 throws SQLException
         {

@@ -35,19 +35,18 @@ system support.
 
 * - Property
   - Description
-* - `fs.native-azure.enabled`
+* - `fs.azure.enabled`
   - Activate the [native implementation for Azure Storage
     support](/object-storage/file-system-azure). Defaults to `false`.
-* - `fs.native-gcs.enabled`
+* - `fs.gcs.enabled`
   - Activate the [native implementation for Google Cloud Storage
     support](/object-storage/file-system-gcs). Defaults to `false`.
-* - `fs.native-s3.enabled`
+* - `fs.s3.enabled`
   - Activate the [native implementation for S3 storage
     support](/object-storage/file-system-s3). Defaults to `false`.
 * - `fs.hadoop.enabled`
-  - Activate [support for HDFS](/object-storage/file-system-hdfs) and [legacy
-    support for other file systems](file-system-legacy) using the HDFS
-    libraries. Defaults to `false`.
+  - Activate [support for HDFS](/object-storage/file-system-hdfs) using the
+    HDFS libraries. Defaults to `false`.
 :::
 
 (file-system-native)=
@@ -59,29 +58,28 @@ compatible replacements:
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-local)
 * [](/object-storage/file-system-alluxio)
 
-The native support is available in all four connectors, but must be activated
+The native support is available in all four connectors, and must be activated
 for use.
 
 (file-system-legacy)=
 ## Legacy file system support
 
-The default behavior uses legacy libraries that originate from the Hadoop
-ecosystem. It should only be used for accessing the Hadoop Distributed File
+The HDFS libraries are used for accessing the Hadoop Distributed File
 System (HDFS):
 
 - [](/object-storage/file-system-hdfs)
 
-All four connectors can use the related `hive.*` properties for access to other
-object storage system as *legacy* support. Additional documentation is available
-with the Hive connector and relevant dedicated pages:
+Legacy object storage support through `fs.hadoop.enabled` and deprecated
+`hive.*` properties is no longer available. Use the native implementations for
+Azure Storage, Google Cloud Storage, and S3. If you are migrating older catalog
+configurations, refer to the following guides:
 
-- [](/connector/hive)
-- [](/object-storage/legacy-azure)
-- [](/object-storage/legacy-gcs)
-- [](/object-storage/legacy-cos)
-- [](/object-storage/legacy-s3)
+- [Azure Storage migration from hive.azure.* properties](fs-legacy-azure-migration)
+- [Google Cloud Storage migration from hive.gcs.* properties](fs-legacy-gcs-migration)
+- [S3 migration from hive.s3.* properties](fs-legacy-s3-migration)
 
 (object-storage-other)=
 ## Other object storage support
@@ -101,11 +99,8 @@ storage:
 /object-storage/file-system-azure
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
+/object-storage/file-system-local
 /object-storage/file-system-hdfs
-/object-storage/legacy-azure
-/object-storage/legacy-cos
-/object-storage/legacy-gcs
-/object-storage/legacy-s3
 /object-storage/file-system-cache
 /object-storage/file-system-alluxio
 /object-storage/metastores

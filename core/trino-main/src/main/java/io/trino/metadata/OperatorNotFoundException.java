@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +30,7 @@ public class OperatorNotFoundException
         extends TrinoException
 {
     private final OperatorType operatorType;
-    private final TypeSignature returnType;
+    private final Type returnType;
     private final List<Type> argumentTypes;
 
     public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, Throwable cause)
@@ -42,7 +41,7 @@ public class OperatorNotFoundException
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, TypeSignature returnType, Throwable cause)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, Type returnType, Throwable cause)
     {
         super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)), cause);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
@@ -50,7 +49,7 @@ public class OperatorNotFoundException
         this.returnType = requireNonNull(returnType, "returnType is null");
     }
 
-    private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<TypeSignature> returnType)
+    private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<Type> returnType)
     {
         return switch (operatorType) {
             case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
@@ -62,7 +61,7 @@ public class OperatorNotFoundException
             default -> format(
                     "Operator '%s'%s cannot be applied to %s",
                     operatorType.getOperator(),
-                    returnType.map(value -> ":" + value).orElse(""),
+                    returnType.map(value -> ":" + value.getDisplayName()).orElse(""),
                     Joiner.on(", ").join(argumentTypes));
         };
     }
@@ -72,7 +71,7 @@ public class OperatorNotFoundException
         return operatorType;
     }
 
-    public TypeSignature getReturnType()
+    public Type getReturnType()
     {
         return returnType;
     }

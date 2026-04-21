@@ -17,6 +17,7 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.reader.ChunkedInputStream;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,9 +42,12 @@ public interface ParquetDataSource
 
     <K> Map<K, ChunkedInputStream> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext);
 
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
+
     @Override
     default void close()
-            throws IOException
-    {
-    }
+            throws IOException {}
 }

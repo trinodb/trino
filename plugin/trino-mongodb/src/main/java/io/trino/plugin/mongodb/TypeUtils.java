@@ -21,6 +21,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -63,5 +64,26 @@ public final class TypeUtils
                 || type instanceof DecimalType
                 || type instanceof ObjectIdType
                 || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
+    }
+
+    public static boolean isImplicitRowField(String fieldName, String implicitPrefix)
+    {
+        return getImplicitRowFieldIndex(fieldName, implicitPrefix) != -1;
+    }
+
+    public static int getImplicitRowFieldIndex(String fieldName, String implicitPrefix)
+    {
+        if (fieldName.length() <= implicitPrefix.length() || !fieldName.startsWith(implicitPrefix)) {
+            return -1;
+        }
+
+        try {
+            int fieldIndex = Integer.parseInt(fieldName.substring(implicitPrefix.length()));
+            verify(fieldIndex >= 1, "Field index must be >= 1");
+            return fieldIndex;
+        }
+        catch (NumberFormatException e) {
+            return -1;
+        }
     }
 }

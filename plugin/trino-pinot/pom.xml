@@ -4,16 +4,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-pinot</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Pinot connector</description>
 
     <properties>
-        <dep.pinot.version>1.2.0</dep.pinot.version>
+        <dep.pinot.version>1.4.0</dep.pinot.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
@@ -24,14 +25,13 @@
         <dependencies>
             <dependency>
                 <groupId>net.openhft</groupId>
-                <artifactId>posix</artifactId>
-                <version>2.26ea1</version>
+                <artifactId>chronicle-core</artifactId>
+                <version>2.27ea11</version>
             </dependency>
-
             <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-text</artifactId>
-                <version>1.12.0</version>
+                <groupId>net.openhft</groupId>
+                <artifactId>posix</artifactId>
+                <version>2.27ea3</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -55,16 +55,12 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-codec</groupId>
-            <artifactId>commons-codec</artifactId>
         </dependency>
 
         <dependency>
@@ -130,7 +126,7 @@
         <dependency>
             <groupId>org.apache.helix</groupId>
             <artifactId>helix-core</artifactId>
-            <version>1.3.1</version>
+            <version>1.3.2</version>
             <exclusions>
                 <exclusion>
                     <groupId>javax.annotation</groupId>
@@ -218,6 +214,10 @@
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
@@ -284,6 +284,12 @@
             <groupId>org.apache.pinot</groupId>
             <artifactId>pinot-segment-local</artifactId>
             <version>${dep.pinot.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -300,6 +306,10 @@
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
                     <artifactId>log4j-1.2-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
@@ -353,9 +363,10 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
+            <!-- Add LZ4 dependency to replace excluded org.lz4:lz4-java from pinot-common -->
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -374,7 +385,6 @@
         <dependency>
             <groupId>net.openhft</groupId>
             <artifactId>chronicle-core</artifactId>
-            <version>2.26ea1</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -391,9 +401,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-            <version>4.4.16</version>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -408,6 +417,12 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -443,13 +458,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

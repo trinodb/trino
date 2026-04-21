@@ -15,6 +15,7 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.hive.AcidInfo;
@@ -32,7 +33,10 @@ import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Collection;
@@ -41,11 +45,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveColumnHandle.PATH_TYPE;
 import static io.trino.plugin.hive.HiveColumnHandle.isPathColumnHandle;
+import static io.trino.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.HiveUtil.getSerializationLibraryName;
 import static java.util.Objects.requireNonNull;
@@ -58,6 +65,7 @@ public class InternalHiveSplitFactory
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final Map<Integer, HiveTypeName> hiveColumnCoercions;
+    private final Constraint constraint;
     private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<HiveSplit.BucketValidation> bucketValidation;
@@ -71,6 +79,7 @@ public class InternalHiveSplitFactory
             Map<String, String> schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            Constraint constraint,
             BooleanSupplier partitionMatchSupplier,
             Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
@@ -84,6 +93,7 @@ public class InternalHiveSplitFactory
         this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
+        this.constraint = requireNonNull(constraint, "constraint is null");
         this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
         this.hiveColumnCoercions = ImmutableMap.copyOf(requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null"));
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
@@ -144,7 +154,7 @@ public class InternalHiveSplitFactory
             boolean splittable,
             Optional<AcidInfo> acidInfo)
     {
-        if (!pathMatchesPredicate(pathDomain, path)) {
+        if (!pathMatchesPredicate(pathDomain, constraint, path)) {
             return Optional.empty();
         }
 
@@ -183,7 +193,7 @@ public class InternalHiveSplitFactory
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
-            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
+            blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).addresses()));
         }
 
         return Optional.of(new InternalHiveSplit(
@@ -213,31 +223,31 @@ public class InternalHiveSplitFactory
         checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);
         checkArgument(!blocks.isEmpty(), "Split (%s) has no blocks", path);
         checkArgument(
-                start == blocks.get(0).getStart(),
+                start == blocks.get(0).start(),
                 "Split (%s) start (%s) does not match first block start (%s)",
                 path,
                 start,
-                blocks.get(0).getStart());
+                blocks.get(0).start());
         checkArgument(
-                start + length == blocks.getLast().getEnd(),
+                start + length == blocks.getLast().end(),
                 "Split (%s) end (%s) does not match last block end (%s)",
                 path,
                 start + length,
-                blocks.getLast().getEnd());
+                blocks.getLast().end());
         for (int i = 1; i < blocks.size(); i++) {
             checkArgument(
-                    blocks.get(i - 1).getEnd() == blocks.get(i).getStart(),
+                    blocks.get(i - 1).end() == blocks.get(i).start(),
                     "Split (%s) block end (%s) does not match next block start (%s)",
                     path,
-                    blocks.get(i - 1).getEnd(),
-                    blocks.get(i).getStart());
+                    blocks.get(i - 1).end(),
+                    blocks.get(i).start());
         }
     }
 
     private static boolean allBlocksHaveAddress(Collection<InternalHiveBlock> blocks)
     {
         return blocks.stream()
-                .map(InternalHiveBlock::getAddresses)
+                .map(InternalHiveBlock::addresses)
                 .noneMatch(List::isEmpty);
     }
 
@@ -259,10 +269,16 @@ public class InternalHiveSplitFactory
                         .findFirst());
     }
 
-    private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
+    private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, Constraint constraint, String path)
     {
-        return pathDomain
-                .map(domain -> domain.includesNullableValue(utf8Slice(path)))
-                .orElse(true);
+        Slice pathSlice = utf8Slice(path);
+        if (pathDomain.isPresent() && !pathDomain.get().includesNullableValue(pathSlice)) {
+            return false;
+        }
+        if (constraint.getPredicateColumns().isEmpty() || !constraint.getPredicateColumns().get().contains(pathColumnHandle())) {
+            return true;
+        }
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(_ -> true);
+        return predicate.test(ImmutableMap.of(pathColumnHandle(), new NullableValue(PATH_TYPE, pathSlice)));
     }
 }

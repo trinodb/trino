@@ -88,7 +88,7 @@ public class TextColumnEncodingFactory
     private TextColumnEncoding getEncoding(Type type, int depth)
     {
         if (BOOLEAN.equals(type)) {
-            return new BooleanEncoding(type, textEncodingOptions.getNullSequence());
+            return new BooleanEncoding(type, textEncodingOptions.getNullSequence(), textEncodingOptions.isExtendedBooleanLiteral());
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
             return new LongEncoding(type, textEncodingOptions.getNullSequence());
@@ -112,8 +112,8 @@ public class TextColumnEncodingFactory
         if (DATE.equals(type)) {
             return new DateEncoding(type, textEncodingOptions.getNullSequence());
         }
-        if (type instanceof TimestampType) {
-            return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
+        if (type instanceof TimestampType timestampType) {
+            return new TimestampEncoding(timestampType, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
         }
         if (type instanceof ArrayType arrayType) {
             TextColumnEncoding elementEncoding = getEncoding(arrayType.getElementType(), depth + 1);
@@ -137,7 +137,7 @@ public class TextColumnEncodingFactory
                     valueEncoding);
         }
         if (type instanceof RowType rowType) {
-            List<TextColumnEncoding> fieldEncodings = rowType.getTypeParameters().stream()
+            List<TextColumnEncoding> fieldEncodings = rowType.getFieldTypes().stream()
                     .map(fieldType -> getEncoding(fieldType, depth + 1))
                     .collect(toImmutableList());
             return new StructEncoding(

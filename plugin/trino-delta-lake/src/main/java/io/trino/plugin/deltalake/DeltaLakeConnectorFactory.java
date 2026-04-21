@@ -20,10 +20,8 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
-import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -34,10 +32,6 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.spi.NodeManager;
-import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -51,7 +45,6 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -90,29 +83,22 @@ public class DeltaLakeConnectorFactory
         ClassLoader classLoader = DeltaLakeConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
-                    new CatalogNameModule(catalogName),
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     new DeltaLakeSynchronizerModule(),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
-                    binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    },
+                    new FileSystemModule(catalogName, context, false),
+                    new ConnectorContextModule(catalogName, context),
                     module);
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 

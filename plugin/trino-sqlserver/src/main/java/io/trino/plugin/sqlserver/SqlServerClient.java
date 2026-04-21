@@ -66,6 +66,8 @@ import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteCaseSensitiveComparison;
 import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.expression.RewriteLikeEscapeWithCaseSensitivity;
+import io.trino.plugin.jdbc.expression.RewriteLikeWithCaseSensitivity;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -75,6 +77,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -117,15 +121,17 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -209,6 +215,7 @@ import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
@@ -304,6 +311,8 @@ public class SqlServerClient
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
+                .add(new RewriteLikeWithCaseSensitivity())
+                .add(new RewriteLikeEscapeWithCaseSensitivity())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
                 .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "real", "double"))
                 .map("$equal(left: numeric_type, right: numeric_type)").to("left = right")
@@ -319,8 +328,6 @@ public class SqlServerClient
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
                 .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
                 .map("$negate(value: integer_type)").to("-value")
-                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
-                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
@@ -357,9 +364,9 @@ public class SqlServerClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata, rollbackActionCollector);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
     }
@@ -370,6 +377,29 @@ public class SqlServerClient
         JdbcOutputTableHandle table = super.beginInsertTable(session, tableHandle, columns);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
+    }
+
+    @Override
+    public Collection<String> listSchemas(Connection connection)
+    {
+        // Avoid using DatabaseMetaData.getSchemas method because
+        // https://github.com/microsoft/mssql-jdbc/commit/351c2bec2ed88249cf9d68804224b717015d1625 introduced a filtering
+        // of internal (predefined) schemas.
+        try (PreparedStatement statement = connection.prepareStatement("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA");
+                ResultSet resultSet = statement.executeQuery()) {
+            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("SCHEMA_NAME");
+                // skip internal schemas
+                if (filterRemoteSchema(schemaName)) {
+                    schemaNames.add(schemaName);
+                }
+            }
+            return schemaNames.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected void enableTableLockOnBulkLoadTableOption(ConnectorSession session, JdbcOutputTableHandle table)
@@ -400,6 +430,30 @@ public class SqlServerClient
     protected boolean isTableLockNeeded(ConnectorSession session)
     {
         return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
+    }
+
+    @Override
+    public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
+    {
+        return retryOnDeadlock(() -> super.getAllTableComments(session, schema), "error when getting all table comments for '%s'".formatted(schema));
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema)
+    {
+        return retryOnDeadlock(() -> super.getAllTableColumns(session, schema), "error when getting all table columns for '%s'".formatted(schema));
+    }
+
+    @Override
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return retryOnDeadlock(() -> super.getTableHandle(session, schemaTableName), "error when getting table handle for '%s'".formatted(schemaTableName));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        return retryOnDeadlock(() -> super.getColumns(session, schemaTableName, remoteTableName), "error when getting columns for table '%s'".formatted(remoteTableName));
     }
 
     @Override
@@ -527,7 +581,7 @@ public class SqlServerClient
                 // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
                 throw new TableNotFoundException(schemaTableName);
             }
-            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -746,7 +800,7 @@ public class SqlServerClient
             }
         }
         catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -1313,8 +1367,8 @@ public class SqlServerClient
                 .handleIf(throwable ->
                 {
                     Throwable rootCause = Throwables.getRootCause(throwable);
-                    return rootCause instanceof SQLServerException &&
-                            ((SQLServerException) rootCause).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
+                    return rootCause instanceof SQLServerException sqlServerException &&
+                            sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
                 .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
                 .build();

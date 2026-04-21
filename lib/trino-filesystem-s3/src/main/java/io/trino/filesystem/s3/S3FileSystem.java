@@ -33,6 +33,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.OptionalObjectAttributes;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -68,6 +69,8 @@ import static java.util.stream.Collectors.toMap;
 final class S3FileSystem
         implements TrinoFileSystem
 {
+    static final int DELETE_BATCH_SIZE = 1000;
+
     private final Executor uploadExecutor;
     private final S3Client client;
     private final S3Presigner preSigner;
@@ -187,7 +190,7 @@ final class S3FileSystem
             String bucket = entry.getKey();
             Collection<String> allKeys = entry.getValue();
 
-            for (List<String> keys : partition(allKeys, 250)) {
+            for (List<String> keys : partition(allKeys, DELETE_BATCH_SIZE)) {
                 List<ObjectIdentifier> objects = keys.stream()
                         .map(key -> ObjectIdentifier.builder().key(key).build())
                         .toList();
@@ -202,7 +205,14 @@ final class S3FileSystem
                 try {
                     DeleteObjectsResponse response = client.deleteObjects(request);
                     for (S3Error error : response.errors()) {
-                        failures.put("s3://%s/%s".formatted(bucket, error.key()), error.code());
+                        String filePath = "s3://%s/%s".formatted(bucket, error.key());
+                        if (error.message() == null) {
+                            // If the error message is null, we just use the error code
+                            failures.put(filePath, error.code());
+                        }
+                        else {
+                            failures.put(filePath, "%s (%s)".formatted(error.message(), error.code()));
+                        }
                     }
                 }
                 catch (SdkException e) {
@@ -242,6 +252,8 @@ final class S3FileSystem
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
+                // Restore status will not be added to the response without requested
+                .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS)
                 .requestPayer(requestPayer)
                 .bucket(s3Location.bucket())
                 .prefix(key)

@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.filesystem.s3.S3OutputStream.ByteArrayStreamProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -24,7 +25,7 @@ import java.io.OutputStream;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.filesystem.s3.S3OutputStream.putObject;
 import static java.util.Objects.requireNonNull;
 
 final class S3OutputFile
@@ -50,33 +51,32 @@ final class S3OutputFile
     public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), false)) {
-            out.write(data);
-        }
+        putObject(
+                client,
+                context,
+                location,
+                key,
+                false,
+                new ByteArrayStreamProvider(data));
     }
 
     @Override
     public void createExclusive(byte[] data)
             throws IOException
     {
-        if (!context.exclusiveWriteSupported()) {
-            throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
-        }
-
-        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), true)) {
-            out.write(data);
-        }
+        putObject(
+                client,
+                context,
+                location,
+                key,
+                true,
+                new ByteArrayStreamProvider(data));
     }
 
     @Override
     public OutputStream create(AggregatedMemoryContext memoryContext)
     {
-        return create(memoryContext, context.exclusiveWriteSupported());
-    }
-
-    public OutputStream create(AggregatedMemoryContext memoryContext, boolean exclusive)
-    {
-        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, exclusive, key);
+        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, key);
     }
 
     @Override

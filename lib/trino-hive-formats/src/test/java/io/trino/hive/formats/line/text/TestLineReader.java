@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.GZIPOutputStream;
 
@@ -41,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestLineReader
 {
     private static final int LINE_READER_INSTANCE_SIZE = instanceSize(TextLineReader.class);
-    private static final int[] SKIP_SIZES = new int[] {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
+    private static final int[] SKIP_SIZES = {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
 
     @Test
     public void testSimple()
@@ -161,7 +162,7 @@ public class TestLineReader
                 continue;
             }
             ExpectedLine expectedLine = testData.expectedLines().get(i);
-            ImmutableSet<Integer> testPositions = ImmutableSet.<Integer>builder()
+            Set<Integer> testPositions = ImmutableSet.<Integer>builder()
                     .add(expectedLine.start())
                     .add(expectedLine.start() + expectedLine.line().length())
                     .add(min(expectedLine.start() + expectedLine.line().length() + 1, expectedLine.endExclusive()))

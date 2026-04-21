@@ -22,6 +22,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.trino.execution.buffer.CompressionCodec;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -29,11 +30,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
@@ -53,6 +54,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
         "deprecated.legacy-update-delete-implementation",
+        "deprecated.omit-datetime-type-precision",
         "experimental-syntax-enabled",
         "experimental.aggregation-operator-unspill-memory-limit",
         "experimental.filter-and-project-min-output-page-row-count",
@@ -81,29 +83,37 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
 })
 public class FeaturesConfig
 {
+    public enum DataIntegrityVerification
+    {
+        NONE,
+        ABORT,
+        RETRY,
+        /**/;
+    }
+
     @VisibleForTesting
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
-    private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
-    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, DataSize.Unit.MEGABYTE);
+    private DataSize writerScalingMinDataProcessed = DataSize.of(120, MEGABYTE);
+    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
     private CompressionCodec exchangeCompressionCodec = NONE;
+    private boolean exchangeVectorizedSerdeEnabled = true;
     private boolean pagesIndexEagerCompactionEnabled;
-    private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
 
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
-    private int spillerThreads = 4;
+    private Integer spillerThreads;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -120,28 +130,9 @@ public class FeaturesConfig
 
     private boolean columnarFilterEvaluationEnabled = true;
 
-    private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
+    private boolean externalExchangeEncryptionEnabled = true;
 
-    public enum DataIntegrityVerification
-    {
-        NONE,
-        ABORT,
-        RETRY,
-        /**/;
-    }
-
-    public boolean isOmitDateTimeTypePrecision()
-    {
-        return omitDateTimeTypePrecision;
-    }
-
-    @Config("deprecated.omit-datetime-type-precision")
-    @ConfigDescription("Enable compatibility mode for legacy clients when rendering datetime type names with default precision")
-    public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
-    {
-        this.omitDateTimeTypePrecision = value;
-        return this;
-    }
+    private boolean legacyArithmeticDecimalOperators;
 
     public boolean isRedistributeWrites()
     {
@@ -278,7 +269,7 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPaths(List<String> spillPaths)
     {
         this.spillerSpillPaths = spillPaths.stream()
-                .map(Paths::get)
+                .map(Path::of)
                 .collect(toImmutableList());
         return this;
     }
@@ -286,13 +277,17 @@ public class FeaturesConfig
     @Min(1)
     public int getSpillerThreads()
     {
+        if (spillerThreads == null) {
+            // Higher default concurrency allows to saturate spill disks better in case of multiple spill locations.
+            return Math.max(spillerSpillPaths.size() * 2, 4);
+        }
         return spillerThreads;
     }
 
     @Config("spiller-threads")
-    public FeaturesConfig setSpillerThreads(int spillerThreads)
+    public FeaturesConfig setSpillerThreads(String spillerThreads)
     {
-        this.spillerThreads = spillerThreads;
+        this.spillerThreads = ThreadCountParser.DEFAULT.parse(spillerThreads);
         return this;
     }
 
@@ -357,6 +352,19 @@ public class FeaturesConfig
     {
         this.exchangeCompressionCodec = exchangeCompressionCodec;
         return this;
+    }
+
+    @Config("exchange.experimental.vectorized-serde.enabled")
+    @ConfigDescription("Enable using Java Vector API for faster serialization and deserialization of exchange data")
+    public FeaturesConfig setExchangeVectorizedSerdeEnabled(boolean exchangeVectorizedSerdeEnabled)
+    {
+        this.exchangeVectorizedSerdeEnabled = exchangeVectorizedSerdeEnabled;
+        return this;
+    }
+
+    public boolean isExchangeVectorizedSerdeEnabled()
+    {
+        return exchangeVectorizedSerdeEnabled;
     }
 
     public DataIntegrityVerification getExchangeDataIntegrityVerification()
@@ -501,21 +509,33 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isFaultTolerantExecutionExchangeEncryptionEnabled()
+    public boolean isExternalExchangeEncryptionEnabled()
     {
-        return faultTolerantExecutionExchangeEncryptionEnabled;
+        return externalExchangeEncryptionEnabled;
     }
 
-    @Config("fault-tolerant-execution-exchange-encryption-enabled")
-    @LegacyConfig("fault-tolerant-execution.exchange-encryption-enabled")
-    public FeaturesConfig setFaultTolerantExecutionExchangeEncryptionEnabled(boolean faultTolerantExecutionExchangeEncryptionEnabled)
+    @Config("external-exchange-encryption-enabled")
+    @LegacyConfig({"fault-tolerant-execution-exchange-encryption-enabled", "fault-tolerant-execution.exchange-encryption-enabled"})
+    public FeaturesConfig setExternalExchangeEncryptionEnabled(boolean externalExchangeEncryptionEnabled)
     {
-        this.faultTolerantExecutionExchangeEncryptionEnabled = faultTolerantExecutionExchangeEncryptionEnabled;
+        this.externalExchangeEncryptionEnabled = externalExchangeEncryptionEnabled;
         return this;
     }
 
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionCodec = LZ4;
+    }
+
+    public boolean isLegacyArithmeticDecimalOperators()
+    {
+        return legacyArithmeticDecimalOperators;
+    }
+
+    @Config("deprecated.legacy-arithmetic-decimal-operators")
+    public FeaturesConfig setLegacyArithmeticDecimalOperators(boolean value)
+    {
+        this.legacyArithmeticDecimalOperators = value;
+        return this;
     }
 }

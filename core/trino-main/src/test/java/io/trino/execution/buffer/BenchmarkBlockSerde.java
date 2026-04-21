@@ -23,7 +23,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
@@ -55,9 +54,9 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.execution.buffer.BenchmarkDataGenerator.createValues;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchTables.getTablePages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -202,12 +201,16 @@ public class BenchmarkBlockSerde
     public abstract static class TypeBenchmarkData
             extends BenchmarkData
     {
+        private static final int OFFSET_LENGTH = 3;
+
         @Param({"0", ".01", ".10", ".50", ".90", ".99"})
         private double nullChance;
+        @Param({"true", "false"})
+        private boolean offset;
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
+            PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory();
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -219,13 +222,21 @@ public class BenchmarkBlockSerde
                 writeValue(type, values.next(), blockBuilder);
                 pageBuilder.declarePosition();
                 if (pageBuilder.isFull()) {
-                    pagesBuilder.add(pageBuilder.build());
+                    Page page = pageBuilder.build();
+                    if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                        page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                    }
+                    pagesBuilder.add(page);
                     pageBuilder.reset();
                     blockBuilder = pageBuilder.getBlockBuilder(0);
                 }
             }
             if (pageBuilder.getPositionCount() > 0) {
-                pagesBuilder.add(pageBuilder.build());
+                Page page = pageBuilder.build();
+                if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                    page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                }
+                pagesBuilder.add(page);
             }
 
             List<Page> pages = pagesBuilder.build();
@@ -262,15 +273,15 @@ public class BenchmarkBlockSerde
             else if (TINYINT.equals(type)) {
                 TINYINT.writeByte(blockBuilder, (byte) value);
             }
-            else if (type instanceof RowType) {
+            else if (type instanceof RowType rowType) {
                 List<?> values = (List<?>) value;
-                if (values.size() != type.getTypeParameters().size()) {
+                if (values.size() != rowType.getFields().size()) {
                     throw new IllegalArgumentException("Size of types and values must have the same size");
                 }
                 ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                     List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
-                    for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                        pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                    for (int i = 0; i < rowType.getFields().size(); i++) {
+                        pairs.add(new SimpleEntry<>(rowType.getFields().get(i).getType(), ((List<?>) value).get(i)));
                     }
                     for (int i = 0; i < pairs.size(); i++) {
                         SimpleEntry<Type, Object> p = pairs.get(i);
@@ -404,7 +415,7 @@ public class BenchmarkBlockSerde
         @Setup
         public void setup()
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
+            PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory();
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
 
@@ -423,7 +434,7 @@ public class BenchmarkBlockSerde
         public void setup()
         {
             RowType type = RowType.anonymous(ImmutableList.of(BIGINT));
-            super.setup(type, random -> BenchmarkDataGenerator.randomRow(type.getTypeParameters(), random));
+            super.setup(type, random -> BenchmarkDataGenerator.randomRow(type.getFieldTypes(), random));
         }
     }
 
@@ -435,7 +446,7 @@ public class BenchmarkBlockSerde
         deserializeLineitem(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkBlockSerde.class).run();

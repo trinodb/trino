@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -220,68 +219,5 @@ public class Partition
         {
             return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters);
         }
-    }
-
-    public static List<String> toPartitionValues(String partitionName)
-    {
-        // mimics Warehouse.makeValsFromName
-        ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
-        int start = 0;
-        while (true) {
-            while (start < partitionName.length() && partitionName.charAt(start) != '=') {
-                start++;
-            }
-            start++;
-            int end = start;
-            while (end < partitionName.length() && partitionName.charAt(end) != '/') {
-                end++;
-            }
-            if (start > partitionName.length()) {
-                break;
-            }
-            resultBuilder.add(unescapePathName(partitionName.substring(start, end)));
-            start = end + 1;
-        }
-        return resultBuilder.build();
-    }
-
-    // copy of org.apache.hadoop.hive.common.FileUtils#unescapePathName
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static String unescapePathName(String path)
-    {
-        // fast path, no escaped characters and therefore no copying necessary
-        int escapedAtIndex = path.indexOf('%');
-        if (escapedAtIndex < 0 || escapedAtIndex + 2 >= path.length()) {
-            return path;
-        }
-
-        // slow path, unescape into a new string copy
-        StringBuilder sb = new StringBuilder();
-        int fromIndex = 0;
-        while (escapedAtIndex >= 0 && escapedAtIndex + 2 < path.length()) {
-            // preceding sequence without escaped characters
-            if (escapedAtIndex > fromIndex) {
-                sb.append(path, fromIndex, escapedAtIndex);
-            }
-            // try to parse the to digits after the percent sign as hex
-            try {
-                int code = HexFormat.fromHexDigits(path, escapedAtIndex + 1, escapedAtIndex + 3);
-                sb.append((char) code);
-                // advance past the percent sign and both hex digits
-                fromIndex = escapedAtIndex + 3;
-            }
-            catch (NumberFormatException e) {
-                // invalid escape sequence, only advance past the percent sign
-                sb.append('%');
-                fromIndex = escapedAtIndex + 1;
-            }
-            // find next escaped character
-            escapedAtIndex = path.indexOf('%', fromIndex);
-        }
-        // trailing sequence without escaped characters
-        if (fromIndex < path.length()) {
-            sb.append(path, fromIndex, path.length());
-        }
-        return sb.toString();
     }
 }

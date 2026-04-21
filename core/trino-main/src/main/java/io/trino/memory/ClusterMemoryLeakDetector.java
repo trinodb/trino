@@ -20,8 +20,8 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.QueryId;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -30,9 +30,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.QueryState.RUNNING;
+import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTime.now;
-import static org.joda.time.Seconds.secondsBetween;
 
 @ThreadSafe
 public class ClusterMemoryLeakDetector
@@ -81,13 +80,13 @@ public class ClusterMemoryLeakDetector
             return true;
         }
 
-        DateTime queryEndTime = queryInfo.getQueryStats().getEndTime();
+        Instant queryEndTime = queryInfo.getQueryStats().getEndTime();
 
         if (queryInfo.getState() == RUNNING || queryEndTime == null) {
             return false;
         }
 
-        return secondsBetween(queryEndTime, now()).getSeconds() >= DEFAULT_LEAK_CLAIM_DELTA_SEC;
+        return queryEndTime.plusSeconds(DEFAULT_LEAK_CLAIM_DELTA_SEC).isBefore(now());
     }
 
     synchronized boolean wasQueryPossiblyLeaked(QueryId queryId)

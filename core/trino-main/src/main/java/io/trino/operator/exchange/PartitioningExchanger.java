@@ -35,6 +35,7 @@ class PartitioningExchanger
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
     private final IntArrayList[] partitionAssignments;
+    private int[] partitions = new int[0];
 
     public PartitioningExchanger(
             List<Consumer<Page>> partitions,
@@ -58,9 +59,12 @@ class PartitioningExchanger
     {
         Page partitionPage = partitionedPagePreparer.apply(page);
         // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
+        if (partitions.length < partitionPage.getPositionCount()) {
+            partitions = new int[partitionPage.getPositionCount()];
+        }
+        partitionFunction.getPartitions(partitionPage, 0, partitionPage.getPositionCount(), partitions);
         for (int position = 0; position < partitionPage.getPositionCount(); position++) {
-            int partition = partitionFunction.getPartition(partitionPage, position);
-            partitionAssignments[partition].add(position);
+            partitionAssignments[partitions[position]].add(position);
         }
 
         // build a page for each partition

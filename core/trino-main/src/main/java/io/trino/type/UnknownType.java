@@ -19,9 +19,9 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
@@ -83,6 +83,12 @@ public final class UnknownType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;
@@ -101,17 +107,11 @@ public final class UnknownType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         // call is null in case position is out of bounds
         checkArgument(block.isNull(position), "Expected NULL value for UnknownType");
         return null;
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        blockBuilder.appendNull();
     }
 
     @Override
@@ -143,7 +143,8 @@ public final class UnknownType
     private static boolean readFlat(
             @FlatFixed byte[] unusedFixedSizeSlice,
             @FlatFixedOffset int unusedFixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }

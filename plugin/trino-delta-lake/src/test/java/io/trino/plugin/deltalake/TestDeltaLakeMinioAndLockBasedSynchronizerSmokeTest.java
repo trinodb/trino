@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.S3LockBasedTransactionLogSynchronizer;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -41,9 +41,9 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,7 +62,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
     protected Minio minio;
     protected HiveMetastore metastore;
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -89,14 +89,14 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
                     .put("hive.metastore.disable-location-checks", "true")
                     // required by the file metastore
                     .put("fs.hadoop.enabled", "true")
-                    .put("fs.native-s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("fs.s3.enabled", "true")
+                    .put("s3.aws-access-key", MINIO_ROOT_USER)
+                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                     .put("s3.region", MINIO_REGION)
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")
                     .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                    .put("s3.exclusive-create", "false") // disable so we can test our own locking scheme
+                    .put("delta.s3.transaction-log-conditional-writes.enabled", "false") // disable so we can test our own locking scheme
                     .put("delta.metastore.store-table-metadata", "true")
                     .put("delta.enable-non-concurrent-writes", "true")
                     .put("delta.register-table-procedure.enabled", "true")
@@ -220,7 +220,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
             throws Exception
     {
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
-        String lockFileContents = OBJECT_MAPPER.writeValueAsString(
+        String lockFileContents = JSON_MAPPER.writeValueAsString(
                 new S3LockBasedTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
         minioClient.putObject(bucketName, lockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);

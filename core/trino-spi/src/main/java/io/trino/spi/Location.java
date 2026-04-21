@@ -13,17 +13,9 @@
  */
 package io.trino.spi;
 
-import com.google.errorprone.annotations.Immutable;
-
-import java.util.Objects;
-
-@Immutable
-public final class Location
+public record Location(int lineNumber, int columnNumber)
 {
-    private final int lineNumber;
-    private final int columnNumber;
-
-    public Location(int lineNumber, int columnNumber)
+    public Location
     {
         if (lineNumber < 1) {
             throw new IllegalArgumentException("lineNumber must be at least one");
@@ -32,33 +24,6 @@ public final class Location
         if (columnNumber < 1) {
             throw new IllegalArgumentException("columnNumber must be at least one");
         }
-
-        this.lineNumber = lineNumber;
-        this.columnNumber = columnNumber;
-    }
-
-    public int getLineNumber()
-    {
-        return lineNumber;
-    }
-
-    public int getColumnNumber()
-    {
-        return columnNumber;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        return (o instanceof Location other) &&
-                (lineNumber == other.lineNumber) &&
-                (columnNumber == other.columnNumber);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(lineNumber, columnNumber);
     }
 
     @Override

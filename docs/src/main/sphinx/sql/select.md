@@ -3,7 +3,8 @@
 ## Synopsis
 
 ```text
-[ WITH FUNCTION udf ]
+[ WITH SESSION [ name = expression [, ...] ]
+[ WITH [ FUNCTION udf ] [, ...] ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]
@@ -59,6 +60,7 @@ and `grouping_element` is one of
 ```text
 ()
 expression
+AUTO
 GROUPING SETS ( ( column [, ...] ) [, ...] )
 CUBE ( column [, ...] )
 ROLLUP ( column [, ...] )
@@ -67,6 +69,31 @@ ROLLUP ( column [, ...] )
 ## Description
 
 Retrieve rows from zero or more tables.
+
+(select-with-session)=
+## WITH SESSION clause
+
+The `WITH SESSION` clause allows you to [set session and catalog session
+property values](/sql/set-session) applicable for the processing of the current
+SELECT statement only. The defined values override any other configuration and
+session property settings. Multiple properties are separated by commas.
+
+The following example overrides the global configuration property
+`query.max-execution-time` with the session property `query_max_execution_time`
+to reduce the time to `2h`. It also overrides the catalog property
+`iceberg.query-partition-filter-required` from the `example` catalog using
+[](/connector/iceberg) setting the catalog session property
+`query_partition_filter_required` to `true`:
+
+```sql
+WITH
+  SESSION
+    query_max_execution_time='2h',
+    example.query_partition_filter_required=true
+SELECT *
+FROM example.default.thetable
+LIMIT 100;
+```
 
 ## WITH FUNCTION clause
 
@@ -79,10 +106,10 @@ The following example declares and uses two inline UDFs:
 WITH 
   FUNCTION hello(name varchar)
     RETURNS varchar
-    RETURN format('Hello %s!', 'name'),
+    RETURN format('Hello %s!', name),
   FUNCTION bye(name varchar)
     RETURNS varchar
-    RETURN format('Bye %s!', 'name')
+    RETURN format('Bye %s!', name)
 SELECT hello('Finn') || ' and ' || bye('Joe');
 -- Hello Finn! and Bye Joe!
 ```
@@ -351,6 +378,32 @@ Complex grouping operations are often equivalent to a `UNION ALL` of simple
 `GROUP BY` expressions, as shown in the following examples. This equivalence
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
+
+### AUTO
+
+When `AUTO` is specified, the Trino engine automatically determines the grouping
+columns instead of requiring them to be listed explicitly. In this mode, any
+column in the `SELECT` list that is not part of an aggregate function is
+implicitly treated as a grouping column.
+
+This example query calculates the total account balance per market segment.
+The `AUTO` clause derives `mktsegment` as the grouping key, since it is not used
+in any aggregate function (i.e., `sum`).
+
+```sql
+SELECT mktsegment, sum(acctbal) FROM shipping GROUP BY AUTO;
+```
+
+```text
+ mktsegment |       _col1
+------------+--------------------
+ BUILDING   |          1444587.8
+ MACHINERY  |         1296958.61
+ HOUSEHOLD  |         1279340.66
+ FURNITURE  |          1265282.8
+ AUTOMOBILE | 1395695.7200000004
+(5 rows)
+```
 
 ### GROUPING SETS
 
@@ -747,15 +800,15 @@ specifications contains the component, the default value is used.
 to combine the results of more than one select statement into a single result set:
 
 ```text
-query UNION [ALL | DISTINCT] query
+query UNION [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 ```text
-query INTERSECT [ALL | DISTINCT] query
+query INTERSECT [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 ```text
-query EXCEPT [ALL | DISTINCT] query
+query EXCEPT [ALL | DISTINCT] [CORRESPONDING] query
 ```
 
 The argument `ALL` or `DISTINCT` controls which rows are included in
@@ -824,6 +877,36 @@ SELECT * FROM (VALUES 42, 13);
 (2 rows)
 ```
 
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
+UNION ALL CORRESPONDING
+SELECT * FROM (VALUES ('bob', 2)) AS t(name, id);
+```
+
+```text
+ id | name
+----+-------
+  1 | alice
+  2 | bob
+(2 rows)
+```
+
+```sql
+SELECT * FROM (VALUES (DATE '2025-04-23', 'alice')) AS t(order_date, name)
+UNION ALL CORRESPONDING
+SELECT * FROM (VALUES ('bob', 123.45)) AS t(name, price);
+```
+
+```text
+ name
+-------
+ alice
+ bob
+(2 rows)
+```
+
 ### INTERSECT clause
 
 `INTERSECT` returns only the rows that are in the result sets of both the first and
@@ -845,6 +928,21 @@ SELECT 13;
 (2 rows)
 ```
 
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice')) AS t(id, name)
+INTERSECT CORRESPONDING
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
+```
+
+```text
+ id | name
+----+-------
+  1 | alice
+(1 row)
+```
+
 ### EXCEPT clause
 
 `EXCEPT` returns the rows that are in the result set of the first query,
@@ -864,6 +962,21 @@ SELECT 13;
 -------
    42
 (2 rows)
+```
+
+`CORRESPONDING` matches columns by name instead of by position:
+
+```sql
+SELECT * FROM (VALUES (1, 'alice'), (2, 'bob')) AS t(id, name)
+EXCEPT CORRESPONDING
+SELECT * FROM (VALUES ('alice', 1)) AS t(name, id);
+```
+
+```text
+ id | name
+----+------
+  2 | bob
+(1 row)
 ```
 
 (order-by-clause)=
@@ -1038,6 +1151,7 @@ ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 (5 rows)
 ```
 
+(tablesample)=
 ## TABLESAMPLE
 
 There are multiple sample methods:
@@ -1277,6 +1391,13 @@ LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE;
 
 Note that in case of using `LEFT JOIN` the only condition supported by the current implementation is `ON TRUE`.
 
+(select-json-table)=
+## JSON_TABLE
+
+`JSON_TABLE` transforms JSON data into a relational table format. Like `UNNEST`
+and `LATERAL`, use `JSON_TABLE` in the `FROM` clause of a `SELECT` statement.
+For more information, see [`JSON_TABLE`](json-table).
+
 ## Joins
 
 Joins allow you to combine data from multiple relations.
@@ -1348,6 +1469,131 @@ CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
 CROSS JOIN LATERAL (SELECT x || ')' AS y);
 ```
 
+When `LATERAL` appears on the right side of a `FULL JOIN`, the only condition
+supported by the current implementation is `ON TRUE`.
+
+### NEAREST
+
+`NEAREST` is a relation that selects at most one row from a `FROM` relation for
+each row on the left side of a join.
+
+Use `NEAREST` on the right side of an explicit `CROSS JOIN`, `INNER JOIN` with
+`ON TRUE`, `LEFT JOIN` with `ON TRUE`, or an implicit comma join:
+
+```text
+CROSS JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+)
+
+INNER JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+) ON TRUE
+
+relation,
+NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+)
+
+LEFT JOIN NEAREST (
+    FROM relation
+    [ WHERE condition ]
+    MATCH comparison
+ ) ON TRUE
+```
+
+The `MATCH` clause is required. It must be a single comparison using one
+expression from the `FROM` relation and one non-`FROM` expression, with one of
+the operators `<`, `<=`, `>`, or `>=`.
+
+The comparison determines both the matching direction and the ordering of
+candidate rows:
+
+- `<` and `<=` select the closest row from the `FROM` relation whose match key
+  is smaller than, or smaller than or equal to, the other expression.
+- `>` and `>=` select the closest row from the `FROM` relation whose match key
+  is greater than, or greater than or equal to, the other expression.
+
+The optional `WHERE` clause filters candidate rows before the nearest row is
+selected.
+
+`NEAREST` can be understood as shorthand for a lateral subquery that filters to
+matching candidate rows, orders them by the `FROM` relation match key, and
+keeps only the first row. For example:
+
+- `NEAREST (
+      FROM ...
+      WHERE ...
+      MATCH right_key <= left_key
+  )` is equivalent to:
+
+  ```sql
+  LATERAL (
+      SELECT *
+      FROM ...
+      WHERE ...
+          AND right_key <= left_key
+      ORDER BY right_key DESC
+      FETCH FIRST 1 ROW ONLY
+  )
+  ```
+
+- `NEAREST (
+      FROM ...
+      WHERE ...
+      MATCH right_key >= left_key
+  )` is equivalent to:
+
+  ```sql
+  LATERAL (
+      SELECT *
+      FROM ...
+      WHERE ...
+          AND right_key >= left_key
+      ORDER BY right_key ASC
+      FETCH FIRST 1 ROW ONLY
+  )
+  ```
+
+More generally, `<` and `<=` order the `FROM` relation match key descending,
+while `>` and `>=` order it ascending.
+
+For example, the following query matches each trade with the most recent quote
+for the same symbol:
+
+```sql
+SELECT trades.symbol, trades.ts, quotes.price
+FROM trades
+CROSS JOIN NEAREST (
+    FROM quotes
+    WHERE quotes.symbol = trades.symbol
+    MATCH quotes.ts <= trades.ts
+);
+```
+
+To preserve rows from the left side when no nearest row exists, use
+`LEFT JOIN NEAREST`:
+
+```sql
+SELECT trades.symbol, quotes.price
+FROM trades
+LEFT JOIN NEAREST (
+    FROM quotes
+    WHERE quotes.symbol = trades.symbol
+    MATCH quotes.ts >= trades.ts
+) ON TRUE;
+```
+
+The current implementation supports `CROSS JOIN NEAREST (...)`, `INNER JOIN
+NEAREST (...) ON TRUE`, implicit comma joins with `NEAREST (...)`, and
+`LEFT JOIN NEAREST (...) ON TRUE`.
+`JOIN USING`, `NATURAL JOIN`, and join conditions other than `ON TRUE` are not
+supported for `NEAREST`.
 ### Qualifying column names
 
 When two relations in a join have columns with the same name, the column

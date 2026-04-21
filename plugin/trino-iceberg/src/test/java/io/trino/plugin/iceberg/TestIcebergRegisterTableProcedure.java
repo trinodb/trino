@@ -53,7 +53,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -95,7 +95,7 @@ public class TestIcebergRegisterTableProcedure
         queryRunner.createCatalog("tpch", "tpch");
 
         dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, () -> Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("fs.hadoop.enabled", "true", "iceberg.register-table-procedure.enabled", "true"));
         queryRunner.execute("CREATE SCHEMA iceberg.tpch");
         return queryRunner;
@@ -573,11 +573,6 @@ public class TestIcebergRegisterTableProcedure
     {
         metastore.dropTable(getSession().getSchema().orElseThrow(), tableName, false);
         assertThat(metastore.getTable(getSession().getSchema().orElseThrow(), tableName)).as("Table in metastore should be dropped").isEmpty();
-    }
-
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "'");
     }
 
     private String getColumnComment(String tableName, String columnName)

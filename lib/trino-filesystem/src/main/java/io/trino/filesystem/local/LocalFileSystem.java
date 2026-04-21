@@ -253,7 +253,7 @@ public class LocalFileSystem
         return Optional.of(temporary);
     }
 
-    private Path toFilePath(Location location)
+    public Path toFilePath(Location location)
     {
         validateLocalLocation(location);
         location.verifyValidFileLocation();
@@ -273,7 +273,7 @@ public class LocalFileSystem
 
     private static void validateLocalLocation(Location location)
     {
-        checkArgument(location.scheme().equals(Optional.of("local")), "Only 'local' scheme is supported: %s", location);
+        checkArgument(location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")), "Only 'local' and 'file' scheme is supported: %s", location);
         checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
         checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", location);
     }

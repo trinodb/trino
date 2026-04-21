@@ -18,19 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.resourcegroups.QueryType;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
@@ -56,10 +56,10 @@ public class TestBasicQueryInfo
                         "SELECT 4",
                         Optional.empty(),
                         new QueryStats(
-                                DateTime.parse("1991-09-06T05:00-05:30"),
-                                DateTime.parse("1991-09-06T05:01-05:30"),
-                                DateTime.parse("1991-09-06T05:02-05:30"),
-                                DateTime.parse("1991-09-06T06:00-05:30"),
+                                Instant.parse("2025-05-11T13:32:17.751968Z"),
+                                Instant.parse("2025-05-11T13:32:17.751968Z"),
+                                Instant.parse("2025-05-11T13:32:17.751968Z"),
+                                Instant.parse("2025-05-11T13:32:17.751968Z"),
                                 new Duration(8, MINUTES),
                                 new Duration(7, MINUTES),
                                 new Duration(35, MINUTES),
@@ -90,6 +90,7 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("29GB"),
                                 DataSize.valueOf("30GB"),
                                 DataSize.valueOf("31GB"),
+                                DataSize.valueOf("32GB"),
                                 true,
                                 OptionalDouble.of(100),
                                 OptionalDouble.of(0),
@@ -110,10 +111,6 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("272GB"),
                                 282,
                                 282,
-                                DataSize.valueOf("39GB"),
-                                DataSize.valueOf("40GB"),
-                                41,
-                                42,
                                 DataSize.valueOf("43GB"),
                                 DataSize.valueOf("44GB"),
                                 45,
@@ -137,6 +134,8 @@ public class TestBasicQueryInfo
                                         106,
                                         107)),
                                 DynamicFiltersStats.EMPTY,
+                                ImmutableMap.of(),
+                                ImmutableMap.of(),
                                 ImmutableList.of(),
                                 ImmutableList.of()),
                         Optional.empty(),
@@ -144,6 +143,7 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.empty(),
                         false,
+                        ImmutableSet.of(),
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         ImmutableMap.of(),
@@ -158,6 +158,7 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableSet.of(),
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         false,
@@ -167,14 +168,14 @@ public class TestBasicQueryInfo
                         false,
                         new NodeVersion("test")));
 
-        assertThat(basicInfo.getQueryId().getId()).isEqualTo("0");
+        assertThat(basicInfo.getQueryId().id()).isEqualTo("0");
         assertThat(basicInfo.getState()).isEqualTo(RUNNING);
         assertThat(basicInfo.isScheduled()).isTrue(); // from query stats
         assertThat(basicInfo.getQuery()).isEqualTo("SELECT 4");
         assertThat(basicInfo.getQueryType().get()).isEqualTo(QueryType.SELECT);
 
-        assertThat(basicInfo.getQueryStats().getCreateTime()).isEqualTo(DateTime.parse("1991-09-06T05:00-05:30"));
-        assertThat(basicInfo.getQueryStats().getEndTime()).isEqualTo(DateTime.parse("1991-09-06T06:00-05:30"));
+        assertThat(basicInfo.getQueryStats().getCreateTime()).isEqualTo(Instant.parse("2025-05-11T13:32:17.751968Z"));
+        assertThat(basicInfo.getQueryStats().getEndTime()).isEqualTo(Instant.parse("2025-05-11T13:32:17.751968Z"));
         assertThat(basicInfo.getQueryStats().getElapsedTime()).isEqualTo(new Duration(8, MINUTES));
         assertThat(basicInfo.getQueryStats().getExecutionTime()).isEqualTo(new Duration(44, MINUTES));
 
@@ -188,6 +189,7 @@ public class TestBasicQueryInfo
         assertThat(basicInfo.getQueryStats().getUserMemoryReservation()).isEqualTo(DataSize.valueOf("23GB"));
         assertThat(basicInfo.getQueryStats().getTotalMemoryReservation()).isEqualTo(DataSize.valueOf("25GB"));
         assertThat(basicInfo.getQueryStats().getPeakUserMemoryReservation()).isEqualTo(DataSize.valueOf("26GB"));
+        assertThat(basicInfo.getQueryStats().getSpilledDataSize()).isEqualTo(DataSize.valueOf("32GB"));
         assertThat(basicInfo.getQueryStats().getTotalScheduledTime()).isEqualTo(new Duration(32, MINUTES));
         assertThat(basicInfo.getQueryStats().getFailedScheduledTime()).isEqualTo(new Duration(33, MINUTES));
         assertThat(basicInfo.getQueryStats().getTotalCpuTime()).isEqualTo(new Duration(34, MINUTES));

@@ -40,7 +40,8 @@ public class TestDbResourceGroupConfig
                 .setConfigDbPassword(null)
                 .setMaxRefreshInterval(new Duration(1, HOURS))
                 .setRefreshInterval(new Duration(1, SECONDS))
-                .setExactMatchSelectorEnabled(false));
+                .setExactMatchSelectorEnabled(false)
+                .setRunMigrationsEnabled(true));
     }
 
     @Test
@@ -53,6 +54,7 @@ public class TestDbResourceGroupConfig
                 .put("resource-groups.max-refresh-interval", "1m")
                 .put("resource-groups.refresh-interval", "2s")
                 .put("resource-groups.exact-match-selector-enabled", "true")
+                .put("resource-groups.db-migrations-enabled", "false")
                 .buildOrThrow();
         DbResourceGroupConfig expected = new DbResourceGroupConfig()
                 .setConfigDbUrl("jdbc:mysql://localhost:3306/config")
@@ -60,7 +62,8 @@ public class TestDbResourceGroupConfig
                 .setConfigDbPassword("trino_admin_pass")
                 .setMaxRefreshInterval(new Duration(1, MINUTES))
                 .setRefreshInterval(new Duration(2, SECONDS))
-                .setExactMatchSelectorEnabled(true);
+                .setExactMatchSelectorEnabled(true)
+                .setRunMigrationsEnabled(false);
 
         assertFullMapping(properties, expected);
         assertThat(expected.isRefreshIntervalValid()).isTrue();

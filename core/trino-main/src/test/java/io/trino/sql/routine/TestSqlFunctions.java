@@ -13,10 +13,12 @@
  */
 package io.trino.sql.routine;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
@@ -24,7 +26,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
@@ -34,6 +35,8 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.transaction.TransactionManager;
@@ -44,12 +47,13 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Map;
+import java.time.temporal.ChronoField;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -64,6 +68,7 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floor;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,15 +84,17 @@ class TestSqlFunctions
     private static final JsonCodec<IrRoutine> IR_ROUTINE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(Map.of(
-                Block.class, new BlockJsonSerde.Serializer(PLANNER_CONTEXT.getBlockEncodingSerde())));
-        provider.setJsonDeserializers(Map.of(
-                Type.class, new TypeDeserializer(PLANNER_CONTEXT.getTypeManager()),
-                Block.class, new BlockJsonSerde.Deserializer(PLANNER_CONTEXT.getBlockEncodingSerde())));
-        provider.setKeyDeserializers(Map.of(
-                TypeSignature.class, new TypeSignatureKeyDeserializer()));
-        IR_ROUTINE_CODEC = new JsonCodecFactory(provider).jsonCodec(IrRoutine.class);
+        JsonMapper mapper = new JsonMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(
+                    TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                    Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                .withJsonDeserializers(ImmutableMap.of(
+                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                        Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .withJsonSerializers(ImmutableMap.of(
+                        Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)))
+                .get();
+        IR_ROUTINE_CODEC = new JsonCodecFactory(mapper).jsonCodec(IrRoutine.class);
     }
 
     @Test
@@ -535,7 +542,12 @@ class TestSqlFunctions
     @Test
     void testSession()
     {
-        testSingleExpression(UNKNOWN, null, DOUBLE, floor(SESSION.getStart().toEpochMilli() / 1000.0), "floor(to_unixtime(localtimestamp))");
+        // `localtimestamp` returns session start (local) time rounded to milliseconds while Instant.toEpochMilli truncates.
+        var sessionStartRoundedToMillis = SESSION.getStart().toEpochMilli();
+        if (SESSION.getStart().getLong(ChronoField.MICRO_OF_SECOND) % 1000 >= 500) {
+            sessionStartRoundedToMillis++;
+        }
+        testSingleExpression(UNKNOWN, null, DOUBLE, floor(sessionStartRoundedToMillis / 1000.0), "floor(to_unixtime(localtimestamp))");
         testSingleExpression(UNKNOWN, null, VARCHAR, SESSION.getUser(), "current_user");
     }
 
@@ -628,9 +640,9 @@ class TestSqlFunctions
         }
 
         // verify routine hash does not fail
-        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), new TestingBlockEncodingSerde());
+        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), TESTING_BLOCK_ENCODING_SERDE);
 
-        SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager());
+        SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager());
         SpecializedSqlScalarFunction sqlScalarFunction = compiler.compile(routine);
 
         InvocationConvention invocationConvention = new InvocationConvention(

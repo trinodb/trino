@@ -106,7 +106,7 @@ public interface ProxyTransportFactory
             HttpHost proxyHost = new HttpHost(proxyUri.getHost(), proxyUri.getPort());
             HttpRoutePlanner httpRoutePlanner = new DefaultProxyRoutePlanner(proxyHost);
 
-            HttpClientBuilder httpClientBuilder = ApacheHttpClientTelemetry.create(openTelemetry).newHttpClientBuilder()
+            HttpClientBuilder httpClientBuilder = ApacheHttpClientTelemetry.create(openTelemetry).createHttpClientBuilder()
                     .setRoutePlanner(httpRoutePlanner);
 
             if (sslContext.isPresent()) {

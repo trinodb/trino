@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Day of the month of the given timestamp")
-@ScalarFunction(value = "day", alias = "day_of_month")
-public class ExtractDay
+@ScalarFunction(value = "day", alias = "day_of_month", neverFails = true)
+public final class ExtractDay
 {
     private ExtractDay() {}
 

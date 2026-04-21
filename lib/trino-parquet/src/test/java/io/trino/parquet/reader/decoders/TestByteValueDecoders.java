@@ -114,7 +114,7 @@ public final class TestByteValueDecoders
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                byte[] constants = new byte[] {Byte.MIN_VALUE, -1, 0, 5, 17, Byte.MAX_VALUE};
+                byte[] constants = {Byte.MIN_VALUE, -1, 0, 5, 17, Byte.MAX_VALUE};
                 byte[] values = new byte[dataSize];
                 for (int i = 0; i < dataSize; i++) {
                     values[i] = constants[random.nextInt(constants.length)];

@@ -70,7 +70,7 @@ public class AlluxioFileSystemInputFile
             throws IOException
     {
         try {
-            return new AlluxioTrinoInputStream(location, openFile(), getURIStatus());
+            return new AlluxioTrinoInputStream(location, openFile(), loadFileStatus());
         }
         catch (AlluxioException e) {
             throw new IOException("Error newStream() file: %s".formatted(location), e);
@@ -83,29 +83,30 @@ public class AlluxioFileSystemInputFile
         if (!exists()) {
             throw new FileNotFoundException("File does not exist: " + location);
         }
-        return fileSystem.openFile(getURIStatus(), OpenFilePOptions.getDefaultInstance());
+        return fileSystem.openFile(loadFileStatus(), OpenFilePOptions.getDefaultInstance());
     }
 
-    private void loadFileStatus()
+    private URIStatus loadFileStatus()
             throws IOException
     {
         if (status == null) {
-            URIStatus fileStatus = getURIStatus();
+            status = fetchUriStatus();
             if (length == null) {
-                length = fileStatus.getLength();
+                length = status.getLength();
             }
             if (lastModified.isEmpty()) {
-                lastModified = Optional.of(Instant.ofEpochMilli(fileStatus.getLastModificationTimeMs()));
+                lastModified = Optional.of(Instant.ofEpochMilli(status.getLastModificationTimeMs()));
             }
         }
+        return status;
     }
 
-    private URIStatus getURIStatus()
+    private URIStatus fetchUriStatus()
             throws IOException
     {
         try {
             //TODO: create a URIStatus object based on the location field
-            status = fileSystem.getStatus(convertToAlluxioURI(location, mountRoot));
+            return fileSystem.getStatus(convertToAlluxioURI(location, mountRoot));
         }
         catch (FileDoesNotExistException | NotFoundRuntimeException e) {
             throw new FileNotFoundException("File does not exist: %s".formatted(location));
@@ -113,7 +114,6 @@ public class AlluxioFileSystemInputFile
         catch (AlluxioException | IOException e) {
             throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
         }
-        return status;
     }
 
     @Override

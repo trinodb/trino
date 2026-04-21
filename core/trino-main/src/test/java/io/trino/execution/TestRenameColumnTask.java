@@ -179,7 +179,7 @@ public class TestRenameColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), identifier("x"), false, false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessageContaining("Field path [col, a] within row(a bigint, a bigint) is ambiguous");
+                .hasMessageContaining("Field path [col, a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
     }
 
     @Test

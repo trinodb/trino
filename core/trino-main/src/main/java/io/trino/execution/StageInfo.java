@@ -13,11 +13,8 @@
  */
 package io.trino.execution;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanFragment;
@@ -26,122 +23,36 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class StageInfo
+public record StageInfo(
+        StageId stageId,
+        StageState state,
+        @Nullable PlanFragment plan,
+        boolean coordinatorOnly,
+        List<Type> types,
+        StageStats stageStats,
+        List<TaskInfo> tasks,
+        List<StageId> subStages,
+        Map<PlanNodeId, TableInfo> tables,
+        ExecutionFailureInfo failureCause)
 {
-    private final StageId stageId;
-    private final StageState state;
-    private final PlanFragment plan;
-    private final boolean coordinatorOnly;
-    private final List<Type> types;
-    private final StageStats stageStats;
-    private final List<TaskInfo> tasks;
-    private final List<StageInfo> subStages;
-    private final ExecutionFailureInfo failureCause;
-    private final Map<PlanNodeId, TableInfo> tables;
-
-    @JsonCreator
-    public StageInfo(
-            @JsonProperty("stageId") StageId stageId,
-            @JsonProperty("state") StageState state,
-            @JsonProperty("plan") @Nullable PlanFragment plan,
-            @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
-            @JsonProperty("types") List<Type> types,
-            @JsonProperty("stageStats") StageStats stageStats,
-            @JsonProperty("tasks") List<TaskInfo> tasks,
-            @JsonProperty("subStages") List<StageInfo> subStages,
-            @JsonProperty("tables") Map<PlanNodeId, TableInfo> tables,
-            @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
-    {
+    public StageInfo {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(state, "state is null");
         requireNonNull(stageStats, "stageStats is null");
         requireNonNull(tasks, "tasks is null");
         requireNonNull(subStages, "subStages is null");
         requireNonNull(tables, "tables is null");
-
-        this.stageId = stageId;
-        this.state = state;
-        this.plan = plan;
-        this.coordinatorOnly = coordinatorOnly;
-        this.types = types;
-        this.stageStats = stageStats;
-        this.tasks = ImmutableList.copyOf(tasks);
-        this.subStages = subStages;
-        this.failureCause = failureCause;
-        this.tables = ImmutableMap.copyOf(tables);
-    }
-
-    @JsonProperty
-    public StageId getStageId()
-    {
-        return stageId;
-    }
-
-    @JsonProperty
-    public StageState getState()
-    {
-        return state;
-    }
-
-    @JsonProperty
-    @Nullable
-    public PlanFragment getPlan()
-    {
-        return plan;
-    }
-
-    @JsonProperty
-    public boolean isCoordinatorOnly()
-    {
-        return coordinatorOnly;
-    }
-
-    @JsonProperty
-    public List<Type> getTypes()
-    {
-        return types;
-    }
-
-    @JsonProperty
-    public StageStats getStageStats()
-    {
-        return stageStats;
-    }
-
-    @JsonProperty
-    public List<TaskInfo> getTasks()
-    {
-        return tasks;
-    }
-
-    @JsonProperty
-    public List<StageInfo> getSubStages()
-    {
-        return subStages;
-    }
-
-    @JsonProperty
-    public Map<PlanNodeId, TableInfo> getTables()
-    {
-        return tables;
-    }
-
-    @JsonProperty
-    public ExecutionFailureInfo getFailureCause()
-    {
-        return failureCause;
+        tasks = ImmutableList.copyOf(tasks);
+        tables = ImmutableMap.copyOf(tables);
     }
 
     public boolean isFinalStageInfo()
     {
-        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().getState().isDone());
+        return state.isDone() && tasks.stream().allMatch(taskInfo -> taskInfo.taskStatus().state().isDone());
     }
 
     @Override
@@ -153,7 +64,7 @@ public class StageInfo
                 .toString();
     }
 
-    public StageInfo withSubStages(List<StageInfo> subStages)
+    public StageInfo withSubStages(List<StageId> subStages)
     {
         return new StageInfo(
                 stageId,
@@ -164,21 +75,6 @@ public class StageInfo
                 stageStats,
                 tasks,
                 subStages,
-                tables,
-                failureCause);
-    }
-
-    public StageInfo pruneDigests()
-    {
-        return new StageInfo(
-                stageId,
-                state,
-                plan,
-                coordinatorOnly,
-                types,
-                stageStats,
-                tasks.stream().map(TaskInfo::pruneDigests).collect(toImmutableList()),
-                subStages.stream().map(StageInfo::pruneDigests).collect(toImmutableList()),
                 tables,
                 failureCause);
     }
@@ -196,25 +92,5 @@ public class StageInfo
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 null);
-    }
-
-    public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
-    {
-        if (stageInfo.isEmpty()) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo.get(), collector);
-        return collector.build();
-    }
-
-    private static void addAllStages(@Nullable StageInfo stage, ImmutableList.Builder<StageInfo> collector)
-    {
-        if (stage != null) {
-            collector.add(stage);
-            for (StageInfo subStage : stage.getSubStages()) {
-                addAllStages(subStage, collector);
-            }
-        }
     }
 }

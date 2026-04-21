@@ -35,6 +35,8 @@ public interface QueryDataEncoder
     DataAttributes encodeTo(OutputStream output, List<Page> pages)
             throws IOException;
 
+    void close();
+
     String encoding();
 
     /**

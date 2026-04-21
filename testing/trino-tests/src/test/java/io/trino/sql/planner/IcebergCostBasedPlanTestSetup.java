@@ -19,8 +19,8 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergConnectorFactory;
 import io.trino.spi.connector.Connector;
@@ -46,12 +46,11 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
-import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_CONFIG;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -105,14 +104,13 @@ public class IcebergCostBasedPlanTestSetup
         connectorConfiguration = ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", TESTING_FILE_METASTORE.name())
                 .put("hive.metastore.catalog.dir", temporaryMetastoreDirectory.toString())
-                .put("fs.native-s3.enabled", "true")
+                .put("fs.s3.enabled", "true")
                 .put("fs.hadoop.enabled", "true")
-                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.aws-access-key", MINIO_ROOT_USER)
+                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                 .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", minio.getMinioAddress())
                 .put("s3.path-style-access", "true")
-                .put(EXTENDED_STATISTICS_CONFIG, "true")
                 .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 

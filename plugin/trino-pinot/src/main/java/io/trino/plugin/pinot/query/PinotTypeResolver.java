@@ -27,7 +27,6 @@ import org.apache.pinot.core.operator.transform.function.LiteralTransformFunctio
 import org.apache.pinot.core.operator.transform.function.TransformFunctionFactory;
 import org.apache.pinot.segment.local.segment.index.datasource.EmptyDataSource;
 import org.apache.pinot.segment.spi.datasource.DataSource;
-import org.apache.pinot.segment.spi.index.metadata.ColumnMetadataImpl;
 import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.Map;
@@ -56,9 +55,7 @@ public class PinotTypeResolver
         try {
             return pinotClient.getTableSchema(pinotTableName).getFieldSpecMap().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey,
-                            entry -> new EmptyDataSource(new ColumnMetadataImpl.Builder()
-                                    .setFieldSpec(entry.getValue())
-                                    .build())));
+                            entry -> new EmptyDataSource(entry.getValue())));
         }
         catch (Exception e) {
             throw new RuntimeException(e);

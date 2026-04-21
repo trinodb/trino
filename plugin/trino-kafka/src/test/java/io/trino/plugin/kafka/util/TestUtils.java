@@ -14,7 +14,6 @@
 package io.trino.plugin.kafka.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.kafka.KafkaTopicDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
@@ -37,7 +36,7 @@ public final class TestUtils
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName)
             throws IOException
     {
-        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(ByteStreams.toByteArray(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName()))));
+        KafkaTopicDescription tpchTemplate = topicDescriptionJsonCodec.fromJson(TestUtils.class.getResourceAsStream(format("/tpch/%s.json", schemaTableName.getTableName())));
 
         return new AbstractMap.SimpleImmutableEntry<>(
                 schemaTableName,

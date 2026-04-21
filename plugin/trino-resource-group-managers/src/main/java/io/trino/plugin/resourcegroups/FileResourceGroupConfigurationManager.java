@@ -21,7 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
@@ -29,27 +29,31 @@ import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
-    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .build())
             .jsonCodec(ManagerSpec.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;
     private final List<ResourceGroupSpec> rootGroups;
     private final List<ResourceGroupSelector> selectors;
     private final Optional<Duration> cpuQuotaPeriod;
+    private final Optional<Duration> physicalDataScanQuotaPeriod;
 
     @Inject
     public FileResourceGroupConfigurationManager(LifeCycleManager lifeCycleManager, ClusterMemoryPoolManager memoryPoolManager, FileResourceGroupConfig config)
@@ -77,6 +81,7 @@ public class FileResourceGroupConfigurationManager
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.rootGroups = ImmutableList.copyOf(managerSpec.getRootGroups());
         this.cpuQuotaPeriod = managerSpec.getCpuQuotaPeriod();
+        this.physicalDataScanQuotaPeriod = managerSpec.getPhysicalDataScanQuotaPeriod();
         validateRootGroups(managerSpec);
         this.selectors = buildSelectors(managerSpec);
     }
@@ -85,8 +90,8 @@ public class FileResourceGroupConfigurationManager
     static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
     {
         ManagerSpec managerSpec;
-        try {
-            managerSpec = CODEC.fromJson(Files.readAllBytes(Paths.get(config.getConfigFile())));
+        try (InputStream stream = newInputStream(Path.of(config.getConfigFile()))) {
+            managerSpec = CODEC.fromJson(stream);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -116,6 +121,12 @@ public class FileResourceGroupConfigurationManager
     protected Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod;
+    }
+
+    @Override
+    protected Optional<Duration> getPhysicalDataScanQuotaPeriod()
+    {
+        return physicalDataScanQuotaPeriod;
     }
 
     @Override

@@ -24,15 +24,14 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -54,7 +53,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private TestingPolarisCatalog polarisCatalog;
-    private File warehouseLocation;
+    private Path warehouseLocation;
 
     public TestIcebergPolarisCatalogConnectorSmokeTest()
     {
@@ -75,11 +74,11 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.newTemporaryFolder();
-        polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.getPath()));
+        warehouseLocation = Files.createTempDirectory(null);
+        polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
 
         return IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
@@ -88,14 +87,14 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                 .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
-                .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", polarisCatalog.oauth2Credentials())
+                .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         polarisCatalog.dropTable(getSession().getSchema().orElseThrow(), tableName);
     }
@@ -105,7 +104,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     {
         TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
-        BaseTable table = (BaseTable) trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+        BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();
     }
 
@@ -114,7 +113,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     {
         TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
-        BaseTable table = (BaseTable) trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+        BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().location();
     }
 
@@ -127,7 +126,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     @Override

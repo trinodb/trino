@@ -8,7 +8,7 @@ COMMENT ON ( TABLE | VIEW | COLUMN ) name IS 'comments'
 
 ## Description
 
-Set the comment for a object. The comment can be removed by setting the comment to `NULL`.
+Set the comment for an object. The comment can be removed by setting the comment to `NULL`.
 
 ## Examples
 

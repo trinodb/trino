@@ -17,9 +17,9 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
@@ -42,13 +42,14 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 
 public final class RealType
         extends AbstractIntType
 {
+    public static final String NAME = "real";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(RealType.class, lookup(), long.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -60,13 +61,19 @@ public final class RealType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -82,14 +89,10 @@ public final class RealType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        int floatValue;
-        try {
-            floatValue = toIntExact(value);
-        }
-        catch (ArithmeticException e) {
+        if (!isLongToIntExact(value)) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        writeInt(blockBuilder, floatValue);
+        writeInt(blockBuilder, (int) value);
     }
 
     public void writeFloat(BlockBuilder blockBuilder, float value)
@@ -121,7 +124,8 @@ public final class RealType
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
@@ -129,10 +133,10 @@ public final class RealType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }

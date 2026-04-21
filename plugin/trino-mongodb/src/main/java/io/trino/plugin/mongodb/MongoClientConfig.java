@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
@@ -212,6 +213,7 @@ public class MongoClientConfig
         return implicitRowFieldPrefix;
     }
 
+    @ConfigHidden
     @Config("mongodb.implicit-row-field-prefix")
     public MongoClientConfig setImplicitRowFieldPrefix(String implicitRowFieldPrefix)
     {

@@ -25,7 +25,6 @@ import io.trino.spi.TrinoException;
 import java.net.URI;
 import java.util.List;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -47,10 +46,13 @@ public class HdfsExchangeModule
             binder.addError(new TrinoException(CONFIGURATION_INVALID, "Multiple schemes in exchange base directories"));
             return;
         }
+
         String scheme = baseDirectories.get(0).getScheme();
-        if (scheme.equalsIgnoreCase("hdfs")) {
+
+        boolean skipDirectorySchemeValidation = buildConfigObject(ExchangeHdfsConfig.class).isSkipDirectorySchemeValidation();
+
+        if (scheme.equalsIgnoreCase("hdfs") || skipDirectorySchemeValidation) {
             binder.bind(FileSystemExchangeStorage.class).to(HadoopFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(ExchangeHdfsConfig.class);
         }
         else {
             binder.addError(new TrinoException(NOT_SUPPORTED,

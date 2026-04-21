@@ -56,18 +56,17 @@ public class SimplifyRedundantCase
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Case caseTerm)) {
+        if (!(expression instanceof Case(List<WhenClause> whenClauses, Expression defaultValue))) {
             return Optional.empty();
         }
 
-        Expression defaultValue = caseTerm.defaultValue();
-        if (!caseTerm.whenClauses().stream().map(WhenClause::getResult).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
+        if (!whenClauses.stream().map(WhenClause::getResult).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
                 (!defaultValue.equals(TRUE) && !defaultValue.equals(FALSE)) ||
-                caseTerm.whenClauses().stream().map(WhenClause::getOperand).anyMatch(e -> !isDeterministic(e))) {
+                whenClauses.stream().map(WhenClause::getOperand).anyMatch(e -> !isDeterministic(e))) {
             return Optional.empty();
         }
 
-        return transformRecursive(0, caseTerm.whenClauses(), defaultValue)
+        return transformRecursive(0, whenClauses, defaultValue)
                 .or(() -> Optional.<Expression>of(FALSE));
     }
 

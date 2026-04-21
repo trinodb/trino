@@ -13,72 +13,22 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.geospatial.serde.GeometrySerde.deserialize;
-
 public class GeometryType
-        extends AbstractVariableWidthType
+        extends AbstractGeometryType
 {
+    public static final String NAME = "Geometry";
     public static final GeometryType GEOMETRY = new GeometryType();
-    public static final String GEOMETRY_TYPE_NAME = "Geometry";
 
     private GeometryType()
     {
-        super(new TypeSignature(GEOMETRY_TYPE_NAME), Slice.class);
-    }
-
-    protected GeometryType(TypeSignature signature)
-    {
-        super(signature, Slice.class);
+        super(new TypeSignature(NAME));
     }
 
     @Override
-    public Slice getSlice(Block block, int position)
+    public String getDisplayName()
     {
-        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-        int valuePosition = block.getUnderlyingValuePosition(position);
-        return valueBlock.getSlice(valuePosition);
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        if (value == null) {
-            blockBuilder.appendNull();
-            return;
-        }
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        if (value == null) {
-            blockBuilder.appendNull();
-            return;
-        }
-        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
-    }
-
-    @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
-    {
-        if (block.isNull(position)) {
-            return null;
-        }
-        try {
-            return deserialize(getSlice(block, position)).asText();
-        }
-        catch (Exception e) {
-            return "<invalid geometry>";
-        }
+        return NAME;
     }
 }

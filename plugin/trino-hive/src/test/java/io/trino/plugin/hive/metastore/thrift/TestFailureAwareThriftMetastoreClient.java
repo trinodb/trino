@@ -16,8 +16,8 @@ package io.trino.plugin.hive.metastore.thrift;
 import org.apache.thrift.TException;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestFailureAwareThriftMetastoreClient
 {

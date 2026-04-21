@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -60,6 +59,7 @@ public abstract class BaseOpenSearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
+    private String jmxBaseName;
     private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
@@ -76,8 +76,11 @@ public abstract class BaseOpenSearchConnectorTest
         HostAndPort address = opensearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
+        jmxBaseName = randomNameSuffix();
+
         return OpenSearchQueryRunner.builder(opensearch.getAddress())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .addConnectorProperties(Map.of("jmx.base-name", jmxBaseName))
                 .build();
     }
 
@@ -140,8 +143,8 @@ public abstract class BaseOpenSearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
     }
 
     @Test
@@ -1680,13 +1683,6 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
-            throws IOException
-    {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
-    }
-
-    @Test
     public void testDataTypesNested()
             throws IOException
     {
@@ -2483,6 +2479,55 @@ public abstract class BaseOpenSearchConnectorTest
         deleteIndex(tableName);
     }
 
+    @Test
+    public void testWildcardTableSameSchema()
+            throws IOException
+    {
+        String suffix = randomNameSuffix();
+        String firstIndex = format("test_wildcard_%s_1", suffix);
+        String secondIndex = format("test_wildcard_%s_2", suffix);
+        String wildcardTable = format("test_wildcard_%s_*", suffix);
+
+        String mappings =
+                """
+                {
+                    "properties": {
+                      "long_column":      { "type": "long" },
+                      "text_column":      { "type": "text" }
+                    }
+                }
+                """;
+
+        createIndex(firstIndex, mappings);
+        index(firstIndex, ImmutableMap.<String, Object>builder()
+                .put("long_column", 1L)
+                .put("text_column", "Trino")
+                .buildOrThrow());
+        createIndex(secondIndex, mappings);
+        index(secondIndex, ImmutableMap.<String, Object>builder()
+                .put("long_column", 2L)
+                .put("text_column", "rocks")
+                .buildOrThrow());
+
+        try {
+            assertThat(query("DESCRIBE \"" + wildcardTable + "\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('long_column', 'bigint', '', ''), ('text_column', 'varchar', '', '')");
+            assertThat(query("SELECT * FROM \"" + wildcardTable + "\""))
+                    .matches("VALUES (BIGINT '1', VARCHAR 'Trino'), (BIGINT '2', VARCHAR 'rocks')");
+
+            // Unsupported operations
+            assertQueryFails("DROP TABLE \"" + wildcardTable + "\"", "This connector does not support dropping tables");
+            assertQueryFails("INSERT INTO \"" + wildcardTable + "\" VALUES (3, 'SQL')", "This connector does not support inserts");
+            assertQueryFails("ALTER TABLE \"" + wildcardTable + "\" ADD COLUMN new_column INT", "This connector does not support adding columns");
+            assertQueryFails("ALTER TABLE \"" + wildcardTable + "\" RENAME TO new_wildcard_table", "This connector does not support renaming tables");
+        }
+        finally {
+            deleteIndex(firstIndex);
+            deleteIndex(secondIndex);
+        }
+    }
+
     protected void assertTableDoesNotExist(String name)
     {
         String catalogName = getSession().getCatalog().orElseThrow();
@@ -2499,7 +2544,7 @@ public abstract class BaseOpenSearchConnectorTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(document);
+        String json = new JsonMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);

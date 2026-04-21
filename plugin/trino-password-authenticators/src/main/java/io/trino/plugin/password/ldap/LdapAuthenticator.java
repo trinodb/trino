@@ -39,8 +39,8 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static java.lang.String.format;
+import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class LdapAuthenticator
         implements PasswordAuthenticator
@@ -85,7 +85,7 @@ public class LdapAuthenticator
 
         this.authenticationCache = buildNonEvictableCacheWithWeakInvalidateAll(
                 CacheBuilder.newBuilder()
-                        .expireAfterWrite(ldapAuthenticatorConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
+                        .expireAfterWrite(ofMillis(ldapAuthenticatorConfig.getLdapCacheTtl().toMillis())),
                 CacheLoader.from(bindDistinguishedName.isPresent()
                         ? this::authenticateWithBindDistinguishedName
                         : this::authenticateWithUserBind));
@@ -142,8 +142,8 @@ public class LdapAuthenticator
             }
         }
         log.debug(lastException, "Authentication failed for user [%s], %s", user, lastException.getMessage());
-        if (lastException instanceof AccessDeniedException) {
-            throw (AccessDeniedException) lastException;
+        if (lastException instanceof AccessDeniedException accessDeniedException) {
+            throw accessDeniedException;
         }
         throw new RuntimeException("Authentication error");
     }

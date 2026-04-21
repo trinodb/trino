@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -27,11 +27,13 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -45,9 +47,9 @@ public class MemoryPageSinkProvider
     private final HostAddress currentHostAddress;
 
     @Inject
-    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, NodeManager nodeManager)
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore, Node currentNode)
     {
-        this(pagesStore, nodeManager.getCurrentNode().getHostAndPort());
+        this(pagesStore, currentNode.getHostAndPort());
     }
 
     @VisibleForTesting
@@ -58,7 +60,12 @@ public class MemoryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorOutputTableHandle outputTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = (MemoryOutputTableHandle) outputTableHandle;
         long tableId = memoryOutputTableHandle.table();
@@ -70,7 +77,12 @@ public class MemoryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
         long tableId = memoryInsertTableHandle.table();

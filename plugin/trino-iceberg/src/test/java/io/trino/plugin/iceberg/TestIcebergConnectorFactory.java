@@ -20,8 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 public class TestIcebergConnectorFactory
 {
     @Test
@@ -31,18 +29,6 @@ public class TestIcebergConnectorFactory
                 "hive.metastore.uri", "thrift://localhost:1234",
                 "bootstrap.quiet", "true");
         createConnector(config);
-    }
-
-    @Test
-    public void testCachingHiveMetastore()
-    {
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", "thrift://localhost:1234")
-                .put("hive.metastore-cache-ttl", "5m")
-                .put("bootstrap.quiet", "true")
-                .buildOrThrow();
-        assertThatThrownBy(() -> createConnector(config))
-                .hasMessageContaining("Hive metastore caching must not be enabled for Iceberg");
     }
 
     private static void createConnector(Map<String, String> config)

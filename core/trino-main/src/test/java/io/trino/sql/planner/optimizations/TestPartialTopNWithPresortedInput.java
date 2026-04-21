@@ -202,12 +202,12 @@ public class TestPartialTopNWithPresortedInput
     {
         assertDistributedPlan(
                 """
-                        SELECT nested.k
-                        FROM with_nested_field
-                        WHERE nested.k = 1
-                        ORDER BY nested.k
-                        LIMIT 1
-                        """,
+                SELECT nested.k
+                FROM with_nested_field
+                WHERE nested.k = 1
+                ORDER BY nested.k
+                LIMIT 1
+                """,
                 output(
                         topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
                                 anyTree(

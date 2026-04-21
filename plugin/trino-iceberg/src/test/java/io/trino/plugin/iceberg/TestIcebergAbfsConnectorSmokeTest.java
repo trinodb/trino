@@ -22,6 +22,7 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
@@ -69,9 +70,9 @@ public class TestIcebergAbfsConnectorSmokeTest
                 .replace("%ABFS_ACCOUNT%", account);
 
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
-        Path hadoopCoreSiteXmlTempFile = java.nio.file.Files.createTempFile("core-site", ".xml", posixFilePermissions);
+        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        java.nio.file.Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
+        Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
 
         this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
                 .withImage(HiveHadoop.HIVE3_IMAGE)
@@ -86,8 +87,7 @@ public class TestIcebergAbfsConnectorSmokeTest
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                                .put("fs.hadoop.enabled", "false")
-                                .put("fs.native-azure.enabled", "true")
+                                .put("fs.azure.enabled", "true")
                                 .put("azure.auth-type", "ACCESS_KEY")
                                 .put("azure.access-key", accessKey)
                                 .put("iceberg.register-table-procedure.enabled", "true")
@@ -118,7 +118,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

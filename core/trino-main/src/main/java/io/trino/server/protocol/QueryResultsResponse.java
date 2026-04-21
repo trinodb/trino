@@ -30,6 +30,7 @@ record QueryResultsResponse(
         Optional<String> setPath,
         Optional<String> setAuthorizationUser,
         boolean resetAuthorizationUser,
+        Set<SelectedRole> setOriginalRoles,
         Map<String, String> setSessionProperties,
         Set<String> resetSessionProperties,
         Map<String, SelectedRole> setRoles,
@@ -38,13 +39,15 @@ record QueryResultsResponse(
         Optional<TransactionId> startedTransactionId,
         boolean clearTransactionId,
         ProtocolHeaders protocolHeaders,
-        QueryResults queryResults)
+        QueryResults queryResults,
+        Optional<String> queryDataEncoding)
 {
     QueryResultsResponse {
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
         requireNonNull(setPath, "setPath is null");
         requireNonNull(setAuthorizationUser, "setAuthorizationUser is null");
+        requireNonNull(setOriginalRoles, "setOriginalRoles is null");
         requireNonNull(setSessionProperties, "setSessionProperties is null");
         requireNonNull(resetSessionProperties, "resetSessionProperties is null");
         requireNonNull(setRoles, "setRoles is null");
@@ -53,5 +56,6 @@ record QueryResultsResponse(
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(protocolHeaders, "protocolHeaders is null");
         requireNonNull(queryResults, "queryResults is null");
+        requireNonNull(queryDataEncoding, "queryDataEncoding is null");
     }
 }

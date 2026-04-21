@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.oss.driver.api.core.Version;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,11 +36,11 @@ public class CassandraClusteringPredicatesExtractor
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
-    public CassandraClusteringPredicatesExtractor(CassandraTypeManager cassandraTypeManager, List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
+    public CassandraClusteringPredicatesExtractor(CassandraTypeManager cassandraTypeManager, List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates)
     {
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
         this.predicates = requireNonNull(predicates, "predicates is null");
-        this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
+        this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates);
     }
 
     public String getClusteringKeyPredicates()
@@ -54,11 +53,10 @@ public class CassandraClusteringPredicatesExtractor
         return predicates.filter((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
     }
 
-    private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
+    private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates)
     {
         ImmutableSet.Builder<ColumnHandle> fullyPushedColumnPredicates = ImmutableSet.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
-        int allProcessedClusteringColumns = 0;
         for (CassandraColumnHandle columnHandle : clusteringColumns) {
             Domain domain = predicates.getDomains().get().get(columnHandle);
             if (domain == null) {
@@ -68,7 +66,6 @@ public class CassandraClusteringPredicatesExtractor
                 break;
             }
 
-            int currentlyProcessedClusteringColumn = allProcessedClusteringColumns;
             String predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
                         if (ranges.getRangeCount() == 1) {
@@ -76,10 +73,6 @@ public class CassandraClusteringPredicatesExtractor
                             return translateRangeIntoCql(columnHandle, getOnlyElement(ranges.getOrderedRanges()));
                         }
                         if (ranges.getOrderedRanges().stream().allMatch(Range::isSingleValue)) {
-                            if (isInExpressionNotAllowed(clusteringColumns, cassandraVersion, currentlyProcessedClusteringColumn)) {
-                                return translateRangeIntoCql(columnHandle, ranges.getSpan());
-                            }
-
                             String inValues = ranges.getOrderedRanges().stream()
                                     .map(range -> toCqlLiteral(columnHandle, range.getSingleValue()))
                                     .collect(joining(","));
@@ -97,9 +90,6 @@ public class CassandraClusteringPredicatesExtractor
                                 return format("%s = %s",
                                         CassandraCqlUtils.validColumnName(columnHandle.name()),
                                         toCqlLiteral(columnHandle, getOnlyElement(discreteValues.getValues())));
-                            }
-                            if (isInExpressionNotAllowed(clusteringColumns, cassandraVersion, currentlyProcessedClusteringColumn)) {
-                                return null;
                             }
 
                             String inValues = discreteValues.getValues().stream()
@@ -119,19 +109,10 @@ public class CassandraClusteringPredicatesExtractor
             if (predicateString.contains(">") || predicateString.contains("<")) {
                 break;
             }
-            allProcessedClusteringColumns++;
         }
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
         return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
-    }
-
-    /**
-     * IN restriction allowed only on last clustering column for Cassandra version <= 2.2.0
-     */
-    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, Version cassandraVersion, int currentlyProcessedClusteringColumn)
-    {
-        return cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
     }
 
     private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)

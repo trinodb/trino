@@ -44,6 +44,7 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -55,6 +56,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -177,8 +179,8 @@ public abstract class AbstractHiveStatisticsProvider
 
         if (samplesLeft > 0) {
             HashFunction hashFunction = murmur3_128();
-            Comparator<Map.Entry<HivePartition, Long>> hashComparator = Comparator
-                    .<Map.Entry<HivePartition, Long>, Long>comparing(Map.Entry::getValue)
+            Comparator<Entry<HivePartition, Long>> hashComparator = Comparator
+                    .<Entry<HivePartition, Long>, Long>comparing(Entry::getValue)
                     .thenComparing(entry -> entry.getKey().getPartitionId());
             partitions.stream()
                     .filter(partition -> !result.contains(partition))
@@ -354,7 +356,7 @@ public abstract class AbstractHiveStatisticsProvider
 
         TableStatistics.Builder result = TableStatistics.builder();
         result.setRowCount(Estimate.of(rowCount));
-        for (Map.Entry<String, ColumnHandle> column : columns.entrySet()) {
+        for (Entry<String, ColumnHandle> column : columns.entrySet()) {
             String columnName = column.getKey();
             HiveColumnHandle columnHandle = (HiveColumnHandle) column.getValue();
             Type columnType = columnTypes.get(columnName);
@@ -379,7 +381,7 @@ public abstract class AbstractHiveStatisticsProvider
         TableStatistics.Builder result = TableStatistics.builder();
         // Estimate stats for partitioned columns even when row count is unavailable. This will help us use
         // ndv stats in rules like "ApplyPreferredTableWriterPartitioning".
-        for (Map.Entry<String, ColumnHandle> column : columns.entrySet()) {
+        for (Entry<String, ColumnHandle> column : columns.entrySet()) {
             HiveColumnHandle columnHandle = (HiveColumnHandle) column.getValue();
             if (columnHandle.isPartitionKey()) {
                 result.setColumnStatistics(
@@ -843,6 +845,9 @@ public abstract class AbstractHiveStatisticsProvider
         if (type.equals(DATE)) {
             return statistics.getDateStatistics().flatMap(AbstractHiveStatisticsProvider::createDateRange);
         }
+        if (type instanceof TimestampType) {
+            return statistics.getIntegerStatistics().flatMap(AbstractHiveStatisticsProvider::createTimestampRange);
+        }
         if (type instanceof DecimalType) {
             return statistics.getDecimalStatistics().flatMap(AbstractHiveStatisticsProvider::createDecimalRange);
         }
@@ -891,6 +896,14 @@ public abstract class AbstractHiveStatisticsProvider
     {
         if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
             return Optional.of(new DoubleRange(statistics.getMin().get().toEpochDay(), statistics.getMax().get().toEpochDay()));
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<DoubleRange> createTimestampRange(IntegerStatistics statistics)
+    {
+        if (statistics.getMin().isPresent() && statistics.getMax().isPresent()) {
+            return Optional.of(new DoubleRange(statistics.getMin().getAsLong(), statistics.getMax().getAsLong()));
         }
         return Optional.empty();
     }

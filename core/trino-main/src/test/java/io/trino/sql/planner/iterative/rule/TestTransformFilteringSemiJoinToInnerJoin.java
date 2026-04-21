@@ -60,8 +60,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     a,
                                     b,
                                     aInB,
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .matches(project(
@@ -97,8 +95,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     a,
                                     b,
                                     aInB,
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .matches(project(
@@ -131,8 +127,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     a,
                                     b,
                                     aInB,
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .doesNotFire();
@@ -156,8 +150,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     a,
                                     b,
                                     aInB,
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .doesNotFire();
@@ -180,8 +172,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                     a,
                                     b,
                                     aInB,
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .doesNotFire();

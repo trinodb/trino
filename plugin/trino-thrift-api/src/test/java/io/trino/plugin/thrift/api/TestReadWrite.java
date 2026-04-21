@@ -490,7 +490,7 @@ public class TestReadWrite
         @Override
         Object extractValue(Block block, int position)
         {
-            return arrayType.getObjectValue(null, block, position);
+            return arrayType.getObjectValue(block, position);
         }
 
         @Override

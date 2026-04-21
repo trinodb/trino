@@ -19,7 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -89,7 +89,12 @@ public interface Type
 
     /**
      * For parameterized types returns the list of parameters.
+     *
+     * @deprecated Use type-specific methods to access type parameters (e.g.,
+     *             {@link ArrayType#getElementType()}, {@link MapType#getKeyType()},
+     *             {@link MapType#getValueType()}, {@link RowType#getFields()})
      */
+    @Deprecated
     List<Type> getTypeParameters();
 
     /**
@@ -118,31 +123,39 @@ public interface Type
      * Gets an object representation of the type value in the {@code block}
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
+     * Returns {@code null} for SQL {@code NULL} value.
+     * The position must be valid within the block.
      */
-    Object getObjectValue(ConnectorSession session, Block block, int position);
+    @Nullable
+    Object getObjectValue(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a boolean.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     boolean getBoolean(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a long.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     long getLong(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a double.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     double getDouble(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a Slice.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     Slice getSlice(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as an Object.
+     * The position must be valid within the block and not {@link Block#isNull(int) null}.
      */
     Object getObject(Block block, int position);
 
@@ -175,11 +188,6 @@ public interface Type
      * Writes the Object value into the {@code BlockBuilder}.
      */
     void writeObject(BlockBuilder blockBuilder, Object value);
-
-    /**
-     * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
-     */
-    void appendTo(Block block, int position, BlockBuilder blockBuilder);
 
     /**
      * Return the range of possible values for this type, if available.
@@ -247,14 +255,9 @@ public interface Type
     int getFlatVariableWidthSize(Block block, int position);
 
     /**
-     * Update the variable width offsets recorded in the value.
-     * This method is called after the value has been moved to a new location, and therefore the offsets
-     * need to be updated.
-     * Returns the length of the variable width data, so container types can update their offsets.
-     *
-     * @return the length of the variable width data
+     * Returns the variable width size of the value already written at the specified position within a flat buffer
      */
-    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
+    int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset);
 
     final class Range
     {

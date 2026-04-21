@@ -48,20 +48,18 @@ public class VarcharParametricType
 
         TypeParameter parameter = parameters.get(0);
 
-        if (!parameter.isLongLiteral()) {
+        if (!(parameter instanceof TypeParameter.Numeric(long value))) {
             throw new IllegalArgumentException("VARCHAR length must be a number");
         }
 
-        long length = parameter.getLongLiteral();
-
-        if (length == VarcharType.UNBOUNDED_LENGTH) {
+        if (value == VarcharType.UNBOUNDED_LENGTH) {
             return VarcharType.createUnboundedVarcharType();
         }
 
-        if (length < 0 || length > VarcharType.MAX_LENGTH) {
-            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        if (value < 0 || value > VarcharType.MAX_LENGTH) {
+            throw new IllegalArgumentException("Invalid VARCHAR length " + value);
         }
 
-        return VarcharType.createVarcharType(toIntExact(length));
+        return VarcharType.createVarcharType(toIntExact(value));
     }
 }

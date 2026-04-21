@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
@@ -34,12 +33,13 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -67,17 +67,17 @@ import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.TestSqlTaskExecution.TASK_ID;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
@@ -104,7 +104,7 @@ public class TestDirectExchangeClient
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        serdeFactory = new TestingPagesSerdeFactory();
+        serdeFactory = createTestingPagesSerdeFactory(LZ4);
     }
 
     @AfterAll
@@ -416,7 +416,7 @@ public class TestDirectExchangeClient
         }
         exchangeClient.close();
 
-        ImmutableMap<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
+        Map<URI, PageBufferClientStatus> statuses = uniqueIndex(exchangeClient.getStatus().getPageBufferClientStatuses(), PageBufferClientStatus::getUri);
         assertStatus(statuses.get(location1), location1, "closed", 3, 3, 3, "not scheduled");
         assertStatus(statuses.get(location2), location2, "closed", 3, 3, 3, "not scheduled");
     }
@@ -492,7 +492,8 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());
@@ -553,7 +554,8 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                        Optional.of(new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1))),
                         new QueryId("query"),
                         Span.getInvalid(),
                         createRandomExchangeId()),
@@ -837,7 +839,7 @@ public class TestDirectExchangeClient
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0x3f7c49fcdc6f98ea, calculated checksum: 0xcb4f99c2d19a4b04");
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0x7d7292e0ba4ce122, calculated checksum: 0x251e82faf1acd745");
 
         exchangeClient.close();
     }
@@ -885,15 +887,13 @@ public class TestDirectExchangeClient
                     verify(savedResponse == null);
                     TestingResponse response = (TestingResponse) delegate.handle(request);
                     checkState(response.getStatusCode() == HttpStatus.OK.code(), "Unexpected status code: %s", response.getStatusCode());
-                    ListMultimap<String, String> headers = response.getHeaders().entries().stream()
-                            .collect(toImmutableListMultimap(entry -> entry.getKey().toString(), Map.Entry::getValue));
-                    byte[] bytes = toByteArray(response.getInputStream());
+                    byte[] bytes = response.getInputStream().readAllBytes();
                     checkState(bytes.length > 42, "too short");
-                    savedResponse = new TestingResponse(HttpStatus.OK, headers, bytes.clone());
+                    savedResponse = new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes.clone());
                     // corrupt
                     bytes[42]++;
                     completedRequests++;
-                    return new TestingResponse(HttpStatus.OK, headers, bytes);
+                    return new TestingResponse(HttpStatus.OK, response.getHeaders(), bytes);
                 }
 
                 if (completedRequests == 1) {

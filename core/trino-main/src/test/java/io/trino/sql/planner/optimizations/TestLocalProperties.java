@@ -17,12 +17,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
@@ -697,17 +696,18 @@ public class TestLocalProperties
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(
+                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
                         {
                             @Override
-                            public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+                            public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
                                     throws IOException
                             {
-                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                                return context.readValue(parser, TestingColumnHandle.class);
                             }
-                        }));
+                        }))
+                .get();
 
         TestingColumnHandle columnHandle = new TestingColumnHandle("a");
 

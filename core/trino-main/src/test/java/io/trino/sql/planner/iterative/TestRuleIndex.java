@@ -14,7 +14,6 @@
 
 package io.trino.sql.planner.iterative;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Booleans;
@@ -29,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRuleIndex
@@ -55,9 +53,9 @@ public class TestRuleIndex
         FilterNode filterNode = planBuilder.filter(Booleans.TRUE, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 
-        assertThat(ruleIndex.getCandidates(projectNode).collect(toSet())).isEqualTo(ImmutableSet.of(projectRule1, projectRule2, anyRule));
-        assertThat(ruleIndex.getCandidates(filterNode).collect(toSet())).isEqualTo(ImmutableSet.of(filterRule, anyRule));
-        assertThat(ruleIndex.getCandidates(valuesNode).collect(toSet())).isEqualTo(ImmutableSet.of(anyRule));
+        assertThat(ruleIndex.getCandidates(projectNode)).containsExactlyInAnyOrder(projectRule1, projectRule2, anyRule);
+        assertThat(ruleIndex.getCandidates(filterNode)).containsExactlyInAnyOrder(filterRule, anyRule);
+        assertThat(ruleIndex.getCandidates(valuesNode)).containsExactlyInAnyOrder(anyRule);
     }
 
     @Test
@@ -73,9 +71,9 @@ public class TestRuleIndex
                 .register(ab)
                 .build();
 
-        assertThat(ruleIndex.getCandidates(new A() { }).collect(toSet())).isEqualTo(ImmutableSet.of(a));
-        assertThat(ruleIndex.getCandidates(new B() { }).collect(toSet())).isEqualTo(ImmutableSet.of(b));
-        assertThat(ruleIndex.getCandidates(new AB()).collect(toSet())).isEqualTo(ImmutableSet.of(ab, a, b));
+        assertThat(ruleIndex.getCandidates(new A() { })).containsExactlyInAnyOrder(a);
+        assertThat(ruleIndex.getCandidates(new B() { })).containsExactlyInAnyOrder(b);
+        assertThat(ruleIndex.getCandidates(new AB())).containsExactlyInAnyOrder(ab, a, b);
     }
 
     private static class NoOpRule<T>

@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
@@ -64,10 +63,7 @@ public class TestHiveQueryFailureRecoveryTest
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();

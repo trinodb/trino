@@ -34,6 +34,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static io.trino.matching.Capture.newCapture;
@@ -42,7 +43,7 @@ import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 
-public class MergePatternRecognitionNodes
+public final class MergePatternRecognitionNodes
 {
     private MergePatternRecognitionNodes() {}
 
@@ -137,7 +138,7 @@ public class MergePatternRecognitionNodes
                 // put prerequisite assignments in the source of merged node,
                 // and the remaining assignments on top of merged node
                 Assignments remainingAssignments = project.getAssignments()
-                        .filter(symbol -> !prerequisites.getSymbols().contains(symbol));
+                        .filter(symbol -> !prerequisites.outputs().contains(symbol));
 
                 merged = (PatternRecognitionNode) merged.replaceChildren(ImmutableList.of(new ProjectNode(
                         context.getIdAllocator().getNextId(),
@@ -178,7 +179,7 @@ public class MergePatternRecognitionNodes
             return false;
         }
 
-        for (Map.Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
+        for (Entry<IrLabel, ExpressionAndValuePointers> parentDefinition : parentVariableDefinitions.entrySet()) {
             IrLabel label = parentDefinition.getKey();
             ExpressionAndValuePointers parentExpression = parentDefinition.getValue();
             ExpressionAndValuePointers childExpression = childVariableDefinitions.get(label);
@@ -279,7 +280,6 @@ public class MergePatternRecognitionNodes
                 parent.getId(),
                 child.getSource(),
                 parent.getSpecification(),
-                parent.getHashSymbol(),
                 parent.getPrePartitionedInputs(),
                 parent.getPreSortedOrderPrefix(),
                 windowFunctions.buildOrThrow(),

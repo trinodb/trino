@@ -35,8 +35,8 @@ public class TestPartitionedTpcdsCostBasedPlan
     @Override
     protected List<String> getTableNames()
     {
-        return io.trino.tpcds.Table.getBaseTables().stream()
-                .filter(table -> table != io.trino.tpcds.Table.DBGEN_VERSION)
+        return Table.getBaseTables().stream()
+                .filter(table -> table != Table.DBGEN_VERSION)
                 .map(Table::getName)
                 .collect(toImmutableList());
     }
@@ -59,7 +59,7 @@ public class TestPartitionedTpcdsCostBasedPlan
         return TPCDS_SQL_FILES;
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         new TestPartitionedTpcdsCostBasedPlan().generate();
     }

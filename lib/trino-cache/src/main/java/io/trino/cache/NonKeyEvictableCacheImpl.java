@@ -16,13 +16,14 @@ package io.trino.cache;
 import com.google.common.cache.Cache;
 import com.google.common.cache.ForwardingCache;
 import com.google.common.collect.ForwardingConcurrentMap;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 class NonKeyEvictableCacheImpl<K, V>
         extends ForwardingCache<K, V>
         implements NonKeyEvictableCache<K, V>

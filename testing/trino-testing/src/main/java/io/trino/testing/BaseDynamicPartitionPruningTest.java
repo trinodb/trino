@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.predicate.Domain.none;
@@ -66,9 +65,9 @@ public abstract class BaseDynamicPartitionPruningTest
     private static final long LINEITEM_COUNT = 60175;
     protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(LINE_ITEM, ORDERS, SUPPLIER);
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of(
-            // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
-            "dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100",
-            "dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000",
+            // Reduced partitioned join limit for DF to enable DF min/max collection
+            "dynamic-filtering.partitioned.max-distinct-values-per-driver", "100",
+            "dynamic-filtering.partitioned.range-row-limit-per-driver", "100000",
             // disable semi join to inner join rewrite to test semi join operators explicitly
             "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
@@ -92,8 +91,6 @@ public abstract class BaseDynamicPartitionPruningTest
         return Session.builder(super.getSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name()) // Avoid node local DF
-                // Enabled large dynamic filters to verify min/max DF collection in testJoinLargeBuildSideRangeDynamicFiltering
-                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
     }
 
@@ -115,7 +112,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString());
         assertThat(domainStats.getCollectionDuration()).isPresent();
     }
 
@@ -138,7 +135,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString());
     }
 
     @Test
@@ -161,7 +158,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString());
     }
 
     @Test
@@ -205,7 +202,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                .toString(getSession().toConnectorSession()));
+                .toString());
     }
 
     @Test
@@ -263,7 +260,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString());
     }
 
     @Test
@@ -284,7 +281,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString());
     }
 
     @Test
@@ -305,7 +302,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString());
     }
 
     @Test
@@ -349,7 +346,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                .toString(getSession().toConnectorSession()));
+                .toString());
     }
 
     @Test
@@ -370,7 +367,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString());
     }
 
     @Test
@@ -391,7 +388,7 @@ public abstract class BaseDynamicPartitionPruningTest
         assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString());
     }
 
     @Test

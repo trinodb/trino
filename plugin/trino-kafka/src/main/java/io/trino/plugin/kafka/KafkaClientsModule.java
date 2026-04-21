@@ -14,13 +14,10 @@
 package io.trino.plugin.kafka;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.kafka.security.ForKafkaSsl;
-import org.apache.kafka.common.security.auth.SecurityProtocol;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class KafkaClientsModule
@@ -30,17 +27,13 @@ public class KafkaClientsModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(KafkaSecurityConfig.class);
-        installClientModule(null, KafkaClientsModule::configureDefault);
-        installClientModule(SecurityProtocol.PLAINTEXT, KafkaClientsModule::configureDefault);
-        installClientModule(SecurityProtocol.SSL, KafkaClientsModule::configureSsl);
-    }
 
-    private void installClientModule(SecurityProtocol securityProtocol, Module module)
-    {
-        install(conditionalModule(
-                KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().orElse(null) == securityProtocol,
-                module));
+        switch (buildConfigObject(KafkaSecurityConfig.class).getSecurityProtocol().orElse(null)) {
+            case null -> configureDefault(binder);
+            case PLAINTEXT -> configureDefault(binder);
+            case SSL -> configureSsl(binder);
+            default -> throw new IllegalArgumentException("Unsupported security protocol: " + buildConfigObject(KafkaSecurityConfig.class).getSecurityProtocol().get());
+        }
     }
 
     private static void configureDefault(Binder binder)

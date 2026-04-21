@@ -45,8 +45,6 @@ public class TestSemiJoinStatsRule
                             a,
                             c,
                             semiJoinOutput,
-                            Optional.empty(),
-                            Optional.empty(),
                             Optional.empty());
         })
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

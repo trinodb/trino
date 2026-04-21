@@ -35,6 +35,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -150,18 +151,13 @@ class RequestErrorTracker
 
     private static boolean isExpectedError(Throwable t)
     {
-        while (t != null) {
-            if ((t instanceof SocketException) ||
-                    (t instanceof SocketTimeoutException) ||
-                    (t instanceof EOFException) ||
-                    (t instanceof TimeoutException) ||
-                    (t instanceof CancellationException) ||
-                    (t instanceof ClosedChannelException) ||
-                    (t instanceof ServiceUnavailableException)) {
-                return true;
-            }
-            t = t.getCause();
-        }
-        return false;
+        return getCausalChain(t).stream().anyMatch(failure ->
+                failure instanceof SocketException ||
+                        failure instanceof SocketTimeoutException ||
+                        failure instanceof EOFException ||
+                        failure instanceof TimeoutException ||
+                        failure instanceof CancellationException ||
+                        failure instanceof ClosedChannelException ||
+                        failure instanceof ServiceUnavailableException);
     }
 }

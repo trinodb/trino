@@ -16,7 +16,6 @@ package io.trino.filesystem.local;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -48,12 +47,6 @@ class LocalInput
     {
         ensureOpen();
         checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
-        if (position < 0) {
-            throw new IOException("Negative seek offset");
-        }
-        if (position >= file.length()) {
-            throw new EOFException("Cannot read at %s. File size is %s: %s".formatted(position, file.length(), location));
-        }
 
         try {
             input.seek(position);

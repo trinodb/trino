@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -62,6 +63,7 @@ public class TestDeltaLakeCreateTableStatistics
 {
     private String bucketName;
     private TransactionLogAccess transactionLogAccess;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -82,6 +84,7 @@ public class TestDeltaLakeCreateTableStatistics
     public void initTransactionLogAccess()
     {
         transactionLogAccess = getConnectorService(getQueryRunner(), TransactionLogAccess.class);
+        fileSystemFactory = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class);
     }
 
     @Test
@@ -488,6 +491,6 @@ public class TestDeltaLakeCreateTableStatistics
     protected List<AddFileEntry> getAddFileEntries(String tableName)
             throws IOException
     {
-        return getTableActiveFiles(transactionLogAccess, format("s3://%s/%s", bucketName, tableName));
+        return getTableActiveFiles(transactionLogAccess, fileSystemFactory, format("s3://%s/%s", bucketName, tableName));
     }
 }

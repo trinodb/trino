@@ -13,34 +13,12 @@
  */
 package io.trino.spi.memory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import static java.util.Objects.requireNonNull;
 
-public final class MemoryAllocation
+public record MemoryAllocation(String tag, long allocation)
 {
-    private final String tag;
-    private final long allocation;
-
-    @JsonCreator
-    public MemoryAllocation(
-            @JsonProperty("tag") String tag,
-            @JsonProperty("allocation") long allocation)
+    public MemoryAllocation
     {
-        this.tag = requireNonNull(tag, "tag is null");
-        this.allocation = allocation;
-    }
-
-    @JsonProperty
-    public String getTag()
-    {
-        return tag;
-    }
-
-    @JsonProperty
-    public long getAllocation()
-    {
-        return allocation;
+        requireNonNull(tag, "tag is null");
     }
 }

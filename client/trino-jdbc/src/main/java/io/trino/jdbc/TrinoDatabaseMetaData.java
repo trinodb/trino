@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.trino.client.ClientStandardTypes;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
@@ -31,6 +32,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,6 +142,11 @@ public class TrinoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
+        Optional<String> serverVersion = connection.getServerVersion();
+        if (serverVersion.isPresent()) {
+            return serverVersion.orElseThrow();
+        }
+
         try (ResultSet rs = select("SELECT version()")) {
             rs.next();
             return rs.getString(1);
@@ -1424,7 +1431,7 @@ public class TrinoDatabaseMetaData
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         columns.add(new Column("NAME", "varchar", varchar));
-        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature("integer")));
+        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature(ClientStandardTypes.INTEGER)));
         columns.add(new Column("DEFAULT_VALUE", "varchar", varchar));
         columns.add(new Column("DESCRIPTION", "varchar", varchar));
 
@@ -1432,13 +1439,11 @@ public class TrinoDatabaseMetaData
 
         Stream.of(ClientInfoProperty.values())
                 .sorted(Comparator.comparing(ClientInfoProperty::getPropertyName))
-                .forEach(clientInfoProperty -> {
-                    results.add(newArrayList(
-                            clientInfoProperty.getPropertyName(),
-                            VARCHAR_UNBOUNDED_LENGTH,
-                            null,
-                            null));
-                });
+                .forEach(clientInfoProperty -> results.add(newArrayList(
+                        clientInfoProperty.getPropertyName(),
+                        VARCHAR_UNBOUNDED_LENGTH,
+                        null,
+                        null)));
 
         return new InMemoryTrinoResultSet(columns.build(), results.build());
     }

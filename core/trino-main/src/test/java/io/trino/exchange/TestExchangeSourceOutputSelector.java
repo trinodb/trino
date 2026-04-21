@@ -13,11 +13,12 @@
  */
 package io.trino.exchange;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
@@ -49,10 +50,11 @@ public class TestExchangeSourceOutputSelector
     @BeforeAll
     public void setup()
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerializer()));
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Slice.class, new SliceDeserializer()));
-        codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ExchangeSourceOutputSelector.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerializer()))
+                .withJsonDeserializers(ImmutableMap.of(Slice.class, new SliceDeserializer()))
+                .get();
+        codec = new JsonCodecFactory(jsonMapper).jsonCodec(ExchangeSourceOutputSelector.class);
     }
 
     @AfterAll

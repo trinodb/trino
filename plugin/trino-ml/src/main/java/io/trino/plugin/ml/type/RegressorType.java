@@ -28,4 +28,10 @@ public class RegressorType
     {
         super(new TypeSignature(NAME));
     }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
 }

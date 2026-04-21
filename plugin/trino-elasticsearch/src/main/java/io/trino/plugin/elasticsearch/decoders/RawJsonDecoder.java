@@ -16,14 +16,15 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -34,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class RawJsonDecoder
         implements Decoder
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private final String path;
 
     public RawJsonDecoder(String path)
@@ -51,7 +52,7 @@ public class RawJsonDecoder
         }
         else {
             try {
-                String rawJsonValue = OBJECT_MAPPER.writeValueAsString(value);
+                String rawJsonValue = JSON_MAPPER.writeValueAsString(value);
                 VARCHAR.writeSlice(output, Slices.utf8Slice(rawJsonValue));
             }
             catch (JsonProcessingException e) {
@@ -84,6 +85,25 @@ public class RawJsonDecoder
         public Decoder createDecoder()
         {
             return new RawJsonDecoder(path);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Descriptor that = (Descriptor) o;
+            return Objects.equals(this.path, that.path);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return path.hashCode();
         }
     }
 }

@@ -5,15 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-record-decoder</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Record-based file format support</description>
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <dep.wire.version>6.2.0</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -36,6 +38,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -63,11 +66,13 @@
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-runtime-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.wire</groupId>
             <artifactId>wire-schema-jvm</artifactId>
+            <version>${dep.wire.version}</version>
         </dependency>
 
         <dependency>

@@ -83,7 +83,7 @@ public class BenchmarkFixed12ColumnReader
         return batch;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkFixed12ColumnReader.class);

@@ -5,11 +5,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-spi</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>
@@ -17,7 +18,6 @@
         <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
-    <!-- the SPI should have only minimal dependencies -->
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -48,13 +48,19 @@
 
         <dependency>
             <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-context</artifactId>
+            <artifactId>opentelemetry-api-incubator</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-common</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -79,6 +85,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
             <scope>test</scope>
         </dependency>
 
@@ -109,6 +116,18 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -166,21 +185,11 @@
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.15.0</version>
+                <version>0.15.1</version>
                 <configuration>
                     <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
-                        <revapi.filter>
-                            <elements>
-                                <exclude>
-                                    <item>
-                                        <matcher>java</matcher>
-                                        <match>@io.trino.spi.Experimental(*) ^*;</match>
-                                    </item>
-                                </exclude>
-                            </elements>
-                        </revapi.filter>
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
@@ -214,46 +223,57 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.returnTypeTypeParametersChanged</code>
-                                    <old>method java.lang.Iterable&lt;io.trino.spi.protocol.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</old>
-                                    <new>method java.lang.Iterable&lt;io.trino.spi.spool.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</new>
-                                    <justification>Spooling package renamed</justification>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.protocol.SpoolingManager</old>
-                                    <justification>Spooling package renamed</justification>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, double[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, double[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
                                 <item>
-                                    <code>java.method.noLongerDefault</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, java.lang.String[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, java.lang.String[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
                                 <item>
-                                    <code>java.method.nowAbstract</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, long[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, long[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.KeyValue&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.KeyValue[])</old>
+                                    <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.KeyValue&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.KeyValue[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</old>
+                                    <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;)</old>
-                                    <new>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.eventlistener.EventListenerFactory.EventListenerContext)</new>
-                                    <justification>Added EventListenerContext</justification>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, boolean)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, boolean, boolean)</new>
+                                    <justification>Add hasNonDeterministicFunctions parameter to detect stale materialized views</justification>
                                 </item>
                                 <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::makeCompatiblePartitioning(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorPartitioningHandle)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
-                                    <justification>Added output buffer metrics</justification>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>
+                                    <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</new>
                                 </item>
                             </differences>
                         </revapi.differences>
@@ -263,7 +283,7 @@
                     <dependency>
                         <groupId>org.revapi</groupId>
                         <artifactId>revapi-java</artifactId>
-                        <version>0.28.1</version>
+                        <version>0.28.4</version>
                     </dependency>
                 </dependencies>
                 <executions>
@@ -273,6 +293,17 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns combine.children="append">
+                        <!-- ignore the Iceberg build metadata file -->
+                        <ignoredResourcePattern>^iceberg-build\.properties$</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
             </plugin>
         </plugins>
     </build>

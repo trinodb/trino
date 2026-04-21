@@ -18,6 +18,7 @@ import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.HashCommon;
 
+import java.util.function.BiFunction;
 import java.util.function.LongBinaryOperator;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -663,7 +664,7 @@ public class LongLong2LongOpenCustomBigHashMap
     }
 
     public long merge(final long k1, final long k2, final long v,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
+            final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
         final long pos = find(k1, k2);

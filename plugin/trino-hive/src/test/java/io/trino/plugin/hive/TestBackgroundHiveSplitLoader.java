@@ -47,6 +47,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -67,7 +68,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -154,7 +154,7 @@ public class TestBackgroundHiveSplitLoader
     public void testNoPathFilter()
             throws Exception
     {
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_LOCATIONS, TupleDomain.none());
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_LOCATIONS, TupleDomain.none(), Constraint.alwaysTrue());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -205,13 +205,31 @@ public class TestBackgroundHiveSplitLoader
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_LOCATIONS,
-                LOCATION_DOMAIN);
+                LOCATION_DOMAIN,
+                Constraint.alwaysTrue());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths).hasSize(1);
-        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
+        assertThat(paths).containsExactly(LOCATION.toString());
+    }
+
+    @Test
+    public void testPathConstraint()
+            throws Exception
+    {
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                TEST_LOCATIONS,
+                LOCATION_DOMAIN,
+                new Constraint(
+                        TupleDomain.all(),
+                        LOCATION_DOMAIN.transformKeys(ColumnHandle.class::cast).asPredicate(),
+                        Set.of(pathColumnHandle())));
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> paths = drain(hiveSplitSource);
+        assertThat(paths).containsExactly(LOCATION.toString());
     }
 
     @Test
@@ -221,6 +239,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_LOCATIONS,
                 LOCATION_DOMAIN,
+                Constraint.alwaysTrue(),
                 Optional.of(new HiveBucketFilter(Set.of(0, 1))),
                 PARTITIONED_TABLE,
                 Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), true)));
@@ -228,8 +247,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths).hasSize(1);
-        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
+        assertThat(paths).containsExactly(LOCATION.toString());
     }
 
     @Test
@@ -239,6 +257,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 TEST_LOCATIONS,
                 LOCATION_DOMAIN,
+                Constraint.alwaysTrue(),
                 Optional.empty(),
                 PARTITIONED_TABLE,
                 Optional.of(
@@ -254,8 +273,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertThat(paths).hasSize(1);
-        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
+        assertThat(paths).containsExactly(LOCATION.toString());
     }
 
     @Test
@@ -353,7 +371,7 @@ public class TestBackgroundHiveSplitLoader
     public void testCachedDirectoryLister()
             throws Exception
     {
-        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of("test_dbname.test_table"), alwaysTrue());
+        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of("test_dbname.test_table"), List.of(), alwaysTrue());
         assertThat(cachingDirectoryLister.getRequestCount()).isEqualTo(0);
 
         int totalCount = 100;
@@ -394,27 +412,27 @@ public class TestBackgroundHiveSplitLoader
     public void testGetBucketNumber()
     {
         // legacy Presto naming pattern
-        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789")).isEqualTo(OptionalInt.of(56789));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789")).isEqualTo(Optional.of(56789));
 
         // Hive
-        assertThat(getBucketNumber("0234_0")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("000234_0")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_99")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_0.txt")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("0234_0_copy_1")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_0")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("000234_0")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_99")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_0.txt")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("0234_0_copy_1")).isEqualTo(Optional.of(234));
         // starts with non-zero
-        assertThat(getBucketNumber("234_99")).isEqualTo(OptionalInt.of(234));
-        assertThat(getBucketNumber("1234_0_copy_1")).isEqualTo(OptionalInt.of(1234));
+        assertThat(getBucketNumber("234_99")).isEqualTo(Optional.of(234));
+        assertThat(getBucketNumber("1234_0_copy_1")).isEqualTo(Optional.of(1234));
 
         // Hive ACID
-        assertThat(getBucketNumber("bucket_1234")).isEqualTo(OptionalInt.of(1234));
-        assertThat(getBucketNumber("bucket_01234")).isEqualTo(OptionalInt.of(1234));
+        assertThat(getBucketNumber("bucket_1234")).isEqualTo(Optional.of(1234));
+        assertThat(getBucketNumber("bucket_01234")).isEqualTo(Optional.of(1234));
 
         // not matching
-        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
-        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(Optional.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -474,6 +492,7 @@ public class TestBackgroundHiveSplitLoader
                     }
                 },
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
                 TESTING_TYPE_MANAGER,
@@ -613,6 +632,42 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
+    public void testFullAcidTableWithOriginalFilesWithoutBuckets()
+            throws Exception
+    {
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+        Location tableLocation = Location.of("memory:///my_table");
+
+        Table table = table(
+                tableLocation.toString(),
+                List.of(),
+                Optional.empty(),
+                Map.of(TRANSACTIONAL, "true"));
+
+        Location originalFile = tableLocation.appendPath("data.csv");
+        try (OutputStream outputStream = fileSystem.newOutputFile(originalFile).create()) {
+            outputStream.write("test".getBytes(UTF_8));
+        }
+
+        // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+        // This writeId list has high watermark transaction=3
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                fileSystemFactory,
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty(),
+                Optional.of(validWriteIdsList));
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> splits = drain(hiveSplitSource);
+        assertThat(splits).contains(originalFile.toString());
+    }
+
+    @Test
     public void testVersionValidationNoOrcAcidVersionFile()
             throws Exception
     {
@@ -654,7 +709,7 @@ public class TestBackgroundHiveSplitLoader
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
                 .allMatch(Optional::isPresent)
                 .extracting(Optional::get)
-                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
+                .noneMatch(AcidInfo::orcAcidVersionValidated);
     }
 
     @Test
@@ -697,7 +752,7 @@ public class TestBackgroundHiveSplitLoader
 
         // We should have it marked in all splits that NO further ORC ACID validation is required
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
-                .allMatch(acidInfo -> acidInfo.isEmpty() || acidInfo.get().isOrcAcidVersionValidated());
+                .allMatch(acidInfo -> acidInfo.isEmpty() || acidInfo.get().orcAcidVersionValidated());
     }
 
     @Test
@@ -743,7 +798,7 @@ public class TestBackgroundHiveSplitLoader
         assertThat(drainSplits(hiveSplitSource)).extracting(HiveSplit::getAcidInfo)
                 .allMatch(Optional::isPresent)
                 .extracting(Optional::get)
-                .noneMatch(AcidInfo::isOrcAcidVersionValidated);
+                .noneMatch(AcidInfo::orcAcidVersionValidated);
     }
 
     @Test
@@ -780,7 +835,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIterator()
             throws IOException
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), List.of(), alwaysTrue());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), List.of(), List.of(), alwaysTrue());
         Map<String, String> schema = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
                 .put(SERIALIZATION_LIB, AVRO.getSerde())
@@ -796,6 +851,7 @@ public class TestBackgroundHiveSplitLoader
                 schema,
                 List.of(),
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 () -> true,
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -821,7 +877,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIteratorNestedDirectory()
             throws IOException
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of(), alwaysTrue());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of(), List.of(), alwaysTrue());
         Map<String, String> schema = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
                 .put(SERIALIZATION_LIB, AVRO.getSerde())
@@ -837,6 +893,7 @@ public class TestBackgroundHiveSplitLoader
                 schema,
                 List.of(),
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 () -> true,
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -863,7 +920,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIteratorWithCacheInvalidation()
             throws IOException
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(1, MEGABYTE), List.of("*"), alwaysTrue());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(1, MEGABYTE), List.of("*"), List.of("*"), alwaysTrue());
         Map<String, String> schema = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, SYMLINK_TEXT_INPUT_FORMAT_CLASS)
                 .put(SERIALIZATION_LIB, AVRO.getSerde())
@@ -875,6 +932,7 @@ public class TestBackgroundHiveSplitLoader
                 schema,
                 List.of(),
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 () -> true,
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -917,7 +975,7 @@ public class TestBackgroundHiveSplitLoader
     public void testMaxPartitions()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), List.of(), alwaysTrue());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), List.of(), List.of(), alwaysTrue());
         // zero partitions
         {
             BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
@@ -1056,6 +1114,7 @@ public class TestBackgroundHiveSplitLoader
         return backgroundHiveSplitLoader(
                 fileSystemFactory,
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeoutMillis,
                 Optional.empty(),
@@ -1079,12 +1138,14 @@ public class TestBackgroundHiveSplitLoader
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<Location> locations,
-            TupleDomain<HiveColumnHandle> tupleDomain)
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            Constraint constraint)
             throws IOException
     {
         return backgroundHiveSplitLoader(
                 locations,
                 tupleDomain,
+                constraint,
                 Optional.empty(),
                 SIMPLE_TABLE,
                 Optional.empty());
@@ -1093,37 +1154,23 @@ public class TestBackgroundHiveSplitLoader
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             List<Location> locations,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            Constraint constraint,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
             Optional<HiveTablePartitioning> tablePartitioning)
-            throws IOException
-    {
-        return backgroundHiveSplitLoader(
-                locations,
-                compactEffectivePredicate,
-                hiveBucketFilter,
-                table,
-                tablePartitioning,
-                Optional.empty());
-    }
-
-    private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
-            List<Location> locations,
-            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
-            Optional<HiveBucketFilter> hiveBucketFilter,
-            Table table,
-            Optional<HiveTablePartitioning> tablePartitioning,
-            Optional<ValidWriteIdList> validWriteIds)
             throws IOException
     {
         TrinoFileSystemFactory fileSystemFactory = createTestingFileSystem(locations);
         return backgroundHiveSplitLoader(
                 fileSystemFactory,
                 compactEffectivePredicate,
+                constraint,
+                DynamicFilter.EMPTY,
+                new Duration(0, SECONDS),
                 hiveBucketFilter,
                 table,
                 tablePartitioning,
-                validWriteIds);
+                Optional.empty());
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
@@ -1137,6 +1184,7 @@ public class TestBackgroundHiveSplitLoader
         return backgroundHiveSplitLoader(
                 fileSystemFactory,
                 compactEffectivePredicate,
+                Constraint.alwaysTrue(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
                 hiveBucketFilter,
@@ -1148,6 +1196,7 @@ public class TestBackgroundHiveSplitLoader
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(
             TrinoFileSystemFactory fileSystemFactory,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            Constraint constraint,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringProbeBlockingTimeout,
             Optional<HiveBucketFilter> hiveBucketFilter,
@@ -1166,6 +1215,7 @@ public class TestBackgroundHiveSplitLoader
                 table,
                 hivePartitionMetadatas.iterator(),
                 compactEffectivePredicate,
+                constraint,
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeout,
                 TESTING_TYPE_MANAGER,
@@ -1210,6 +1260,7 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 partitions.iterator(),
                 TupleDomain.none(),
+                Constraint.alwaysTrue(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
                 TESTING_TYPE_MANAGER,
@@ -1237,6 +1288,7 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
+                Constraint.alwaysTrue(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
                 TESTING_TYPE_MANAGER,

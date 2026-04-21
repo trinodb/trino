@@ -73,7 +73,7 @@ public final class TestContainers
 
     public static void exposeFixedPorts(GenericContainer<?> container)
     {
-        checkState(isEnvSet("CONTINUOUS_INTEGRATION"), "" +
+        checkState(!isEnvSet("CONTINUOUS_INTEGRATION"), "" +
                 "Exposing fixed ports should not be used in regular test code. This could break parallel test execution. " +
                 "This method is supposed to be invoked from local development helpers only e.g. QueryRunner.main(), " +
                 "hence it should never run on CI");

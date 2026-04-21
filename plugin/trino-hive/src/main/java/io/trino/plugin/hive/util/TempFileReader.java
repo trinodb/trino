@@ -14,15 +14,23 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcDataSource;
+import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcPredicate;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.HdfsOrcDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.List;
@@ -35,19 +43,30 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class TempFileReader
         extends AbstractIterator<Page>
+        implements Closeable
 {
     private final OrcRecordReader reader;
 
-    public TempFileReader(List<Type> types, OrcDataSource dataSource)
+    public TempFileReader(List<Type> types, TrinoFileSystem fileSystem, Location tempFileLocation)
     {
         requireNonNull(types, "types is null");
+        requireNonNull(tempFileLocation, "tempFileLocation is null");
 
+        TrinoInputFile inputFile = fileSystem.newInputFile(tempFileLocation);
         try {
+            OrcDataSource dataSource = new HdfsOrcDataSource(
+                    new OrcDataSourceId(tempFileLocation.toString()),
+                    inputFile.length(),
+                    new OrcReaderOptions(),
+                    inputFile,
+                    new FileFormatDataSourceStats());
+
             OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
                     .orElseThrow(() -> new TrinoException(HIVE_WRITER_DATA_ERROR, "Temporary data file is empty"));
             reader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,
+                    false,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
@@ -67,13 +86,12 @@ public class TempFileReader
                 throw new InterruptedIOException();
             }
 
-            Page page = reader.nextPage();
+            SourcePage page = reader.nextPage();
             if (page == null) {
                 return endOfData();
             }
 
-            // eagerly load the page
-            return page.getLoadedPage();
+            return page.getPage();
         }
         catch (IOException e) {
             throw handleException(e);
@@ -83,5 +101,12 @@ public class TempFileReader
     private static TrinoException handleException(Exception e)
     {
         return new TrinoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data", e);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        reader.close();
     }
 }

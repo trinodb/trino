@@ -39,7 +39,7 @@ public class QueryDataEncoders
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         if (enabled) {
-            LOG.info("Spooling protocol is enabled with encodings: " + getAvailableEncodings());
+            LOG.info("Spooling protocol is enabled with encodings: %s", getAvailableEncodings());
         }
     }
 

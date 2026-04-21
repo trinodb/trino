@@ -14,13 +14,11 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -33,11 +31,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.io.ByteStreams.readFully;
+import static com.google.common.base.Verify.verify;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -46,8 +42,7 @@ public final class PagesSerdeUtil
     private PagesSerdeUtil() {}
 
     static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
-    static final int SERIALIZED_PAGE_CODEC_MARKERS_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
-    static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_CODEC_MARKERS_OFFSET + Byte.BYTES;
+    static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
     static final int SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET + Integer.BYTES;
     static final int SERIALIZED_PAGE_HEADER_SIZE = SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET + Integer.BYTES;
     static final String SERIALIZED_PAGE_CIPHER_NAME = "AES/CBC/PKCS5Padding";
@@ -125,21 +120,6 @@ public final class PagesSerdeUtil
         return serializedPage.getInt(SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET);
     }
 
-    public static boolean isSerializedPageEncrypted(Slice serializedPage)
-    {
-        return getSerializedPageMarkerSet(serializedPage).contains(ENCRYPTED);
-    }
-
-    public static boolean isSerializedPageCompressed(Slice serializedPage)
-    {
-        return getSerializedPageMarkerSet(serializedPage).contains(COMPRESSED);
-    }
-
-    private static MarkerSet getSerializedPageMarkerSet(Slice serializedPage)
-    {
-        return MarkerSet.fromByteValue(serializedPage.getByte(Integer.BYTES));
-    }
-
     private static class PageReader
             extends AbstractIterator<Page>
     {
@@ -158,7 +138,7 @@ public final class PagesSerdeUtil
         protected Page computeNext()
         {
             try {
-                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                int read = inputStream.readNBytes(headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
                     return endOfData();
                 }
@@ -195,7 +175,7 @@ public final class PagesSerdeUtil
         protected Slice computeNext()
         {
             try {
-                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                int read = inputStream.readNBytes(headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
                     return endOfData();
                 }
@@ -219,7 +199,8 @@ public final class PagesSerdeUtil
         int compressedSize = headerSlice.getIntUnchecked(SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
         byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
         headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
-        readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        int bytes = inputStream.readNBytes(outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        verify(bytes == compressedSize, "expected to read %s bytes, but read %s", compressedSize, bytes);
         return Slices.wrappedBuffer(outputBuffer);
     }
 }

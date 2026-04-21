@@ -34,7 +34,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.server.HttpRequestSessionContextFactory.addEnabledRoles;
-import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
@@ -128,18 +127,16 @@ public class QuerySessionSupplier
             sessionBuilder.setTimeZoneKey(forcedSessionTimeZone.get());
         }
         else {
-            String sessionTimeZoneId = context.getSystemProperties().get(TIME_ZONE_ID);
-            if (sessionTimeZoneId != null) {
-                sessionBuilder.setTimeZoneKey(getTimeZoneKey(sessionTimeZoneId));
-            }
-            else {
-                sessionBuilder.setTimeZoneKey(context.getTimeZoneId().map(TimeZoneKey::getTimeZoneKey));
-            }
+            sessionBuilder.setTimeZoneKey(context.getTimeZoneId().map(TimeZoneKey::getTimeZoneKey));
         }
 
         context.getLanguage().ifPresent(s -> sessionBuilder.setLocale(Locale.forLanguageTag(s)));
 
         for (Entry<String, String> entry : context.getSystemProperties().entrySet()) {
+            if (entry.getKey().equals(TIME_ZONE_ID) && forcedSessionTimeZone.isPresent()) {
+                // Skip setting time zone id from session when forced session is set
+                continue;
+            }
             sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
         }
         for (Entry<String, Map<String, String>> catalogProperties : context.getCatalogSessionProperties().entrySet()) {

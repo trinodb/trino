@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -236,8 +236,6 @@ public class TestPushDownDereferencesRules
                                         p.symbol("msg2", ROW_TYPE),
                                         p.symbol("filtering_msg", ROW_TYPE),
                                         p.symbol("match"),
-                                        Optional.empty(),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)),
                                         p.values(p.symbol("filtering_msg", ROW_TYPE)))))
                 .matches(
@@ -552,7 +550,6 @@ public class TestPushDownDereferencesRules
                                         ROW_NUMBER,
                                         5,
                                         p.symbol("ranking"),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("msg3", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -624,7 +621,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("msg6", ROW_TYPE),
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
-                                                        createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
+                                                        createTestingMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         Optional.empty(),
                                                         new WindowNode.Frame(

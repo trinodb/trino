@@ -24,6 +24,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.concurrent.Executor;
 
+import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
+
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
@@ -38,7 +40,7 @@ public final class S3FileSystemFactory
     {
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
-        this.preSigner = loader.createPreSigner();
+        this.preSigner = createS3PreSigner(config, client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
     }

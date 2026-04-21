@@ -17,19 +17,25 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.EntityKindAndName;
@@ -64,11 +70,16 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -111,13 +122,15 @@ public interface Metadata
             String procedureName,
             Map<String, Object> executeProperties);
 
+    Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
+
     Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle);
 
     BeginTableExecuteResult<TableExecuteHandle, TableHandle> beginTableExecute(Session session, TableExecuteHandle handle, TableHandle updatedSourceTableHandle);
 
-    void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
+    Map<String, Long> finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
-    void executeTableExecute(Session session, TableExecuteHandle handle);
+    Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle);
 
     TableProperties getTableProperties(Session session, TableHandle handle);
 
@@ -140,6 +153,11 @@ public interface Metadata
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     Optional<Object> getInfo(Session session, TableHandle handle);
+
+    /**
+     * Return connector-specific, metadata operations metrics for the given session.
+     */
+    Metrics getMetrics(Session session, String catalogName);
 
     CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle);
 
@@ -205,6 +223,16 @@ public interface Metadata
     List<RelationCommentMetadata> listRelationComments(Session session, String catalogName, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter);
 
     /**
+     * Creates a catalog.
+     */
+    void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
+
+    /**
+     * Drops the specified catalog.
+     */
+    void dropCatalog(Session session, CatalogName catalog, boolean cascade);
+
+    /**
      * Creates a schema.
      *
      * @param principal TODO
@@ -220,11 +248,6 @@ public interface Metadata
      * Renames the specified schema.
      */
     void renameSchema(Session session, CatalogSchemaName source, String target);
-
-    /**
-     * Set the specified schema's user/role.
-     */
-    void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal);
 
     /**
      * Creates a table using the specified table metadata.
@@ -276,12 +299,22 @@ public interface Metadata
     /**
      * Add the specified column to the table.
      */
-    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position);
 
     /**
      * Add the specified field to the column.
      */
     void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+
+    /**
+     * Set the specified default value to the column.
+     */
+    void setDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column, String defaultValue);
+
+    /**
+     * Drop a default value on the specified column.
+     */
+    void dropDefaultValue(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
      * Set the specified type to the column.
@@ -297,11 +330,6 @@ public interface Metadata
      * Drop a not null constraint on the specified column.
      */
     void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
-
-    /**
-     * Set the authorization (owner) of specified table's user/role
-     */
-    void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
 
     /**
      * Drop the specified column.
@@ -347,7 +375,7 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace);
 
     /**
      * Describe statistics that must be collected during a statistics collection
@@ -415,7 +443,8 @@ public interface Metadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions);
+            List<String> sourceTableFunctions,
+            boolean hasNonDeterministicFunctions);
 
     /**
      * Push update into connector
@@ -473,9 +502,16 @@ public interface Metadata
     Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
-     * Gets all the loaded catalogs
+     * Returns a catalog info for the specified catalog name.
+     */
+    Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName);
+
+    /**
+     * Gets all the catalogs
      */
     List<CatalogInfo> listCatalogs(Session session);
+
+    List<CatalogInfo> listActiveCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -520,9 +556,9 @@ public interface Metadata
     void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
-     * Set the authorization (owner) of specified view's user/role
+     * Refreshes the view definition.
      */
-    void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
+    void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition definition);
 
     /**
      * Drops the specified view.
@@ -686,6 +722,21 @@ public interface Metadata
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Grants the specified privilege to the specified user on the specified branch
+     */
+    void grantTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Denies the specified privilege to the specified principal on the specified branch
+     */
+    void denyTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee);
+
+    /**
+     * Revokes the specified privilege on the specified branch from the specified user.
+     */
+    void revokeTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
      * Gets all the EntityPrivileges associated with an entityKind.  Defines ALL PRIVILEGES
      * for the entityKind
      */
@@ -757,6 +808,16 @@ public interface Metadata
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
+    void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties);
+
+    void dropBranch(Session session, TableHandle tableHandle, String branch);
+
+    void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch);
+
+    Collection<String> listBranches(Session session, QualifiedObjectName tableName);
+
+    boolean branchExists(Session session, QualifiedObjectName tableName, String branch);
+
     /**
      * Creates the specified materialized view with the specified view definition.
      */
@@ -802,7 +863,7 @@ public interface Metadata
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod);
 
     /**
      * Rename the specified materialized view.
@@ -865,4 +926,39 @@ public interface Metadata
      * Returns writer scaling options for the specified table.
      */
     WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
+
+    void setEntityAuthorization(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
+
+    /**
+     * Returns list of schemas authorization info
+     */
+    Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedSchemaPrefix prefix);
+
+    /**
+     * Returns list of tables authorization info
+     */
+    Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Returns list of functions authorization info
+     */
+    Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedObjectPrefix prefix);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorTableHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorWritableTableHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle writableTableHandle);
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link CatalogHandle} and {@link ConnectorTableFunctionHandle}
+     * or {@link Optional#empty} if there are no credentials.
+     */
+    Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableHandle);
 }

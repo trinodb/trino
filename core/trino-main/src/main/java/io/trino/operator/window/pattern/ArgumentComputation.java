@@ -13,12 +13,11 @@
  */
 package io.trino.operator.window.pattern;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -55,15 +54,10 @@ public class ArgumentComputation
     public Block compute(Block[] blocks)
     {
         // wrap block array into a single-row page
-        Page page = new Page(1, blocks);
+        SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
-        boolean done = false;
-        while (!done) {
-            done = work.process();
-        }
-        return work.getResult();
+        return projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
     }
 
     public static class ArgumentComputationSupplier

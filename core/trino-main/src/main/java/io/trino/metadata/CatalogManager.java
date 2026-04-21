@@ -14,9 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
 import java.util.Map;
@@ -46,7 +46,7 @@ public interface CatalogManager
         }
 
         @Override
-        public Set<CatalogHandle> getActiveCatalogs()
+        public Set<CatalogHandle> getReachableDynamicCatalogs()
         {
             return ImmutableSet.of();
         }
@@ -70,7 +70,10 @@ public interface CatalogManager
 
     Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
 
-    Set<CatalogHandle> getActiveCatalogs();
+    /**
+     * Returns the catalogs that are currently reachable by name, but could potentially be dropped later.
+     */
+    Set<CatalogHandle> getReachableDynamicCatalogs();
 
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 

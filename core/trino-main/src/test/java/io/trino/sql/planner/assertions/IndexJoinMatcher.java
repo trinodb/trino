@@ -14,14 +14,10 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,19 +31,13 @@ final class IndexJoinMatcher
 {
     private final IndexJoinNode.Type type;
     private final List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria;
-    private final Optional<PlanTestSymbol> probeHashSymbol;
-    private final Optional<PlanTestSymbol> indexHashSymbol;
 
     IndexJoinMatcher(
             IndexJoinNode.Type type,
-            List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
-            Optional<PlanTestSymbol> probeHashSymbol,
-            Optional<PlanTestSymbol> indexHashSymbol)
+            List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria)
     {
         this.type = requireNonNull(type, "type is null");
         this.criteria = requireNonNull(criteria, "criteria is null");
-        this.probeHashSymbol = requireNonNull(probeHashSymbol, "probeHashSymbol is null");
-        this.indexHashSymbol = requireNonNull(indexHashSymbol, "indexHashSymbol is null");
     }
 
     @Override
@@ -61,7 +51,7 @@ final class IndexJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         IndexJoinNode indexJoinNode = (IndexJoinNode) node;
@@ -71,17 +61,9 @@ final class IndexJoinMatcher
         }
         Set<IndexJoinNode.EquiJoinClause> actualCriteria = ImmutableSet.copyOf(indexJoinNode.getCriteria());
         Set<IndexJoinNode.EquiJoinClause> expectedCriteria = criteria.stream()
-                .map(equiClause -> equiClause.getExpectedValue(symbolAliases))
+                .map(equiClause -> equiClause.getExpectedValue(context.symbolAliases()))
                 .collect(toImmutableSet());
         if (!expectedCriteria.equals(actualCriteria)) {
-            return NO_MATCH;
-        }
-
-        if (!indexJoinNode.getProbeHashSymbol().equals(probeHashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
-            return NO_MATCH;
-        }
-
-        if (!indexJoinNode.getIndexHashSymbol().equals(indexHashSymbol.map(alias -> alias.toSymbol(symbolAliases)))) {
             return NO_MATCH;
         }
 
@@ -95,8 +77,6 @@ final class IndexJoinMatcher
                 .omitNullValues()
                 .add("type", type)
                 .add("criteria", criteria)
-                .add("probeHashSymbol", probeHashSymbol.orElse(null))
-                .add("indexHashSymbol", indexHashSymbol.orElse(null))
                 .toString();
     }
 }

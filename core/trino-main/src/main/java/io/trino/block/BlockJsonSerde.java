@@ -54,8 +54,7 @@ public final class BlockJsonSerde
         public void serialize(Block block, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            //  Encoding name is length prefixed as are many block encodings
-            SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
+            SliceOutput output = new DynamicSliceOutput(toIntExact(blockEncodingSerde.estimatedWriteSize(block)));
             writeBlock(blockEncodingSerde, output, block);
             Slice slice = output.slice();
             jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
@@ -74,10 +73,10 @@ public final class BlockJsonSerde
         }
 
         @Override
-        public Block deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public Block deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            byte[] decoded = jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS);
+            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
             return readBlock(blockEncodingSerde, Slices.wrappedBuffer(decoded));
         }
     }

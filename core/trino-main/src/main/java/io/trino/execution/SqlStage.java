@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -24,20 +25,37 @@ import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.metadata.InternalNode;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.TableFunctionHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.node.InternalNode;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableExecuteNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,11 +77,13 @@ public final class SqlStage
 {
     private final Session session;
     private final StageStateMachine stateMachine;
+    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
 
     private final Set<DynamicFilterId> outboundDynamicFilterIds;
+    private final LocalExchangeBucketCountProvider bucketCountProvider;
 
     private final Map<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
     @GuardedBy("this")
@@ -74,6 +94,7 @@ public final class SqlStage
     private final Set<TaskId> tasksWithFinalInfo = new HashSet<>();
 
     public static SqlStage createSqlStage(
+            Metadata metadata,
             StageId stageId,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
@@ -84,7 +105,8 @@ public final class SqlStage
             Executor stateMachineExecutor,
             Tracer tracer,
             Span schedulerSpan,
-            SplitSchedulerStats schedulerStats)
+            SplitSchedulerStats schedulerStats,
+            LocalExchangeBucketCountProvider bucketCountProvider)
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -111,7 +133,9 @@ public final class SqlStage
                 stateMachine,
                 remoteTaskFactory,
                 nodeTaskMap,
-                summarizeTaskInfo);
+                summarizeTaskInfo,
+                bucketCountProvider,
+                extractTableCredentials(session, metadata, fragment));
         sqlStage.initialize();
         return sqlStage;
     }
@@ -121,15 +145,27 @@ public final class SqlStage
             StageStateMachine stateMachine,
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            LocalExchangeBucketCountProvider bucketCountProvider,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
         this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
+        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
+    }
+
+    private static Map<PlanNodeId, ConnectorTableCredentials> extractTableCredentials(Session session, Metadata metadata, PlanFragment fragment)
+    {
+        ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> tableCredentialsBuilder = ImmutableMap.builder();
+        ConnectorTableCredentialsVisitor visitor = new ConnectorTableCredentialsVisitor(session, metadata, tableCredentialsBuilder);
+        fragment.getRoot().accept(visitor, null);
+        return tableCredentialsBuilder.buildOrThrow();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -210,7 +246,7 @@ public final class SqlStage
     public Duration getTotalCpuTime()
     {
         long millis = tasks.values().stream()
-                .mapToLong(task -> task.getTaskInfo().stats().getTotalCpuTime().toMillis())
+                .mapToLong(task -> task.getTaskInfo().stats().totalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
@@ -242,6 +278,7 @@ public final class SqlStage
             int partition,
             int attempt,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
             Set<PlanNodeId> noMoreSplits,
@@ -256,13 +293,22 @@ public final class SqlStage
 
         stateMachine.transitionToScheduling();
 
+        // set partitioning information on coordinator side
+        PlanFragment fragment = stateMachine.getFragment();
+        fragment = fragment.withOutputPartitioning(bucketToPartition, skewedBucketCount);
+        PlanNode newRoot = fragment.getRoot();
+        LocalExchangePartitionRewriter rewriter = new LocalExchangePartitionRewriter(handle -> bucketCountProvider.getBucketCount(session, handle));
+        newRoot = SimplePlanRewriter.rewriteWith(rewriter, newRoot);
+        fragment = fragment.withRoot(newRoot);
+
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 session,
                 stateMachine.getStageSpan(),
                 taskId,
                 node,
                 speculative,
-                stateMachine.getFragment().withBucketToPartition(bucketToPartition),
+                fragment,
+                tableCredentials,
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
@@ -283,20 +329,20 @@ public final class SqlStage
         return Optional.of(task);
     }
 
-    public void recordGetSplitTime(long start)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
     {
-        stateMachine.recordGetSplitTime(start);
+        stateMachine.recordSplitSourceMetrics(nodeId, metrics, start);
     }
 
     private void updateTaskStatus(TaskStatus status)
     {
-        boolean isDone = status.getState().isDone();
+        boolean isDone = status.state().isDone();
         if (!isDone && stateMachine.getState() == StageState.RUNNING) {
             return;
         }
         synchronized (this) {
             if (isDone) {
-                finishedTasks.add(status.getTaskId());
+                finishedTasks.add(status.taskId());
             }
             if (finishedTasks.size() == allTasks.size()) {
                 stateMachine.transitionToPending();
@@ -309,7 +355,7 @@ public final class SqlStage
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.taskStatus().getTaskId());
+        tasksWithFinalInfo.add(finalTaskInfo.taskStatus().taskId());
         checkAllTaskFinal();
     }
 
@@ -356,8 +402,8 @@ public final class SqlStage
             if (finalUsageReported) {
                 return;
             }
-            long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
-            long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
+            long currentUserMemory = taskStatus.memoryReservation().toBytes();
+            long currentRevocableMemory = taskStatus.revocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
             long deltaTotalMemoryInBytes = (currentUserMemory + currentRevocableMemory) - (previousUserMemory + previousRevocableMemory);
@@ -365,13 +411,113 @@ public final class SqlStage
             previousRevocableMemory = currentRevocableMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes);
 
-            if (taskStatus.getState().isDone()) {
+            if (taskStatus.state().isDone()) {
                 // if task is finished perform final memory update to 0
                 stateMachine.updateMemoryUsage(-currentUserMemory, -currentRevocableMemory, -(currentUserMemory + currentRevocableMemory));
                 previousUserMemory = 0;
                 previousRevocableMemory = 0;
                 finalUsageReported = true;
             }
+        }
+    }
+
+    public interface LocalExchangeBucketCountProvider
+    {
+        OptionalInt getBucketCount(Session session, PartitioningHandle partitioning);
+    }
+
+    private static final class LocalExchangePartitionRewriter
+            extends SimplePlanRewriter<Void>
+    {
+        private final Function<PartitioningHandle, OptionalInt> bucketCountProvider;
+
+        public LocalExchangePartitionRewriter(Function<PartitioningHandle, OptionalInt> bucketCountProvider)
+        {
+            this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
+        {
+            return new ExchangeNode(
+                    node.getId(),
+                    node.getType(),
+                    node.getScope(),
+                    node.getPartitioningScheme().withBucketCount(bucketCountProvider.apply(node.getPartitioningScheme().getPartitioning().getHandle())),
+                    node.getSources(),
+                    node.getInputs(),
+                    node.getOrderingScheme());
+        }
+    }
+
+    private static final class ConnectorTableCredentialsVisitor
+            extends SimplePlanVisitor<Void>
+    {
+        private final Metadata metadata;
+        private final Session session;
+        private final ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder;
+
+        public ConnectorTableCredentialsVisitor(Session session, Metadata metadata, ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.builder = requireNonNull(builder, "builder is null");
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            TableWriterNode.MergeTarget target = node.getTarget();
+            extract(builder, node, metadata.getTableCredentials(session, target.getHandle().catalogHandle(), target.getHandle().connectorHandle()));
+            return null;
+        }
+
+        @Override
+        public Void visitTableExecute(TableExecuteNode node, Void context)
+        {
+            TableWriterNode.TableExecuteTarget target = node.getTarget();
+            extract(builder, node, metadata.getTableCredentials(session, target.getExecuteHandle().catalogHandle(), target.getExecuteHandle().connectorHandle()));
+            return null;
+        }
+
+        @Override
+        public Void visitTableWriter(TableWriterNode node, Void context)
+        {
+            switch (node.getTarget()) {
+                case TableWriterNode.MergeTarget mergeTarget ->
+                        extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle()));
+                case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget ->
+                        extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle()));
+                case TableWriterNode.TableExecuteTarget tableExecuteTarget ->
+                        extract(builder, node, metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle()));
+                case TableWriterNode.CreateTarget createTarget ->
+                        extract(builder, node, metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle()));
+                case TableWriterNode.InsertTarget insertTarget ->
+                        extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
+                default -> throw new IllegalArgumentException("Unsupported table writer node: " + node.getClass().getSimpleName());
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, Void context)
+        {
+            TableHandle table = node.getTable();
+            extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            TableFunctionHandle handle = node.getHandle();
+            extract(builder, node, metadata.getTableCredentials(session, handle.catalogHandle(), handle.functionHandle()));
+            return null;
+        }
+
+        private static void extract(ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder, PlanNode node, Optional<ConnectorTableCredentials> credentials)
+        {
+            credentials.ifPresent(connectorTableCredentials -> builder.put(node.getId(), connectorTableCredentials));
         }
     }
 }

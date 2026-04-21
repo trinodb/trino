@@ -26,6 +26,7 @@ record S3SecurityMappingResult(
         Optional<String> iamRole,
         Optional<String> roleSessionName,
         Optional<String> kmsKeyId,
+        Optional<String> sseCustomerKey,
         Optional<String> endpoint,
         Optional<String> region)
 {
@@ -35,6 +36,7 @@ record S3SecurityMappingResult(
         requireNonNull(iamRole, "iamRole is null");
         requireNonNull(roleSessionName, "roleSessionName is null");
         requireNonNull(kmsKeyId, "kmsKeyId is null");
+        requireNonNull(sseCustomerKey, "sseCustomerKey is null");
         requireNonNull(endpoint, "endpoint is null");
         requireNonNull(region, "region is null");
     }

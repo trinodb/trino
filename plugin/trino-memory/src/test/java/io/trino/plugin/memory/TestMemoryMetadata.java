@@ -32,7 +32,10 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -344,6 +347,33 @@ public class TestMemoryMetadata
         assertThat(metadata.listTables(SESSION, Optional.of("test_different_schema"))).isEqualTo(ImmutableList.of(differentSchemaTableName));
     }
 
+    @Test
+    public void testRenameSchema()
+    {
+        Set<SchemaTableName> tableNames = IntStream.range(1, 10)
+                .mapToObj(idx -> new SchemaTableName("test_schema_to_be_renamed", "test_table_" + idx))
+                .collect(toImmutableSet());
+        MemoryMetadata metadata = createMetadata();
+        metadata.createSchema(SESSION, "test_schema_to_be_renamed", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
+        tableNames.forEach(tableName -> {
+            ConnectorOutputTableHandle table = metadata.beginCreateTable(
+                    SESSION,
+                    new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                    Optional.empty(),
+                    NO_RETRIES,
+                    false);
+            metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
+        });
+
+        // rename schema
+        Set<SchemaTableName> renamedTableNames = tableNames.stream()
+                .map(tableName -> new SchemaTableName("test_schema", tableName.getTableName()))
+                .collect(toImmutableSet());
+        metadata.renameSchema(SESSION, "test_schema_to_be_renamed", "test_schema");
+        assertThat(metadata.listTables(SESSION, Optional.of("test_schema_to_be_renamed"))).isEmpty();
+        assertThat(metadata.listTables(SESSION, Optional.of("test_schema"))).containsAll(renamedTableNames);
+    }
+
     private static void assertNoTables(MemoryMetadata metadata)
     {
         assertThat(metadata.listTables(SESSION, Optional.empty()))
@@ -366,6 +396,6 @@ public class TestMemoryMetadata
 
     private static MemoryMetadata createMetadata()
     {
-        return new MemoryMetadata(new TestingNodeManager());
+        return new MemoryMetadata(TestingNodeManager.create());
     }
 }

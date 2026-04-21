@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -265,9 +266,9 @@ public class KafkaRecordSet
 
     public static FieldValueProvider headerMapValueProvider(MapType varcharMapType, Headers headers)
     {
-        Type keyType = varcharMapType.getTypeParameters().get(0);
-        Type valueArrayType = varcharMapType.getTypeParameters().get(1);
-        Type valueType = valueArrayType.getTypeParameters().get(0);
+        Type keyType = varcharMapType.getKeyType();
+        ArrayType valueArrayType = (ArrayType) varcharMapType.getValueType();
+        Type valueType = valueArrayType.getElementType();
 
         // Group by keys and collect values as array.
         Multimap<String, byte[]> headerMap = ArrayListMultimap.create();

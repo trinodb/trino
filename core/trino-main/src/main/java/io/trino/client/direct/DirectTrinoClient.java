@@ -21,12 +21,13 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.execution.buffer.PageDeserializer;
-import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.RetryPolicy;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.Page;
@@ -41,13 +42,18 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.PagesSerdes.createExchangePagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.RetryPolicy.NONE;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -57,17 +63,32 @@ public class DirectTrinoClient
     private final QueryManager queryManager;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
+    private final long heartBeatIntervalMillis;
+    private final RetryPolicy configuredRetryPolicy;
 
-    public DirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, DirectExchangeClientSupplier directExchangeClientSupplier, BlockEncodingSerde blockEncodingSerde)
+    public DirectTrinoClient(
+            DispatchManager dispatchManager,
+            QueryManager queryManager,
+            QueryManagerConfig queryManagerConfig,
+            DirectExchangeClientSupplier directExchangeClientSupplier,
+            BlockEncodingSerde blockEncodingSerde)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.heartBeatIntervalMillis = queryManagerConfig.getClientTimeout().toMillis() / 2;
+        this.configuredRetryPolicy = queryManagerConfig.getRetryPolicy();
     }
 
     public DispatchQuery execute(SessionContext sessionContext, @Language("SQL") String sql, QueryResultsListener queryResultsListener)
     {
+        // DirectExchangeClient does not support TASK retry policy, override to NONE
+        String sessionRetryPolicy = sessionContext.getSystemProperties().get(RETRY_POLICY);
+        if (configuredRetryPolicy == TASK || TASK.name().equalsIgnoreCase(sessionRetryPolicy)) {
+            sessionContext = sessionContext.withSystemProperty(RETRY_POLICY, NONE.name());
+        }
+
         // create the query and wait for it to be dispatched
         QueryId queryId = dispatchManager.createQueryId();
         getQueryFuture(dispatchManager.createQuery(queryId, Span.getInvalid(), Slug.createNew(), sessionContext, sql));
@@ -94,17 +115,23 @@ public class DirectTrinoClient
                 }
             });
 
-            PageDeserializer pageDeserializer = new PagesSerdeFactory(blockEncodingSerde, NONE).createDeserializer(Optional.empty());
+            PageDeserializer pageDeserializer = createExchangePagesSerdeFactory(blockEncodingSerde, dispatchQuery.getSession()).createDeserializer(Optional.empty());
             for (QueryState state = queryManager.getQueryState(queryId);
                     (state != FAILED) &&
                             !exchangeClient.isFinished() &&
-                            !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getOutputStage().isEmpty());
+                            !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getStages().isEmpty());
                     state = queryManager.getQueryState(queryId)) {
                 for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
+                    // record heartbeat for each page to avoid query timeout during large result sets
+                    dispatchQuery.recordHeartbeat();
                     Page page = pageDeserializer.deserialize(serializedPage);
                     queryResultsListener.consumeOutputPage(page);
                 }
-                getQueryFuture(whenAnyComplete(ImmutableList.of(queryManager.getStateChange(queryId, state), exchangeClient.isBlocked())));
+
+                ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(
+                        queryManager.getStateChange(queryId, state),
+                        exchangeClient.isBlocked()));
+                getQueryFutureWithHeartbeats(anyCompleteFuture, dispatchQuery);
             }
         }
 
@@ -126,6 +153,29 @@ public class DirectTrinoClient
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "Query"),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(dispatchQuery.getSession()));
+    }
+
+    private void getQueryFutureWithHeartbeats(ListenableFuture<Object> anyCompleteFuture, DispatchQuery dispatchQuery)
+    {
+        while (!anyCompleteFuture.isDone()) {
+            try {
+                anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
+                // some time elapsed, so record a heartbeat
+                dispatchQuery.recordHeartbeat();
+            }
+            catch (TimeoutException e) {
+                // continue waiting until the query state changes or the exchange client is blocked.
+                // we need to periodically record the heartbeat to prevent the query from being canceled
+                dispatchQuery.recordHeartbeat();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Thread interrupted", e);
+            }
+            catch (ExecutionException e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
+            }
+        }
     }
 
     private static <T> void getQueryFuture(ListenableFuture<T> future)

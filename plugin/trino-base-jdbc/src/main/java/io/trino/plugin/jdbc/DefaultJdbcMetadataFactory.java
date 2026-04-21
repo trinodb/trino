@@ -17,6 +17,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 
 import java.util.Set;
 
@@ -40,7 +41,7 @@ public class DefaultJdbcMetadataFactory
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
-        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(jdbcQueryEventListeners);
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
     }
 

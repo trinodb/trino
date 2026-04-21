@@ -16,12 +16,13 @@ package io.trino.metadata;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestQualifiedObjectName
 {
-    private final JsonCodec<QualifiedObjectName> codec = JsonCodec.jsonCodec(QualifiedObjectName.class);
+    private final JsonCodec<QualifiedObjectName> codec = jsonCodec(QualifiedObjectName.class);
 
     @Test
     public void testJsonSerializationRoundTrip()

@@ -31,7 +31,7 @@ import java.util.Optional;
 public class InternalCommunicationConfig
 {
     private String sharedSecret;
-    private boolean http2Enabled;
+    private boolean http2Enabled = true;
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;

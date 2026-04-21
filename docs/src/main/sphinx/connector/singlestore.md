@@ -17,7 +17,7 @@ creating tables in an external SingleStore database.
 
 To connect to SingleStore, you need:
 
-- SingleStore version 7.1.4 or higher.
+- SingleStore version 8.7 or higher.
 - Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
@@ -83,9 +83,6 @@ will create a catalog named `sales` using the configured connector.
 ```
 
 ```{include} jdbc-case-insensitive-matching.fragment
-```
-
-```{include} non-transactional-insert.fragment
 ```
 
 ## Querying SingleStore
@@ -179,8 +176,8 @@ this table:
   - `DOUBLE`
   -
 * - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  - `DECIMAL(p, s)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -259,7 +256,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - See [Singlestore DECIMAL type handling](singlestore-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -300,10 +297,6 @@ this table:
 
 No other types are supported.
 
-(singlestore-decimal-handling)=
-```{include} decimal-type-handling.fragment
-```
-
 ```{include} jdbc-type-mapping.fragment
 ```
 
@@ -315,26 +308,35 @@ a SingleStore database.  In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](singlestore-insert)
+- [](/sql/update), see also [](singlestore-update)
+- [](/sql/delete), see also [](singlestore-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/alter-table), see also [](singlestore-alter-table)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](singlestore-procedures)
 
+(singlestore-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(singlestore-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(singlestore-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(singlestore-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(singlestore-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment

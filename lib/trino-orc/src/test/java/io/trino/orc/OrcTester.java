@@ -32,6 +32,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -39,8 +40,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -51,7 +50,7 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
@@ -172,7 +171,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -497,7 +495,7 @@ public class OrcTester
             boolean isFirst = true;
             int rowsProcessed = 0;
             Iterator<?> iterator = expectedValues.iterator();
-            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+            for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
                 int batchSize = page.getPositionCount();
                 if (skipStripe && rowsProcessed < 10000) {
                     assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);
@@ -511,7 +509,7 @@ public class OrcTester
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
+                        data.add(type.getObjectValue(block, position));
                     }
 
                     for (int i = 0; i < batchSize; i++) {
@@ -539,25 +537,21 @@ public class OrcTester
             assertThat(expected).isNull();
             return;
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
             assertThat(actualArray).hasSize(expectedArray.size());
 
-            Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
                 Object actualElement = actualArray.get(i);
                 Object expectedElement = expectedArray.get(i);
-                assertColumnValueEquals(elementType, actualElement, expectedElement);
+                assertColumnValueEquals(arrayType.getElementType(), actualElement, expectedElement);
             }
         }
-        else if (type instanceof MapType) {
+        else if (type instanceof MapType mapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
             assertThat(actualMap).hasSize(expectedMap.size());
-
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
@@ -565,8 +559,8 @@ public class OrcTester
                 while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
-                        assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
-                        assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
+                        assertColumnValueEquals(mapType.getKeyType(), actualEntry.getKey(), expectedEntry.getKey());
+                        assertColumnValueEquals(mapType.getValueType(), actualEntry.getValue(), expectedEntry.getValue());
                         iterator.remove();
                     }
                     catch (AssertionError _) {
@@ -577,16 +571,14 @@ public class OrcTester
                     .describedAs("Unmatched entries " + expectedEntries)
                     .isTrue();
         }
-        else if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
-
+        else if (type instanceof RowType rowType) {
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertThat(actualRow).hasSize(fieldTypes.size());
+            assertThat(actualRow).hasSize(rowType.getFields().size());
             assertThat(actualRow).hasSize(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
-                Type fieldType = fieldTypes.get(fieldId);
+                Type fieldType = rowType.getFields().get(fieldId).getType();
                 Object actualElement = actualRow.get(fieldId);
                 Object expectedElement = expectedRow.get(fieldId);
                 assertColumnValueEquals(fieldType, actualElement, expectedElement);
@@ -626,6 +618,7 @@ public class OrcTester
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(type),
+                false,
                 predicate,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
@@ -679,13 +672,13 @@ public class OrcTester
             }
             if (TIME_MICROS.equals(mappedType)) {
                 return Optional.of(new OrcType(
-                    LONG,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    ImmutableMap.of(ICEBERG_LONG_TYPE, "TIME")));
+                        LONG,
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of(ICEBERG_LONG_TYPE, "TIME")));
             }
             return Optional.empty();
         }));
@@ -781,12 +774,11 @@ public class OrcTester
                 type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(ts.getEpochMillis(), ts.getPicosOfMilli(), UTC_KEY));
             }
             else {
-                if (type instanceof ArrayType) {
+                if (type instanceof ArrayType arrayType) {
                     List<?> array = (List<?>) value;
-                    Type elementType = type.getTypeParameters().get(0);
                     ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                         for (Object elementValue : array) {
-                            writeValue(elementType, elementBuilder, elementValue);
+                            writeValue(arrayType.getElementType(), elementBuilder, elementValue);
                         }
                     });
                 }
@@ -801,9 +793,9 @@ public class OrcTester
                         });
                     });
                 }
-                else if (type instanceof RowType) {
+                else if (type instanceof RowType rowType) {
                     List<?> array = (List<?>) value;
-                    List<Type> fieldTypes = type.getTypeParameters();
+                    List<Type> fieldTypes = rowType.getFieldTypes();
                     ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                         for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
                             Type fieldType = fieldTypes.get(fieldId);
@@ -955,7 +947,7 @@ public class OrcTester
 
     private static List<Object> decodeRecordReaderList(Type type, List<?> list)
     {
-        Type elementType = type.getTypeParameters().get(0);
+        Type elementType = ((ArrayType) type).getElementType();
         return list.stream()
                 .map(element -> decodeRecordReaderValue(elementType, element))
                 .collect(toList());
@@ -963,8 +955,8 @@ public class OrcTester
 
     private static Object decodeRecordReaderMap(Type type, Map<?, ?> map)
     {
-        Type keyType = type.getTypeParameters().get(0);
-        Type valueType = type.getTypeParameters().get(1);
+        Type keyType = ((MapType) type).getKeyType();
+        Type valueType = ((MapType) type).getValueType();
         Map<Object, Object> newMap = new HashMap<>();
         for (Entry<?, ?> entry : map.entrySet()) {
             newMap.put(decodeRecordReaderValue(keyType, entry.getKey()), decodeRecordReaderValue(valueType, entry.getValue()));
@@ -974,7 +966,7 @@ public class OrcTester
 
     private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields)
     {
-        List<Type> fieldTypes = type.getTypeParameters();
+        List<Type> fieldTypes = ((RowType) type).getFieldTypes();
         List<Object> newFields = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             Type fieldType = fieldTypes.get(i);
@@ -1110,20 +1102,20 @@ public class OrcTester
         if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type instanceof ArrayType) {
-            return getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        if (type instanceof ArrayType arrayType) {
+            return getStandardListObjectInspector(getJavaObjectInspector(arrayType.getElementType()));
         }
-        if (type instanceof MapType) {
-            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
-            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(mapType.getKeyType());
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(mapType.getValueType());
             return getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             return getStandardStructObjectInspector(
-                    type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
+                    rowType.getFields().stream()
+                            .map(field -> field.getName().get())
                             .collect(toList()),
-                    type.getTypeParameters().stream()
+                    rowType.getFieldTypes().stream()
                             .map(OrcTester::getJavaObjectInspector)
                             .collect(toList()));
         }
@@ -1160,8 +1152,8 @@ public class OrcTester
         if (type instanceof VarcharType) {
             return value;
         }
-        if (type instanceof CharType) {
-            return new HiveChar((String) value, ((CharType) type).getLength());
+        if (type instanceof CharType charType) {
+            return new HiveChar((String) value, charType.getLength());
         }
         if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
@@ -1187,24 +1179,24 @@ public class OrcTester
         if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        if (type instanceof ArrayType) {
-            Type elementType = type.getTypeParameters().get(0);
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             return ((List<?>) value).stream()
                     .map(element -> preprocessWriteValueHive(elementType, element))
                     .collect(toList());
         }
-        if (type instanceof MapType) {
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
+        if (type instanceof MapType mapType) {
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             Map<Object, Object> newMap = new HashMap<>();
             for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 newMap.put(preprocessWriteValueHive(keyType, entry.getKey()), preprocessWriteValueHive(valueType, entry.getValue()));
             }
             return newMap;
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             List<?> fieldValues = (List<?>) value;
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             List<Object> newStruct = new ArrayList<>();
             for (int fieldId = 0; fieldId < fieldValues.size(); fieldId++) {
                 newStruct.add(preprocessWriteValueHive(fieldTypes.get(fieldId), fieldValues.get(fieldId)));
@@ -1359,23 +1351,23 @@ public class OrcTester
 
     private static Type arrayType(Type elementType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     private static Type mapType(Type keyType, Type valueType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType.getTypeSignature()), TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     private static Type rowType(Type... fieldTypes)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {
             String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), fieldType.getTypeSignature())));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 
     private static boolean containsTimeMicros(Type type)
@@ -1402,14 +1394,14 @@ public class OrcTester
         if (type instanceof TimestampWithTimeZoneType) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isTimestampTz(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isTimestampTz(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isTimestampTz(((MapType) type).getKeyType()) || isTimestampTz(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isTimestampTz(mapType.getKeyType()) || isTimestampTz(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isTimestampTz);
         }
@@ -1421,14 +1413,14 @@ public class OrcTester
         if (type.equals(UUID)) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isUuid(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isUuid(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isUuid(((MapType) type).getKeyType()) || isUuid(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isUuid(mapType.getKeyType()) || isUuid(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isUuid);
         }

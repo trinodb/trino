@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
@@ -36,11 +37,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -49,7 +53,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -63,6 +67,7 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -74,6 +79,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -98,7 +104,9 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
@@ -115,6 +123,7 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
@@ -136,6 +145,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
@@ -166,6 +176,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -176,6 +187,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
@@ -199,6 +211,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
@@ -217,6 +230,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -225,6 +239,7 @@ import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -234,16 +249,21 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_PICOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
@@ -282,6 +302,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
@@ -666,9 +687,9 @@ public class ExpressionAnalyzer
         @Override
         public Type process(Node node, @Nullable Context context)
         {
-            if (node instanceof Expression) {
+            if (node instanceof Expression expression) {
                 // don't double process a node
-                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
+                Type type = expressionTypes.get(NodeRef.of(expression));
                 if (type != null) {
                     return type;
                 }
@@ -679,11 +700,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
-            List<Type> types = node.getItems().stream()
-                    .map(child -> process(child, context))
+            List<RowType.Field> fields = node.getFields().stream()
+                    .map(field -> new RowType.Field(
+                            field.getName().map(Identifier::getCanonicalValue),
+                            process(field.getExpression(), context)))
                     .collect(toImmutableList());
 
-            Type type = RowType.anonymous(types);
+            Type type = RowType.from(fields);
             return setExpressionType(node, type);
         }
 
@@ -1076,7 +1099,7 @@ public class ExpressionAnalyzer
         {
             Type baseType = process(node.getBase(), context);
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
-            if (baseType instanceof RowType) {
+            if (baseType instanceof RowType rowType) {
                 if (!(node.getIndex() instanceof LongLiteral)) {
                     throw semanticException(EXPRESSION_NOT_CONSTANT, node.getIndex(), "Subscript expression on ROW requires a constant index");
                 }
@@ -1088,7 +1111,7 @@ public class ExpressionAnalyzer
                 if (indexValue <= 0) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
-                List<Type> rowTypes = baseType.getTypeParameters();
+                List<Type> rowTypes = rowType.getFieldTypes();
                 if (indexValue > rowTypes.size()) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
@@ -1103,7 +1126,7 @@ public class ExpressionAnalyzer
         protected Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1171,7 +1194,7 @@ public class ExpressionAnalyzer
                                     resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
                                 }
                                 catch (TypeNotFoundException e) {
-                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
+                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
                                 }
 
                                 if (!JSON.equals(resolvedType)) {
@@ -1179,7 +1202,7 @@ public class ExpressionAnalyzer
                                         plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
                                     }
                                     catch (IllegalArgumentException e) {
-                                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                                        throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", resolvedType);
                                     }
                                 }
                                 return resolvedType;
@@ -1249,13 +1272,18 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, Context context)
         {
-            Type type;
-            if (node.isYearToMonth()) {
-                type = INTERVAL_YEAR_MONTH;
-            }
-            else {
-                type = INTERVAL_DAY_TIME;
-            }
+            validateIntervalQualifier(node.qualifier());
+
+            IntervalField field = switch (node.qualifier()) {
+                case SimpleIntervalQualifier simple -> simple.getField();
+                case CompositeIntervalQualifier composite -> composite.getTo(); // we only need to check one. The other one is validated in validateIntervalQualifier
+            };
+
+            Type type = switch (field) {
+                case IntervalField.Year(), IntervalField.Month() -> INTERVAL_YEAR_MONTH;
+                case IntervalField.Day(), IntervalField.Hour(), IntervalField.Minute(), IntervalField.Second(OptionalInt _) -> INTERVAL_DAY_TIME;
+            };
+
             try {
                 literalInterpreter.evaluate(node, type);
             }
@@ -1332,7 +1360,7 @@ public class ExpressionAnalyzer
 
             if (node.getWindow().isPresent()) {
                 ResolvedWindow window = getResolvedWindow.apply(node);
-                checkState(window != null, "no resolved window for: " + node);
+                checkState(window != null, "no resolved window for: %s", node);
 
                 analyzeWindow(window, context.inWindow(), (Node) node.getWindow().get());
                 windowFunctions.add(NodeRef.of(node));
@@ -1386,7 +1414,7 @@ public class ExpressionAnalyzer
             }
 
             if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().getFunctionName());
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().functionName());
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -1452,6 +1480,11 @@ public class ExpressionAnalyzer
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, expression, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
+                    }
+                    if (!type.isOrderable()) {
+                        // TODO this is not a hard requirement, just the implication of how we do partitioning right now, using PagesIndex and iterating over ordered values
+                        // to find partition boundaries.
+                        throw semanticException(TYPE_MISMATCH, expression, "%s is not orderable, and therefore cannot be used in window function PARTITION BY", type);
                     }
                 }
             }
@@ -1693,7 +1726,7 @@ public class ExpressionAnalyzer
         protected Type visitWindowOperation(WindowOperation node, Context context)
         {
             ResolvedWindow window = getResolvedWindow.apply(node);
-            checkState(window != null, "no resolved window for: " + node);
+            checkState(window != null, "no resolved window for: %s", node);
 
             if (window.getFrame().isEmpty()) {
                 throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
@@ -2124,11 +2157,11 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
-            if (valueType instanceof TimeType) {
-                resultType = createTimeWithTimeZoneType(((TimeType) valueType).getPrecision());
+            if (valueType instanceof TimeType timeType) {
+                resultType = createTimeWithTimeZoneType(timeType.getPrecision());
             }
-            else if (valueType instanceof TimestampType) {
-                resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
+            else if (valueType instanceof TimestampType timestampType) {
+                resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
             }
 
             return setExpressionType(node, resultType);
@@ -2414,9 +2447,9 @@ public class ExpressionAnalyzer
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
             }
-            else if (valueList instanceof SubqueryExpression) {
+            else if (valueList instanceof SubqueryExpression subqueryExpression) {
                 subqueryInPredicates.add(NodeRef.of(node));
-                analyzePredicateWithSubquery(node, process(value, context), (SubqueryExpression) valueList, context);
+                analyzePredicateWithSubquery(node, process(value, context), subqueryExpression, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
@@ -2431,8 +2464,8 @@ public class ExpressionAnalyzer
             Type type = analyzeSubquery(node, context);
 
             // the implied type of a scalar subquery is that of the unique field in the single-column row
-            if (type instanceof RowType && ((RowType) type).getFields().size() == 1) {
-                type = type.getTypeParameters().getFirst();
+            if (type instanceof RowType rowType && rowType.getFields().size() == 1) {
+                type = rowType.getFieldTypes().getFirst();
             }
 
             setExpressionType(node, type);
@@ -3411,6 +3444,37 @@ public class ExpressionAnalyzer
         }
     }
 
+    private static void validateIntervalQualifier(IntervalQualifier qualifier)
+    {
+        if (qualifier instanceof CompositeIntervalQualifier composite) {
+            boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
+                    (composite.getFrom() instanceof IntervalField.Day() && (
+                            composite.getTo() instanceof IntervalField.Hour() ||
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Hour() && (
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
+
+            if (!valid) {
+                throw semanticException(SYNTAX_ERROR, qualifier, "Invalid INTERVAL qualifier");
+            }
+        }
+
+        if (qualifier instanceof SimpleIntervalQualifier simple && (
+                simple.getPrecision().isPresent() ||
+                        (simple.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
+        }
+
+        if (qualifier instanceof CompositeIntervalQualifier composite && (
+                composite.getPrecision().isPresent() ||
+                        (composite.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
+        }
+    }
+
     private static class Context
     {
         private final Scope scope;
@@ -3887,6 +3951,87 @@ public class ExpressionAnalyzer
                 });
     }
 
+    public static void analyzeDefaultColumnValue(
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector,
+            Type columnType,
+            Expression defaultLiteral)
+    {
+        if (!(defaultLiteral instanceof Literal literal)) {
+            throw new IllegalArgumentException("Unsupported default expression: " + defaultLiteral);
+        }
+
+        try {
+            ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
+            Type literalType = constantAnalyzer.analyze(literal, Scope.create());
+            Object value = evaluateConstant(literal, literalType, parameters, plannerContext, session, accessControl);
+
+            if (!literalType.equals(columnType)) {
+                checkDefaultColumnValue(session, plannerContext, value, columnType, literalType);
+            }
+        }
+        catch (RuntimeException e) {
+            throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
+        }
+    }
+
+    private static void checkDefaultColumnValue(Session session, PlannerContext plannerContext, Object value, Type type, Type literalType)
+    {
+        if (type instanceof BooleanType) {
+            checkArgument(value instanceof Boolean, "Value must be true or false '%s'".formatted(value));
+        }
+        if (value == null) {
+            return;
+        }
+        if (type instanceof CharType charType) {
+            int targetLength = charType.getLength();
+            Slice slice = (Slice) value;
+            long actualLength = countCodePoints(slice);
+            checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
+        }
+        if (type instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
+                return;
+            }
+            int targetLength = varcharType.getBoundedLength();
+            Slice slice = (Slice) value;
+            long actualLength = countCodePoints(slice);
+            checkArgument(targetLength >= actualLength, "Cannot truncate characters when casting value '%s' to %s".formatted(slice.toStringUtf8(), type));
+        }
+        if (type instanceof TimestampType timestampType) {
+            int precision = timestampType.getPrecision();
+            if (value instanceof Long epochMicros) {
+                int microOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
+                checkArgument(microOfSecond % Math.pow(10, TIMESTAMP_MICROS.getPrecision() - Math.min(precision, TIMESTAMP_MICROS.getPrecision())) == 0, "Value too large");
+            }
+            else {
+                LongTimestamp longTimestamp = (LongTimestamp) value;
+                int picosOfMicro = longTimestamp.getPicosOfMicro();
+                checkArgument(picosOfMicro % Math.pow(10, TIMESTAMP_PICOS.getPrecision() - precision) == 0, "Value too large");
+            }
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            int precision = timestampWithTimeZoneType.getPrecision();
+            if (value instanceof Long dateTimeWithTimeZone) {
+                long epochMillis = unpackMillisUtc(dateTimeWithTimeZone);
+                checkArgument(epochMillis % Math.pow(10, TIMESTAMP_TZ_MILLIS.getPrecision() - Math.min(precision, TIMESTAMP_TZ_MILLIS.getPrecision())) == 0, "Value too large");
+            }
+            else {
+                LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+                int picosOfMilli = timestamp.getPicosOfMilli();
+                checkArgument(picosOfMilli % Math.pow(10, TIMESTAMP_TZ_PICOS.getPrecision() - precision) == 0, "Value too large");
+            }
+        }
+
+        plannerContext.getExpressionEvaluator().evaluate(
+                new io.trino.sql.ir.Cast(new Constant(literalType, value), type),
+                session,
+                ImmutableMap.of());
+    }
+
     public static boolean isNumericType(Type type)
     {
         return type.equals(BIGINT) ||
@@ -3904,7 +4049,7 @@ public class ExpressionAnalyzer
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
+                type instanceof DecimalType decimalType && decimalType.getScale() == 0;
     }
 
     public static boolean isStringType(Type type)

@@ -41,7 +41,11 @@ public class KafkaSsl
         builder.configureContainer(Kafka.KAFKA, container -> container
                 .withStartupAttempts(3)
                 .withStartupTimeout(Duration.ofMinutes(5))
+                .withEnv("KAFKA_LISTENERS", "SSL://kafka:9092,CONTROLLER://kafka:9093")
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "SSL://kafka:9092")
+                .withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER")
+                .withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "SSL:SSL,CONTROLLER:SSL")
+                .withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@kafka:9093")
                 .withEnv("KAFKA_SSL_KEYSTORE_FILENAME", "kafka.broker1.keystore")
                 .withEnv("KAFKA_SSL_KEYSTORE_CREDENTIALS", "broker1_keystore_creds")
                 .withEnv("KAFKA_SSL_KEYSTORE_TYPE", "JKS")

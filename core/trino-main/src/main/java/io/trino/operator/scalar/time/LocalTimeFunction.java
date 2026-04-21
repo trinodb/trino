@@ -27,7 +27,7 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.round;
 
-@ScalarFunction(value = "$localtime", hidden = true)
+@ScalarFunction(value = "$localtime", hidden = true, neverFails = true)
 public final class LocalTimeFunction
 {
     private LocalTimeFunction() {}

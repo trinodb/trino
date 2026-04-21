@@ -21,7 +21,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
@@ -31,8 +30,8 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
@@ -44,6 +43,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -76,6 +76,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.relativePath;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
@@ -86,6 +87,7 @@ import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVecto
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVectors;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -131,13 +133,15 @@ public class DeltaLakeMergeSink
     private final boolean deletionVectorEnabled;
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
+    private final Optional<String> shallowCloneSourceTableLocation;
+    private long writtenBytes;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
 
     public DeltaLakeMergeSink(
             TypeOperators typeOperators,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
             String trinoVersion,
@@ -145,6 +149,7 @@ public class DeltaLakeMergeSink
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats writerStats,
             Location rootTableLocation,
+            VendedCredentialsHandle credentialsHandle,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
             int domainCompactionThreshold,
@@ -155,11 +160,12 @@ public class DeltaLakeMergeSink
             FileFormatDataSourceStats fileFormatDataSourceStats,
             boolean deletionVectorEnabled,
             Map<String, DeletionVectorEntry> deletionVectors,
-            int randomPrefixLength)
+            int randomPrefixLength,
+            Optional<String> shallowCloneSourceTableLocation)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
-        this.fileSystem = fileSystemFactory.create(session);
+        this.fileSystem = fileSystemFactory.create(session, credentialsHandle);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
@@ -184,6 +190,8 @@ public class DeltaLakeMergeSink
         this.deletionVectorEnabled = deletionVectorEnabled;
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         this.randomPrefixLength = randomPrefixLength;
+        this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
+
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
         for (int i = 0; i < tableColumnCount; i++) {
@@ -206,6 +214,9 @@ public class DeltaLakeMergeSink
 
         mergePage.deletionsPage().ifPresent(deletions -> processDeletion(deletions, DELETE_CDF_LABEL));
         mergePage.updateDeletionsPage().ifPresent(deletions -> processDeletion(deletions, UPDATE_PREIMAGE_CDF_LABEL));
+
+        writtenBytes = insertPageSink.getCompletedBytes();
+        writtenBytes += cdfPageSink == null ? 0 : cdfPageSink.getCompletedBytes();
     }
 
     private void processInsertions(Optional<Page> optionalInsertionPage, String cdfOperation)
@@ -236,7 +247,7 @@ public class DeltaLakeMergeSink
             long rowPosition = BIGINT.getLong(rowPositionBlock, position);
             Slice partitions = VARCHAR.getSlice(partitionsBlock, position);
 
-            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
+            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.getInput());
 
             FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
@@ -324,17 +335,24 @@ public class DeltaLakeMergeSink
     }
 
     @Override
+    public long getCompletedBytes()
+    {
+        return writtenBytes;
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         List<Slice> fragments = new ArrayList<>();
 
         insertPageSink.finish().join().stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(dataFileInfoCodec::fromJson)
                 .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
+        writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((path, deletion) -> {
             if (deletionVectorEnabled) {
@@ -347,12 +365,13 @@ public class DeltaLakeMergeSink
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
             MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getBytes)
+                    .map(Slice::getInput)
                     .map(dataFileInfoCodec::fromJson)
                     .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);
+            writtenBytes += cdfPageSink.getCompletedBytes();
         }
 
         return completedFuture(fragments);
@@ -367,7 +386,7 @@ public class DeltaLakeMergeSink
         deletedRows.or(rowsDeletedByUpdate);
 
         if (cdfEnabled) {
-            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8())).get()) {
+            try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8()))) {
                 readConnectorPageSource(
                         connectorPageSource,
                         rowsDeletedByDelete,
@@ -407,8 +426,9 @@ public class DeltaLakeMergeSink
             long rowCount)
     {
         String tablePath = rootTableLocation.toString();
-        String sourceRelativePath = relativePath(tablePath, sourcePath);
-
+        String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
+        // The deletionVectors key is the path in AddFileEntry, which is the URI-formatted sourceReferencePath
+        DeletionVectorEntry oldDeletionVector = deletionVectors.get(uriFormatReferencedPath(tablePath, sourcePath));
         DeletionVectorEntry deletionVectorEntry;
         try {
             deletionVectorEntry = writeDeletionVectors(fileSystem, rootTableLocation, deletedRows, randomPrefixLength);
@@ -416,17 +436,18 @@ public class DeltaLakeMergeSink
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to write deletion vector file", e);
         }
+        writtenBytes += deletionVectorEntry.sizeInBytes();
 
         try {
             DataFileInfo newFileInfo = new DataFileInfo(
-                    sourceRelativePath,
+                    sourceReferencePath,
                     length,
                     lastModified.toEpochMilli(),
                     DATA,
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.empty(), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {
@@ -444,9 +465,9 @@ public class DeltaLakeMergeSink
 
     private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
     {
-        String sourceRelativePath = relativePath(rootTableLocation.toString(), sourcePath);
-        DeletionVectorEntry deletionVector = deletionVectors.get(sourceRelativePath);
-        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.ofNullable(deletionVector), Optional.empty());
+        String sourceReferencePath = getReferencedPath(rootTableLocation.toString(), sourcePath);
+        DeletionVectorEntry deletionVector = deletionVectors.get(uriFormatReferencedPath(rootTableLocation.toString(), sourcePath));
+        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.ofNullable(deletionVector), Optional.empty());
         return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
 
@@ -456,9 +477,18 @@ public class DeltaLakeMergeSink
         try {
             String tablePath = rootTableLocation.toString();
             Location sourceLocation = Location.of(sourcePath);
-            String sourceRelativePath = relativePath(tablePath, sourcePath);
+            String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
 
-            Location targetLocation = sourceLocation.sibling(session.getQueryId() + "_" + randomUUID());
+            // get the relative path for the cloned table if `sourcePath` is a source table file location
+            Optional<String> sourceRelativePath = shallowCloneSourceTableLocation
+                    .filter(sourcePath::startsWith)
+                    .map(location -> relativePath(location, sourcePath));
+            // build the target location by appending the source relative path after current table location if
+            // it's a cloned table and the sourcePath is a source table file location
+            Location targetLocation = sourceRelativePath.map(rootTableLocation::appendPath)
+                    .orElse(sourceLocation)
+                    .sibling(session.getQueryId() + "_" + randomUUID());
+            // write under current table location, no matter the table is cloned or not
             String targetRelativePath = relativePath(tablePath, targetLocation.toString());
             ParquetFileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
@@ -472,8 +502,9 @@ public class DeltaLakeMergeSink
                     DATA);
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
+            writtenBytes += writer.getWrittenBytes();
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty(), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.empty(), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -488,7 +519,7 @@ public class DeltaLakeMergeSink
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                 .build();
-        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
+        CompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session)).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
 
         try {
@@ -523,8 +554,7 @@ public class DeltaLakeMergeSink
 
     private RoaringBitmapArray loadDeletionVector(Location path)
     {
-        String relativePath = relativePath(rootTableLocation.toString(), path.toString());
-        DeletionVectorEntry deletionVector = deletionVectors.get(relativePath);
+        DeletionVectorEntry deletionVector = deletionVectors.get(uriFormatReferencedPath(rootTableLocation.toString(), path.toString()));
         if (deletionVector == null) {
             return new RoaringBitmapArray();
         }
@@ -541,7 +571,7 @@ public class DeltaLakeMergeSink
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
-        try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
+        try (ConnectorPageSource connectorPageSource = createParquetPageSource(path)) {
             readConnectorPageSource(
                     connectorPageSource,
                     rowsDeletedByDelete,
@@ -582,10 +612,12 @@ public class DeltaLakeMergeSink
     {
         long filePosition = 0;
         while (!connectorPageSource.isFinished()) {
-            Page page = connectorPageSource.getNextPage();
-            if (page == null) {
+            SourcePage sourcePage = connectorPageSource.getNextSourcePage();
+            if (sourcePage == null) {
                 continue;
             }
+            // fully load page
+            Page page = sourcePage.getPage();
 
             int positionCount = page.getPositionCount();
             int[] retained = new int[positionCount];
@@ -627,14 +659,14 @@ public class DeltaLakeMergeSink
             if (cdfPageSink == null) {
                 cdfPageSink = cdfPageSinkSupplier.get();
             }
-            Page cdfPage = page.getPositions(deleted, 0, deletedCount);
+            page = page.getPositions(deleted, 0, deletedCount);
             Block[] outputBlocks = new Block[nonSynthesizedColumns.size() + 1];
             int cdfPageIndex = 0;
             int partitionIndex = 0;
             List<String> partitionValues = deletion.partitionValues;
             for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
                 if (nonSynthesizedColumns.get(i).columnType() == REGULAR) {
-                    outputBlocks[i] = cdfPage.getBlock(cdfPageIndex);
+                    outputBlocks[i] = page.getBlock(cdfPageIndex);
                     cdfPageIndex++;
                 }
                 else {
@@ -643,18 +675,18 @@ public class DeltaLakeMergeSink
                                     deserializePartitionValue(
                                             nonSynthesizedColumns.get(i),
                                             Optional.ofNullable(partitionValues.get(partitionIndex)))),
-                            cdfPage.getPositionCount());
+                            page.getPositionCount());
                     partitionIndex++;
                 }
             }
             Block cdfOperationBlock = RunLengthEncodedBlock.create(
-                    nativeValueToBlock(VARCHAR, utf8Slice(operation)), cdfPage.getPositionCount());
+                    nativeValueToBlock(VARCHAR, utf8Slice(operation)), page.getPositionCount());
             outputBlocks[nonSynthesizedColumns.size()] = cdfOperationBlock;
-            cdfPageSink.appendPage(new Page(cdfPage.getPositionCount(), outputBlocks));
+            cdfPageSink.appendPage(new Page(page.getPositionCount(), outputBlocks));
         }
     }
 
-    private ReaderPageSource createParquetPageSource(Location path)
+    private ConnectorPageSource createParquetPageSource(Location path)
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(path);
@@ -670,10 +702,31 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions().withBloomFilter(false),
+                ParquetReaderOptions.builder().withBloomFilter(false).build(),
+                Optional.empty(),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));
+    }
+
+    private String getReferencedPath(String basePath, String sourcePath)
+    {
+        if (shallowCloneSourceTableLocation.isPresent() && sourcePath.startsWith(shallowCloneSourceTableLocation.get())) {
+            // It's the absolute path of shallow clone source table file
+            return sourcePath;
+        }
+
+        return relativePath(basePath, sourcePath);
+    }
+
+    private String uriFormatReferencedPath(String basePath, String sourcePath)
+    {
+        if (shallowCloneSourceTableLocation.isPresent() && sourcePath.startsWith(shallowCloneSourceTableLocation.get())) {
+            // It's the absolute path of shallow clone source table file
+            return sourcePath;
+        }
+
+        return toUriFormat(relativePath(basePath, sourcePath));
     }
 
     @Override
@@ -682,6 +735,8 @@ public class DeltaLakeMergeSink
         if (cdfPageSink != null) {
             cdfPageSink.abort();
         }
+
+        insertPageSink.abort();
     }
 
     private static class FileDeletion

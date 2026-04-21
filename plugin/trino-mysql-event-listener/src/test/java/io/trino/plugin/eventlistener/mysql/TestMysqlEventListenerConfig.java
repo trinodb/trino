@@ -28,17 +28,20 @@ final class TestMysqlEventListenerConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MysqlEventListenerConfig.class)
-                .setUrl(null));
+                .setUrl(null)
+                .setTerminateOnInitializationFailure(true));
     }
 
     @Test
     void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "mysql-event-listener.db.url", "jdbc:mysql://example.net:3306");
+                "mysql-event-listener.db.url", "jdbc:mysql://example.net:3306",
+                "mysql-event-listener.terminate-on-initialization-failure", "false");
 
         MysqlEventListenerConfig expected = new MysqlEventListenerConfig()
-                .setUrl("jdbc:mysql://example.net:3306");
+                .setUrl("jdbc:mysql://example.net:3306")
+                .setTerminateOnInitializationFailure(false);
 
         assertFullMapping(properties, expected);
     }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.connector.CatalogHandle;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
@@ -27,10 +28,10 @@ import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageBuffer;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexOrdering;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -361,8 +361,7 @@ public class TableFunctionOperator
         final PagesHashStrategy prePartitionedStrategy;
         final PagesHashStrategy remainingPartitionStrategy;
         final PagesHashStrategy preSortedStrategy;
-        final List<Integer> remainingPartitionAndSortChannels;
-        final List<SortOrder> remainingSortOrders;
+        final Optional<PagesIndexOrdering> remainingPartitionAndSortOrdering; // empty when remaining partitioning and sort channels are empty
         final int[] prePartitionedChannelsArray;
 
         public HashStrategies(
@@ -373,28 +372,38 @@ public class TableFunctionOperator
                 List<SortOrder> sortOrders,
                 int preSortedPrefix)
         {
-            this.prePartitionedStrategy = pagesIndex.createPagesHashStrategy(prePartitionedChannels, OptionalInt.empty());
+            this.prePartitionedStrategy = pagesIndex.createPagesHashStrategy(prePartitionedChannels);
 
             List<Integer> remainingPartitionChannels = partitionChannels.stream()
                     .filter(channel -> !prePartitionedChannels.contains(channel))
                     .collect(toImmutableList());
-            this.remainingPartitionStrategy = pagesIndex.createPagesHashStrategy(remainingPartitionChannels, OptionalInt.empty());
+            this.remainingPartitionStrategy = pagesIndex.createPagesHashStrategy(remainingPartitionChannels);
 
             List<Integer> preSortedChannels = sortChannels.stream()
                     .limit(preSortedPrefix)
                     .collect(toImmutableList());
-            this.preSortedStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
+            this.preSortedStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels);
 
+            List<Integer> remainingPartitionAndSortChannels;
+            List<SortOrder> remainingSortOrders;
             if (preSortedPrefix > 0) {
                 // preSortedPrefix > 0 implies that all partition channels are already pre-partitioned (enforced by check in the constructor), so we only need to do the remaining sort
-                this.remainingPartitionAndSortChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedPrefix));
-                this.remainingSortOrders = ImmutableList.copyOf(Iterables.skip(sortOrders, preSortedPrefix));
+                remainingPartitionAndSortChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedPrefix));
+                remainingSortOrders = ImmutableList.copyOf(Iterables.skip(sortOrders, preSortedPrefix));
             }
             else {
                 // we need to sort by the remaining partition channels so that the input is fully partitioned,
                 // and then need to we sort by all the sort channels so that the input is fully sorted
-                this.remainingPartitionAndSortChannels = ImmutableList.copyOf(concat(remainingPartitionChannels, sortChannels));
-                this.remainingSortOrders = ImmutableList.copyOf(concat(nCopies(remainingPartitionChannels.size(), ASC_NULLS_LAST), sortOrders));
+                remainingPartitionAndSortChannels = ImmutableList.copyOf(concat(remainingPartitionChannels, sortChannels));
+                remainingSortOrders = ImmutableList.copyOf(concat(nCopies(remainingPartitionChannels.size(), ASC_NULLS_LAST), sortOrders));
+            }
+
+            checkArgument(remainingPartitionAndSortChannels.size() == remainingSortOrders.size(), "sort channels and orders sizes must match");
+            if (remainingPartitionAndSortChannels.isEmpty()) {
+                this.remainingPartitionAndSortOrdering = Optional.empty();
+            }
+            else {
+                this.remainingPartitionAndSortOrdering = Optional.of(pagesIndex.createPagesIndexComparator(remainingPartitionAndSortChannels, remainingSortOrders));
             }
 
             this.prePartitionedChannelsArray = Ints.toArray(prePartitionedChannels);
@@ -498,15 +507,13 @@ public class TableFunctionOperator
 
     private static void sortCurrentGroup(PagesIndex pagesIndex, HashStrategies hashStrategies)
     {
-        PagesHashStrategy preSortedStrategy = hashStrategies.preSortedStrategy;
-        List<Integer> remainingPartitionAndSortChannels = hashStrategies.remainingPartitionAndSortChannels;
-        List<SortOrder> remainingSortOrders = hashStrategies.remainingSortOrders;
-
-        if (pagesIndex.getPositionCount() > 1 && !remainingPartitionAndSortChannels.isEmpty()) {
+        if (pagesIndex.getPositionCount() > 1 && hashStrategies.remainingPartitionAndSortOrdering.isPresent()) {
+            PagesHashStrategy preSortedStrategy = hashStrategies.preSortedStrategy;
+            PagesIndexOrdering remainingPartitionAndSortOrdering = hashStrategies.remainingPartitionAndSortOrdering.get();
             int startPosition = 0;
             while (startPosition < pagesIndex.getPositionCount()) {
                 int endPosition = findGroupEnd(pagesIndex, preSortedStrategy, startPosition);
-                pagesIndex.sort(remainingPartitionAndSortChannels, remainingSortOrders, startPosition, endPosition);
+                pagesIndex.sort(remainingPartitionAndSortOrdering, startPosition, endPosition);
                 startPosition = endPosition;
             }
         }

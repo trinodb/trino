@@ -25,12 +25,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.testing.TestingConnectorSession;
+import io.trino.spi.type.TypeParameter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -96,7 +93,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
@@ -119,7 +116,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
@@ -142,7 +139,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("fieldAValue");
@@ -184,7 +181,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
@@ -208,7 +205,7 @@ public class TestStructColumnReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(readBlock, 0);
 
         assertThat(actual).hasSize(readerFields.size());
         assertThat(actual.get(0)).isEqualTo("field_a_value");
@@ -266,33 +263,34 @@ public class TestStructColumnReader
         OrcRecordReader recordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(readerType),
+                false,
                 OrcPredicate.TRUE,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
                 OrcReader.INITIAL_BATCH_SIZE,
                 RuntimeException::new);
 
-        RowBlock block = (RowBlock) recordReader.nextPage().getLoadedPage().getBlock(0);
+        RowBlock block = (RowBlock) recordReader.nextPage().getBlock(0);
         recordReader.close();
         return block;
     }
 
     private Type getType(List<String> fieldNames)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), VARCHAR.getTypeSignature())));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), VARCHAR.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 
     private Type getTypeNullName(int numFields)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
 
         for (int i = 0; i < numFields; i++) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), VARCHAR.getTypeSignature())));
+            typeParameters.add(TypeParameter.typeParameter(Optional.empty(), VARCHAR.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 }

@@ -26,6 +26,7 @@ import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Revoke;
 
 import java.util.List;
@@ -87,6 +88,10 @@ public class RevokeTask
 
     private void executeRevokeOnSchema(Session session, Revoke statement)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Revoking on branch is not supported");
+        }
+
         CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
 
         if (!metadata.schemaExists(session, schemaName)) {
@@ -104,6 +109,7 @@ public class RevokeTask
     private void executeRevokeOnTable(Session session, Revoke statement)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
@@ -116,15 +122,23 @@ public class RevokeTask
         }
 
         Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
-        for (Privilege privilege : privileges) {
-            accessControl.checkCanRevokeTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
+        if (branch.isEmpty()) {
+            privileges.forEach(privilege -> accessControl.checkCanRevokeTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor()));
+            metadata.revokeTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
         }
-
-        metadata.revokeTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
+        else {
+            String branchName = branch.get().getValue();
+            privileges.forEach(privilege -> accessControl.checkCanRevokeTableBranchPrivilege(session.toSecurityContext(), privilege, tableName, branchName, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor()));
+            metadata.revokeTableBranchPrivileges(session, tableName, branchName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
+        }
     }
 
     private void executeRevokeOnEntity(Session session, String entityKind, Metadata metadata, Revoke statement)
     {
+        if (statement.getGrantObject().getBranch().isPresent()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Revoking on branch is not supported");
+        }
+
         EntityKindAndName entity = createEntityKindAndName(entityKind, statement.getGrantObject().getName());
         Set<EntityPrivilege> privileges = fetchEntityKindPrivileges(entityKind, metadata, statement.getPrivileges());
 

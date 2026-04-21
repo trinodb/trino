@@ -17,5 +17,4 @@ public enum HttpEventListenerEventType
 {
     QUERY_CREATED,
     QUERY_COMPLETED,
-    QUERY_SPLIT
 }

@@ -16,8 +16,7 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
-import io.trino.spi.type.ParameterKind;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.Optional;
 
@@ -25,16 +24,16 @@ public class LongTypeParameter
         extends TypeParameterPattern
 {
     private final long value;
-    private final Pattern<TypeSignatureParameter> pattern;
+    private final Pattern<TypeParameter> pattern;
 
     public LongTypeParameter(long value)
     {
         this.value = value;
-        this.pattern = Pattern.typeOf(TypeSignatureParameter.class).with(value().equalTo(value));
+        this.pattern = Pattern.typeOf(TypeParameter.class).with(value().equalTo(value));
     }
 
     @Override
-    public Pattern<? extends TypeSignatureParameter> getPattern()
+    public Pattern<? extends TypeParameter> getPattern()
     {
         return pattern;
     }
@@ -67,13 +66,11 @@ public class LongTypeParameter
         return Long.toString(value);
     }
 
-    public static Property<TypeSignatureParameter, ?, Long> value()
+    public static Property<TypeParameter, ?, Long> value()
     {
-        return Property.optionalProperty("value", parameter -> {
-            if (parameter.getKind() != ParameterKind.LONG) {
-                return Optional.empty();
-            }
-            return Optional.of(parameter.getLongLiteral());
+        return Property.optionalProperty("value", parameter -> switch (parameter) {
+            case TypeParameter.Numeric numeric -> Optional.of(numeric.value());
+            default -> Optional.empty();
         });
     }
 }

@@ -37,7 +37,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -98,7 +98,6 @@ import static io.trino.hive.formats.compression.CompressionKind.ZSTD;
 import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION;
 import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.StandardTypes.MAP;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
@@ -231,7 +230,7 @@ public class RcFileTester
     public void testRoundTrip(Type type, Iterable<?> writeValues, Format... skipFormats)
             throws Exception
     {
-        ImmutableSet<Format> skipFormatsSet = ImmutableSet.copyOf(skipFormats);
+        Set<Format> skipFormatsSet = ImmutableSet.copyOf(skipFormats);
 
         // just the values
         testRoundTripType(type, writeValues, skipFormatsSet);
@@ -382,7 +381,7 @@ public class RcFileTester
 
                     List<Object> data = new ArrayList<>(block.getPositionCount());
                     for (int position = 0; position < block.getPositionCount(); position++) {
-                        data.add(type.getObjectValue(SESSION, block, position));
+                        data.add(type.getObjectValue(block, position));
                     }
 
                     for (int i = 0; i < batchSize; i++) {
@@ -654,8 +653,8 @@ public class RcFileTester
     private static MapType createMapType(Type type)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(type.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+                TypeParameter.typeParameter(type.getTypeSignature()),
+                TypeParameter.typeParameter(type.getTypeSignature())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)

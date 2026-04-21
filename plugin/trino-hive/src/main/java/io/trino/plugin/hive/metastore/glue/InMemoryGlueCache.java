@@ -26,7 +26,7 @@ import io.trino.metastore.HiveColumnStatistics;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.metastore.cache.ReentrantBoundedExecutor;
+import io.trino.metastore.cache.ReentrantBoundedExecutor;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -57,8 +57,8 @@ import java.util.function.Supplier;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
+import static java.time.Duration.ofMillis;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class InMemoryGlueCache
         implements GlueCache
@@ -427,12 +427,12 @@ class InMemoryGlueCache
         // this does not use EvictableCache because we want to inject values directly into the cache,
         // and we want a lock per key, instead of striped locks
         CacheBuilder<? super K, ? super V> cacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS)
+                .expireAfterWrite(ofMillis(expiresAfterWriteMillis.getAsLong()))
                 .maximumSize(maximumSize)
                 .recordStats();
 
         if (refreshMillis.isPresent() && (expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
-            cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
+            cacheBuilder.refreshAfterWrite(ofMillis(refreshMillis.getAsLong()));
             cacheLoader = asyncReloading(cacheLoader, refreshExecutor);
         }
 

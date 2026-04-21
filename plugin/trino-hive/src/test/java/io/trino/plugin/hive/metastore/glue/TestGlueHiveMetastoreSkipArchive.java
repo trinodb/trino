@@ -63,7 +63,7 @@ final class TestGlueHiveMetastoreSkipArchive
     @Test
     void testSkipArchive()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_skip_archive", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_skip_archive", "(col int)")) {
             List<TableVersion> tableVersionsBeforeInsert = getTableVersions(testSchema, table.getName());
             assertThat(tableVersionsBeforeInsert).hasSize(1);
             String versionIdBeforeInsert = getOnlyElement(tableVersionsBeforeInsert).versionId();

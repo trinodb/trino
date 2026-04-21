@@ -13,7 +13,7 @@
  */
 package io.trino.split;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 
 public interface PageSourceProviderFactory
 {

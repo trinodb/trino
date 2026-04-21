@@ -20,7 +20,7 @@ as a plugin and installed on the Trino cluster.
 
 After a plugin that implements `CertificateAuthenticatorFactory` has been
 installed on the coordinator, it is configured using an
-`etc/certificate-authenticator.properties` file. All of the
+`etc/certificate-authenticator.properties` file. All the
 properties other than `certificate-authenticator.name` are specific to the
 `CertificateAuthenticatorFactory` implementation.
 

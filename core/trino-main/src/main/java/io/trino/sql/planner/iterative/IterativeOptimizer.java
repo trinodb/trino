@@ -62,13 +62,13 @@ import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.stream.Collectors.joining;
 
 public class IterativeOptimizer
         implements AdaptivePlanOptimizer
 {
     private static final Logger LOG = Logger.get(IterativeOptimizer.class);
 
+    private final String name;
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -78,13 +78,14 @@ public class IterativeOptimizer
     private final Predicate<Session> useLegacyRules;
     private final PlannerContext plannerContext;
 
-    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
+        this(name, plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
+        this.name = requireNonNull(name, "name is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -131,6 +132,16 @@ public class IterativeOptimizer
         return new Result(memo.extract(), ImmutableSet.copyOf(changedPlanNodeIds));
     }
 
+    public IterativeOptimizer withName(String name)
+    {
+        return new IterativeOptimizer(name, plannerContext, stats, statsCalculator, costCalculator, useLegacyRules, legacyRules, rules);
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
     // Used for diagnostics.
     public Set<Rule<?>> getRules()
     {
@@ -168,9 +179,7 @@ public class IterativeOptimizer
             context.checkTimeoutNotExhausted();
 
             done = true;
-            Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
-            while (possiblyMatchingRules.hasNext()) {
-                Rule<?> rule = possiblyMatchingRules.next();
+            for (Rule<?> rule : ruleIndex.getCandidates(node)) {
                 long timeStart = nanoTime();
                 long timeEnd;
                 boolean invoked = false;
@@ -180,11 +189,9 @@ public class IterativeOptimizer
                     invoked = true;
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
-                    if (result.getTransformedPlan().isPresent()) {
-                        changedPlanNodeIds.add(result.getTransformedPlan().get().getId());
-                    }
-                    if (result.getTransformedPlan().isPresent()) {
-                        node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    if (result.isPresent()) {
+                        changedPlanNodeIds.add(result.transformedPlan().get().getId());
+                        node = context.memo.replace(group, result.transformedPlan().get(), rule.getClass().getName());
 
                         applied = true;
                         done = false;
@@ -206,6 +213,7 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Rule.Context ruleContext = ruleContext(context);
         Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
@@ -213,7 +221,7 @@ public class IterativeOptimizer
             Rule.Result result;
             try {
                 long start = nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext);
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
                     LOG.debug(
@@ -228,7 +236,7 @@ public class IterativeOptimizer
                                     0,
                                     false),
                             PlanPrinter.textLogicalPlan(
-                                    result.getTransformedPlan().get(),
+                                    result.transformedPlan().get(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
@@ -245,7 +253,7 @@ public class IterativeOptimizer
             }
             stats.record(rule, duration, !result.isEmpty());
 
-            if (result.getTransformedPlan().isPresent()) {
+            if (result.isPresent()) {
                 return result;
             }
         }
@@ -259,7 +267,7 @@ public class IterativeOptimizer
 
         PlanNode expression = context.memo.getNode(group);
         for (PlanNode child : expression.getSources()) {
-            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
+            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: %s", child.getClass().getName());
 
             if (exploreGroup(((GroupReference) child).getGroupId(), context, changedPlanNodeIds)) {
                 progress = true;
@@ -371,22 +379,29 @@ public class IterativeOptimizer
         public void checkTimeoutNotExhausted()
         {
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
-                String message = format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds);
+                StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
                 List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);
                 if (topRulesByTime.isEmpty()) {
-                    message += ": no rules invoked";
+                    message.append(": no rules invoked");
                 }
                 else {
-                    message += ": Top rules: " + topRulesByTime.stream()
-                            .map(ruleStats -> format(
-                                    "%s: %s ms, %s invocations, %s applications",
-                                    ruleStats.rule(),
-                                    NANOSECONDS.toMillis(ruleStats.totalTime()),
-                                    ruleStats.invocations(),
-                                    ruleStats.applied()))
-                            .collect(joining(",\n\t\t", "{\n\t\t", " }"));
+                    message.append(": Top rules: {");
+                    long timeThreshold = topRulesByTime.getFirst().totalTime() / 1000;
+                    for (QueryPlanOptimizerStatistics ruleStats : topRulesByTime) {
+                        if (timeThreshold > ruleStats.totalTime()) {
+                            // The next rule considered is less than 0.1% of the top rule, skip the rest
+                            break;
+                        }
+                        message.append(format(
+                                "\n\t\t%s: %s ms, %s invocations, %s applications",
+                                ruleStats.rule(),
+                                NANOSECONDS.toMillis(ruleStats.totalTime()),
+                                ruleStats.invocations(),
+                                ruleStats.applied()));
+                    }
+                    message.append("}");
                 }
-                throw new TrinoException(OPTIMIZER_TIMEOUT, message);
+                throw new TrinoException(OPTIMIZER_TIMEOUT, message.toString());
             }
         }
 

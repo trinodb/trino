@@ -31,8 +31,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -51,8 +51,11 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -86,8 +89,7 @@ public final class TypeConverter
             case TIMESTAMP:
                 return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
             case TIMESTAMP_NANO:
-                // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
-                break;
+                return ((Types.TimestampNanoType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_NANOS : TIMESTAMP_NANOS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -99,12 +101,18 @@ public final class TypeConverter
                 Types.MapType mapType = (Types.MapType) type;
                 TypeSignature keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
                 TypeSignature valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
+            case VARIANT:
+                return VARIANT;
+            case GEOMETRY:
+            case GEOGRAPHY:
+            case UNKNOWN:
+                break;
         }
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
@@ -136,8 +144,8 @@ public final class TypeConverter
         if (type instanceof DoubleType) {
             return Types.DoubleType.get();
         }
-        if (type instanceof DecimalType) {
-            return fromDecimal((DecimalType) type);
+        if (type instanceof DecimalType decimalType) {
+            return fromDecimal(decimalType);
         }
         if (type instanceof VarcharType) {
             return Types.StringType.get();
@@ -157,8 +165,17 @@ public final class TypeConverter
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return Types.TimestampType.withZone();
         }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            return Types.TimestampNanoType.withoutZone();
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            return Types.TimestampNanoType.withZone();
+        }
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
+        }
+        if (type.equals(VARIANT)) {
+            return Types.VariantType.get();
         }
         if (type instanceof RowType rowType) {
             return fromRow(rowType, columnIdentity, nextFieldId);
@@ -169,14 +186,14 @@ public final class TypeConverter
         if (type instanceof MapType mapType) {
             return fromMap(mapType, columnIdentity, nextFieldId);
         }
-        if (type instanceof TimeType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
+        if (type instanceof TimeType timeType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", timeType.getPrecision()));
         }
-        if (type instanceof TimestampType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
+        if (type instanceof TimestampType timestampType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" or \"timestamp(9)\" instead.", timestampType.getPrecision()));
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" or \"timestamp(9) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
         }
         throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }

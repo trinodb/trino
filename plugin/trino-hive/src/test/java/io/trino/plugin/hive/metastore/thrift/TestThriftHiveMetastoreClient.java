@@ -36,8 +36,8 @@ public class TestThriftHiveMetastoreClient
         AlternativeCall<String> failure = () -> {
             throw new RuntimeException("yay! exception");
         };
-        AlternativeCall<String> sucesss1 = () -> "first";
-        AlternativeCall<String> sucesss2 = () -> "second";
+        AlternativeCall<String> success1 = () -> "first";
+        AlternativeCall<String> success2 = () -> "second";
 
         ThriftHiveMetastoreClient client = new ThriftHiveMetastoreClient(
                 () -> {
@@ -47,24 +47,24 @@ public class TestThriftHiveMetastoreClient
                 "dummy",
                 Optional.empty(),
                 new MetastoreSupportsDateStatistics(),
-                true,
+                new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger());
         assertThat(connectionCount.get()).isEqualTo(1);
 
-        assertThat(client.alternativeCall(e -> false, chosenOption, sucesss1, sucesss2, failure))
+        assertThat(client.alternativeCall(e -> false, chosenOption, success1, success2, failure))
                 .isEqualTo("first");
         assertThat(connectionCount.get()).isEqualTo(1);
         assertThat(chosenOption.get()).isEqualTo(0);
 
         chosenOption.set(Integer.MAX_VALUE);
-        assertThat(client.alternativeCall(e -> false, chosenOption, failure, sucesss1, sucesss2))
+        assertThat(client.alternativeCall(e -> false, chosenOption, failure, success1, success2))
                 .isEqualTo("first");
         assertThat(connectionCount.get()).isEqualTo(2);
         assertThat(chosenOption.get()).isEqualTo(1);
 
-        assertThat(client.alternativeCall(e -> false, chosenOption, failure, sucesss1, sucesss2))
+        assertThat(client.alternativeCall(e -> false, chosenOption, failure, success1, success2))
                 .isEqualTo("first");
         // Alternative call should use chosenOption
         assertThat(connectionCount.get()).isEqualTo(2);

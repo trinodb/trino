@@ -17,6 +17,9 @@ The protocol is a sequence of REST API calls to the
 6. The client and coordinator continue with steps 4. and 5. until all
    result set data is returned to the client or the client stops requesting
    more data.
+7. If the client fails to fetch the result set, the coordinator does not initiate
+   further processing, fails the query, and returns a `USER_CANCELED` error.
+8. The final response when the query is complete is `FINISHED`.
 
 The client protocol supports two modes. Configure the [spooling
 protocol](protocol-spooling) for optimal throughput for your clients.
@@ -59,6 +62,8 @@ on a Trino cluster:
   [](prop-protocol-spooling).
 * Choose a suitable object storage that is accessible to your Trino cluster and
   your clients.
+* Create a location in your object storage that is not shared with any object
+  storage catalog or spooling for any other Trino clusters.
 * Configure the object storage in `etc/spooling-manager.properties` using the
   [](prop-spooling-file-system).
 
@@ -69,6 +74,11 @@ protocol.spooling.enabled=true
 protocol.spooling.shared-secret-key=jxTKysfCBuMZtFqUf8UJDQ1w9ez8rynEJsJqgJf66u0=
 ```
 
+:::{note}
+The `protocol.spooling.shared-secret-key` property requires a 256-bit,
+base64-encoded secret key.
+:::
+
 Refer to [](prop-protocol-spooling) for further optional configuration.
 
 Suitable object storage systems for spooling are S3 and compatible systems,
@@ -76,8 +86,8 @@ Azure Storage, and Google Cloud Storage. The object storage system must provide
 good connectivity for all cluster nodes as well as any clients. 
 
 Activate the desired system with
-`fs.s3.enabled`, `fs.azure.enabled`, or `fs.s3.enabled=true` in
-`etc/spooling-manager.properties`and configure further details using relevant
+`fs.s3.enabled`, `fs.azure.enabled`, or `fs.gcs.enabled` in
+`etc/spooling-manager.properties` and configure further details using relevant
 properties from [](prop-spooling-file-system),
 [](/object-storage/file-system-s3), [](/object-storage/file-system-azure), and
 [](/object-storage/file-system-gcs).
@@ -108,12 +118,24 @@ and transfer demands vary with the query workload on your cluster.
 Segments on object storage are encrypted, compressed, and can only be used by
 the specific client who initiated the query.
 
+:::{note}
+When using S3 or S3-compatible storage, the bucket must allow Server-Side
+Encryption with Customer-provided keys (SSE-C) operations. The spooling protocol
+encrypts segments using SSE-C by default (controlled by the
+[](prop-spooling-file-system) property `fs.segment.encryption`). If the bucket
+policy or storage configuration does not support SSE-C, segment writes fail.
+:::
+
 The following client drivers and client applications support the spooling protocol.
 
 * [Trino JDBC driver](jdbc-spooling-protocol), version 466 and newer
 * [Trino command line interface](cli-spooling-protocol), version 466 and newer
+* [Trino Python client](https://github.com/trinodb/trino-python-client), version
+  0.332.0 and newer
+* [Trino Go client](https://github.com/trinodb/trino-go-client), version 
+  0.328.0 and newer
 
-Refer to the documentation for other your specific client drivers and client
+Refer to the documentation for your specific client drivers and client
 applications for up to date information.
 
 (protocol-direct)=
@@ -122,7 +144,7 @@ applications for up to date information.
 The direct protocol transfers all data from the workers to the coordinator, and
 from there directly to the client.
 
-The direct protocol, also know as the `v1` protocol, has the following
+The direct protocol, also known as the `v1` protocol, has the following
 characteristics, compared to the spooling protocol:
 
 * Provides lower performance, specifically for queries that return more data.
@@ -135,8 +157,8 @@ characteristics, compared to the spooling protocol:
 
 ### Configuration
 
-Use of the direct protocol requires not configuration. Find optional
-configuration properties in [](prop-protocol-shared).
+Use of the direct protocol requires no configuration.
+Find optional configuration properties in [](prop-protocol-shared).
 
 ## Development and reference information
 

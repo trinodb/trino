@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import jakarta.annotation.Nullable;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.util.Collection;
 import java.util.Map;
@@ -31,7 +32,7 @@ import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.requireNonNull;
 
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 class EmptyCache<K, V>
         extends AbstractLoadingCache<K, V>
 {

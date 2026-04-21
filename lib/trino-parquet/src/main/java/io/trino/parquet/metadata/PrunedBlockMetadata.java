@@ -21,6 +21,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -44,7 +45,7 @@ public final class PrunedBlockMetadata
                         // Same column name may occur more than once when the file is written by case-sensitive tools
                         (oldValue, _) -> oldValue));
         ImmutableMap.Builder<List<String>, ColumnChunkMetadata> columnMetadataByPathBuilder = ImmutableMap.builderWithExpectedSize(requiredPaths.size());
-        for (Map.Entry<List<String>, ColumnDescriptor> entry : descriptorsByPath.entrySet()) {
+        for (Entry<List<String>, ColumnDescriptor> entry : descriptorsByPath.entrySet()) {
             List<String> requiredPath = entry.getKey();
             ColumnDescriptor columnDescriptor = entry.getValue();
             ColumnChunkMetadata columnChunkMetadata = columnMetadataByPath.get(requiredPath);

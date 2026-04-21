@@ -1,0 +1,66 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"What is the capital of France?\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyfeFHICsf6xiGSzc9w2t0nhqmZd\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096262,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"The capital of France is Paris.\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 14,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 22,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31c79e968cf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:43 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "281" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=FB_J61SkG82JQg7c_FfxTS4zd57skIoyBms.6ppAu8o-1739096263-1.0.1.1-9nLoA_SD8Eej0ZqE1qOSA895VOhnLwpLLAKe76ZJGtiCsFRxXB4HY25sJ5nnTH.70usPgZF4pdbumRTJw40jjQ; path=/; expires=Sun, 09-Feb-25 10:47:43 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=Rt7omPXNv2.EmuWPutTSCr5nj6dj22ZwCnIeJCfg69Y-1739096263030-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9971" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199975" ],
+          "X-Ratelimit-Reset-Requests" : [ "4m8.042s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "7ms" ],
+          "X-Request-Id" : [ "req_783ce523a1a1f9b2105286281e3e8890" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:17:43-08:00"
+  }
+}

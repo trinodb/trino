@@ -310,7 +310,7 @@ public class BenchmarkJtsGeometrySerde
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkJtsGeometrySerde.class).run();

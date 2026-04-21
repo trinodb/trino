@@ -19,8 +19,6 @@ public interface EventListener
 
     default void queryCompleted(QueryCompletedEvent queryCompletedEvent) {}
 
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent) {}
-
     /**
      * Specify whether the plan included in QueryCompletedEvent should be anonymized or not
      */

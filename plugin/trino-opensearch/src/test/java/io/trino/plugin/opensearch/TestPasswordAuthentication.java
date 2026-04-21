@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.amazonaws.util.Base64;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -121,12 +121,12 @@ public class TestPasswordAuthentication
     public void test()
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
+        String json = new JsonMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
         Request request = new Request("POST", "/test/_doc?refresh");
         request.setJsonEntity(json);
         request.setOptions(RequestOptions.DEFAULT.toBuilder()
-                .addHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+                .addHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
         client.getLowLevelClient().performRequest(request);
 
         assertThat(assertions.query("SELECT * FROM test"))

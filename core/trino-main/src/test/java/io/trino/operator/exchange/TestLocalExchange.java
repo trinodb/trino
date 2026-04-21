@@ -19,17 +19,13 @@ import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
-import io.trino.execution.NodeTaskMap;
-import io.trino.execution.scheduler.NodeScheduler;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.scheduler.UniformNodeSelectorFactory;
-import io.trino.metadata.InMemoryNodeManager;
+import io.trino.connector.CatalogHandle;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PageAssertions;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -37,10 +33,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.testing.TestingTransactionHandle;
-import io.trino.util.FinalizerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -48,6 +43,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -85,25 +81,21 @@ public class TestLocalExchange
     private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
     private static final DataSize PAGE_SIZE = DataSize.ofBytes(createPage(42).getSizeInBytes());
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, MEGABYTE);
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
     private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
     private static final Supplier<Long> TOTAL_MEMORY_USED = () -> 0L;
+    private static final OptionalInt BUCKET_COUNT = OptionalInt.of(8);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
-    private NodePartitioningManager nodePartitioningManager;
+    private PartitionFunctionProvider functionProvider;
     private final PartitioningHandle customScalingPartitioningHandle = getCustomScalingPartitioningHandle();
 
     @BeforeEach
     public void setUp()
     {
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
-                new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(
-                nodeScheduler,
-                new TypeOperators(),
+        functionProvider = new PartitionFunctionProvider(
+                new NullSafeHashCompiler(new TypeOperators()),
                 catalogHandle -> {
                     ConnectorNodePartitioningProvider result = partitionManagers.get(catalogHandle);
                     checkArgument(result != null, "No partition manager for catalog handle: %s", catalogHandle);
@@ -115,15 +107,15 @@ public class TestLocalExchange
     public void testGatherSingleWriter()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 8,
                 SINGLE_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -189,15 +181,15 @@ public class TestLocalExchange
     public void testRandom()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 FIXED_ARBITRARY_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -239,15 +231,15 @@ public class TestLocalExchange
     public void testScaleWriter()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 3,
                 SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 TOTAL_MEMORY_USED);
 
@@ -299,15 +291,15 @@ public class TestLocalExchange
     public void testNoWriterScalingWhenOnlyBufferSizeLimitIsExceeded()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 3,
                 SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(10)),
                 TOTAL_MEMORY_USED);
 
@@ -347,18 +339,18 @@ public class TestLocalExchange
     private void testScalingWithTwoDifferentPartitions(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "256MB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -457,17 +449,17 @@ public class TestLocalExchange
     {
         AtomicLong totalMemoryUsed = new AtomicLong();
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "11MB")
                         .build(),
                 3,
                 SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 totalMemoryUsed::get);
 
@@ -503,15 +495,15 @@ public class TestLocalExchange
     public void testNoWriterScalingWhenOnlyWriterScalingMinDataProcessedLimitIsExceeded()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 3,
                 SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.ofBytes(sizeOfPages(2)),
                 TOTAL_MEMORY_USED);
 
@@ -554,17 +546,17 @@ public class TestLocalExchange
     private void testScalingForSkewedWriters(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -650,17 +642,17 @@ public class TestLocalExchange
     private void testNoScalingWhenDataWrittenIsLessThanMinFileSize(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(50, MEGABYTE),
                 TOTAL_MEMORY_USED);
 
@@ -720,17 +712,17 @@ public class TestLocalExchange
     private void testNoScalingWhenBufferUtilizationIsLessThanLimit(PartitioningHandle partitioningHandle)
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.of(50, MEGABYTE),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -791,18 +783,18 @@ public class TestLocalExchange
     {
         AtomicLong totalMemoryUsed = new AtomicLong();
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 totalMemoryUsed::get);
 
@@ -878,18 +870,18 @@ public class TestLocalExchange
     {
         AtomicLong totalMemoryUsed = new AtomicLong();
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
                         .build(),
                 4,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(10, KILOBYTE),
                 totalMemoryUsed::get);
 
@@ -972,17 +964,17 @@ public class TestLocalExchange
     public void testNoScalingWhenNoWriterSkewness()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .build(),
                 2,
                 SCALED_WRITER_HASH_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(2)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 DataSize.of(50, KILOBYTE),
                 TOTAL_MEMORY_USED);
 
@@ -1022,15 +1014,15 @@ public class TestLocalExchange
     public void testPassthrough()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1090,15 +1082,15 @@ public class TestLocalExchange
     public void testPartition()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 FIXED_HASH_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(0),
                 TYPES,
-                Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1187,15 +1179,15 @@ public class TestLocalExchange
                 Optional.of(TestingTransactionHandle.create()),
                 connectorPartitioningHandle);
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 partitioningHandle,
+                BUCKET_COUNT,
                 ImmutableList.of(1),
                 ImmutableList.of(BIGINT),
-                Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1239,15 +1231,15 @@ public class TestLocalExchange
     public void writeUnblockWhenAllReadersFinish()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 FIXED_ARBITRARY_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1287,15 +1279,15 @@ public class TestLocalExchange
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed()
     {
         LocalExchange localExchange = new LocalExchange(
-                nodePartitioningManager,
+                functionProvider,
                 SESSION,
                 2,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
+                BUCKET_COUNT,
                 ImmutableList.of(),
                 ImmutableList.of(),
-                Optional.empty(),
                 DataSize.ofBytes(2),
-                TYPE_OPERATORS,
+                HASH_COMPILER,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
                 TOTAL_MEMORY_USED);
 
@@ -1448,7 +1440,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertThat(page).isNotNull();
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, TYPE_OPERATORS), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(createChannelsHashGenerator(TYPES, new int[] {0}, HASH_COMPILER), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertThat(partitionGenerator.getPartition(page, position)).isEqualTo(partition);
         }

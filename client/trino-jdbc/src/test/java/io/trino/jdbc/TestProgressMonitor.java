@@ -17,23 +17,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.TypedQueryData;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.junit5.StartStop;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -42,6 +41,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -55,27 +55,13 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(ImmutableSet.of(new QueryDataJacksonModule())))
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new JsonMapperProvider()
+            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule()))
+            .get())
             .jsonCodec(QueryResults.class);
 
-    private MockWebServer server;
-
-    @BeforeEach
-    public void setup()
-            throws IOException
-    {
-        server = new MockWebServer();
-        server.start();
-    }
-
-    @AfterEach
-    public void teardown()
-            throws IOException
-    {
-        server.close();
-        server = null;
-    }
+    @StartStop
+    private final MockWebServer server = new MockWebServer();
 
     private List<String> createResults()
     {
@@ -98,12 +84,12 @@ public class TestProgressMonitor
                 partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
-                TypedQueryData.of(data),
-                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                data == null ? QueryData.NULL : TypedQueryData.of(data),
+                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
 
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
@@ -113,9 +99,10 @@ public class TestProgressMonitor
             throws SQLException
     {
         for (String result : createResults()) {
-            server.enqueue(new MockResponse()
+            server.enqueue(new MockResponse.Builder()
                     .addHeader(CONTENT_TYPE, "application/json")
-                    .setBody(result));
+                    .body(result)
+                    .build());
         }
 
         try (Connection connection = createConnection()) {

@@ -117,7 +117,7 @@ public class BenchmarkReadUleb128Int
         return value | (b << i);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkReadUleb128Int.class)

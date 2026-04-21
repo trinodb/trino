@@ -42,7 +42,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         return withTracing(span, () -> delegate.create());
     }
@@ -52,7 +52,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createOrOverwrite")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         withTracing(span, () -> delegate.createOrOverwrite(data));
     }
@@ -62,7 +62,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createExclusive")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         withTracing(span, () -> delegate.createExclusive(data));
     }
@@ -72,7 +72,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location().toString())
                 .startSpan();
         return withTracing(span, () -> delegate.create(memoryContext));
     }

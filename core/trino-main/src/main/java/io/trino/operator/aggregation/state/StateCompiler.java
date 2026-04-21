@@ -54,6 +54,7 @@ import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InternalDataAccessor;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
@@ -105,6 +106,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
@@ -1076,20 +1078,20 @@ public final class StateCompiler
         Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
-            if (annotation instanceof InitialLongValue) {
+            if (annotation instanceof InitialLongValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == long.class, "%s does not return a long, but is annotated with @InitialLongValue", method.getName());
-                value = ((InitialLongValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialDoubleValue) {
+            else if (annotation instanceof InitialDoubleValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
-                value = ((InitialDoubleValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialBooleanValue) {
+            else if (annotation instanceof InitialBooleanValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
-                value = ((InitialBooleanValue) annotation).value();
+                value = initialValue.value();
             }
         }
 
@@ -1098,7 +1100,7 @@ public final class StateCompiler
 
     private static void checkInterface(Class<?> clazz, List<StateField> fields)
     {
-        checkArgument(clazz.isInterface(), clazz.getName() + " is not an interface");
+        checkArgument(clazz.isInterface(), "%s is not an interface", clazz.getName());
         Set<String> setters = new HashSet<>();
         Set<String> getters = new HashSet<>();
         Set<String> isGetters = new HashSet<>();
@@ -1205,6 +1207,9 @@ public final class StateCompiler
             if (stackType == Slice.class) {
                 return Optional.of(VARBINARY);
             }
+            if (stackType == TrinoNumber.class) {
+                return Optional.of(NUMBER);
+            }
             return Optional.empty();
         }
 
@@ -1241,16 +1246,12 @@ public final class StateCompiler
 
         public BytecodeExpression initialValueExpression()
         {
-            if (initialValue == null) {
-                return defaultValue(type);
-            }
-            if (initialValue instanceof Number) {
-                return constantNumber((Number) initialValue);
-            }
-            if (initialValue instanceof Boolean) {
-                return constantBoolean((boolean) initialValue);
-            }
-            throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            return switch (initialValue) {
+                case null -> defaultValue(type);
+                case Number number -> constantNumber(number);
+                case Boolean _ -> constantBoolean((boolean) initialValue);
+                default -> throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            };
         }
     }
 }

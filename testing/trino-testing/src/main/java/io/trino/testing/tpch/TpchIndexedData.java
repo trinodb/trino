@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchMetadata;
-import io.trino.plugin.tpch.TpchRecordSetProvider;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
@@ -46,6 +45,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.tpch.TpchRecordSet.getRecordSet;
 import static java.util.Objects.requireNonNull;
 
 public class TpchIndexedData
@@ -57,7 +57,6 @@ public class TpchIndexedData
         requireNonNull(tpchIndexSpec, "tpchIndexSpec is null");
 
         TpchMetadata tpchMetadata = new TpchMetadata();
-        TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
 
         ImmutableMap.Builder<Set<TpchScaledColumn>, IndexedTable> indexedTablesBuilder = ImmutableMap.builder();
 
@@ -73,7 +72,7 @@ public class TpchIndexedData
                         .collect(toImmutableSet());
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
-                RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all());
+                RecordSet recordSet = getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all(), DecimalTypeMapping.DOUBLE);
                 IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet()), keyColumnNames);
                 indexedTablesBuilder.put(keyColumns, indexedTable);
             }

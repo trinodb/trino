@@ -14,7 +14,8 @@
 #
 FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS jdk-download
+# Download and extract JDK using a build platform to avoid tar extract issue while running in qemu
+FROM --platform=$BUILDPLATFORM redhat/ubi10-minimal:latest AS jdk-download
 ARG JDK_DOWNLOAD_LINK
 ARG JDK_VERSION
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
@@ -25,26 +26,29 @@ RUN \
     # Install JDK from the provided archive link \
     echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
     mkdir -p "${JAVA_HOME}" && \
-    curl -#LfS "${JDK_DOWNLOAD_LINK}" | tar -zx --strip 1 -C "${JAVA_HOME}"
+    curl -#LfS --retry 8 "${JDK_DOWNLOAD_LINK}" -o /jdktarfile && \
+    tar -zxf /jdktarfile --strip 1 -C "${JAVA_HOME}" && \
+    echo "Done"
 
-FROM registry.access.redhat.com/ubi9/ubi:latest AS packages
+FROM redhat/ubi10 AS packages
 
 RUN \
     set -xeuo pipefail && \
     mkdir -p /tmp/overlay/usr/libexec/ && \
     touch /tmp/overlay/usr/libexec/grepconf.sh && \
     chmod +x /tmp/overlay/usr/libexec/grepconf.sh && \
-    yum update -y && \
-    yum install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
+    dnf update -y && \
+    dnf install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
       less \
+      libstdc++ `# required by snappy and duckdb` \
       curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
       tar `# required to support kubectl cp` && \
       rm -rf /tmp/overlay/var/cache/*
 
-# Use ubi9 minimal as it's more secure
-FROM registry.access.redhat.com/ubi9/ubi-micro:latest
+# Use ubi10 micro as it's more secure
+FROM redhat/ubi10-micro:latest
 ARG JDK_VERSION
 ARG ARCH
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
@@ -60,10 +64,9 @@ RUN \
     mkdir -p /usr/lib/trino /data/trino && \
     chown -R "trino:trino" /usr/lib/trino /data/trino
 
-ARG TRINO_VERSION
-COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
-COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server-${TRINO_VERSION} /usr/lib/trino
-COPY --chown=trino:trino trino-server-${TRINO_VERSION}/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
+COPY --chown=trino:trino trino-cli.jar /usr/bin/trino
+COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server /usr/lib/trino
+COPY --chown=trino:trino trino-server/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
 COPY --chown=trino:trino default/etc /etc/trino
 COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 

@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
@@ -25,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
@@ -198,14 +198,15 @@ public abstract class AbstractTestAggregationFunction
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
-            int positionCount = sequenceBlocks[i].getPositionCount();
+            Block block = sequenceBlocks[i];
+            int positionCount = block.getPositionCount();
             Type type = types.get(i);
             BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
                 blockBuilder.appendNull();
                 // append value
-                type.appendTo(sequenceBlocks[i], position, blockBuilder);
+                blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
             alternatingNullsBlocks[i] = blockBuilder.build();
         }

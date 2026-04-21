@@ -57,7 +57,7 @@ public class TestBigQueryInstanceCleaner
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#tables_view for possible values
     public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW", "MATERIALIZED VIEW", "SNAPSHOT");
 
-    private BigQuerySqlExecutor bigQuerySqlExecutor;
+    protected BigQuerySqlExecutor bigQuerySqlExecutor;
 
     @BeforeAll
     public void setUp()
@@ -69,14 +69,12 @@ public class TestBigQueryInstanceCleaner
     public void cleanUpDatasets()
     {
         LOG.info("Identifying datasets to drop...");
-        // Drop all datasets with our label created more than 24 hours ago
-        List<String> selfCreatedDatasets = bigQuerySqlExecutor.getSelfCreatedDatasets();
-        TableResult result = bigQuerySqlExecutor.executeQuery(format("" +
+        // Drop all datasets except 'tpch' and 'test' schemas
+        TableResult result = bigQuerySqlExecutor.executeQuery(
                         "SELECT schema_name " +
                         "FROM INFORMATION_SCHEMA.SCHEMATA " +
                         "WHERE datetime_diff(current_datetime(), datetime(creation_time), HOUR) > 24 " +
-                        "AND schema_name IN (%s)",
-                selfCreatedDatasets.stream().collect(joining("','", "'", "'"))));
+                        "AND schema_name NOT IN ('tpch', 'test')");
         List<String> datasetsToDrop = Streams.stream(result.getValues())
                 .map(fieldValues -> fieldValues.get("schema_name").getStringValue())
                 .collect(toImmutableList());

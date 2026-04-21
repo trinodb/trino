@@ -45,7 +45,7 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, FunctionManager functionManager, StatsCalculator statsCalculator, Plan actual, Lookup lookup, PlanMatchPattern pattern)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
         assertPlan(session, metadata, functionManager, statsProvider, actual, lookup, pattern);
     }
 
@@ -67,6 +67,11 @@ public final class PlanAssert
                     pattern,
                     formattedPlan,
                     resolvedFormattedPlan));
+        }
+
+        MatchingDynamicFilters matchingDynamicFilters = matches.getDynamicFilters();
+        if (matchingDynamicFilters.containsUnresolvedAliases()) {
+            throw new AssertionError(format("Some dynamic filter aliases are not resolved to a single ID. \nMatched dynamic filters: %s", matchingDynamicFilters));
         }
     }
 

@@ -18,7 +18,7 @@ import io.airlift.configuration.Config;
 public class WebUiConfig
 {
     private boolean enabled = true;
-    private boolean previewEnabled;
+    private boolean previewEnabled = true;
 
     public boolean isEnabled()
     {

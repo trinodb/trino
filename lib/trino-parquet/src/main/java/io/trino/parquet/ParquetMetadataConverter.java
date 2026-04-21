@@ -79,6 +79,8 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.enumType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.float16Type;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geographyType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.intType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.jsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
@@ -87,6 +89,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timeType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.variantType;
 
 // based on org.apache.parquet.format.converter.ParquetMetadataConverter
 public final class ParquetMetadataConverter
@@ -156,6 +159,9 @@ public final class ParquetMetadataConverter
             }
             case UUID -> uuidType();
             case FLOAT16 -> float16Type();
+            case VARIANT -> variantType((byte) 1);
+            case GEOMETRY -> geometryType("OGC:CRS84");
+            case GEOGRAPHY -> geographyType();
         };
     }
 
@@ -258,8 +264,15 @@ public final class ParquetMetadataConverter
                     byte[] originalMax = stats.getMaxBytes();
                     min = truncateMin(truncator, truncateLength, originalMin);
                     max = truncateMax(truncator, truncateLength, originalMax);
-                    isMinValueExact = originalMin.length == min.length;
-                    isMaxValueExact = originalMax.length == max.length;
+                    // Omit statistics that exceed the size limit even after truncation
+                    if (min.length > truncateLength) {
+                        min = null;
+                    }
+                    if (max.length > truncateLength) {
+                        max = null;
+                    }
+                    isMinValueExact = min != null && originalMin.length == min.length;
+                    isMaxValueExact = max != null && originalMax.length == max.length;
                 }
                 else {
                     min = stats.getMinBytes();
@@ -269,15 +282,23 @@ public final class ParquetMetadataConverter
                 // signed so the logic of V1 and V2 stats are the same (which is
                 // trivially true for equal min-max values)
                 if (sortOrder(stats.type()) == SortOrder.SIGNED || Arrays.equals(min, max)) {
-                    formatStats.setMin(min);
-                    formatStats.setMax(max);
+                    if (min != null) {
+                        formatStats.setMin(min);
+                    }
+                    if (max != null) {
+                        formatStats.setMax(max);
+                    }
                 }
 
                 if (isMinMaxStatsSupported(stats.type()) || Arrays.equals(min, max)) {
-                    formatStats.setMin_value(min);
-                    formatStats.setMax_value(max);
-                    formatStats.setIs_min_value_exact(isMinValueExact);
-                    formatStats.setIs_max_value_exact(isMaxValueExact);
+                    if (min != null) {
+                        formatStats.setMin_value(min);
+                        formatStats.setIs_min_value_exact(isMinValueExact);
+                    }
+                    if (max != null) {
+                        formatStats.setMax_value(max);
+                        formatStats.setIs_max_value_exact(isMaxValueExact);
+                    }
                 }
             }
         }

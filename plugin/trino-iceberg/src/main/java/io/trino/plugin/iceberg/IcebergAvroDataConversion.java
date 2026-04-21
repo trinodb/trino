@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.plugin.iceberg.util.Timestamps;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -24,20 +25,27 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.VariantBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VariantType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.variants.Variant;
+import org.apache.iceberg.variants.VariantMetadata;
+import org.apache.iceberg.variants.VariantValue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -53,14 +61,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
+import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTzMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -70,7 +83,9 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.UuidType.UUID;
@@ -78,13 +93,18 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamp;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamptz;
+import static org.apache.iceberg.util.DateTimeUtil.nanosFromTimestamp;
+import static org.apache.iceberg.util.DateTimeUtil.nanosFromTimestamptz;
 import static org.apache.iceberg.util.DateTimeUtil.timeFromMicros;
 import static org.apache.iceberg.util.DateTimeUtil.timestampFromMicros;
+import static org.apache.iceberg.util.DateTimeUtil.timestampFromNanos;
 import static org.apache.iceberg.util.DateTimeUtil.timestamptzFromMicros;
+import static org.apache.iceberg.util.DateTimeUtil.timestamptzFromNanos;
 
 public final class IcebergAvroDataConversion
 {
@@ -186,8 +206,18 @@ public final class IcebergAvroDataConversion
             return timestampFromMicros(epochMicros);
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
-            long epochUtcMicros = timestampTzToMicros(getTimestampTz(block, position));
+            long epochUtcMicros = timestampTzToMicros(getTimestampTzMicros(block, position));
             return timestamptzFromMicros(epochUtcMicros);
+        }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            LongTimestamp timestamp = (LongTimestamp) TIMESTAMP_NANOS.getObject(block, position);
+            long epochNanos = timestampToNanos(timestamp);
+            return timestampFromNanos(epochNanos);
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) TIMESTAMP_TZ_NANOS.getObject(block, position);
+            long epochUtcNanos = timestampTzToNanos(timestamp);
+            return timestamptzFromNanos(epochUtcNanos);
         }
         if (type.equals(UUID)) {
             return trinoUuidToJavaUuid(UUID.getSlice(block, position));
@@ -229,7 +259,7 @@ public final class IcebergAvroDataConversion
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
 
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             checkArgument(fieldTypes.size() == sqlRow.getFieldCount(), "Expected row value field count does not match type field count");
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
 
@@ -241,6 +271,18 @@ public final class IcebergAvroDataConversion
             }
 
             return record;
+        }
+        if (type instanceof VariantType variantType) {
+            // Iceberg's Avro DataWriter requires org.apache.iceberg.variants.Variant objects
+            // for variant type serialization. This is the only place we bridge to Iceberg's variant class.
+            io.trino.spi.variant.Variant variant = variantType.getObject(block, position);
+
+            ByteBuffer metadataBuffer = variant.metadata().toSlice().toByteBuffer().order(LITTLE_ENDIAN);
+            ByteBuffer valueBuffer = variant.data().toByteBuffer().order(LITTLE_ENDIAN);
+
+            VariantMetadata metadata = VariantMetadata.from(metadataBuffer);
+            VariantValue value = VariantValue.from(metadata, valueBuffer);
+            return Variant.of(metadata, value);
         }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
@@ -289,8 +331,9 @@ public final class IcebergAvroDataConversion
         if (type instanceof VarbinaryType) {
             if (icebergType.typeId().equals(FIXED)) {
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer((byte[]) object));
+                return;
             }
-            VARBINARY.writeSlice(builder, Slices.wrappedHeapBuffer((ByteBuffer) object));
+            VARBINARY.writeSlice(builder, wrappedHeapBuffer((ByteBuffer) object));
             return;
         }
         if (type.equals(DATE)) {
@@ -311,13 +354,23 @@ public final class IcebergAvroDataConversion
             type.writeObject(builder, timestampTzFromMicros(epochUtcMicros));
             return;
         }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            long epochNanos = nanosFromTimestamp((LocalDateTime) object);
+            type.writeObject(builder, Timestamps.timestampFromNanos(epochNanos));
+            return;
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            long epochUtcNanos = nanosFromTimestamptz((OffsetDateTime) object);
+            type.writeObject(builder, timestampTzFromNanos(epochUtcNanos));
+            return;
+        }
         if (type.equals(UUID)) {
             type.writeSlice(builder, javaUuidToTrinoUuid((UUID) object));
             return;
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             Collection<?> array = (Collection<?>) object;
-            Type elementType = ((ArrayType) type).getElementType();
+            Type elementType = arrayType.getElementType();
             org.apache.iceberg.types.Type elementIcebergType = icebergType.asListType().elementType();
             ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
                 for (Object element : array) {
@@ -326,29 +379,47 @@ public final class IcebergAvroDataConversion
             });
             return;
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             Map<?, ?> map = (Map<?, ?>) object;
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                for (Entry<?, ?> entry : map.entrySet()) {
                     serializeToTrinoBlock(keyType, keyIcebergType, keyBuilder, entry.getKey());
                     serializeToTrinoBlock(valueType, valueIcebergType, valueBuilder, entry.getValue());
                 }
             });
             return;
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             Record record = (Record) object;
-            List<Type> typeParameters = type.getTypeParameters();
+            List<Type> typeParameters = rowType.getFieldTypes();
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
                 for (int i = 0; i < typeParameters.size(); i++) {
                     serializeToTrinoBlock(typeParameters.get(i), icebergFields.get(i).type(), fieldBuilders.get(i), record.get(i));
                 }
             });
+            return;
+        }
+        if (type instanceof VariantType) {
+            // Iceberg's Avro reader returns org.apache.iceberg.variants.Variant objects.
+            // This is the only place we bridge from Iceberg's variant class back to Trino.
+            Variant variant = (Variant) object;
+            VariantMetadata metadata = variant.metadata();
+            VariantValue value = variant.value();
+
+            ByteBuffer metadataBuffer = ByteBuffer.allocate(metadata.sizeInBytes());
+            metadata.writeTo(metadataBuffer, 0);
+            metadataBuffer.rewind();
+
+            ByteBuffer valueBuffer = ByteBuffer.allocate(value.sizeInBytes());
+            value.writeTo(valueBuffer, 0);
+            valueBuffer.rewind();
+
+            ((VariantBlockBuilder) builder).writeEntry(wrappedHeapBuffer(metadataBuffer), wrappedHeapBuffer(valueBuffer));
             return;
         }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);

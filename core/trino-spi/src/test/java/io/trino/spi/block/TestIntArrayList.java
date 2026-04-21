@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIntArrayList
+final class TestIntArrayList
 {
     private static final int N_ELEMENTS = 1000;
 

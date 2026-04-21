@@ -110,18 +110,13 @@ public class TestMySqlLegacyConnectorTest
                 .collect(toImmutableList());
 
         try (TestTable testTable = new TestTable(onRemoteDatabase(), "tpch.distinct_strings", "(t_char CHAR(5) CHARACTER SET utf8mb4, t_varchar VARCHAR(5) CHARACTER SET utf8mb4)", rows)) {
-            // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
-            Session optimizeHashGenerationDisabled = Session.builder(getSession())
-                    .setSystemProperty("optimize_hash_generation", "false")
-                    .build();
-
             // It is not captured in the `isNotFullyPushedDown` calls (can't do that) but depending on the connector in use some aggregations
             // still can be pushed down to connector.
             // the DISTINCT part of aggregation will still be pushed down to connector as `GROUP BY`. Only the `count` part will remain on the Trino side.
-            assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+            assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                     .matches("VALUES BIGINT '7'")
                     .isNotFullyPushedDown(AggregationNode.class);
-            assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+            assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
                     .matches("VALUES BIGINT '7'")
                     .isNotFullyPushedDown(AggregationNode.class);
 

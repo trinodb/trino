@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
@@ -81,7 +82,7 @@ public class AggregationStatsRule
             double rowsCount = getRowsCount(sourceStats, groupBySymbols);
             result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
         }
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
+        for (Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 
@@ -107,7 +108,7 @@ public class AggregationStatsRule
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(sourceStats.getOutputRowCount());
         result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
-        for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
+        for (Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 

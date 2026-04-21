@@ -20,9 +20,9 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
@@ -40,6 +40,7 @@ public class MarkdownTablePrinter
         implements OutputPrinter
 {
     private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
+    private static final Pattern SPECIAL_CHARS = Pattern.compile("([\\\\`*_{}\\[\\]<>()#+!|])");
     private final List<String> fieldNames;
     private final List<Align> alignments;
     private final Writer writer;
@@ -94,7 +95,7 @@ public class MarkdownTablePrinter
 
             for (int i = 0; i < columns; i++) {
                 writer.append("| ");
-                writer.append(repeat("-", columnWidth[i]));
+                writer.append("-".repeat(columnWidth[i]));
                 writer.write(alignments.get(i) == Align.RIGHT ? ':' : ' ');
             }
             writer.append("|\n");
@@ -112,8 +113,8 @@ public class MarkdownTablePrinter
 
     static String formatValue(Object o)
     {
-        return FormatUtils.formatValue(o)
-                .replaceAll("([\\\\`*_{}\\[\\]<>()#+!|])", "\\\\$1")
+        return SPECIAL_CHARS.matcher(FormatUtils.formatValue(o))
+                .replaceAll("\\\\$1")
                 .replace("\n", "<br>");
     }
 
@@ -128,7 +129,7 @@ public class MarkdownTablePrinter
     {
         int width = consoleWidth(value);
         checkState(width <= maxWidth, "Variable width %s is greater than column width %s", width, maxWidth);
-        String padding = repeat(" ", (maxWidth - width) + 1);
+        String padding = " ".repeat(maxWidth - width + 1);
         return align == Align.RIGHT ? (padding + value + " ") : (" " + value + padding);
     }
 

@@ -14,7 +14,6 @@
 package io.trino.spi.spool;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.Experimental;
 
 import java.net.URI;
 import java.util.List;
@@ -22,7 +21,6 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2025-05-31")
 public sealed interface SpooledLocation
 {
     Map<String, List<String>> headers();

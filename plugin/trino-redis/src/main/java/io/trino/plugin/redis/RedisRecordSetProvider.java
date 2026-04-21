@@ -39,13 +39,13 @@ public class RedisRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final DispatchingRowDecoderFactory decoderFactory;
-    private final RedisJedisManager jedisManager;
+    private final RedisClientManager clientManager;
 
     @Inject
-    public RedisRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, RedisJedisManager jedisManager)
+    public RedisRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, RedisClientManager clientManager)
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
-        this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
+        this.clientManager = requireNonNull(clientManager, "clientManager is null");
     }
 
     @Override
@@ -77,6 +77,6 @@ public class RedisRecordSetProvider
                                 .filter(col -> !col.isKeyDecoder())
                                 .collect(toImmutableSet())));
 
-        return new RedisRecordSet(redisSplit, jedisManager, redisColumns, keyDecoder, valueDecoder);
+        return new RedisRecordSet(redisSplit, clientManager, redisColumns, keyDecoder, valueDecoder);
     }
 }

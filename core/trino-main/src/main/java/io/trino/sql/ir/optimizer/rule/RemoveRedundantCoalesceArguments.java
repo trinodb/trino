@@ -43,7 +43,7 @@ public class RemoveRedundantCoalesceArguments
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Coalesce coalesce)) {
+        if (!(expression instanceof Coalesce(List<Expression> operands))) {
             return Optional.empty();
         }
 
@@ -52,8 +52,8 @@ public class RemoveRedundantCoalesceArguments
         boolean removed = false;
         Set<Expression> seen = new HashSet<>();
         int last = 0;
-        for (int i = 0; i < coalesce.operands().size(); i++) {
-            Expression argument = coalesce.operands().get(i);
+        for (int i = 0; i < operands.size(); i++) {
+            Expression argument = operands.get(i);
             last = i;
 
             if (seen.contains(argument) || (argument instanceof Constant constant && constant.value() == null)) {
@@ -71,7 +71,7 @@ public class RemoveRedundantCoalesceArguments
             }
         }
 
-        if (!removed && last == coalesce.operands().size() - 1) {
+        if (!removed && last == operands.size() - 1) {
             return Optional.empty();
         }
 

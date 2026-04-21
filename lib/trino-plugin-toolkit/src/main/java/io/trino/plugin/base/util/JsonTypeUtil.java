@@ -13,21 +13,30 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlVarbinary;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.StringJoiner;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
@@ -37,18 +46,24 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class JsonTypeUtil
 {
-    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
+            .disable(CANONICALIZE_FIELD_NAMES)
+            .build());
+
+    private static final JsonMapper SORTED_MAPPER = new JsonMapperProvider().get()
+            .rebuild()
+            .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+            .configure(USE_BIG_DECIMAL_FOR_FLOATS, true)
+            .build();
 
     private JsonTypeUtil() {}
 
-    // TODO: this should be available from the engine
     public static Slice jsonParse(Slice slice)
     {
         // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer
         // If you make changes to this function (e.g. use parse JSON string into some internal representation),
         // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, slice)) {
             SliceOutput output = new DynamicSliceOutput(slice.length());
             SORTED_MAPPER.writeValue((OutputStream) output, SORTED_MAPPER.readValue(parser, Object.class));
             // At this point, the end of input should be reached. nextToken() has three possible results:
@@ -63,17 +78,35 @@ public final class JsonTypeUtil
         }
     }
 
-    public static Slice toJsonValue(Object value)
+    public static Slice toJsonValue(List<?> values)
             throws IOException
     {
-        return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
+        if (values == null) {
+            return Slices.utf8Slice("[]");
+        }
+
+        StringJoiner joiner = new StringJoiner(",", "[", "]");
+        for (Object value : values) {
+            joiner.add(switch (value) {
+                case null -> "null";
+                case SqlDate _,
+                     SqlTime _,
+                     SqlVarbinary _,
+                     SqlTimeWithTimeZone _,
+                     SqlDecimal _,
+                     SqlTimestamp _,
+                     SqlTimestampWithTimeZone _ -> SORTED_MAPPER.writeValueAsString(value.toString());
+                default -> SORTED_MAPPER.writeValueAsString(value);
+            });
+        }
+        return Slices.utf8Slice(joiner.toString());
     }
 
-    private static JsonParser createJsonParser(JsonFactory factory, Slice json)
+    private static JsonParser createJsonParser(JsonMapper mapper, Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when
         // using InputStream, so we pass an InputStreamReader instead.
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 }

@@ -46,6 +46,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path("")
+@ResourceSecurity(WEB_UI)
 public class LoginResource
 {
     private static final String REPLACEMENT_TEXT = "<div class=\"hidden\" id=\"hide-password\">false</div> <!-- This value will be replaced -->";
@@ -61,7 +62,6 @@ public class LoginResource
         verify(loginHtml.contains(REPLACEMENT_TEXT), "login.html does not contain the replacement text");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path(LOGIN_FORM)
     public Response getFile(@Context SecurityContext securityContext)
@@ -72,7 +72,6 @@ public class LoginResource
                 .build();
     }
 
-    @ResourceSecurity(WEB_UI)
     @POST
     @Path(UI_LOGIN)
     public Response login(
@@ -101,7 +100,6 @@ public class LoginResource
                 .build();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path(UI_LOGOUT)
     public Response logout(@Context HttpHeaders httpHeaders, @Context SecurityContext securityContext, @BeanParam ExternalUriInfo externalUriInfo)

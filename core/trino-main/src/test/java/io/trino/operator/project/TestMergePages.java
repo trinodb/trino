@@ -16,8 +16,6 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +32,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Math.toIntExact;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergePages
 {
@@ -72,34 +69,6 @@ public class TestMergePages
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, page));
         assertFinishes(mergePages);
-    }
-
-    @Test
-    public void testMinRowCountThresholdWithLazyPages()
-    {
-        Page page = createSequencePage(TYPES, 10);
-
-        LazyBlock channel1 = lazyWrapper(page.getBlock(0));
-        LazyBlock channel2 = lazyWrapper(page.getBlock(1));
-        LazyBlock channel3 = lazyWrapper(page.getBlock(2));
-        page = new Page(channel1, channel2, channel3);
-
-        WorkProcessor<Page> mergePages = mergePages(
-                TYPES,
-                1024 * 1024,
-                page.getPositionCount() * 2,
-                Integer.MAX_VALUE,
-                pagesSource(page),
-                newSimpleAggregatedMemoryContext());
-
-        assertThat(mergePages.process()).isTrue();
-        assertThat(mergePages.isFinished()).isFalse();
-
-        Page result = mergePages.getResult();
-        assertThat(channel1.isLoaded()).isFalse();
-        assertThat(channel2.isLoaded()).isFalse();
-        assertThat(channel3.isLoaded()).isFalse();
-        assertPageEquals(TYPES, result, page);
     }
 
     @Test
@@ -159,11 +128,6 @@ public class TestMergePages
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         assertFinishes(mergePages);
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static WorkProcessor<Page> pagesSource(Page... pages)

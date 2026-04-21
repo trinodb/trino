@@ -16,21 +16,46 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import jakarta.annotation.Nullable;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorMask;
+import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class ByteArrayBlockEncoding
         implements BlockEncoding
 {
+    private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
     public static final String NAME = "BYTE_ARRAY";
+
+    private final boolean vectorizeNullBitPacking;
+    private final boolean vectorizeNullCompress;
+    private final boolean vectorizeNullExpand;
+
+    public ByteArrayBlockEncoding(boolean vectorizeNullBitPacking, boolean vectorizeNullCompress, boolean vectorizeNullExpand)
+    {
+        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+        this.vectorizeNullCompress = vectorizeNullCompress;
+        this.vectorizeNullExpand = vectorizeNullExpand;
+    }
 
     @Override
     public String getName()
     {
         return NAME;
+    }
+
+    @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return ByteArrayBlock.class;
     }
 
     @Override
@@ -40,23 +65,28 @@ public class ByteArrayBlockEncoding
         int positionCount = byteArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, byteArrayBlock);
+        int rawOffset = byteArrayBlock.getRawValuesOffset();
+        @Nullable
+        boolean[] isNull = byteArrayBlock.getRawValueIsNull();
+        byte[] rawValues = byteArrayBlock.getRawValues();
 
-        if (!byteArrayBlock.mayHaveNull()) {
-            sliceOutput.writeBytes(byteArrayBlock.getValuesSlice());
+        if (vectorizeNullBitPacking) {
+            encodeNullsAsBitsVectorized(sliceOutput, isNull, rawOffset, positionCount);
         }
         else {
-            byte[] valuesWithoutNull = new byte[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = byteArrayBlock.getByte(i);
-                if (!byteArrayBlock.isNull(i)) {
-                    nonNullPositionCount++;
-                }
-            }
+            encodeNullsAsBitsScalar(sliceOutput, isNull, rawOffset, positionCount);
+        }
 
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(Slices.wrappedBuffer(valuesWithoutNull, 0, nonNullPositionCount));
+        if (isNull == null) {
+            sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
+        }
+        else {
+            if (vectorizeNullCompress) {
+                compactBytesWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
+            else {
+                compactBytesWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 
@@ -66,14 +96,95 @@ public class ByteArrayBlockEncoding
         int positionCount = sliceInput.readInt();
 
         byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
-        byte[] values = new byte[positionCount];
 
         if (valueIsNullPacked == null) {
-            sliceInput.readBytes(Slices.wrappedBuffer(values));
+            byte[] values = new byte[positionCount];
+            sliceInput.readBytes(values, 0, values.length);
             return new ByteArrayBlock(0, positionCount, null, values);
         }
-        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
+        boolean[] valueIsNull;
+        if (vectorizeNullBitPacking) {
+            valueIsNull = decodeNullBitsVectorized(valueIsNullPacked, positionCount);
+        }
+        else {
+            valueIsNull = decodeNullBitsScalar(valueIsNullPacked, positionCount);
+        }
+        if (vectorizeNullExpand) {
+            return expandBytesWithNullsVectorized(sliceInput, positionCount, valueIsNull);
+        }
+        return expandBytesWithNullsScalar(sliceInput, positionCount, valueIsNullPacked, valueIsNull);
+    }
+
+    static void compactBytesWithNullsVectorized(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compacted = new byte[length];
+        int valuesIndex = 0;
+        int compactedIndex = 0;
+        for (; valuesIndex < BYTE_SPECIES.loopBound(length); valuesIndex += BYTE_SPECIES.length()) {
+            VectorMask<Byte> mask = BYTE_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            ByteVector.fromArray(BYTE_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compacted, compactedIndex);
+            compactedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compacted[compactedIndex] = values[valuesIndex + offset];
+            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeBytes(compacted, 0, compactedIndex);
+    }
+
+    static void compactBytesWithNullsScalar(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compacted = new byte[length];
+        int compactedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compacted[compactedIndex] = values[i + offset];
+            compactedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeBytes(compacted, 0, compactedIndex);
+    }
+
+    static ByteArrayBlock expandBytesWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
+    {
+        if (valueIsNull.length != positionCount) {
+            throw new IllegalArgumentException("valueIsNull length must match positionCount");
+        }
+        int nonNullPositionsCount = sliceInput.readInt();
+        int nonNullIndex = positionCount - nonNullPositionsCount;
+        byte[] values = new byte[positionCount];
+        sliceInput.readBytes(values, nonNullIndex, nonNullPositionsCount);
+
+        int position = 0;
+        // Vectorized loop while the current position is still before the compacted starting offset,
+        // and we can load a full vector of non-null values before the end of the array
+        for (; position < nonNullIndex && nonNullIndex + BYTE_SPECIES.length() < values.length; position += BYTE_SPECIES.length()) {
+            ByteVector nonNullValues = ByteVector.fromArray(BYTE_SPECIES, values, nonNullIndex);
+            VectorMask<Byte> nonNullMask = BYTE_SPECIES.loadMask(valueIsNull, position).not();
+            nonNullIndex += nonNullMask.trueCount();
+            nonNullValues
+                    .expand(nonNullMask)
+                    .intoArray(values, position);
+        }
+        for (; position < nonNullIndex; position++) {
+            values[position] = valueIsNull[position] ? 0 : values[nonNullIndex++];
+        }
+        return new ByteArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    static ByteArrayBlock expandBytesWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
+    {
+        if (valueIsNull.length != positionCount) {
+            throw new IllegalArgumentException("valueIsNull length must match positionCount");
+        }
+        byte[] values = new byte[positionCount];
         int nonNullPositionCount = sliceInput.readInt();
         sliceInput.readBytes(Slices.wrappedBuffer(values, 0, nonNullPositionCount));
         int position = nonNullPositionCount - 1;

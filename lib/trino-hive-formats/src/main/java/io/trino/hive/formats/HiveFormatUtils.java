@@ -232,10 +232,15 @@ public final class HiveFormatUtils
             }
         }
 
-        return parseHiveTimestamp(value);
+        return parseTrimmedHiveTimestamp(value);
     }
 
     public static DecodedTimestamp parseHiveTimestamp(String value)
+    {
+        return parseTrimmedHiveTimestamp(value.trim());
+    }
+
+    private static DecodedTimestamp parseTrimmedHiveTimestamp(String value)
     {
         // Otherwise try default timestamp parsing
         // default parser uses Java util time
@@ -311,14 +316,14 @@ public final class HiveFormatUtils
 
     public static String formatHiveTimestamp(Type type, Block block, int position)
     {
-        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(null, block, position);
+        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
         LocalDateTime localDateTime = objectValue.toLocalDateTime();
         return TIMESTAMP_FORMATTER.format(localDateTime);
     }
 
     public static void formatHiveTimestamp(Type type, Block block, int position, StringBuilder builder)
     {
-        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(null, block, position);
+        SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
         LocalDateTime localDateTime = objectValue.toLocalDateTime();
         TIMESTAMP_FORMATTER.formatTo(localDateTime, builder);
     }

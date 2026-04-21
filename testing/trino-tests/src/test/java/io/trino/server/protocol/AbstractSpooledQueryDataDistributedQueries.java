@@ -30,8 +30,8 @@ import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.testcontainers.localstack.LocalStackContainer;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -70,7 +70,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localstack = closeAfterClass(new LocalStackContainer("s3-latest"));
+        localstack = closeAfterClass(new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.14.0")));
         localstack.start();
 
         try (S3Client client = createS3Client(localstack)) {
@@ -90,7 +90,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                             .put("fs.location", "s3://" + testBucket + "/")
                             .put("fs.segment.encryption", "true")
                             .put("fs.segment.pruning.enabled", "false") // We want to test whether all segments are acknowledged
-                            .put("s3.endpoint", localstack.getEndpointOverride(Service.S3).toString())
+                            .put("s3.endpoint", localstack.getEndpoint().toString())
                             .put("s3.region", localstack.getRegion())
                             .put("s3.aws-access-key", localstack.getAccessKey())
                             .put("s3.aws-secret-key", localstack.getSecretKey())
@@ -159,7 +159,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     protected S3Client createS3Client(LocalStackContainer localstack)
     {
         return S3Client.builder()
-                .endpointOverride(localstack.getEndpointOverride(Service.S3))
+                .endpointOverride(localstack.getEndpoint())
                 .region(Region.of(localstack.getRegion()))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))

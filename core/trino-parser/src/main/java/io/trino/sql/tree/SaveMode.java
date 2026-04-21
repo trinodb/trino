@@ -13,7 +13,8 @@
  */
 package io.trino.sql.tree;
 
-public enum SaveMode {
+public enum SaveMode
+{
     IGNORE,
     REPLACE,
     FAIL

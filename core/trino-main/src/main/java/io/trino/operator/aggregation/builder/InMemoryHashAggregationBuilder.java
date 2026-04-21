@@ -69,7 +69,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
-            Optional<Integer> hashChannel,
+            boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             FlatHashStrategyCompiler hashStrategyCompiler,
@@ -81,7 +81,7 @@ public class InMemoryHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByChannels,
-                hashChannel,
+                spillable,
                 operatorContext,
                 maxPartialMemory,
                 Optional.empty(),
@@ -96,7 +96,7 @@ public class InMemoryHashAggregationBuilder
             int expectedGroups,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
-            Optional<Integer> hashChannel,
+            boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> unspillIntermediateChannelOffset,
@@ -104,26 +104,13 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory,
             AggregationMetrics aggregationMetrics)
     {
-        if (hashChannel.isPresent()) {
-            this.groupByOutputTypes = ImmutableList.<Type>builderWithExpectedSize(groupByTypes.size() + 1)
-                    .addAll(groupByTypes)
-                    .add(BIGINT)
-                    .build();
-            this.groupByChannels = new int[groupByChannels.size() + 1];
-            for (int i = 0; i < groupByChannels.size(); i++) {
-                this.groupByChannels[i] = groupByChannels.get(i);
-            }
-            this.groupByChannels[groupByChannels.size()] = hashChannel.get();
-        }
-        else {
-            this.groupByOutputTypes = ImmutableList.copyOf(groupByTypes);
-            this.groupByChannels = Ints.toArray(groupByChannels);
-        }
+        this.groupByOutputTypes = ImmutableList.copyOf(groupByTypes);
+        this.groupByChannels = Ints.toArray(groupByChannels);
 
         this.groupByHash = createGroupByHash(
                 operatorContext.getSession(),
                 groupByTypes,
-                hashChannel.isPresent(),
+                spillable,
                 expectedGroups,
                 hashStrategyCompiler,
                 updateMemory);
@@ -154,10 +141,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getLoadedPage(groupByChannels)), aggregationMetrics);
+            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getColumns(groupByChannels)), aggregationMetrics);
         }
         return new TransformWork<>(
-                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)), aggregationMetrics),
+                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getColumns(groupByChannels)), aggregationMetrics),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {
@@ -241,15 +228,23 @@ public class InMemoryHashAggregationBuilder
     @Override
     public WorkProcessor<Page> buildResult()
     {
+        groupByHash.startReleasingOutput();
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             groupedAggregator.prepareFinal();
         }
-        return buildResult(consecutiveGroupIds());
+        // Always update the current memory usage after calling GroupedAggregator#prepareFinal(), since it can increase
+        // memory consumption significantly in some situations. This also captures any memory usage reduction the
+        // groupByHash may have initiated for releasing output
+        updateMemory();
+        // Only incrementally release memory while producing output for final aggregations, since partial aggregations
+        // have a fixed memory limit and can be expected to fully flush and release their output quickly
+        boolean releaseMemoryOnOutput = !partial;
+        return buildResult(consecutiveGroupIds(), new PageBuilder(buildTypes()), false, releaseMemoryOnOutput);
     }
 
-    public WorkProcessor<Page> buildHashSortedResult()
+    public WorkProcessor<Page> buildSpillResult()
     {
-        return buildResult(hashSortedGroupIds());
+        return buildResult(hashSortedGroupIds(), new PageBuilder(buildSpillTypes()), true, false);
     }
 
     public List<Type> buildSpillTypes()
@@ -258,6 +253,8 @@ public class InMemoryHashAggregationBuilder
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             types.add(groupedAggregator.getSpillType());
         }
+        // raw hash
+        types.add(BIGINT);
         return types;
     }
 
@@ -267,9 +264,9 @@ public class InMemoryHashAggregationBuilder
         return groupByHash.getCapacity();
     }
 
-    private WorkProcessor<Page> buildResult(IntIterator groupIds)
+    private WorkProcessor<Page> buildResult(IntIterator groupIds, PageBuilder pageBuilder, boolean appendRawHash, boolean releaseMemoryOnOutput)
     {
-        PageBuilder pageBuilder = new PageBuilder(buildTypes());
+        int rawHashIndex = groupByChannels.length + groupedAggregators.size();
         return WorkProcessor.create(() -> {
             if (!groupIds.hasNext()) {
                 return ProcessState.finished();
@@ -288,6 +285,15 @@ public class InMemoryHashAggregationBuilder
                     BlockBuilder output = pageBuilder.getBlockBuilder(groupByChannels.length + i);
                     groupedAggregator.evaluate(groupId, output);
                 }
+
+                if (appendRawHash) {
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(rawHashIndex), groupByHash.getRawHash(groupId));
+                }
+            }
+
+            // Update memory usage after producing each page of output
+            if (releaseMemoryOnOutput) {
+                updateMemory();
             }
 
             return ProcessState.ofResult(pageBuilder.build());
@@ -338,15 +344,12 @@ public class InMemoryHashAggregationBuilder
         };
     }
 
-    public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories, Optional<Integer> hashChannel)
+    public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + (hashChannel.isPresent() ? 1 : 0) + factories.size());
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + factories.size());
         types.addAll(groupByType);
-        if (hashChannel.isPresent()) {
-            types.add(BIGINT);
-        }
         for (AggregatorFactory factory : factories) {
-            types.add(factory.createAggregator(new AggregationMetrics()).getType());
+            types.add(factory.getOutputType());
         }
         return types.build();
     }

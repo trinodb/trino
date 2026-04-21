@@ -78,9 +78,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestBroadcastOutputBuffer
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
 
-    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
     private static final OutputBufferId THIRD = new OutputBufferId(2);
@@ -451,7 +451,7 @@ public class TestBroadcastOutputBuffer
         buffer.setNoMorePages();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
-        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
+        assertThat(buffer.getInfo().totalPagesSent()).isEqualTo(0);
     }
 
     @Test
@@ -484,7 +484,7 @@ public class TestBroadcastOutputBuffer
         buffer.destroy();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
-        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
+        assertThat(buffer.getInfo().totalPagesSent()).isEqualTo(0);
     }
 
     @Test

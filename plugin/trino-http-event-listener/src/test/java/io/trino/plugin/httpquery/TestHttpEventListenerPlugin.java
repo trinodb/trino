@@ -14,7 +14,7 @@
 package io.trino.plugin.httpquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import org.junit.jupiter.api.Test;
 

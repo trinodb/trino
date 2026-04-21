@@ -39,6 +39,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -133,7 +134,7 @@ public class TestKafkaProtobufReadsSmokeTest
     private void selectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 101L),
                 "a_map", ImmutableMap.of(
                         "key", "key1",
@@ -298,7 +299,7 @@ public class TestKafkaProtobufReadsSmokeTest
     private static DynamicMessage buildDynamicMessage(Descriptor descriptor, Map<String, Object> data)
     {
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        for (Map.Entry<String, Object> entry : data.entrySet()) {
+        for (Entry<String, Object> entry : data.entrySet()) {
             FieldDescriptor fieldDescriptor = descriptor.findFieldByName(entry.getKey());
             if (entry.getValue() instanceof Map<?, ?>) {
                 builder.setField(

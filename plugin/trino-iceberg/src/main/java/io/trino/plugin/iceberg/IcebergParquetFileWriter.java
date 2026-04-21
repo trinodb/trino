@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
@@ -28,15 +30,16 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static io.trino.parquet.reader.MetadataReader.createParquetMetadata;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
-import static io.trino.plugin.iceberg.util.ParquetUtil.getSplitOffsets;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -83,12 +86,12 @@ public final class IcebergParquetFileWriter
     {
         ParquetMetadata parquetMetadata;
         try {
-            parquetMetadata = createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
+            parquetMetadata = new ParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()), Optional.empty());
+            return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
         }
-        catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);
+        catch (IOException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Error creating metadata for Parquet file %s", location), e);
         }
-        return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
     }
 
     @Override
@@ -125,5 +128,17 @@ public final class IcebergParquetFileWriter
     public long getValidationCpuNanos()
     {
         return parquetFileWriter.getValidationCpuNanos();
+    }
+
+    private static List<Long> getSplitOffsets(ParquetMetadata metadata)
+            throws IOException
+    {
+        List<BlockMetadata> blocks = metadata.getBlocks();
+        List<Long> splitOffsets = new ArrayList<>(blocks.size());
+        for (BlockMetadata blockMetaData : blocks) {
+            splitOffsets.add(blockMetaData.columns().getFirst().getStartingPos());
+        }
+        Collections.sort(splitOffsets);
+        return ImmutableList.copyOf(splitOffsets);
     }
 }

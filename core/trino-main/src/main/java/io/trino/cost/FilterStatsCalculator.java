@@ -62,7 +62,6 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -100,7 +99,7 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
-        Expression value = newOptimizer(plannerContext).process(predicate, session, ImmutableMap.of()).orElse(predicate);
+        Expression value = plannerContext.getExpressionOptimizer().process(predicate, session, ImmutableMap.of()).orElse(predicate);
 
         if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
@@ -301,7 +300,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
-            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+            List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
                     .map(inValue -> process(new Comparison(EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 

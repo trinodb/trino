@@ -4,7 +4,7 @@ The JMX connector provides the ability to query Java Management Extensions (JMX)
 information from all
 nodes in a Trino cluster. This is very useful for monitoring or debugging.
 JMX provides information about the Java
-Virtual Machine and all of the software running inside it. Trino itself
+Virtual Machine and all the software running inside it. Trino itself
 is heavily instrumented via JMX.
 
 This connector can be configured so that chosen JMX information is
@@ -56,7 +56,7 @@ jmx.dump-tables=trino.memory:name=general\\,type=memorypool,\
 The JMX connector provides two schemas.
 
 The first one is `current` that contains every MBean from every node in the Trino
-cluster. You can see all of the available MBeans by running `SHOW TABLES`:
+cluster. You can see all the available MBeans by running `SHOW TABLES`:
 
 ```
 SHOW TABLES FROM example.current;

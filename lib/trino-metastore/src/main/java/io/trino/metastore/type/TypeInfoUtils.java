@@ -61,6 +61,7 @@ public final class TypeInfoUtils
         registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_YEAR_MONTH, TypeConstants.INTERVAL_YEAR_MONTH_TYPE_NAME));
         registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_DAY_TIME, TypeConstants.INTERVAL_DAY_TIME_TYPE_NAME));
         registerType(new PrimitiveTypeEntry(PrimitiveCategory.DECIMAL, TypeConstants.DECIMAL_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.VARIANT, TypeConstants.VARIANT_TYPE_NAME));
         registerType(new PrimitiveTypeEntry(PrimitiveCategory.UNKNOWN, "unknown"));
     }
 

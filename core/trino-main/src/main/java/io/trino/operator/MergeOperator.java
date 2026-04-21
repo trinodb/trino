@@ -16,7 +16,9 @@ package io.trino.operator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
@@ -35,6 +37,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -53,9 +56,9 @@ public class MergeOperator
         private final PlanNodeId sourceId;
         private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
-        private final List<Type> types;
         private final List<Integer> outputChannels;
         private final List<Type> outputTypes;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final OrderingCompiler orderingCompiler;
@@ -76,9 +79,10 @@ public class MergeOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
-            this.types = requireNonNull(types, "types is null");
             this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
+            requireNonNull(types, "types is null");
             this.outputTypes = mappedCopy(outputChannels, types::get);
+            this.sortTypes = mappedCopy(sortChannels, types::get);
             this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
             this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
@@ -95,13 +99,13 @@ public class MergeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, MergeOperator.class.getSimpleName());
-
+            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyForDirectExchange(driverContext.getSession());
             return new MergeOperator(
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
-                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
-                    orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
+                    serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey)),
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
         }
@@ -167,8 +171,8 @@ public class MergeOperator
 
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
         DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(
-                taskContext.getTaskId().getQueryId(),
-                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().getStageId().getId(), sourceId)),
+                taskContext.getTaskId().queryId(),
+                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().stageId().id(), sourceId)),
                 taskContext.getSession().getQuerySpan(),
                 operatorContext.localUserMemoryContext(),
                 taskContext::sourceTaskFailed,

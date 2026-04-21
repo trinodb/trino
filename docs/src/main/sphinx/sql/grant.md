@@ -4,7 +4,7 @@
 
 ```text
 GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
-ON ( table_name | TABLE table_name | SCHEMA schema_name)
+ON [ BRANCH branch_name IN ] ( table_name | TABLE table_name | SCHEMA schema_name)
 TO ( user | USER user | ROLE role )
 [ WITH GRANT OPTION ]
 ```
@@ -49,6 +49,13 @@ Grant `SELECT` privilege on the table `orders` to everyone:
 
 ```
 GRANT SELECT ON orders TO ROLE PUBLIC;
+```
+
+Grant `INSERT` privilege on the `audit` branch of the `orders` table to user 
+`alice`:
+
+```sql
+GRANT INSERT ON BRANCH audit IN orders TO alice;
 ```
 
 ## Limitations

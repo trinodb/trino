@@ -35,11 +35,13 @@ public class FileSessionPropertyManagerFactory
     public SessionPropertyConfigurationManager create(Map<String, String> config, SessionPropertyConfigurationManagerContext context)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.session." + getName(),
                 new JsonModule(),
                 new FileSessionPropertyManagerModule());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

@@ -21,13 +21,12 @@ $(document).ready(function () {
         });
 
     function renderTimeline(data) {
-        function getTasks(stage) {
-            return [].concat.apply(
-                    stage.tasks,
-                    stage.subStages.map(getTasks));
-        }
+        tasks = []
 
-        tasks = getTasks(data.outputStage);
+        data.stages.stages.forEach((stage) => {
+            Array.prototype.push.apply(tasks, stage.tasks)
+        })
+
         tasks = tasks.map(function (task) {
             return {
                 taskId: task.taskStatus.taskId.substring(task.taskStatus.taskId.indexOf('.') + 1),

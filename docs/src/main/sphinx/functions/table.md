@@ -15,7 +15,7 @@ Polymorphic table functions allow you to dynamically invoke custom logic from
 within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
-For the list of built-in table functions available in Trino, see [built in
+For the list of built-in table functions available in Trino, see [built-in
 table functions](built-in-table-functions).
 
 Trino supports adding custom table functions. They are declared by connectors

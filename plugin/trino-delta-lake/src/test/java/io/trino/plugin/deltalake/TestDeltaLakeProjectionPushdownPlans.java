@@ -23,7 +23,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;

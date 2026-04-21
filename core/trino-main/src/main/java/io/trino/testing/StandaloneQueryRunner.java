@@ -20,10 +20,11 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -33,6 +34,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
@@ -87,10 +89,12 @@ public final class StandaloneQueryRunner
                         .buildOrThrow());
         serverProcessor.accept(builder);
         this.server = builder.build();
+        server.getInstance(Key.get(ConnectorServicesProvider.class)).loadInitialCatalogs();
 
         this.trinoClient = new TestingDirectTrinoClient(
                 server.getDispatchManager(),
                 server.getQueryManager(),
+                server.getInstance(Key.get(QueryManagerConfig.class)),
                 server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
                 server.getInstance(Key.get(BlockEncodingSerde.class)));
     }
@@ -105,14 +109,20 @@ public final class StandaloneQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeInternal(session, sql).result();
+        return executeInternal(session, sql).result().get();
     }
 
     @Override
     public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
         TestingDirectTrinoClient.Result result = executeInternal(session, sql);
-        return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), result.result());
+        MaterializedResult materializedRows = result.result().get();
+        return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), materializedRows);
+    }
+
+    public TestingDirectTrinoClient.Result executeWithoutResults(Session session, String sql)
+    {
+        return executeInternal(session, sql);
     }
 
     private TestingDirectTrinoClient.Result executeInternal(Session session, @Language("SQL") String sql)

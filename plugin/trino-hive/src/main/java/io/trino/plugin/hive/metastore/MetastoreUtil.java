@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -88,12 +89,9 @@ import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_NAME;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMNS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
-import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -169,12 +167,12 @@ public final class MetastoreUtil
             schema.put(BUCKET_COUNT, "0");
         }
 
-        for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
+        for (Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.put(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
 
         if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
-            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+            for (Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
                 schema.put(param.getKey(), nullToEmpty(param.getValue()));
             }
         }
@@ -222,7 +220,7 @@ public final class MetastoreUtil
         }
 
         if (parameters != null) {
-            for (Map.Entry<String, String> entry : parameters.entrySet()) {
+            for (Entry<String, String> entry : parameters.entrySet()) {
                 // add non-null parameters to the schema
                 if (entry.getValue() != null) {
                     schema.put(entry.getKey(), entry.getValue());
@@ -241,15 +239,6 @@ public final class MetastoreUtil
     public static ProtectMode getProtectMode(Table table)
     {
         return getProtectMode(table.getParameters());
-    }
-
-    public static boolean isAvroTableWithSchemaSet(Table table)
-    {
-        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -385,9 +374,9 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             Slice slice = (Slice) value;
-            return padSpaces(slice, (CharType) type).toStringUtf8();
+            return padSpaces(slice, charType).toStringUtf8();
         }
         if (type instanceof VarcharType) {
             Slice slice = (Slice) value;

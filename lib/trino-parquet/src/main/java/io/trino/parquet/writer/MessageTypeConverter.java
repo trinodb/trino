@@ -21,6 +21,7 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.TypeVisitor;
 
 import java.util.ArrayList;
@@ -107,7 +108,7 @@ class MessageTypeConverter
         });
     }
 
-    private static FieldRepetitionType toParquetRepetition(org.apache.parquet.schema.Type.Repetition repetition)
+    private static FieldRepetitionType toParquetRepetition(Repetition repetition)
     {
         return FieldRepetitionType.valueOf(repetition.name());
     }

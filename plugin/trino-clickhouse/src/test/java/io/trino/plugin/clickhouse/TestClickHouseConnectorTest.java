@@ -71,19 +71,21 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_ROW_TYPE,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -126,8 +128,7 @@ public class TestClickHouseConnectorTest
     @Override
     public void testRenameColumnWithComment()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_rename_column_",
                 "(id INT NOT NULL, col INT COMMENT 'test column comment') WITH (engine = 'MergeTree', order_by = ARRAY['id'])")) {
             assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
@@ -141,7 +142,7 @@ public class TestClickHouseConnectorTest
     public void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         // Override because default storage engine doesn't support renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
+        try (TestTable table = newTrinoTable("test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
             assertThat(getColumnComment(table.getName(), "b_varchar")).isEqualTo(comment);
         }
@@ -151,7 +152,7 @@ public class TestClickHouseConnectorTest
     @Override
     public void testDropAndAddColumnWithSameName()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
+        try (TestTable table = newTrinoTable("test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
@@ -192,8 +193,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
 
         // the columns are referenced by order_by/partition_by property can not be dropped
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing: 'x', required columns: 'x'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing: 'a', required columns: 'a'.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -210,7 +211,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
+        return newTrinoTable(namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
     }
 
     @Override
@@ -223,7 +224,7 @@ public class TestClickHouseConnectorTest
     @Override // Overridden because the default storage type doesn't support adding columns
     public void testAddNotNullColumnToEmptyTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col_to_empty", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+        try (TestTable table = newTrinoTable("test_add_notnull_col_to_empty", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
@@ -239,7 +240,7 @@ public class TestClickHouseConnectorTest
     @Override // Overridden because (a) the default storage type doesn't support adding columns and (b) ClickHouse has implicit default value for new NON NULL column
     public void testAddNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+        try (TestTable table = newTrinoTable("test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
@@ -259,7 +260,7 @@ public class TestClickHouseConnectorTest
     public void testAddColumnWithComment()
     {
         // Override because the default storage type doesn't support adding columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+        try (TestTable table = newTrinoTable("test_add_col_desc_", "(a_varchar varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
@@ -487,7 +488,7 @@ public class TestClickHouseConnectorTest
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
-                        "   x smallint NOT NULL,\n" +
+                        "   x boolean NOT NULL,\n" +
                         "   y varchar NOT NULL\n" +
                         ")\n" +
                         "WITH (\n" +
@@ -532,8 +533,7 @@ public class TestClickHouseConnectorTest
     public void testSetTableProperties()
             throws Exception
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_alter_table_properties",
                 "(p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertThat(getTableProperties("tpch", table.getName()))
@@ -558,8 +558,7 @@ public class TestClickHouseConnectorTest
     @Test
     public void testAlterInvalidTableProperties()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_alter_table_properties",
                 "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertQueryFails(
@@ -644,7 +643,7 @@ public class TestClickHouseConnectorTest
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_not_null_", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("test_insert_not_null_", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // ClickHouse inserts default values (e.g. 0 for integer column) even if we don't specify default clause in CREATE TABLE statement
@@ -652,13 +651,13 @@ public class TestClickHouseConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2), (1, 0)");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_commuted_not_null_table", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+        try (TestTable table = newTrinoTable("test_commuted_not_null_table", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "not_null_no_cast", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("not_null_no_cast", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
@@ -697,12 +696,17 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
-    @Override
+    @Override // ClickHouse char is an alias for String type with no length or padding semantics
     public void testCharTrailingSpace()
     {
-        assertThatThrownBy(super::testCharTrailingSpace)
-                .hasMessageStartingWith("Failed to execute statement: CREATE TABLE tpch.char_trailing_space");
-        abort("Implement test for ClickHouse");
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
+            String tableName = table.getName();
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
+        }
     }
 
     @Override
@@ -712,24 +716,11 @@ public class TestClickHouseConnectorTest
         return new TestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT) Engine=Log", ImmutableList.of("1", "2"));
     }
 
-    @Test
     @Override
-    public void testCreateTableWithLongTableName()
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        // Override because ClickHouse connector can create a table which can't be dropped
-        String baseTableName = "test_create_" + randomNameSuffix();
-        String validTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length());
-
-        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
-        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTableName))
-                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
-
-        String invalidTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length() + 1);
-        assertThat(query("CREATE TABLE " + invalidTableName + " (a bigint)"))
-                .failure().hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
-        // ClickHouse lefts a table even if the above statement failed
-        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
+        assertThat(e).hasMessageMatching(".*The max length of table name for database tpch is %d, current length is [0-9]+.*\n"
+                .formatted(maxTableNameLength().orElseThrow()));
     }
 
     @Test
@@ -771,31 +762,6 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        // Override because ClickHouse connector can rename to a table which can't be dropped
-        String sourceTableName = "test_source_long_table_name_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_target_long_table_name_" + randomNameSuffix();
-        // The max length is different from CREATE TABLE case
-        String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
-
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isTrue();
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertThatThrownBy(() -> assertUpdate("DROP TABLE " + validTargetTableName))
-                .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
-
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
-        assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
-    }
-
-    @Test
     @Override // Override because the failure message differs
     public void testNativeQueryIncorrectSyntax()
     {
@@ -825,8 +791,7 @@ public class TestClickHouseConnectorTest
     @Test
     public void testFloatPredicatePushdown()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_float_predicate_pushdown",
                 """
                 (
@@ -1183,7 +1148,7 @@ public class TestClickHouseConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         // The numeric value depends on file system
-        return OptionalInt.of(255 - ".sql.detached".length());
+        return OptionalInt.of(209);
     }
 
     @Override
@@ -1196,7 +1161,7 @@ public class TestClickHouseConnectorTest
             throws SQLException
     {
         String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
-        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl(), clickhouseServer.getUsername(), clickhouseServer.getPassword());
                 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             preparedStatement.setString(1, schemaName);
             preparedStatement.setString(2, tableName);

@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Year of the ISO week of the given timestamp")
-@ScalarFunction(value = "year_of_week", alias = "yow")
-public class ExtractYearOfWeek
+@ScalarFunction(value = "year_of_week", alias = "yow", neverFails = true)
+public final class ExtractYearOfWeek
 {
     private ExtractYearOfWeek() {}
 

@@ -59,8 +59,9 @@ public class GenericRewrite
     public io.trino.matching.Pattern<ConnectorExpression> getPattern()
     {
         // TODO make ConnectorExpressionRule.getPattern result type flexible
-        //noinspection unchecked
-        return (io.trino.matching.Pattern<ConnectorExpression>) expressionPattern.getPattern();
+        @SuppressWarnings("unchecked")
+        var pattern = (io.trino.matching.Pattern<ConnectorExpression>) expressionPattern.getPattern();
+        return pattern;
     }
 
     @Override
@@ -78,11 +79,11 @@ public class GenericRewrite
             String replacement;
             if (capture.isPresent()) {
                 Object value = capture.get();
-                if (value instanceof Long) {
-                    replacement = Long.toString((Long) value);
+                if (value instanceof Long longValue) {
+                    replacement = Long.toString(longValue);
                 }
-                else if (value instanceof ConnectorExpression) {
-                    Optional<ParameterizedExpression> rewritten = context.defaultRewrite((ConnectorExpression) value);
+                else if (value instanceof ConnectorExpression connectorExpression) {
+                    Optional<ParameterizedExpression> rewritten = context.defaultRewrite(connectorExpression);
                     if (rewritten.isEmpty()) {
                         return Optional.empty();
                     }

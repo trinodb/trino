@@ -24,7 +24,7 @@ for properties that have been previously encountered.
 
 ## Match rules
 
-- `user` (optional): regex to match against user name.
+- `user` (optional): regex to match against username.
 - `source` (optional): regex to match against source string.
 - `queryType` (optional): string to match against the type of the query submitted:
   : - `DATA_DEFINITION`: Queries that alter/create/drop the metadata of schemas/tables/views, and that manage

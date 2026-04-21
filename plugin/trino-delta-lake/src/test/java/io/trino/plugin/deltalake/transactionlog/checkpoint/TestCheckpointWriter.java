@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -33,7 +34,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.TupleDomain;
@@ -48,6 +48,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -56,14 +57,14 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -118,7 +119,7 @@ public class TestCheckpointWriter
                         "configOption1", "blah",
                         "configOption2", "plah"),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
         AddFileEntry addFileEntryJsonStats = new AddFileEntry(
                 "addFilePathJson",
@@ -249,14 +250,14 @@ public class TestCheckpointWriter
                         "configOption1", "blah",
                         "configOption2", "plah"),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
 
-        Block[] minMaxRowFieldBlocks = new Block[] {
+        Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[] {
+        Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };
@@ -380,12 +381,12 @@ public class TestCheckpointWriter
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
-        Block[] minMaxRowFieldBlocks = new Block[] {
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
                 nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
         };
-        Block[] nullCountRowFieldBlocks = new Block[] {
+        Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
                 nativeValueToBlock(BigintType.BIGINT, 15L)
         };
@@ -472,7 +473,7 @@ public class TestCheckpointWriter
             if (statsValue instanceof SqlRow sqlRow) {
                 // todo: this validation is just broken. The only way to compare values is to use types.
                 // see https://github.com/trinodb/trino/issues/19557
-                ImmutableList<String> logicalSizes = sqlRow.getRawFieldBlocks().stream()
+                List<String> logicalSizes = sqlRow.getRawFieldBlocks().stream()
                         .map(block -> block.getUnderlyingValueBlock().getClass().getName())
                         .collect(toImmutableList());
                 comparableStats.put(key, logicalSizes);
@@ -504,7 +505,7 @@ public class TestCheckpointWriter
                 Optional.of(metadataEntry),
                 Optional.of(protocolEntry),
                 new FileFormatDataSourceStats(),
-                new ParquetReaderConfig().toParquetReaderOptions(),
+                ParquetReaderOptions.defaultOptions(),
                 rowStatisticsEnabled,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),

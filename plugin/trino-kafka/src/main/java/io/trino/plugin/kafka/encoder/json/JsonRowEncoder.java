@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka.encoder.json;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -65,11 +65,11 @@ public class JsonRowEncoder
 
     public static final String NAME = "json";
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final ObjectNode node;
     private final List<JsonDateTimeFormatter> dateTimeFormatters;
 
-    JsonRowEncoder(ConnectorSession session, List<EncoderColumnHandle> columnHandles, ObjectMapper objectMapper)
+    JsonRowEncoder(ConnectorSession session, List<EncoderColumnHandle> columnHandles, JsonMapper jsonMapper)
     {
         super(session, columnHandles);
 
@@ -103,8 +103,8 @@ public class JsonRowEncoder
         }
 
         this.dateTimeFormatters = dateTimeFormatters.build();
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
-        this.node = objectMapper.createObjectNode();
+        this.jsonMapper = requireNonNull(jsonMapper, "jsonMapper is null");
+        this.node = jsonMapper.createObjectNode();
     }
 
     private static boolean isSupportedType(Type type)
@@ -237,7 +237,7 @@ public class JsonRowEncoder
 
         try {
             resetColumnIndex(); // reset currentColumnIndex to prepare for next row
-            return objectMapper.writeValueAsBytes(node);
+            return jsonMapper.writeValueAsBytes(node);
         }
         catch (JsonProcessingException e) {
             throw new RuntimeException(e);

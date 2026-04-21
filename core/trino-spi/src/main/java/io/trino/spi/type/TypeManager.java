@@ -39,7 +39,7 @@ public interface TypeManager
      *
      * @throws TypeNotFoundException if not found
      */
-    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    default Type getParameterizedType(String baseTypeName, List<TypeParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }

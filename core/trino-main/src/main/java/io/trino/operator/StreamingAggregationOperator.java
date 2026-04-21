@@ -34,7 +34,6 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -210,7 +209,7 @@ public class StreamingAggregationOperator
                     .createPagesHashStrategy(
                             sourceTypes.stream()
                                     .map(type -> new ObjectArrayList<Block>())
-                                    .collect(toImmutableList()), OptionalInt.empty());
+                                    .collect(toImmutableList()));
             this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
         }
 
@@ -295,8 +294,7 @@ public class StreamingAggregationOperator
                     startPosition = nextGroupStart;
                 }
                 else {
-                    // late materialization requires that page being locally stored is materialized before the next one is fetched
-                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1).getLoadedPage();
+                    currentGroup = page.getRegion(page.getPositionCount() - 1, 1);
                     return;
                 }
             }
@@ -315,8 +313,7 @@ public class StreamingAggregationOperator
             pageBuilder.declarePosition();
             for (int i = 0; i < groupByTypes.size(); i++) {
                 Block block = page.getBlock(groupByChannels[i]);
-                Type type = groupByTypes.get(i);
-                type.appendTo(block, position, pageBuilder.getBlockBuilder(i));
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
             int offset = groupByTypes.size();
             for (int i = 0; i < aggregates.size(); i++) {

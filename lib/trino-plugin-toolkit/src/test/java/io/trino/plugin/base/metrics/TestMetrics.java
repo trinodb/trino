@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Map;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,8 +58,9 @@ public class TestMetrics
         TDigestHistogram merged = (TDigestHistogram) merge(m1, m2).getMetrics().get("a");
 
         assertThat(merged.getTotal()).isEqualTo(3L);
-        assertThat(merged.getPercentile(0)).isEqualTo(5.0);
-        assertThat(merged.getPercentile(100)).isEqualTo(10.0);
+        double[] mergedPercentiles = merged.getPercentiles(0, 100);
+        assertThat(mergedPercentiles[0]).isEqualTo(5.0);
+        assertThat(mergedPercentiles[1]).isEqualTo(10.0);
         assertThat(merged.toString())
                 .matches("\\{count=3, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.50, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
     }
@@ -84,7 +86,7 @@ public class TestMetrics
     @Test
     public void testHistogramJson()
     {
-        JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
+        JsonCodec<TDigestHistogram> codec = jsonCodec(TDigestHistogram.class);
 
         TDigest digest = new TDigest();
         digest.add(123);
@@ -97,7 +99,7 @@ public class TestMetrics
     @Test
     public void testDurationJson()
     {
-        JsonCodec<DurationTiming> codec = JsonCodec.jsonCodec(DurationTiming.class);
+        JsonCodec<DurationTiming> codec = jsonCodec(DurationTiming.class);
         DurationTiming duration = new DurationTiming(new Duration(123, NANOSECONDS));
         String json = codec.toJson(duration);
         DurationTiming result = codec.fromJson(json);

@@ -20,11 +20,11 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
@@ -63,7 +63,7 @@ final class LongTimestampWithTimeZoneType
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public LongTimestampWithTimeZoneType(int precision)
+    LongTimestampWithTimeZoneType(int precision)
     {
         super(precision, LongTimestampWithTimeZone.class, Fixed12Block.class);
 
@@ -106,19 +106,6 @@ final class LongTimestampWithTimeZoneType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            write(blockBuilder, getPackedEpochMillis(valueBlock, valuePosition), getPicosOfMilli(valueBlock, valuePosition));
-        }
-    }
-
-    @Override
     public Object getObject(Block block, int position)
     {
         Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
@@ -145,7 +132,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -220,7 +207,8 @@ final class LongTimestampWithTimeZoneType
     private static LongTimestampWithTimeZone readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         long packedEpochMillis = (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
         int picosOfMilli = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Long.BYTES);
@@ -232,6 +220,7 @@ final class LongTimestampWithTimeZoneType
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
             @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
             BlockBuilder blockBuilder)
     {
         write(blockBuilder,
@@ -242,10 +231,10 @@ final class LongTimestampWithTimeZoneType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             LongTimestampWithTimeZone value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, packDateTimeWithZone(value.getEpochMillis(), value.getTimeZoneKey()));
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, value.getPicosOfMilli());
@@ -255,10 +244,10 @@ final class LongTimestampWithTimeZoneType
     private static void writeBlockFlat(
             @BlockPosition Fixed12Block block,
             @BlockIndex int position,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, getPackedEpochMillis(block, position));
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, getPicosOfMilli(block, position));
@@ -284,6 +273,22 @@ final class LongTimestampWithTimeZoneType
                 getPicosOfMilli(rightBlock, rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Fixed12Block rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                unpackMillisUtc((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset)),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG),
+                getEpochMillis(rightBlock, rightPosition),
+                getPicosOfMilli(rightBlock, rightPosition));
+    }
+
     private static boolean equal(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
     {
         return leftEpochMillis == rightEpochMillis &&
@@ -302,6 +307,18 @@ final class LongTimestampWithTimeZoneType
         return xxHash64(
                 getEpochMillis(block, position),
                 getPicosOfMilli(block, position));
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                unpackMillisUtc((long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset)),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
     private static long xxHash64(long epochMillis, int picosOfMilli)

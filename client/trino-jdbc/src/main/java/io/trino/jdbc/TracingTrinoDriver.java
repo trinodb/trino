@@ -44,6 +44,6 @@ public class TracingTrinoDriver
         return OkHttpTelemetry
                 .builder(Optional.ofNullable(openTelemetry).orElse(GlobalOpenTelemetry.get()))
                 .build()
-                .newCallFactory(client);
+                .createCallFactory(client);
     }
 }

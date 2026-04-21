@@ -26,7 +26,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -37,6 +36,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SortFieldUtils
 {
@@ -86,14 +86,14 @@ public final class SortFieldUtils
 
         String columnName = fromIdentifierToColumn(matcher.group("identifier"));
 
-        boolean ascending = switch (firstNonNull(matcher.group("ordering"), "ASC").toUpperCase(ENGLISH)) {
+        boolean ascending = switch (requireNonNullElse(matcher.group("ordering"), "ASC").toUpperCase(ENGLISH)) {
             case "ASC" -> true;
             case "DESC" -> false;
             default -> throw new IllegalStateException("Unexpected ordering value"); // Unreachable
         };
 
         String nullOrderDefault = ascending ? "FIRST" : "LAST";
-        NullOrder nullOrder = switch (firstNonNull(matcher.group("nullOrder"), nullOrderDefault).toUpperCase(ENGLISH)) {
+        NullOrder nullOrder = switch (requireNonNullElse(matcher.group("nullOrder"), nullOrderDefault).toUpperCase(ENGLISH)) {
             case "FIRST" -> NullOrder.NULLS_FIRST;
             case "LAST" -> NullOrder.NULLS_LAST;
             default -> throw new IllegalStateException("Unexpected null ordering value"); // Unreachable

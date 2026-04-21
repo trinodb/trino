@@ -55,6 +55,8 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -80,25 +82,29 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
@@ -119,16 +125,17 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -153,8 +160,10 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public class MariaDbClient
@@ -168,6 +177,7 @@ public class MariaDbClient
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final Calendar UTC_CALENDAR = createProlepticUtcCalendar();
 
     // An empty character means that the table doesn't have a comment in MariaDB
     private static final String NO_COMMENT = "";
@@ -254,7 +264,7 @@ public class MariaDbClient
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
-                if (filterSchema(schemaName)) {
+                if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -266,14 +276,14 @@ public class MariaDbClient
     }
 
     @Override
-    protected boolean filterSchema(String schemaName)
+    protected boolean filterRemoteSchema(String schemaName)
     {
         // MariaDB has 'mysql' schema
         if (schemaName.equalsIgnoreCase("mysql")
                 || schemaName.equalsIgnoreCase("performance_schema")) {
             return false;
         }
-        return super.filterSchema(schemaName);
+        return super.filterRemoteSchema(schemaName);
     }
 
     @Override
@@ -324,7 +334,7 @@ public class MariaDbClient
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
+    protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         // MariaDB uses catalogs instead of schemas
@@ -384,15 +394,24 @@ public class MariaDbClient
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
-                }
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                if (precision <= Decimals.MAX_PRECISION) {
+                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                // precision > MAX_PRECISION
+                switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> {
+                        return Optional.of(numberColumnMapping());
+                    }
+                    case STRICT -> {
+                        // skipped (unhandled type)
+                    }
+                    case ALLOW_OVERFLOW -> {
+                        int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
+                }
+                break;
             case Types.CHAR:
                 return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
             case Types.VARCHAR:
@@ -413,7 +432,7 @@ public class MariaDbClient
             case Types.TIMESTAMP:
                 // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                return Optional.of(mariaDbTimestampColumnMapping(timestampType));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -440,6 +459,31 @@ public class MariaDbClient
         int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
         verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
         return timePrecision;
+    }
+
+    // MariaDB JDBC driver 3.4+ changed LocalDateTime decoding to go through ZonedDateTime,
+    // which applies atZone(JVM default timezone) and corrupts values falling in DST gaps.
+    // Use getTimestamp() with a UTC Calendar to bypass the driver's timezone conversion.
+    private static ColumnMapping mariaDbTimestampColumnMapping(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                (resultSet, columnIndex) -> {
+                    Timestamp timestamp = resultSet.getTimestamp(columnIndex, UTC_CALENDAR);
+                    LocalDateTime localDateTime = LocalDateTime.ofInstant(timestamp.toInstant(), UTC);
+                    return toTrinoTimestamp(timestampType, localDateTime);
+                },
+                timestampWriteFunction(timestampType));
+    }
+
+    private static Calendar createProlepticUtcCalendar()
+    {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone(UTC));
+        // Use proleptic Gregorian calendar to match LocalDateTime's calendar system,
+        // avoiding Julian calendar discrepancies for dates before 1582-10-15
+        calendar.setGregorianChange(new Date(Long.MIN_VALUE));
+        return calendar;
     }
 
     @Override
@@ -516,6 +560,43 @@ public class MariaDbClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
+
+        RemoteTableName table = handle.asPlainTable().getRemoteTableName();
+
+        switch (position) {
+            case ColumnPosition.First _ -> addColumn(session, table, column, "FIRST");
+            case ColumnPosition.After after -> addColumn(session, table, column, "AFTER " + quoted(after.columnName()));
+            case ColumnPosition.Last _ -> addColumn(session, table, column, "");
+        }
+    }
+
+    private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column, String position)
+    {
+        if (column.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            verify(connection.getAutoCommit());
+            String columnName = column.getName();
+            verifyColumnName(connection.getMetaData(), columnName);
+            String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), columnName);
+            String sql = format(
+                    "ALTER TABLE %s ADD %s %s",
+                    quoted(table),
+                    getColumnDefinitionSql(session, column, remoteColumnName),
+                    position);
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -736,7 +817,7 @@ public class MariaDbClient
                 // Table not found, or is a view, or has no usable statistics
                 return TableStatistics.empty();
             }
-            rowCount = max(firstNonNull(rowCount, 0L), firstNonNull(indexMaxCardinality, 0L));
+            rowCount = max(requireNonNullElse(rowCount, 0L), requireNonNullElse(indexMaxCardinality, 0L));
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
@@ -918,5 +999,5 @@ public class MariaDbClient
 
     private record AnalyzeColumnStatistics(double nullsRatio) {}
 
-    private record ColumnIndexStatistics(boolean nullable, long cardinality) { }
+    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 }

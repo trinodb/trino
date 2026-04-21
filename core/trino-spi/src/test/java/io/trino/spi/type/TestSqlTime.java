@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSqlTime
+final class TestSqlTime
 {
     @Test
     public void testToString()

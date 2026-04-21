@@ -35,13 +35,17 @@ the [config.properties file](config-properties):
 
 ```properties
 tracing.enabled=true
-tracing.exporter.endpoint=http://observe.example.com:4317
+otel.exporter.endpoint=http://observe.example.com:4317
 ```
 
 Tracing is not enabled by default. The exporter endpoint must specify a URL that
 is accessible from the coordinator and all workers of the cluster. The preceding
 example uses a observability platform deployment available by
 HTTP at the host `observe.example.com`, port `4317`.
+
+Use the `otel.exporter.protocol` property to configure the protocol for exporting traces.
+Defaults to the gRPC protocol with the `grpc` value. Set the value to `http/protobuf` for 
+exporting traces using protocol buffers with HTTP transport.
 
 ## Example use
 
@@ -79,7 +83,7 @@ node-scheduler.include-coordinator=true
 http-server.http.port=8080
 discovery.uri=http://localhost:8080
 tracing.enabled=true
-tracing.exporter.endpoint=http://jaeger:4317
+otel.exporter.endpoint=http://jaeger:4317
 ```
 
 Start Trino in the background:

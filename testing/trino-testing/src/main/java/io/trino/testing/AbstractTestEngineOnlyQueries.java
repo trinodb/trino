@@ -28,7 +28,9 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -36,6 +38,8 @@ import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -46,7 +50,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -60,6 +64,7 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.QueryExplainer.DEPRECATED_TYPE_LOGICAL_WARNING;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
@@ -82,6 +87,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
@@ -192,20 +198,6 @@ public abstract class AbstractTestEngineOnlyQueries
         // This tests that both Trino runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotExist); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1970, 1, 1);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
-        // This tests that both Trino runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
-        sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
-        assertThat(computeScalar(sql)).isEqualTo(localDateThatDidNotHaveMidnight); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
-        assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotOccurOn19700101); // this tests Trino and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
     }
 
@@ -729,7 +721,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1))] || CAST(292 AS BIGINT)"),
                 computeActual("SELECT ARRAY[CAST(282 AS DECIMAL(22,1)), CAST(282 AS DECIMAL(10,1)), CAST(292 AS DECIMAL(19,0))]"));
 
-        // DECIMAL - DECIMAL
+        // DECIMAL - DOUBLE
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS DOUBLE)");
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS DOUBLE)");
         assertQuery("SELECT SIN(CAST(1.1 AS DECIMAL(38,1)))");
@@ -751,6 +743,13 @@ public abstract class AbstractTestEngineOnlyQueries
         // SMALLINT - DECIMAL
         assertQuery("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
         assertQuery("SELECT CAST(292 AS DECIMAL(38,1)) = CAST(CAST(121 AS DECIMAL(30,1)) AS SMALLINT)");
+
+        // DECIMAL - NUMBER
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(38,1)) + CAST(1.1 AS NUMBER)")).matches("VALUES NUMBER '2.2'");
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(7,1)) = CAST(1.1 AS NUMBER)")).matches("VALUES true");
+        assertThat(query("SELECT CAST(1.1 AS DECIMAL(38,1)) = CAST(1.1 AS NUMBER)")).matches("VALUES true");
+        assertThat(query("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER)] || CAST(101.3 AS DECIMAL(5,1))"))
+                .matches("SELECT ARRAY[CAST(282.1 AS NUMBER), CAST(283.2 AS NUMBER), CAST(101.3 AS NUMBER)]");
 
         // Complex coercions across joins
         assertQuery("SELECT * FROM (" +
@@ -804,6 +803,61 @@ public abstract class AbstractTestEngineOnlyQueries
                 "    UNION ALL" +
                 "    SELECT 'yy' AS c" +
                 ")");
+    }
+
+    /**
+     * Supplements {@link #testCoercions}
+     */
+    @Test
+    public void testNumericCoercions()
+    {
+        String[] numericTypes = new String[] {
+                "tinyint",
+                "smallint",
+                "integer",
+                "bigint",
+                "real",
+                "double",
+                "decimal(10,5)",
+                "decimal(24,11)",
+                "number",
+        };
+
+        for (String left : numericTypes) {
+            for (String right : numericTypes) {
+                try {
+                    String add = "SELECT CAST(CAST('3' AS " + left + ") + CAST('4' AS " + right + ") AS varchar)";
+                    String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
+                    String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
+                    String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
+                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    List<String> both = List.of(left, right);
+                    // There currently is no coercion between number and real/double/decimal
+                    boolean unsupported =
+                            both.contains("number") &&
+                            (both.contains("real") || both.contains("double"));
+                    if (unsupported) {
+                        assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
+                        assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
+                        assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
+                        assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
+                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                    }
+                    else {
+                        assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
+                        assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                    }
+                }
+                catch (Throwable e) {
+                    e.addSuppressed(new Exception("left = " + left));
+                    e.addSuppressed(new Exception("right = " + right));
+                    throw e;
+                }
+            }
+        }
     }
 
     @Test
@@ -1314,7 +1368,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEqualsIgnoreOrder(actual, expected);
 
         session = Session.builder(getSession())
-                .setSystemProperty("omit_datetime_type_precision", "false")
                 .addPreparedStatement(
                         "my_query",
                         "SELECT 1 " +
@@ -1330,20 +1383,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 .row(0, "char(2)")
                 .row(1, "varchar")
                 .row(2, "timestamp(3)")
-                .row(3, "timestamp(6)")
-                .row(4, "decimal(3,2)")
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
-
-        session = Session.builder(session)
-                .setSystemProperty("omit_datetime_type_precision", "true")
-                .build();
-
-        actual = computeActual(session, "DESCRIBE INPUT my_query");
-        expected = resultBuilder(session, BIGINT, VARCHAR)
-                .row(0, "char(2)")
-                .row(1, "varchar")
-                .row(2, "timestamp")
                 .row(3, "timestamp(6)")
                 .row(4, "decimal(3,2)")
                 .build();
@@ -1410,63 +1449,41 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testDescribeOutput()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT * FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT * FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
                 .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
     public void testDescribeOutputDateTimeTypes()
     {
-        Session session = Session.builder(getSession())
-                .setSystemProperty("omit_datetime_type_precision", "true")
-                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b, localtime c")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT localtimestamp a, current_timestamp b, localtime c";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("a", "", "", "", "timestamp", 8, true)
-                .row("b", "", "", "", "timestamp with time zone", 8, true)
-                .row("c", "", "", "", "time", 8, true)
-                .build();
-        assertEqualsIgnoreOrder(actual, expected);
-
-        session = Session.builder(getSession())
-                .setSystemProperty("omit_datetime_type_precision", "false")
-                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
-                .build();
-
-        actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("a", "", "", "", "timestamp(3)", 8, true)
                 .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
+                .row("c", "", "", "", "time(3)", 8, true)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
     public void testDescribeOutputNamedAndUnnamed()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT 1, name, regionkey AS my_alias FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT 1, name, regionkey AS my_alias FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
     }
 
     @Test
@@ -1475,8 +1492,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
 
         assertDescribeOutputEmpty("CALL foo()");
-        assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
-        assertDescribeOutputEmpty("RESET SESSION optimize_hash_generation");
         assertDescribeOutputEmpty("START TRANSACTION");
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
@@ -1547,16 +1562,27 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testDescribeOutputOnAliasedColumnsAndExpressions()
     {
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation")
-                .build();
-
-        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        Session session = getSession();
+        String sql = "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation";
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("this_is_aliased", "", "", "", "bigint", 8, true)
                 .row("_col1", "", "", "", "integer", 4, false)
                 .build();
-        assertEqualsIgnoreOrder(actual, expected);
+        assertDescribeOutputWithBothSyntax(session, sql, expected);
+    }
+
+    private void assertDescribeOutputWithBothSyntax(Session session, @Language("SQL") String sql, MaterializedResult expected)
+    {
+        // Test prepared statement syntax
+        Session sessionWithStatement = Session.builder(session)
+                .addPreparedStatement("my_query", sql)
+                .build();
+        MaterializedResult preparedResult = computeActual(sessionWithStatement, "DESCRIBE OUTPUT my_query");
+        assertEqualsIgnoreOrder(preparedResult, expected);
+
+        // Test inline query syntax
+        MaterializedResult inlineResult = computeActual(session, format("DESCRIBE OUTPUT (%s)", sql));
+        assertEqualsIgnoreOrder(inlineResult, expected);
     }
 
     @Test
@@ -5382,7 +5408,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 getSession().getQueryDataEncoding());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
-        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+        Map<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
             assertThat(input.getFieldCount()).isEqualTo(5);
             return (String) input.getField(0);
         });
@@ -5427,6 +5453,12 @@ public abstract class AbstractTestEngineOnlyQueries
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
+
+        assertThatThrownBy(() -> computeActual(format("SET SESSION %s.connector_l = 1", TESTING_CATALOG)))
+                .hasMessage("line 1:43: Session property 'testing_catalog.connector_l' does not exist. Did you mean to use 'testing_catalog.connector_long', 'testing_catalog.connector_double' or 'testing_catalog.connector_boolean'?");
+
+        assertThatThrownBy(() -> computeActual("SET SESSION task_writer_count = 1"))
+                .hasMessage("line 1:33: Session property 'task_writer_count' does not exist. Did you mean to use 'task_max_writer_count' or 'task_min_writer_count'?");
     }
 
     @Test
@@ -5981,6 +6013,14 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testDefaultExplainJsonFormat()
+    {
+        String query = "SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN (FORMAT JSON) " + query);
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getJsonExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
     public void testLogicalExplain()
     {
         String query = "SELECT * FROM orders";
@@ -6013,6 +6053,16 @@ public abstract class AbstractTestEngineOnlyQueries
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
         assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getExplainPlan(query, LOGICAL));
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(DEPRECATED_TYPE_LOGICAL_WARNING + getExplainPlan(query, DISTRIBUTED));
+    }
+
+    @Test
+    public void testLogicalExplainJsonFormat()
+    {
+        String query = "SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query);
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getJsonExplainPlan(query, LOGICAL));
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getJsonExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -6184,7 +6234,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.containsKey("avg"))
                 .describedAs("Expected function names " + functions + " to contain 'avg'")
                 .isTrue();
-        assertThat(functions.get("avg").asList()).hasSize(6);
+        assertThat(functions.get("avg").asList()).hasSize(7);
         assertThat(functions.get("avg").asList().get(0).getField(1)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(2)).isEqualTo("decimal(p,s)");
         assertThat(functions.get("avg").asList().get(0).getField(3)).isEqualTo("aggregate");
@@ -6200,9 +6250,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(functions.get("avg").asList().get(4).getField(1)).isEqualTo("interval year to month");
         assertThat(functions.get("avg").asList().get(4).getField(2)).isEqualTo("interval year to month");
         assertThat(functions.get("avg").asList().get(4).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("real");
-        assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("number");
+        assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("number");
         assertThat(functions.get("avg").asList().get(5).getField(3)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(6).getField(1)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(6).getField(2)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(6).getField(3)).isEqualTo("aggregate");
 
         assertThat(functions.containsKey("abs"))
                 .describedAs("Expected function names " + functions + " to contain 'abs'")
@@ -6623,143 +6676,6 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
-    public void testInlineSqlFunctions()
-    {
-        assertThat(query(
-                """
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
-                SELECT abc(21)
-                """))
-                .matches("VALUES 42");
-        assertThat(query(
-                """
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
-                SELECT abc(-21)
-                """))
-                .matches("VALUES 21");
-
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
-                SELECT xyz(21)
-                """))
-                .matches("VALUES 43");
-
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(2, 8)
-                """))
-                .matches("VALUES 256");
-
-        // invoke function on data from connector to prevent constant folding on the coordinator
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
-                """))
-                .matches("VALUES 1, 2, 3, 5, 64");
-
-        // function with dereference
-        assertThat(query(
-                """
-                WITH FUNCTION get(input row(varchar))
-                    RETURNS varchar
-                    RETURN input[1]
-                SELECT get(ROW('abc'))
-                """))
-                .matches("VALUES VARCHAR 'abc'");
-
-        // validations for inline functions
-        assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
-                "line 1:6: Inline function names cannot be qualified: a.b");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()",
-                "line 1:31: Security mode not supported for inline functions");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
-                "line 1:34: Security mode not supported for inline functions");
-
-        // error location reporting
-        assertQueryFails("WITH function x() RETURNS bigint DETERMINISTIC DETERMINISTIC RETURN 42 SELECT x()",
-                "line 1:48: Multiple deterministic clauses specified");
-
-        // Verify the current restrictions on inline functions are enforced
-
-        // inline function can mask a global function
-        assertThat(query(
-                """
-                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
-                SELECT abs(-10)
-                """))
-                .matches("VALUES -20");
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
-                SELECT wrap_abs(-10)
-                """))
-                .matches("VALUES -20");
-
-        // inline function can have the same name as a global function with a different signature
-        assertThat(query(
-                """
-                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
-                SELECT abs('abc')
-                """))
-                .skippingTypesCheck()
-                .matches("VALUES 'cba'");
-
-        // inline functions must be declared before they are used
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
-                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 2:48: Function 'b' not registered");
-
-        // inline function cannot be recursive
-        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThat(query(
-                """
-                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 1:6: Recursive language functions are not supported: a(integer):integer");
-    }
-
-    @Test
     public void testCreateFunctionErrorReporting()
     {
         assertQueryFails("CREATE FUNCTION a.b.c() RETURNS integer DETERMINISTIC DETERMINISTIC RETURN 8",
@@ -6767,6 +6683,66 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
                 "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
+    }
+
+    @Test
+    public void testNumber()
+    {
+        assertThat(query("SELECT NUMBER '3' + NUMBER '.14159265358979'"))
+                .matches("VALUES NUMBER '3.14159265358979'");
+        assertThat(computeActual("SELECT NUMBER '3' + NUMBER '.14159265358979'").getOnlyValue())
+                .isEqualTo(new BigDecimal("3.14159265358979"));
+
+        String maxValue = "9".repeat(getNumberMaxDecimalPrecision()) + "e" + -getNumberScaleMinValue();
+        assertThat(computeActual("SELECT NUMBER '" + maxValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(maxValue));
+
+        String minPositiveValue = "1e" + -getNumberScaleMaxValue();
+        assertThat(computeActual("SELECT NUMBER '" + minPositiveValue + "'").getOnlyValue())
+                .isEqualTo(new BigDecimal(minPositiveValue));
+
+        assertThat(computeActual("SELECT NUMBER '+Infinity'").getOnlyValue())
+                .isEqualTo(Double.POSITIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER '-Infinity'").getOnlyValue())
+                .isEqualTo(Double.NEGATIVE_INFINITY);
+        assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
+                .isEqualTo(Double.NaN);
+    }
+
+    private static int getNumberMaxDecimalPrecision()
+    {
+        try {
+            Field field = NumberType.class.getDeclaredField("MAX_DECIMAL_PRECISION");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMaxValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MAX_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static int getNumberScaleMinValue()
+    {
+        try {
+            Field field = TrinoNumber.class.getDeclaredField("MIN_SCALE");
+            field.setAccessible(true);
+            return (int) field.get(null);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static ZonedDateTime zonedDateTime(String value)

@@ -19,12 +19,10 @@ import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
 import io.trino.spi.ErrorType;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestingFailureInjector
         implements FailureInjector
@@ -43,7 +41,7 @@ public class TestingFailureInjector
     public TestingFailureInjector(Duration expirationPeriod, Duration requestTimeout)
     {
         failures = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS));
+                .expireAfterWrite(expirationPeriod.toJavaTime()));
         this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
     }
 
@@ -78,38 +76,11 @@ public class TestingFailureInjector
         return requestTimeout;
     }
 
-    private static class Key
+    private record Key(String traceToken, int stageId, int partitionId, int attemptId)
     {
-        private final String traceToken;
-        private final int stageId;
-        private final int partitionId;
-        private final int attemptId;
-
-        private Key(String traceToken, int stageId, int partitionId, int attemptId)
+        private Key
         {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
-            this.stageId = stageId;
-            this.partitionId = partitionId;
-            this.attemptId = attemptId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Key key = (Key) o;
-            return stageId == key.stageId && partitionId == key.partitionId && attemptId == key.attemptId && Objects.equals(traceToken, key.traceToken);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(traceToken, stageId, partitionId, attemptId);
+            requireNonNull(traceToken, "traceToken is null");
         }
     }
 }

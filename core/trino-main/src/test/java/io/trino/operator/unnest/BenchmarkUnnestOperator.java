@@ -260,7 +260,7 @@ public class BenchmarkUnnestOperator
         assertThat(block.getPositionCount()).isEqualTo(100);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkUnnestOperator.class)

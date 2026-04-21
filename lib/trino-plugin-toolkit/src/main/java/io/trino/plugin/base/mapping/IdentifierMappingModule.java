@@ -27,7 +27,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
@@ -114,7 +114,7 @@ public final class IdentifierMappingModule
 
         private static IdentifierMappingRules createRules(String configFile)
         {
-            return parseJson(Paths.get(configFile), IdentifierMappingRules.class);
+            return parseJson(Path.of(configFile), IdentifierMappingRules.class);
         }
     }
 

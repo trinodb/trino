@@ -34,6 +34,10 @@ import static software.amazon.awssdk.core.metrics.CoreMetric.ERROR_TYPE;
 import static software.amazon.awssdk.core.metrics.CoreMetric.OPERATION_NAME;
 import static software.amazon.awssdk.core.metrics.CoreMetric.RETRY_COUNT;
 import static software.amazon.awssdk.core.metrics.CoreMetric.SERVICE_ID;
+import static software.amazon.awssdk.http.HttpMetric.AVAILABLE_CONCURRENCY;
+import static software.amazon.awssdk.http.HttpMetric.CONCURRENCY_ACQUIRE_DURATION;
+import static software.amazon.awssdk.http.HttpMetric.LEASED_CONCURRENCY;
+import static software.amazon.awssdk.http.HttpMetric.PENDING_CONCURRENCY_ACQUIRES;
 
 public class S3FileSystemStats
 {
@@ -49,6 +53,7 @@ public class S3FileSystemStats
     private final AwsSdkV2ApiCallStats completeMultipartUpload = new AwsSdkV2ApiCallStats();
     private final AwsSdkV2ApiCallStats abortMultipartUpload = new AwsSdkV2ApiCallStats();
     private final AwsSdkV2ApiCallStats uploadPart = new AwsSdkV2ApiCallStats();
+    private final AwsSdkV2HttpClientStats httpClientStats = new AwsSdkV2HttpClientStats();
 
     private static final AwsSdkV2ApiCallStats dummy = new DummyAwsSdkV2ApiCallStats();
 
@@ -129,6 +134,13 @@ public class S3FileSystemStats
         return uploadPart;
     }
 
+    @Managed
+    @Nested
+    public AwsSdkV2HttpClientStats getHttpClientStats()
+    {
+        return httpClientStats;
+    }
+
     public MetricPublisher newMetricPublisher()
     {
         return new JmxMetricPublisher(this);
@@ -137,7 +149,10 @@ public class S3FileSystemStats
     public static final class JmxMetricPublisher
             implements MetricPublisher
     {
-        private static final Set<SdkMetric<?>> ALLOWED_METRICS = Set.of(API_CALL_SUCCESSFUL, RETRY_COUNT, API_CALL_DURATION, ERROR_TYPE);
+        private static final Set<SdkMetric<?>> ALLOWED_METRICS = Set.of(
+                API_CALL_SUCCESSFUL, RETRY_COUNT, API_CALL_DURATION, ERROR_TYPE,
+                AVAILABLE_CONCURRENCY, LEASED_CONCURRENCY, PENDING_CONCURRENCY_ACQUIRES,
+                CONCURRENCY_ACQUIRE_DURATION);
 
         private static final Logger log = Logger.get(JmxMetricPublisher.class);
 
@@ -164,14 +179,14 @@ public class S3FileSystemStats
                 }
 
                 AwsSdkV2ApiCallStats apiCallStats = getApiCallStats(operationName.get());
-                publishMetrics(metricCollection, apiCallStats);
+                publishMetrics(metricCollection, apiCallStats, stats.httpClientStats);
             }
             catch (Exception e) {
                 log.warn(e, "Publishing AWS metrics failed");
             }
         }
 
-        private void publishMetrics(MetricCollection metricCollection, AwsSdkV2ApiCallStats apiCallStats)
+        private void publishMetrics(MetricCollection metricCollection, AwsSdkV2ApiCallStats apiCallStats, AwsSdkV2HttpClientStats httpClientStats)
         {
             metricCollection.stream()
                     .filter(metricRecord -> metricRecord.value() != null && ALLOWED_METRICS.contains(metricRecord.metric()))
@@ -211,9 +226,17 @@ public class S3FileSystemStats
                                 apiCallStats.updateServerErrors();
                             }
                         }
+                        else if (metricRecord.metric().equals(LEASED_CONCURRENCY) || metricRecord.metric().equals(AVAILABLE_CONCURRENCY) || metricRecord.metric().equals(PENDING_CONCURRENCY_ACQUIRES)) {
+                            int value = (int) metricRecord.value();
+                            httpClientStats.updateConcurrencyStats(metricRecord.metric(), value);
+                        }
+                        else if (metricRecord.metric().equals(CONCURRENCY_ACQUIRE_DURATION)) {
+                            Duration duration = (Duration) metricRecord.value();
+                            httpClientStats.updateConcurrencyAcquireDuration(duration);
+                        }
                     });
 
-            metricCollection.children().forEach(child -> publishMetrics(child, apiCallStats));
+            metricCollection.children().forEach(child -> publishMetrics(child, apiCallStats, httpClientStats));
         }
 
         @Override

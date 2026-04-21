@@ -89,9 +89,10 @@ public final class MapFromEntriesFunction
                     if (keyBlock.isNull(rawIndex)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
                     }
-                    keyType.appendTo(keyBlock, rawIndex, keyBuilder);
+                    keyBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(rawIndex));
 
-                    valueType.appendTo(entry.getRawFieldBlock(1), rawIndex, valueBuilder);
+                    Block rawValueBlock = entry.getRawFieldBlock(1);
+                    valueBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(rawIndex));
                 }
             });
         }

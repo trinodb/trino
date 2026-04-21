@@ -69,6 +69,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -245,7 +246,7 @@ public class CassandraTypeManager
     {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        for (Map.Entry<?, ?> entry : cassandraMap.entrySet()) {
+        for (Entry<?, ?> entry : cassandraMap.entrySet()) {
             if (sb.length() > 1) {
                 sb.append(",");
             }
@@ -368,8 +369,8 @@ public class CassandraTypeManager
         }
 
         String value;
-        if (trinoNativeValue instanceof Slice) {
-            value = ((Slice) trinoNativeValue).toStringUtf8();
+        if (trinoNativeValue instanceof Slice slice) {
+            value = slice.toStringUtf8();
         }
         else {
             value = trinoNativeValue.toString();
@@ -493,30 +494,14 @@ public class CassandraTypeManager
             return false;
         }
 
-        if (dataType instanceof UserDefinedType userDefinedType) {
-            return userDefinedType.getFieldTypes().stream()
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof MapType mapType) {
-            return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof ListType listType) {
-            return isFullySupported(listType.getElementType());
-        }
-
-        if (dataType instanceof TupleType tupleType) {
-            return tupleType.getComponentTypes().stream()
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof SetType setType) {
-            return isFullySupported(setType.getElementType());
-        }
-
-        return true;
+        return switch (dataType) {
+            case UserDefinedType userDefinedType -> userDefinedType.getFieldTypes().stream().allMatch(this::isFullySupported);
+            case MapType mapType -> Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()}).allMatch(this::isFullySupported);
+            case ListType listType -> isFullySupported(listType.getElementType());
+            case TupleType tupleType -> tupleType.getComponentTypes().stream().allMatch(this::isFullySupported);
+            case SetType setType -> isFullySupported(setType.getElementType());
+            default -> true;
+        };
     }
 
     public CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)

@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -136,9 +137,10 @@ public class TestRemoteSourceStatsRule
                         new Symbol(BIGINT, "col_c"),
                         new Symbol(DOUBLE, "col_d")),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(new PlanNodeId("plan_id")),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol(BIGINT, "col_c"))),
+                OptionalInt.empty(),
                 statsAndCosts,
                 ImmutableList.of(),
                 ImmutableMap.of(),

@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
@@ -44,7 +44,7 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 public class TestPruneOrderByInWindowAggregation
         extends BaseRuleTest
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final Metadata METADATA = createTestingMetadataManager();
 
     @Test
     public void testBasics()

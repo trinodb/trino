@@ -94,8 +94,7 @@ public class TestIcebergGcsConnectorSmokeTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "hive_metastore")
-                        .put("fs.hadoop.enabled", "false")
-                        .put("fs.native-gcs.enabled", "true")
+                        .put("fs.gcs.enabled", "true")
                         .put("gcs.json-key", gcpCredentials)
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("iceberg.file-format", format.name())
@@ -170,7 +169,7 @@ public class TestIcebergGcsConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

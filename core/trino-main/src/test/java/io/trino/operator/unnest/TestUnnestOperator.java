@@ -23,6 +23,7 @@ import io.trino.operator.PageTestUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -63,7 +64,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.anonymous;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -111,7 +111,7 @@ public class TestUnnestOperator
     public void testUnnest()
     {
         Type arrayType = new ArrayType(BIGINT);
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(BIGINT, 2, 3), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -139,7 +139,7 @@ public class TestUnnestOperator
     public void testUnnestWithArray()
     {
         Type arrayType = new ArrayType(new ArrayType(BIGINT));
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(new ArrayType(BIGINT).getTypeSignature(), new ArrayType(BIGINT).getTypeSignature()));
+        Type mapType = new MapType(new ArrayType(BIGINT), new ArrayType(BIGINT), TESTING_TYPE_MANAGER.getTypeOperators());
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(
@@ -173,7 +173,7 @@ public class TestUnnestOperator
     public void testUnnestWithOrdinality()
     {
         Type arrayType = new ArrayType(BIGINT);
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(BIGINT, 2, 3), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
@@ -201,7 +201,7 @@ public class TestUnnestOperator
     public void testUnnestNonNumericDoubles()
     {
         Type arrayType = new ArrayType(DOUBLE);
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
@@ -252,7 +252,7 @@ public class TestUnnestOperator
     @Test
     public void testOuterUnnest()
     {
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
         Type arrayType = new ArrayType(BIGINT);
         Type elementType = anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
@@ -284,7 +284,7 @@ public class TestUnnestOperator
     @Test
     public void testOuterUnnestWithOrdinality()
     {
-        Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
         Type arrayType = new ArrayType(BIGINT);
         Type elementType = anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
@@ -566,6 +566,6 @@ public class TestUnnestOperator
 
     private static Type createMapType(Type keyType, Type valueType)
     {
-        return TESTING_TYPE_MANAGER.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return new MapType(keyType, valueType, TESTING_TYPE_MANAGER.getTypeOperators());
     }
 }

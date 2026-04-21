@@ -15,10 +15,12 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -32,10 +34,12 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.file.NoSuchFileException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -82,6 +86,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.format.DateTimeFormatter.ISO_ZONED_DATE_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.YEAR;
@@ -100,7 +105,7 @@ public final class TransactionLogParser
 
     private TransactionLogParser() {}
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     // partition timestamp values are represented as yyyy-MM-dd HH:mm:ss.SSSSSSSSS, where the fractional seconds part can have 0-9 digits
     public static final DateTimeFormatter PARTITION_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
@@ -148,7 +153,7 @@ public final class TransactionLogParser
         if (json.endsWith("x")) {
             json = json.substring(0, json.length() - 1);
         }
-        return JsonUtils.parseJson(OBJECT_MAPPER, json, DeltaLakeTransactionLogEntry.class);
+        return JsonUtils.parseJson(JSON_MAPPER, json, DeltaLakeTransactionLogEntry.class);
     }
 
     private static Object parseDecimal(DecimalType type, String valueString)
@@ -180,9 +185,17 @@ public final class TransactionLogParser
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
-    private static Long readPartitionTimestampWithZone(String timestamp)
+    @VisibleForTesting
+    static Long readPartitionTimestampWithZone(String timestamp)
     {
-        ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        ZonedDateTime zonedDateTime;
+        try {
+            zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
+        }
+        catch (DateTimeParseException _) {
+            // TODO: avoid this exception-driven logic
+            zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
+        }
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
@@ -246,7 +259,7 @@ public final class TransactionLogParser
                 format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
+    public static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
         return Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(5)
@@ -267,7 +280,7 @@ public final class TransactionLogParser
         TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
         try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
-            return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
+            return Optional.of(JsonUtils.parseJson(JSON_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
         catch (JsonParseException | JsonMappingException e) {
             // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
@@ -277,8 +290,21 @@ public final class TransactionLogParser
             // _last_checkpoint file was not found, we need to find latest checkpoint manually
             // ideally, we'd detect the condition by catching FileNotFoundException, but some file system implementations
             // will throw different exceptions if the checkpoint is not found
+            if (isFileNotFoundException(e)) {
+                return Optional.empty();
+            }
+            // it could be situation, like access deny or other permission failure error, which actually should not trigger manual check point read
+            // because we can not be sure, which exceptions could appear here, at least we should not silently hide them
+            // TODO after we collect more of such situations we could add exclusion rules here
+            log.warn(e, "Failed to read Delta Lake last checkpoint file %s, falling back to manual checkpoint discovery", checkpointPath);
             return Optional.empty();
         }
+    }
+
+    private static boolean isFileNotFoundException(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .anyMatch(cause -> cause instanceof FileNotFoundException || cause instanceof NoSuchFileException);
     }
 
     public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation, long readVersion)

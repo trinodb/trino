@@ -18,13 +18,16 @@ import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraSplit
 {
-    private final JsonCodec<CassandraSplit> codec = JsonCodec.jsonCodec(CassandraSplit.class);
+    private final JsonCodec<CassandraSplit> codec = jsonCodec(CassandraSplit.class);
 
-    private final ImmutableList<HostAddress> addresses = ImmutableList.of(
+    private final List<HostAddress> addresses = ImmutableList.of(
             HostAddress.fromParts("127.0.0.1", 44),
             HostAddress.fromParts("127.0.0.1", 45));
 
@@ -36,8 +39,8 @@ public class TestCassandraSplit
         String json = codec.toJson(expected);
         CassandraSplit actual = codec.fromJson(json);
 
-        assertThat(actual.getSplitCondition()).isEqualTo(expected.getSplitCondition());
-        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
+        assertThat(actual.splitCondition()).isEqualTo(expected.splitCondition());
+        assertThat(actual.addresses()).isEqualTo(expected.addresses());
     }
 
     @Test

@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.trino.spi.PageBuilder;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -29,7 +30,7 @@ import static java.lang.Math.ceil;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestVariableWidthBlockBuilder
+final class TestVariableWidthBlockBuilder
         extends AbstractTestBlockBuilder<String>
 {
     private static final int BLOCK_BUILDER_INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
@@ -40,7 +41,7 @@ public class TestVariableWidthBlockBuilder
     @Test
     public void testFixedBlockIsFull()
     {
-        testIsFull(new PageBuilderStatus(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(PageBuilder.withMaxPageSize(VARCHAR_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, ImmutableList.of(VARCHAR)));
     }
 
     @Test
@@ -61,15 +62,16 @@ public class TestVariableWidthBlockBuilder
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
     }
 
-    private void testIsFull(PageBuilderStatus pageBuilderStatus)
+    private void testIsFull(PageBuilder pageBuilder)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), 32, 1024);
-        assertThat(pageBuilderStatus.isEmpty()).isTrue();
-        while (!pageBuilderStatus.isFull()) {
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
+        assertThat(pageBuilder.isEmpty()).isTrue();
+        while (!pageBuilder.isFull()) {
+            pageBuilder.declarePosition();
             VARCHAR.writeSlice(blockBuilder, Slices.allocate(VARCHAR_VALUE_SIZE));
         }
         assertThat(blockBuilder.getPositionCount()).isEqualTo(EXPECTED_ENTRY_COUNT);
-        assertThat(pageBuilderStatus.isFull()).isEqualTo(true);
+        assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
     @Test

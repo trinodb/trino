@@ -61,6 +61,11 @@ public final class JoinCondition
             this.callFunctionName = callFunctionName;
         }
 
+        public FunctionName getCallFunctionName()
+        {
+            return callFunctionName;
+        }
+
         public String getValue()
         {
             return value;

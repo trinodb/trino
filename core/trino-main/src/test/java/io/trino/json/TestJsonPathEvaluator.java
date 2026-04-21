@@ -47,7 +47,7 @@ import java.util.Map;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -1479,7 +1479,7 @@ public class TestJsonPathEvaluator
                 input,
                 PARAMETERS.values().toArray(),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager()));
+                new CachingResolver(createTestingMetadataManager()));
     }
 
     private static PathPredicateEvaluationVisitor createPredicateVisitor(JsonNode input, boolean lax)
@@ -1488,6 +1488,6 @@ public class TestJsonPathEvaluator
                 lax,
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
-                new CachingResolver(createTestMetadataManager()));
+                new CachingResolver(createTestingMetadataManager()));
     }
 }

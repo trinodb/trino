@@ -62,7 +62,7 @@ public class TestIcebergConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         metastore.dropTable(getSession().getSchema().orElseThrow(), tableName, false);
         assertThat(metastore.getTable(getSession().getSchema().orElseThrow(), tableName)).as("Table in metastore should be dropped").isEmpty();
@@ -137,9 +137,9 @@ public class TestIcebergConnectorSmokeTest
         columns += "orderkey, custkey,  orderstatus, totalprice, orderpriority) ";
         notMatchedClause += "s.orderkey, s.custkey,  s.orderstatus, s.totalprice, s.orderpriority ";
         matchedClause += "orderkey = s.orderkey, custkey = s.custkey,  orderstatus = s.orderstatus, totalprice = t.totalprice, orderpriority = s.orderpriority ";
-        TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_", tableDefinition);
+        TestTable table = newTrinoTable("test_merge_", tableDefinition);
         assertUpdate("INSERT INTO " + table.getName() + " " + columns + " " + selectQuery, 1);
-        TestTable mergeTable = new TestTable(getQueryRunner()::execute, "test_table_", tableDefinition);
+        TestTable mergeTable = newTrinoTable("test_table_", tableDefinition);
         assertUpdate("INSERT INTO " + mergeTable.getName() + " " + columns + " " + selectQuery, 1);
         assertUpdate(
                 """

@@ -32,11 +32,13 @@ public class QuantileDigestParametricType
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("QDIGEST type expects exactly one type as a parameter, got " + parameters);
         }
-        if (parameters.get(0).getKind() != ParameterKind.TYPE) {
-            throw new IllegalArgumentException("QDIGEST expects type as a parameter, got " + parameters);
+
+        if (parameters.get(0) instanceof TypeParameter.Type(_, TypeSignature type)) {
+            // Validation check on the acceptable type (bigint, real, double) intentionally omitted
+            // because this is validated in each function and to allow for consistent error messaging
+            return new QuantileDigestType(typeManager.getType(type));
         }
-        // Validation check on the acceptable type (bigint, real, double) intentionally omitted
-        // because this is validated in each function and to allow for consistent error messaging
-        return new QuantileDigestType(parameters.get(0).getType());
+
+        throw new IllegalArgumentException("QDIGEST expects type as a parameter, got " + parameters);
     }
 }

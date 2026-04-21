@@ -23,10 +23,10 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.OptionalInt;
 
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -45,15 +45,6 @@ public class TestDeletionVectors
         assertThat(bitmaps.contains(0)).isFalse();
         assertThat(bitmaps.contains(1)).isTrue();
         assertThat(bitmaps.contains(2)).isFalse();
-    }
-
-    @Test
-    public void testUnsupportedPathStorageType()
-    {
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        DeletionVectorEntry deletionVector = new DeletionVectorEntry("p", "s3://bucket/table/deletion_vector.bin", OptionalInt.empty(), 40, 1);
-        assertThatThrownBy(() -> readDeletionVectors(fileSystem, Location.of("s3://bucket/table"), deletionVector))
-                .hasMessageContaining("Unsupported storage type for deletion vector: p");
     }
 
     @Test

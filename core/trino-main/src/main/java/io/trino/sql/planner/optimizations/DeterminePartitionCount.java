@@ -39,6 +39,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.ToDoubleFunction;
 
 import static com.google.common.base.Verify.verify;
@@ -161,6 +162,13 @@ public class DeterminePartitionCount
         }
         verify(minPartitionCount <= maxPartitionCount, "minPartitionCount %s larger than maxPartitionCount %s",
                 minPartitionCount, maxPartitionCount);
+        int maxPossiblePartitionCount = taskCountEstimator.estimateHashedTaskCount(session);
+        RetryPolicy retryPolicy = getRetryPolicy(session);
+        if (maxPossiblePartitionCount <= 2 * minPartitionCount && !retryPolicy.equals(RetryPolicy.TASK)) {
+            // Do not set partition count if the possible partition count is already close to the minimum partition count.
+            // This avoids incurring cost of fetching table statistics for simple queries when the cluster is small.
+            return Optional.empty();
+        }
 
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, tableStatsProvider);
         long queryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
@@ -188,7 +196,7 @@ public class DeterminePartitionCount
             return Optional.empty();
         }
 
-        if (partitionCount * 2 >= taskCountEstimator.estimateHashedTaskCount(session) && !getRetryPolicy(session).equals(RetryPolicy.TASK)) {
+        if (partitionCount * 2 >= maxPossiblePartitionCount && !retryPolicy.equals(RetryPolicy.TASK)) {
             // Do not cap partition count if it's already close to the possible number of tasks.
             return Optional.empty();
         }
@@ -341,7 +349,7 @@ public class DeterminePartitionCount
 
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (isEligibleRemoteExchange(node, taskRetries)) {
-                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+                partitioningScheme = partitioningScheme.withPartitionCount(OptionalInt.of(partitionCount));
             }
 
             return new ExchangeNode(

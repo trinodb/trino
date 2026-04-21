@@ -14,16 +14,22 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class TableExecuteContext
 {
     @GuardedBy("this")
     private List<Object> splitsInfo;
+    @GuardedBy("this")
+    private Map<String, Long> metrics;
 
     public synchronized void setSplitsInfo(List<Object> splitsInfo)
     {
@@ -40,5 +46,16 @@ public class TableExecuteContext
             throw new IllegalStateException("splitsInfo not set yet");
         }
         return splitsInfo;
+    }
+
+    public synchronized Optional<Map<String, Long>> getMetrics()
+    {
+        return Optional.ofNullable(metrics);
+    }
+
+    public synchronized void setMetrics(Map<String, Long> newMetrics)
+    {
+        checkState(metrics == null, "metrics already set to %s", metrics);
+        metrics = ImmutableMap.copyOf(newMetrics);
     }
 }

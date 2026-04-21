@@ -35,6 +35,7 @@ import io.trino.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -63,7 +64,7 @@ public final class TypeValidator
 
             AggregationNode.Step step = node.getStep();
 
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
                 switch (step) {
@@ -96,7 +97,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Type expectedType = entry.getKey().type();
                 if (entry.getValue() instanceof Reference reference) {
                     Symbol symbol = Symbol.from(reference);

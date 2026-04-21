@@ -38,7 +38,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_DIRECTORIES;
 import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_PERCENTAGES;
 import static io.trino.filesystem.alluxio.AlluxioFileSystemCacheConfig.CACHE_MAX_SIZES;
-import static java.lang.String.format;
 import static java.lang.String.join;
 
 public class AlluxioConfigurationFactory
@@ -77,9 +76,9 @@ public class AlluxioConfigurationFactory
         while (!Files.exists(path) && path.getParent() != null) {
             path = path.getParent();
         }
-        checkArgument(Files.isDirectory(path), format("Cache directory %s is not a directory", path));
-        checkArgument(Files.isReadable(path), format("Cannot read from cache directory %s", originalPath));
-        checkArgument(Files.isWritable(path), format("Cannot write to cache directory %s", originalPath));
+        checkArgument(Files.isDirectory(path), "Cache directory %s is not a directory", path);
+        checkArgument(Files.isReadable(path), "Cannot read from cache directory %s", originalPath);
+        checkArgument(Files.isWritable(path), "Cannot write to cache directory %s", originalPath);
     }
 
     /**

@@ -13,11 +13,10 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
@@ -29,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -36,7 +36,7 @@ import static io.trino.spi.type.TestingIdType.ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestEquatableValueSet
+class TestEquatableValueSet
 {
     @Test
     public void testEmptySet()
@@ -122,7 +122,7 @@ public class TestEquatableValueSet
         assertThat(equatables.containsValue(3L)).isTrue();
         assertThat(equatables.containsValue(4L)).isFalse();
         assertThat(equatables.toString()).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, 3}]");
-        assertThat(equatables.toString(ToStringSession.INSTANCE, 2)).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, ...}]");
+        assertThat(equatables.toString(2)).isEqualTo("EquatableValueSet[type=id, values=3, {1, 2, ...}]");
 
         // exclusive
         assertThat(complement.getType()).isEqualTo(ID);
@@ -138,7 +138,7 @@ public class TestEquatableValueSet
         assertThat(complement.containsValue(3L)).isFalse();
         assertThat(complement.containsValue(4L)).isTrue();
         assertThat(complement.toString()).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, 3}]");
-        assertThat(complement.toString(ToStringSession.INSTANCE, 2)).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, ...}]");
+        assertThat(complement.toString(2)).isEqualTo("EquatableValueSet[type=id, values=3, EXCLUDES{1, 2, ...}]");
     }
 
     @Test
@@ -337,14 +337,13 @@ public class TestEquatableValueSet
     public void testJsonSerialization()
             throws Exception
     {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        JsonMapper mapper = new JsonMapperProvider()
+                .withJsonDeserializers(Map.of(
+                        Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())))
+                .withJsonSerializers(Map.of(
+                        Block.class, new TestingBlockJsonSerde.Serializer(new TestingBlockEncodingSerde())))
+                .get();
 
         EquatableValueSet set = EquatableValueSet.all(ID);
         assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), EquatableValueSet.class));

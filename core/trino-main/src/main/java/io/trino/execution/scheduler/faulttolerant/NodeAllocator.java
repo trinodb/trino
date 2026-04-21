@@ -16,7 +16,7 @@ package io.trino.execution.scheduler.faulttolerant;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 
 import java.io.Closeable;
 

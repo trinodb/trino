@@ -30,6 +30,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
@@ -164,13 +165,13 @@ public class TestJsonInputFunctions
     @Test
     public void testVarbinaryUtf32ToJson()
     {
-        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, Charset.forName("UTF-32LE")) + ", true)"))
+        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, StandardCharsets.UTF_32LE) + ", true)"))
                 .hasType(JSON_2016)
                 .isEqualTo(JSON_OBJECT);
 
         // wrong input encoding
 
-        assertTrinoExceptionThrownBy(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, Charset.forName("UTF-32BE")) + ", true)")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, StandardCharsets.UTF_32BE) + ", true)")::evaluate)
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
@@ -186,12 +187,12 @@ public class TestJsonInputFunctions
         // correct encoding, incorrect input
 
         // with unsuppressed input conversion error
-        assertTrinoExceptionThrownBy(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, Charset.forName("UTF-32LE")) + ", true)")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, StandardCharsets.UTF_32LE) + ", true)")::evaluate)
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
         // with input conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, Charset.forName("UTF-32LE")) + ", false)"))
+        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, StandardCharsets.UTF_32LE) + ", false)"))
                 .hasType(JSON_2016)
                 .isEqualTo(JSON_ERROR);
     }

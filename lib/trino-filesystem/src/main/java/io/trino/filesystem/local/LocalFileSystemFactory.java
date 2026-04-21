@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
@@ -30,6 +31,12 @@ public class LocalFileSystemFactory
     public LocalFileSystemFactory(Path rootPath)
     {
         fileSystem = new LocalFileSystem(rootPath);
+    }
+
+    @Inject
+    public LocalFileSystemFactory(LocalFileSystemConfig config)
+    {
+        this(config.getLocation());
     }
 
     @Override

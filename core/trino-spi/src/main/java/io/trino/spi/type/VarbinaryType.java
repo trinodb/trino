@@ -18,11 +18,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 
 public final class VarbinaryType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "varbinary";
+
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
@@ -33,7 +34,13 @@ public final class VarbinaryType
 
     private VarbinaryType()
     {
-        super(new TypeSignature(StandardTypes.VARBINARY), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
@@ -55,7 +62,7 @@ public final class VarbinaryType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

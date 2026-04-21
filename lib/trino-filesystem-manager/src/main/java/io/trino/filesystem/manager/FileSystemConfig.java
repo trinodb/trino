@@ -14,15 +14,23 @@
 package io.trino.filesystem.manager;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
+
+import static java.lang.System.getenv;
 
 public class FileSystemConfig
 {
     private boolean hadoopEnabled;
     private boolean alluxioEnabled;
-    private boolean nativeAzureEnabled;
-    private boolean nativeS3Enabled;
-    private boolean nativeGcsEnabled;
+    private boolean azureEnabled;
+    private boolean s3Enabled;
+    private boolean gcsEnabled;
+    private boolean localEnabled;
     private boolean cacheEnabled;
+
+    // Enable leak detection if configured or if running in a CI environment
+    private boolean trackingEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
 
     public boolean isHadoopEnabled()
     {
@@ -42,45 +50,61 @@ public class FileSystemConfig
     }
 
     @Config("fs.alluxio.enabled")
-    public FileSystemConfig setAlluxioEnabled(boolean nativeAlluxioEnabled)
+    public FileSystemConfig setAlluxioEnabled(boolean alluxioEnabled)
     {
-        this.alluxioEnabled = nativeAlluxioEnabled;
+        this.alluxioEnabled = alluxioEnabled;
         return this;
     }
 
-    public boolean isNativeAzureEnabled()
+    public boolean isAzureEnabled()
     {
-        return nativeAzureEnabled;
+        return azureEnabled;
     }
 
-    @Config("fs.native-azure.enabled")
-    public FileSystemConfig setNativeAzureEnabled(boolean nativeAzureEnabled)
+    @LegacyConfig("fs.native-azure.enabled")
+    @Config("fs.azure.enabled")
+    public FileSystemConfig setAzureEnabled(boolean azureEnabled)
     {
-        this.nativeAzureEnabled = nativeAzureEnabled;
+        this.azureEnabled = azureEnabled;
         return this;
     }
 
-    public boolean isNativeS3Enabled()
+    public boolean isS3Enabled()
     {
-        return nativeS3Enabled;
+        return s3Enabled;
     }
 
-    @Config("fs.native-s3.enabled")
-    public FileSystemConfig setNativeS3Enabled(boolean nativeS3Enabled)
+    @LegacyConfig("fs.native-s3.enabled")
+    @Config("fs.s3.enabled")
+    public FileSystemConfig setS3Enabled(boolean s3Enabled)
     {
-        this.nativeS3Enabled = nativeS3Enabled;
+        this.s3Enabled = s3Enabled;
         return this;
     }
 
-    public boolean isNativeGcsEnabled()
+    public boolean isGcsEnabled()
     {
-        return nativeGcsEnabled;
+        return gcsEnabled;
     }
 
-    @Config("fs.native-gcs.enabled")
-    public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
+    @LegacyConfig("fs.native-gcs.enabled")
+    @Config("fs.gcs.enabled")
+    public FileSystemConfig setGcsEnabled(boolean gcsEnabled)
     {
-        this.nativeGcsEnabled = nativeGcsEnabled;
+        this.gcsEnabled = gcsEnabled;
+        return this;
+    }
+
+    public boolean isLocalEnabled()
+    {
+        return localEnabled;
+    }
+
+    @LegacyConfig("fs.native-local.enabled")
+    @Config("fs.local.enabled")
+    public FileSystemConfig setLocalEnabled(boolean localEnabled)
+    {
+        this.localEnabled = localEnabled;
         return this;
     }
 
@@ -93,6 +117,19 @@ public class FileSystemConfig
     public FileSystemConfig setCacheEnabled(boolean enabled)
     {
         this.cacheEnabled = enabled;
+        return this;
+    }
+
+    public boolean isTrackingEnabled()
+    {
+        return trackingEnabled;
+    }
+
+    @ConfigDescription("Enable input/output stream tracking to detect resource leaks")
+    @Config("fs.tracking.enabled")
+    public FileSystemConfig setTrackingEnabled(boolean trackingEnabled)
+    {
+        this.trackingEnabled = trackingEnabled;
         return this;
     }
 }

@@ -16,7 +16,6 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.trino.server.protocol.spooling.SpooledBlock;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
@@ -68,10 +67,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -359,7 +358,7 @@ public final class GraphvizPrinter
         public Void visitAggregation(AggregationNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(new NoOpAnonymizer(), entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
@@ -392,7 +391,7 @@ public final class GraphvizPrinter
         public Void visitProject(ProjectNode node, Void context)
         {
             StringBuilder builder = new StringBuilder();
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 if ((entry.getValue() instanceof Reference) &&
                         ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
@@ -627,7 +626,7 @@ public final class GraphvizPrinter
 
         private static String getColumns(OutputNode node)
         {
-            Iterator<String> columnNames = filter(node.getColumnNames(), value -> !value.equals(SpooledBlock.SPOOLING_METADATA_COLUMN_NAME)).iterator();
+            Iterator<String> columnNames = node.getColumnNames().iterator();
             String columns = "";
             int nameWidth = 0;
             while (columnNames.hasNext()) {

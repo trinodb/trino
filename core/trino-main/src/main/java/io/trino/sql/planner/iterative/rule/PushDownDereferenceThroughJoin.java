@@ -90,7 +90,7 @@ public class PushDownDereferenceThroughJoin
 
         // Consider dereferences in projections and join filter for pushdown
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        expressionsBuilder.addAll(projectNode.getAssignments().getExpressions());
+        expressionsBuilder.addAll(projectNode.getAssignments().expressions());
         joinNode.getFilter().ifPresent(expressionsBuilder::add);
         Set<FieldReference> dereferences = extractRowSubscripts(expressionsBuilder.build(), false);
 
@@ -114,7 +114,7 @@ public class PushDownDereferenceThroughJoin
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
@@ -145,7 +145,7 @@ public class PushDownDereferenceThroughJoin
         PlanNode rightNode = createProjectNodeIfRequired(joinNode.getRight(), rightAssignments, context.getIdAllocator());
 
         // Prepare new output symbols for join node
-        List<Symbol> referredSymbolsInAssignments = newAssignments.getExpressions().stream()
+        List<Symbol> referredSymbolsInAssignments = newAssignments.expressions().stream()
                 .flatMap(expression -> extractAll(expression).stream())
                 .collect(toList());
 
@@ -168,8 +168,6 @@ public class PushDownDereferenceThroughJoin
                 joinNode.isMaySkipOutputDuplicates(),
                 // Use newly created symbols in filter
                 joinNode.getFilter().map(expression -> replaceExpression(expression, mappings)),
-                joinNode.getLeftHashSymbol(),
-                joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
                 joinNode.isSpillable(),
                 joinNode.getDynamicFilters(),

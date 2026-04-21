@@ -23,11 +23,11 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.HudiConnector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -44,6 +44,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
@@ -52,6 +53,7 @@ import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.HoodieTableVersion;
 import org.apache.hudi.common.table.marker.MarkerType;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieArchivalConfig;
@@ -79,6 +81,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
@@ -87,7 +90,6 @@ import static io.trino.metastore.HiveType.HIVE_DOUBLE;
 import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.metastore.HiveType.HIVE_LONG;
 import static io.trino.metastore.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
@@ -165,9 +167,9 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
-            writeClient.startCommitWithTime(timestamp);
-            writeClient.insert(records, timestamp);
+            String newCommitTime = writeClient.startCommit();
+            List<WriteStatus> statuses = writeClient.insert(records, newCommitTime);
+            writeClient.commit(newCommitTime, statuses);
         }
     }
 
@@ -217,7 +219,7 @@ public class TpchHudiTablesInitializer
             HoodieTableMetaClient.newTableBuilder()
                     .setTableType(COPY_ON_WRITE)
                     .setTableName(table.getTableName())
-                    .setTimelineLayoutVersion(1)
+                    .setTableVersion(HoodieTableVersion.SIX)
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)

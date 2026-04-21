@@ -11,6 +11,7 @@ Refer to the following sections for further details:
 ```{toctree}
 :maxdepth: 1
 
+sql/alter-branch
 sql/alter-materialized-view
 sql/alter-schema
 sql/alter-table
@@ -19,6 +20,7 @@ sql/analyze
 sql/call
 sql/comment
 sql/commit
+sql/create-branch
 sql/create-catalog
 sql/create-function
 sql/create-materialized-view
@@ -33,6 +35,7 @@ sql/deny
 sql/describe
 sql/describe-input
 sql/describe-output
+sql/drop-branch
 sql/drop-catalog
 sql/drop-function
 sql/drop-materialized-view
@@ -62,6 +65,7 @@ sql/set-role
 sql/set-session
 sql/set-session-authorization
 sql/set-time-zone
+sql/show-branches
 sql/show-catalogs
 sql/show-columns
 sql/show-create-function

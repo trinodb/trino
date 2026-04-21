@@ -247,6 +247,20 @@ public class TestClientOptions
     }
 
     @Test
+    public void testExtraHeaders()
+    {
+        Console console = createConsole("--extra-header", "X-Trino-Routing-Group=foo", "--extra-header", "x-foo=bar");
+        ClientOptions options = console.clientOptions;
+        assertThat(options.extraHeaders).isEqualTo(ImmutableList.of(
+                new ClientOptions.ExtraHeader("X-Trino-Routing-Group", "foo"),
+                new ClientOptions.ExtraHeader("x-foo", "bar")));
+
+        assertThatThrownBy(() -> createConsole("--extra-header", "X-Trino-User=Forbidden"))
+                .hasCauseInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Header 'X-Trino-User' is a protocol header and cannot be set as an extra header");
+    }
+
+    @Test
     public void testSessionProperties()
     {
         Console console = createConsole("--session", "system=system-value", "--session", "catalog.name=catalog-property");
@@ -383,6 +397,8 @@ public class TestClientOptions
             case "editingMode":
             case "disableAutoSuggestion":
             case "decimalDataSize":
+            case "maxBufferedRows":
+            case "maxQueuedRows":
                 return true;
         }
 

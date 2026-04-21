@@ -19,12 +19,13 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.client.PinotDataTableWithSize;
 import io.trino.plugin.pinot.conversion.PinotTimestamps;
-import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -111,7 +112,7 @@ public class PinotSegmentPageSource
      * @return constructed page for pinot data.
      */
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             close();
@@ -153,7 +154,7 @@ public class PinotSegmentPageSource
             }
         }
 
-        return pageBuilder.build();
+        return SourcePage.create(pageBuilder.build());
     }
 
     private static Map<Integer, RoaringBitmap> buildColumnIdToNullRowId(DataTable dataTable, List<PinotColumnHandle> columnHandles)
@@ -299,8 +300,7 @@ public class PinotSegmentPageSource
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
     {
-        Type trinoType = getType(columnIndex);
-        Type elementType = trinoType.getTypeParameters().get(0);
+        Type elementType = ((ArrayType) getType(columnIndex)).getElementType();
         DataSchema.ColumnDataType columnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
         BlockBuilder blockBuilder;
         switch (columnType) {
@@ -372,7 +372,7 @@ public class PinotSegmentPageSource
             }
             return Slices.wrappedBuffer(toBytes(dataTable.getString(rowIndex, columnIndex)));
         }
-        if (trinoType.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.JSON)) {
+        if (trinoType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             String field = dataTable.getString(rowIndex, columnIndex);
             return jsonParse(getUtf8Slice(field));
         }

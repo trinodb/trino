@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -57,11 +57,11 @@ public class BigQueryEmptyProjectionPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         int positionCount = toIntExact(min(MAX_RLE_PAGE_SIZE, numberOfRows - outputRows));
         outputRows += positionCount;
-        return new Page(positionCount);
+        return SourcePage.create(positionCount);
     }
 
     @Override

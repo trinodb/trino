@@ -25,7 +25,7 @@ public record DataFileInfo(
         String path,
         long size,
         long creationTime,
-        io.trino.plugin.deltalake.DataFileInfo.DataFileType dataFileType,
+        DataFileType dataFileType,
         List<String> partitionValues,
         DeltaLakeJsonFileStatistics statistics,
         Optional<DeletionVectorEntry> deletionVector)
@@ -38,7 +38,10 @@ public record DataFileInfo(
 
     public DataFileInfo
     {
+        requireNonNull(path, "path is null");
         requireNonNull(dataFileType, "dataFileType is null");
+        // Avoid ImmutableList.copyOf because partitionValues may have nulls
+        requireNonNull(partitionValues, "partitionValues is null");
         requireNonNull(statistics, "statistics is null");
         requireNonNull(deletionVector, "deletionVector is null");
     }

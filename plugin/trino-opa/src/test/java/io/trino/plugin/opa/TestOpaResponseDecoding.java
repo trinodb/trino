@@ -27,7 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestOpaResponseDecoding
+final class TestOpaResponseDecoding
 {
     private final JsonCodec<OpaQueryResult> responseCodec = new JsonCodecFactory().jsonCodec(OpaQueryResult.class);
     private final JsonCodec<OpaBatchQueryResult> batchResponseCodec = new JsonCodecFactory().jsonCodec(OpaBatchQueryResult.class);
@@ -35,7 +35,7 @@ public class TestOpaResponseDecoding
     private final JsonCodec<OpaColumnMaskQueryResult> columnMaskingResponseCodec = new JsonCodecFactory().jsonCodec(OpaColumnMaskQueryResult.class);
 
     @Test
-    public void testCanDeserializeOpaSingleResponse()
+    void testCanDeserializeOpaSingleResponse()
     {
         testCanDeserializeOpaSingleResponse(true);
         testCanDeserializeOpaSingleResponse(false);
@@ -55,7 +55,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testCanDeserializeOpaSingleResponseWithNoDecisionId()
+    void testCanDeserializeOpaSingleResponseWithNoDecisionId()
     {
         testCanDeserializeOpaSingleResponseWithNoDecisionId(true);
         testCanDeserializeOpaSingleResponseWithNoDecisionId(false);
@@ -74,7 +74,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testSingleResponseWithExtraFields()
+    void testSingleResponseWithExtraFields()
     {
         OpaQueryResult result = this.responseCodec.fromJson(
                 """
@@ -88,7 +88,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testUndefinedDecisionSingleResponseTreatedAsDeny()
+    void testUndefinedDecisionSingleResponseTreatedAsDeny()
     {
         OpaQueryResult result = this.responseCodec.fromJson("{}");
         assertThat(result.result()).isFalse();
@@ -96,13 +96,13 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testIllegalResponseThrows()
+    void testIllegalResponseThrows()
     {
         testIllegalResponseDecodingThrows("{\"result\": \"foo\"}", responseCodec);
     }
 
     @Test
-    public void testBatchEmptyOrUndefinedResponses()
+    void testBatchEmptyOrUndefinedResponses()
     {
         testBatchEmptyOrUndefinedResponses("{}");
         testBatchEmptyOrUndefinedResponses("{\"result\": []}");
@@ -116,7 +116,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testBatchResponseWithItemsNoDecisionId()
+    void testBatchResponseWithItemsNoDecisionId()
     {
         OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
                 """
@@ -129,7 +129,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testBatchResponseWithItemsAndDecisionId()
+    void testBatchResponseWithItemsAndDecisionId()
     {
         OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
                 """
@@ -143,7 +143,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testBatchResponseIllegalResponseThrows()
+    void testBatchResponseIllegalResponseThrows()
     {
         testIllegalResponseDecodingThrows(
                 """
@@ -155,7 +155,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testBatchResponseWithExtraFields()
+    void testBatchResponseWithExtraFields()
     {
         OpaBatchQueryResult result = this.batchResponseCodec.fromJson(
                 """
@@ -171,7 +171,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testRowFilteringEmptyOrUndefinedResponses()
+    void testRowFilteringEmptyOrUndefinedResponses()
     {
         testRowFilteringEmptyOrUndefinedResponses("{}");
         testRowFilteringEmptyOrUndefinedResponses("{\"result\": []}");
@@ -185,7 +185,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testRowFilteringResponseWithItemsNoDecisionId()
+    void testRowFilteringResponseWithItemsNoDecisionId()
     {
         OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
                 """
@@ -203,7 +203,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testRowFilteringResponseWithItemsAndDecisionId()
+    void testRowFilteringResponseWithItemsAndDecisionId()
     {
         OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
                 """
@@ -217,7 +217,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testRowFilteringResponseWithExtraFields()
+    void testRowFilteringResponseWithExtraFields()
     {
         OpaRowFiltersQueryResult result = this.rowFilteringResponseCodec.fromJson(
                 """
@@ -233,7 +233,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testRowFilteringResponseIllegalResponseThrows()
+    void testRowFilteringResponseIllegalResponseThrows()
     {
         testIllegalResponseDecodingThrows(
                 """
@@ -244,7 +244,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testColumnMaskingEmptyOrUndefinedResponse()
+    void testColumnMaskingEmptyOrUndefinedResponse()
     {
         OpaColumnMaskQueryResult emptyResult = columnMaskingResponseCodec.fromJson("{}");
         assertThat(emptyResult.result()).isEmpty();
@@ -255,7 +255,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testColumnMaskingResponsesWithNoDecisionId()
+    void testColumnMaskingResponsesWithNoDecisionId()
     {
         OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson(
                 """
@@ -268,7 +268,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testColumnMaskingResponsesWithDecisionId()
+    void testColumnMaskingResponsesWithDecisionId()
     {
         OpaColumnMaskQueryResult resultWithExpression = this.columnMaskingResponseCodec.fromJson(
                 """
@@ -291,7 +291,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testColumnMaskingResponseWithExtraFields()
+    void testColumnMaskingResponseWithExtraFields()
     {
         OpaColumnMaskQueryResult result = this.columnMaskingResponseCodec.fromJson(
                 """
@@ -307,7 +307,7 @@ public class TestOpaResponseDecoding
     }
 
     @Test
-    public void testColumnMaskingResponseIllegalResponseThrows()
+    void testColumnMaskingResponseIllegalResponseThrows()
     {
         testIllegalResponseDecodingThrows(
                 """

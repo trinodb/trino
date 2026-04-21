@@ -15,5 +15,5 @@ package io.trino.spi.type;
 
 public enum ParameterKind
 {
-    TYPE, NAMED_TYPE, LONG, VARIABLE
+    TYPE, LONG, VARIABLE
 }

@@ -65,7 +65,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -101,6 +100,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -131,7 +131,7 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            ExecutorService executorService,
+            @ForHiveSplitManager ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
             CachingHostAddressProvider cachingHostAddressProvider)
@@ -185,7 +185,7 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
-        this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
+        this.maxSplitsPerSecond = requireNonNullElse(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
@@ -263,6 +263,7 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
+                constraint,
                 dynamicFilter,
                 getDynamicFilteringWaitTimeout(session),
                 typeManager,
@@ -347,17 +348,17 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
 
             if (partitionBatch.size() != partitions.size()) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s for %s", partitionBatch.size(), partitions.size(), tableName));
             }
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builderWithExpectedSize(partitionBatch.size());
             for (HivePartition hivePartition : partitionBatch) {
                 Optional<Partition> partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Partition not loaded: %s for %s", hivePartition, tableName));
                 }
                 if (partition.isEmpty()) {
-                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + hivePartition.getPartitionId());
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition %s no longer exists for %s", hivePartition.getPartitionId(), tableName));
                 }
                 results.add(toPartitionMetadata(
                         typeManager,
@@ -486,7 +487,7 @@ public class HiveSplitManager
             return false;
         }
         return switch (storageFormat.get()) {
-            case AVRO, JSON -> true;
+            case AVRO, JSON, OPENX_JSON -> true;
             case ORC -> isUseOrcColumnNames(session);
             case PARQUET -> isUseParquetColumnNames(session);
             default -> false;

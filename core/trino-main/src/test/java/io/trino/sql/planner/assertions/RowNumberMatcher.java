@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowNumberNode;
@@ -37,20 +34,17 @@ public class RowNumberMatcher
     private final Optional<List<SymbolAlias>> partitionBy;
     private final Optional<Optional<Integer>> maxRowCountPerPartition;
     private final Optional<SymbolAlias> rowNumberSymbol;
-    private final Optional<Optional<SymbolAlias>> hashSymbol;
     private final Optional<Boolean> orderSensitive;
 
     private RowNumberMatcher(
             Optional<List<SymbolAlias>> partitionBy,
             Optional<Optional<Integer>> maxRowCountPerPartition,
             Optional<SymbolAlias> rowNumberSymbol,
-            Optional<Optional<SymbolAlias>> hashSymbol,
             Optional<Boolean> orderSensitive)
     {
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.orderSensitive = requireNonNull(orderSensitive, "orderSensitive is null");
     }
 
@@ -61,7 +55,7 @@ public class RowNumberMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -69,7 +63,7 @@ public class RowNumberMatcher
 
         if (partitionBy.isPresent()) {
             List<Symbol> expected = partitionBy.get().stream()
-                    .map(alias -> alias.toSymbol(symbolAliases))
+                    .map(alias -> alias.toSymbol(context.symbolAliases()))
                     .collect(toImmutableList());
 
             if (!expected.equals(rowNumberNode.getPartitionBy())) {
@@ -78,7 +72,7 @@ public class RowNumberMatcher
         }
 
         if (rowNumberSymbol.isPresent()) {
-            Symbol expected = rowNumberSymbol.get().toSymbol(symbolAliases);
+            Symbol expected = rowNumberSymbol.get().toSymbol(context.symbolAliases());
             if (!expected.equals(rowNumberNode.getRowNumberSymbol())) {
                 return NO_MATCH;
             }
@@ -86,13 +80,6 @@ public class RowNumberMatcher
 
         if (maxRowCountPerPartition.isPresent()) {
             if (!maxRowCountPerPartition.get().equals(rowNumberNode.getMaxRowCountPerPartition())) {
-                return NO_MATCH;
-            }
-        }
-
-        if (hashSymbol.isPresent()) {
-            Optional<Symbol> expected = hashSymbol.get().map(alias -> alias.toSymbol(symbolAliases));
-            if (!expected.equals(rowNumberNode.getHashSymbol())) {
                 return NO_MATCH;
             }
         }
@@ -113,7 +100,6 @@ public class RowNumberMatcher
                 .add("partitionBy", partitionBy)
                 .add("maxRowCountPerPartition", maxRowCountPerPartition)
                 .add("rowNumberSymbol", rowNumberSymbol)
-                .add("hashSymbol", hashSymbol)
                 .add("orderSensitive", orderSensitive)
                 .toString();
     }
@@ -129,7 +115,6 @@ public class RowNumberMatcher
         private Optional<List<SymbolAlias>> partitionBy = Optional.empty();
         private Optional<Optional<Integer>> maxRowCountPerPartition = Optional.empty();
         private Optional<SymbolAlias> rowNumberSymbol = Optional.empty();
-        private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
         private Optional<Boolean> orderSensitive = Optional.empty();
 
         Builder(PlanMatchPattern source)
@@ -158,13 +143,6 @@ public class RowNumberMatcher
             return this;
         }
 
-        public Builder hashSymbol(Optional<String> hashSymbol)
-        {
-            requireNonNull(hashSymbol, "hashSymbol is null");
-            this.hashSymbol = Optional.of(hashSymbol.map(SymbolAlias::new));
-            return this;
-        }
-
         public Builder orderSensitive(boolean isOrderSensitive)
         {
             this.orderSensitive = Optional.of(isOrderSensitive);
@@ -178,7 +156,6 @@ public class RowNumberMatcher
                             partitionBy,
                             maxRowCountPerPartition,
                             rowNumberSymbol,
-                            hashSymbol,
                             orderSensitive));
         }
     }

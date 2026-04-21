@@ -30,9 +30,7 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
@@ -48,6 +46,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -74,6 +73,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.trino.spi.type.RealType.REAL;
@@ -85,6 +85,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WI
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.CodePointsType.CODE_POINTS;
@@ -115,6 +116,7 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<String, Type> sqlTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -136,6 +138,7 @@ public final class TypeRegistry
         addType(TINYINT);
         addType(DOUBLE);
         addType(REAL);
+        addType(NUMBER);
         addType(VARBINARY);
         addType(DATE);
         addType(INTERVAL_YEAR_MONTH);
@@ -150,6 +153,7 @@ public final class TypeRegistry
         addType(JSON_2016);
         addType(COLOR);
         addType(JSON);
+        addType(VARIANT);
         addType(CODE_POINTS);
         addType(IPADDRESS);
         addType(UUID);
@@ -168,6 +172,7 @@ public final class TypeRegistry
         addParametricType(TIME_WITH_TIME_ZONE);
 
         parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        sqlTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 
@@ -198,33 +203,32 @@ public final class TypeRegistry
     public Type fromSqlType(String sqlType)
     {
         try {
-            return getType(toTypeSignature(SQL_PARSER.createType(sqlType)));
+            return sqlTypeCache.get(sqlType, () -> getType(toTypeSignature(SQL_PARSER.createType(sqlType))));
         }
         catch (ParsingException e) {
             throw new TypeNotFoundException(sqlType, e);
+        }
+        catch (ExecutionException e) {
+            if (e.getCause() instanceof ParsingException parsingException) {
+                throw new TypeNotFoundException(sqlType, parsingException);
+            }
+            throw new RuntimeException("Could not get type from cache", e);
         }
     }
 
     private Type instantiateParametricType(TypeSignature signature)
     {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, typeManager);
-            parameters.add(typeParameter);
-        }
-
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature);
+            throw new TypeNotFoundException(signature.toString());
         }
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, parameters);
+            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature, e);
+            throw new TypeNotFoundException(signature.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"

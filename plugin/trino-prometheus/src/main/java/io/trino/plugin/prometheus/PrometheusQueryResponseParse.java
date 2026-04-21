@@ -16,7 +16,7 @@ package io.trino.plugin.prometheus;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.trino.spi.TrinoException;
@@ -41,7 +41,7 @@ public class PrometheusQueryResponseParse
     public PrometheusQueryResponseParse(InputStream response)
             throws IOException
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
         mapper.registerModule(new JavaTimeModule());
         JsonParser parser = jsonFactory().createParser(response);
         while (!parser.isClosed()) {

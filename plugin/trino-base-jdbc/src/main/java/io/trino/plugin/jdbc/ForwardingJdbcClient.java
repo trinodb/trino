@@ -18,6 +18,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -37,6 +39,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -195,6 +199,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, String query)
+    {
+        delegate().execute(session, query);
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
@@ -255,9 +265,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return delegate().beginCreateTable(session, tableMetadata);
+        return delegate().beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -279,15 +289,38 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            Consumer<Runnable> rollbackActionCollector,
+            RetryMode retryMode)
+    {
+        return delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        delegate().finishMerge(session, handle, pageSinkIds);
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         delegate().dropTable(session, jdbcTableHandle);
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
-        delegate().rollbackCreateTable(session, handle);
+        delegate().rollbackDestinationTableCreation(session, remoteTableName);
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        delegate().rollbackTemporaryTableCreation(session, handle);
     }
 
     @Override
@@ -379,9 +412,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        delegate().addColumn(session, handle, column);
+        delegate().addColumn(session, handle, column, position);
     }
 
     @Override

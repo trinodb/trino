@@ -16,7 +16,6 @@ package io.trino.plugin.hive.parquet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
@@ -33,6 +32,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "hive.parquet.optimized-writer.enabled",
         "parquet.experimental-optimized-writer.enabled",
         "parquet.optimized-writer.enabled",
+        "parquet.optimized-writer.validation-percentage",
+        "hive.parquet.writer.block-size",
+        "hive.parquet.writer.page-size",
 })
 public class ParquetWriterConfig
 {
@@ -55,7 +57,6 @@ public class ParquetWriterConfig
     }
 
     @Config("parquet.writer.block-size")
-    @LegacyConfig("hive.parquet.writer.block-size")
     public ParquetWriterConfig setBlockSize(DataSize blockSize)
     {
         this.blockSize = blockSize;
@@ -70,7 +71,6 @@ public class ParquetWriterConfig
     }
 
     @Config("parquet.writer.page-size")
-    @LegacyConfig("hive.parquet.writer.page-size")
     public ParquetWriterConfig setPageSize(DataSize pageSize)
     {
         this.pageSize = pageSize;
@@ -112,7 +112,6 @@ public class ParquetWriterConfig
     }
 
     @Config("parquet.writer.validation-percentage")
-    @LegacyConfig("parquet.optimized-writer.validation-percentage")
     @ConfigDescription("Percentage of parquet files to validate after write by re-reading the whole file")
     public ParquetWriterConfig setValidationPercentage(double validationPercentage)
     {

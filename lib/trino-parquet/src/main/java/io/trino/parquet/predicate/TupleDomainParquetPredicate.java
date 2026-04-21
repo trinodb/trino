@@ -28,7 +28,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -48,6 +50,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
@@ -68,10 +71,12 @@ import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.trino.parquet.reader.ColumnReaderFactory.isDecimalRescaled;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -318,8 +323,8 @@ public class TupleDomainParquetPredicate
             return getDomain(
                     column,
                     type,
-                    ImmutableList.of(min instanceof Binary ? Slices.wrappedBuffer(((Binary) min).getBytes()) : min),
-                    ImmutableList.of(max instanceof Binary ? Slices.wrappedBuffer(((Binary) max).getBytes()) : max),
+                    ImmutableList.of(min instanceof Binary minValue ? Slices.wrappedBuffer(minValue.getBytes()) : min),
+                    ImmutableList.of(max instanceof Binary maxValue ? Slices.wrappedBuffer(maxValue.getBytes()) : max),
                     hasNullValue,
                     timeZone);
         }
@@ -377,11 +382,8 @@ public class TupleDomainParquetPredicate
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Object min = minimums.get(i);
-                    Object max = maximums.get(i);
-
-                    long minValue = min instanceof Slice ? getShortDecimalValue(((Slice) min).getBytes()) : asLong(min);
-                    long maxValue = max instanceof Slice ? getShortDecimalValue(((Slice) max).getBytes()) : asLong(max);
+                    long minValue = getShortDecimal(minimums.get(i), decimalType, column);
+                    long maxValue = getShortDecimal(maximums.get(i), decimalType, column);
 
                     if (isStatisticsOverflow(type, minValue, maxValue)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
@@ -392,11 +394,8 @@ public class TupleDomainParquetPredicate
             }
             else {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Object min = minimums.get(i);
-                    Object max = maximums.get(i);
-
-                    Int128 minValue = min instanceof Slice ? Int128.fromBigEndian(((Slice) min).getBytes()) : Int128.valueOf(asLong(min));
-                    Int128 maxValue = max instanceof Slice ? Int128.fromBigEndian(((Slice) max).getBytes()) : Int128.valueOf(asLong(max));
+                    Int128 minValue = getLongDecimal(minimums.get(i), decimalType, column);
+                    Int128 maxValue = getLongDecimal(maximums.get(i), decimalType, column);
 
                     rangesBuilder.addRangeInclusive(minValue, maxValue);
                 }
@@ -445,9 +444,9 @@ public class TupleDomainParquetPredicate
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
-        if (type instanceof TimestampType) {
+        if (type instanceof TimestampType timestampType) {
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT96)) {
-                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, timeZone);
                 SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
                     Object min = minimums.get(i);
@@ -457,11 +456,11 @@ public class TupleDomainParquetPredicate
                     // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
                     // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
                     // available and valid in that special case
-                    if (!(min instanceof Slice) || !(max instanceof Slice) || !min.equals(max)) {
+                    if (!(min instanceof Slice minSlice) || !(max instanceof Slice) || !min.equals(max)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp(Binary.fromConstantByteArray(((Slice) min).getBytes()))));
+                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp(Binary.fromConstantByteArray(minSlice.getBytes()))));
                 }
                 return Domain.create(rangesBuilder.build(), hasNullValue);
             }
@@ -476,7 +475,7 @@ public class TupleDomainParquetPredicate
                 if (timestampTypeAnnotation.getUnit() == null) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder((TimestampType) type, DateTimeZone.UTC);
+                TrinoTimestampEncoder<?> timestampEncoder = createTimestampEncoder(timestampType, DateTimeZone.UTC);
 
                 SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
                 for (int i = 0; i < minimums.size(); i++) {
@@ -492,6 +491,61 @@ public class TupleDomainParquetPredicate
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    private static long getShortDecimal(Object value, DecimalType columnType, ColumnDescriptor column)
+    {
+        LogicalTypeAnnotation annotation = column.getPrimitiveType().getLogicalTypeAnnotation();
+
+        if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation) {
+            if (isDecimalRescaled(decimalAnnotation, columnType)) {
+                if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+                    long rescale = longTenToNth(Math.abs(columnType.getScale() - decimalAnnotation.getScale()));
+                    return DecimalConversions.shortToShortCast(
+                            value instanceof Slice slice ? getShortDecimalValue(slice.getBytes()) : asLong(value),
+                            decimalAnnotation.getPrecision(),
+                            decimalAnnotation.getScale(),
+                            columnType.getPrecision(),
+                            columnType.getScale(),
+                            rescale,
+                            rescale / 2);
+                }
+                Int128 int128Representation = value instanceof Slice minSlice ? Int128.fromBigEndian(minSlice.getBytes()) : Int128.valueOf(asLong(value));
+                return DecimalConversions.longToShortCast(
+                        int128Representation,
+                        decimalAnnotation.getPrecision(),
+                        decimalAnnotation.getScale(),
+                        columnType.getPrecision(),
+                        columnType.getScale());
+            }
+        }
+        return value instanceof Slice slice ? getShortDecimalValue(slice.getBytes()) : asLong(value);
+    }
+
+    private static Int128 getLongDecimal(Object value, DecimalType columnType, ColumnDescriptor column)
+    {
+        LogicalTypeAnnotation annotation = column.getPrimitiveType().getLogicalTypeAnnotation();
+
+        if (annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation) {
+            if (isDecimalRescaled(decimalAnnotation, columnType)) {
+                if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+                    return DecimalConversions.shortToLongCast(
+                            value instanceof Slice slice ? getShortDecimalValue(slice.getBytes()) : asLong(value),
+                            decimalAnnotation.getPrecision(),
+                            decimalAnnotation.getScale(),
+                            columnType.getPrecision(),
+                            columnType.getScale());
+                }
+                Int128 int128Representation = value instanceof Slice slice ? Int128.fromBigEndian(slice.getBytes()) : Int128.valueOf(asLong(value));
+                return DecimalConversions.longToLongCast(
+                        int128Representation,
+                        decimalAnnotation.getPrecision(),
+                        decimalAnnotation.getScale(),
+                        columnType.getPrecision(),
+                        columnType.getScale());
+            }
+        }
+        return value instanceof Slice slice ? Int128.fromBigEndian(slice.getBytes()) : Int128.valueOf(asLong(value));
     }
 
     @VisibleForTesting
@@ -753,8 +807,8 @@ public class TupleDomainParquetPredicate
             Domain domain = getDomain(
                     columnDescriptor,
                     columnDomain.getType(),
-                    ImmutableList.of(min instanceof Binary ? Slices.wrappedBuffer(((Binary) min).getBytes()) : min),
-                    ImmutableList.of(max instanceof Binary ? Slices.wrappedBuffer(((Binary) max).getBytes()) : max),
+                    ImmutableList.of(min instanceof Binary minBinary ? Slices.wrappedBuffer(minBinary.getBytes()) : min),
+                    ImmutableList.of(max instanceof Binary maxBinary ? Slices.wrappedBuffer(maxBinary.getBytes()) : max),
                     true,
                     timeZone);
             return !columnDomain.overlaps(domain);

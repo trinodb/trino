@@ -15,6 +15,7 @@ package io.trino.parquet.writer;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ObjectArrays;
 import io.trino.parquet.writer.valuewriter.BigintValueWriter;
 import io.trino.parquet.writer.valuewriter.BinaryValueWriter;
 import io.trino.parquet.writer.valuewriter.BooleanValueWriter;
@@ -33,6 +34,7 @@ import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
+import io.trino.parquet.writer.valuewriter.TimestampTzNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.parquet.writer.valuewriter.UuidValueWriter;
 import io.trino.spi.TrinoException;
@@ -43,9 +45,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Header;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.AdaptiveBlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.GroupType;
@@ -54,6 +57,8 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.apache.parquet.schema.Type.Repetition;
 import org.joda.time.DateTimeZone;
 
 import java.util.Iterator;
@@ -81,7 +86,9 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -90,7 +97,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 final class ParquetWriters
 {
     private static final int DEFAULT_DICTIONARY_PAGE_SIZE = 1024 * 1024;
-    static final int BLOOM_FILTER_EXPECTED_ENTRIES = 100_000;
+    private static final int BLOOM_FILTER_CANDIDATES_NUMBER = 5;
 
     private ParquetWriters() {}
 
@@ -105,14 +112,14 @@ final class ParquetWriters
         if (BIGINT.equals(type)) {
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             if (parquetType.getPrimitiveTypeName() == INT32) {
                 return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
             if (parquetType.getPrimitiveTypeName() == INT64) {
                 return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
-            if (((DecimalType) type).isShort()) {
+            if (decimalType.isShort()) {
                 return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
             return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);
@@ -125,7 +132,7 @@ final class ParquetWriters
             return new TimeMicrosValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof TimestampType) {
-            if (parquetType.getPrimitiveTypeName().equals(PrimitiveType.PrimitiveTypeName.INT96)) {
+            if (parquetType.getPrimitiveTypeName().equals(PrimitiveTypeName.INT96)) {
                 checkArgument(parquetTimeZone.isPresent(), "parquetTimeZone must be provided for INT96 timestamps");
                 return new Int96TimestampValueWriter(valuesWriter, type, parquetType, parquetTimeZone.get());
             }
@@ -148,6 +155,9 @@ final class ParquetWriters
         }
         if (TIMESTAMP_TZ_MICROS.equals(type)) {
             return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP_TZ_NANOS.equals(type)) {
+            return new TimestampTzNanosValueWriter(valuesWriter, parquetType);
         }
         if (DOUBLE.equals(type)) {
             return new DoubleValueWriter(valuesWriter, parquetType);
@@ -258,13 +268,57 @@ final class ParquetWriters
         }
 
         @Override
+        public ColumnWriter variant(GroupType variant)
+        {
+            checkArgument(
+                    LogicalTypeAnnotation.variantType(Header.VERSION).equals(variant.getLogicalTypeAnnotation()),
+                    "VARIANT group must be annotated with VARIANT logical type: %s", variant);
+            checkArgument(
+                    variant.getFieldCount() == 2,
+                    "Unsupported VARIANT schema (expected exactly 2 fields: metadata, value): %s", variant);
+
+            org.apache.parquet.schema.Type metadataType = variant.getType("metadata");
+            org.apache.parquet.schema.Type valueType = variant.getType("value");
+
+            PrimitiveType metadataPrimitive = metadataType.asPrimitiveType();
+            PrimitiveType valuePrimitive = valueType.asPrimitiveType();
+
+            checkArgument(
+                    metadataPrimitive.getPrimitiveTypeName() == PrimitiveTypeName.BINARY,
+                    "VARIANT metadata field must be binary: %s", metadataPrimitive);
+            checkArgument(
+                    valuePrimitive.getPrimitiveTypeName() == PrimitiveTypeName.BINARY,
+                    "VARIANT value field must be binary: %s", valuePrimitive);
+
+            checkArgument(
+                    metadataPrimitive.getRepetition() == Repetition.REQUIRED,
+                    "VARIANT metadata field must be required: %s", metadataPrimitive);
+
+            // For now, we only support the unshredded form: required value
+            checkArgument(
+                    valuePrimitive.getRepetition() == Repetition.REQUIRED,
+                    "VARIANT value field must be required (unshredded only supported): %s", valuePrimitive);
+
+            String[] path = currentPath();
+            ColumnWriter metadataColumnWriter = primitive(metadataPrimitive, ObjectArrays.concat(path, "metadata"), VARBINARY);
+            ColumnWriter valueColumnWriter = primitive(valuePrimitive, ObjectArrays.concat(path, "value"), VARBINARY);
+            int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
+            return new VariantColumnWriter(metadataColumnWriter, valueColumnWriter, fieldDefinitionLevel);
+        }
+
+        @Override
         public ColumnWriter primitive(PrimitiveType primitive)
         {
             String[] path = currentPath();
+            Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
+            return primitive(primitive, path, trinoType);
+        }
+
+        private PrimitiveColumnWriter primitive(PrimitiveType primitive, String[] path, Type trinoType)
+        {
             int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
-            Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
             Optional<BloomFilter> bloomFilter = createBloomFilter(bloomFilterColumns, maxBloomFilterSize, bloomFilterFpp, columnDescriptor, trinoType);
             return new PrimitiveColumnWriter(
                     columnDescriptor,
@@ -294,11 +348,9 @@ final class ParquetWriters
             if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(colummType)) {
                 return Optional.empty();
             }
-            // TODO: Enable use of AdaptiveBlockSplitBloomFilter once parquet-mr 1.14.0 is released
             String dotPath = Joiner.on('.').join(columnDescriptor.getPath());
             if (bloomFilterColumns.contains(dotPath)) {
-                int optimalNumOfBits = BlockSplitBloomFilter.optimalNumOfBits(BLOOM_FILTER_EXPECTED_ENTRIES, bloomFilterFpp);
-                return Optional.of(new BlockSplitBloomFilter(optimalNumOfBits / 8, maxBloomFilterSize));
+                return Optional.of(new AdaptiveBlockSplitBloomFilter(maxBloomFilterSize, BLOOM_FILTER_CANDIDATES_NUMBER, bloomFilterFpp, columnDescriptor));
             }
             return Optional.empty();
         }

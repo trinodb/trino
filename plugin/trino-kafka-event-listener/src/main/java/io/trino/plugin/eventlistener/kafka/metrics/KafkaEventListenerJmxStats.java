@@ -43,15 +43,6 @@ public class KafkaEventListenerJmxStats
     private final CounterStat createdEventSendFailureInvalidRecord = new CounterStat();
     private final CounterStat createdEventSendFailureOther = new CounterStat();
 
-    // Split Completed Event stats
-    private final CounterStat splitCompletedEventReceived = new CounterStat();
-    private final CounterStat splitCompletedEventBuildFailure = new CounterStat();
-    private final CounterStat splitCompletedEventSuccessfulDispatch = new CounterStat();
-    private final CounterStat splitCompletedEventSendFailureTimeout = new CounterStat();
-    private final CounterStat splitCompletedEventSendFailureTooLarge = new CounterStat();
-    private final CounterStat splitCompletedEventSendFailureInvalidRecord = new CounterStat();
-    private final CounterStat splitCompletedEventSendFailureOther = new CounterStat();
-
     @Managed
     @Nested
     public CounterStat getInitializationFailure()
@@ -157,48 +148,6 @@ public class KafkaEventListenerJmxStats
         return completedEventSuccessfulDispatch;
     }
 
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventReceived()
-    {
-        return splitCompletedEventReceived;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventBuildFailure()
-    {
-        return splitCompletedEventBuildFailure;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventSendFailureTimeout()
-    {
-        return splitCompletedEventSendFailureTimeout;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventSendFailureTooLarge()
-    {
-        return splitCompletedEventSendFailureTooLarge;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventSendFailureInvalidRecord()
-    {
-        return splitCompletedEventSendFailureInvalidRecord;
-    }
-
-    @Managed
-    @Nested
-    public CounterStat getSplitCompletedEventSendFailureOther()
-    {
-        return splitCompletedEventSendFailureOther;
-    }
-
     public void kafkaPublisherFailedToInitialize()
     {
         initializationFailure.update(1);
@@ -272,40 +221,5 @@ public class KafkaEventListenerJmxStats
     public void createdEventSuccessfulDispatch()
     {
         createdEventSuccessfulDispatch.update(1);
-    }
-
-    public void splitCompletedEventReceived()
-    {
-        splitCompletedEventReceived.update(1);
-    }
-
-    public void splitCompletedEventBuildFailure()
-    {
-        splitCompletedEventBuildFailure.update(1);
-    }
-
-    public void splitCompletedEventSendFailureTimeout()
-    {
-        splitCompletedEventSendFailureTimeout.update(1);
-    }
-
-    public void splitCompletedEventSendFailureTooLarge()
-    {
-        splitCompletedEventSendFailureTooLarge.update(1);
-    }
-
-    public void splitCompletedEventSendFailureInvalidRecord()
-    {
-        splitCompletedEventSendFailureInvalidRecord.update(1);
-    }
-
-    public void splitCompletedEventSendFailureOther()
-    {
-        splitCompletedEventSendFailureOther.update(1);
-    }
-
-    public void splitCompletedEventSuccessfulDispatch()
-    {
-        splitCompletedEventSuccessfulDispatch.update(1);
     }
 }

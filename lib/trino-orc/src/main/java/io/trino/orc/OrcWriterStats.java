@@ -38,7 +38,7 @@ public class OrcWriterStats
     private final OrcWriterFlushStats closedFlush = new OrcWriterFlushStats(CLOSED.name());
     private final AtomicLong writerSizeInBytes = new AtomicLong();
 
-    public void recordStripeWritten(FlushReason flushReason, long stripeBytes, int stripeRows, int dictionaryBytes)
+    public void recordStripeWritten(FlushReason flushReason, long stripeBytes, long stripeRows, int dictionaryBytes)
     {
         getFlushStats(flushReason).recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
         allFlush.recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);

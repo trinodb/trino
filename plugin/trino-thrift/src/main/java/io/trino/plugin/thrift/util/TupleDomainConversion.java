@@ -33,7 +33,7 @@ public final class TupleDomainConversion
         return new TrinoThriftTupleDomain(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .collect(toImmutableMap(
-                        entry -> ((ThriftColumnHandle) entry.getKey()).getColumnName(),
+                        entry -> ((ThriftColumnHandle) entry.getKey()).columnName(),
                         entry -> fromDomain(entry.getValue()))));
     }
 }

@@ -127,7 +127,7 @@ public class BenchmarkArrayEqualOperator
         equalOperator(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Throwable
     {
         benchmark(BenchmarkArrayEqualOperator.class).run();

@@ -15,12 +15,12 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.Plugin;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -171,7 +172,7 @@ public class RuleTester
                     .setSchema("tiny")
                     .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
 
-            for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+            for (Entry<String, String> entry : sessionProperties.entrySet()) {
                 sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
             }
 

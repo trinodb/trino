@@ -78,7 +78,7 @@ public class BenchmarkComputePosition
         return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) / (1L << 32));
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkComputePosition.class).run();

@@ -70,7 +70,7 @@ public class TestGroupIdOperator
     @Test
     public void testGroupId()
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 100, 400, 0, 1000)
                 .addSequencePage(3, 200, 500, 0, 1100)

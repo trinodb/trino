@@ -34,6 +34,7 @@ public class QueryCompletedEvent
     private final QueryStatistics statistics;
     private final QueryContext context;
     private final QueryIOMetadata ioMetadata;
+    private final Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo;
     private final Optional<QueryFailureInfo> failureInfo;
     private final List<TrinoWarning> warnings;
 
@@ -48,6 +49,7 @@ public class QueryCompletedEvent
             QueryStatistics statistics,
             QueryContext context,
             QueryIOMetadata ioMetadata,
+            Optional<List<ColumnLineageInfo>> selectColumnsLineageInfo,
             Optional<QueryFailureInfo> failureInfo,
             List<TrinoWarning> warnings,
             Instant createTime,
@@ -58,11 +60,22 @@ public class QueryCompletedEvent
         this.statistics = requireNonNull(statistics, "statistics is null");
         this.context = requireNonNull(context, "context is null");
         this.ioMetadata = requireNonNull(ioMetadata, "ioMetadata is null");
+        this.selectColumnsLineageInfo = requireNonNull(selectColumnsLineageInfo, "selectColumnsLineageInfo is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");
+    }
+
+    /**
+     * returns column lineage information for select queries if available.
+     * the list is sorted by column index in the select clause.
+     */
+    @JsonProperty
+    public Optional<List<ColumnLineageInfo>> getSelectColumnsLineageInfo()
+    {
+        return selectColumnsLineageInfo;
     }
 
     @JsonProperty

@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +19,7 @@ import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -32,7 +32,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -128,6 +127,7 @@ class TestCreateMaterializedViewTask
                 false,
                 true,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -147,6 +147,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 false,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -170,6 +171,7 @@ class TestCreateMaterializedViewTask
                 false,
                 true,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
@@ -191,6 +193,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
                         new Property(new Identifier("foo")),    // set foo to DEFAULT
@@ -217,6 +220,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());

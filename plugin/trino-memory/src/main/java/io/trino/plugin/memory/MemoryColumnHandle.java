@@ -16,12 +16,20 @@ package io.trino.plugin.memory;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
-public record MemoryColumnHandle(int columnIndex, Type type)
+import static java.util.Objects.requireNonNull;
+
+public record MemoryColumnHandle(int columnIndex, String name, Type type)
         implements ColumnHandle
 {
+    public MemoryColumnHandle
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
+    }
+
     @Override
     public String toString()
     {
-        return Integer.toString(columnIndex);
+        return name + ":" + type;
     }
 }

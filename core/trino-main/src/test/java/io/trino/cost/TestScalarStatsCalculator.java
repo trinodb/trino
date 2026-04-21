@@ -18,8 +18,8 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
@@ -192,7 +192,7 @@ public class TestScalarStatsCalculator
                 .highValue(17.0)
                 .distinctValuesCount(10)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -215,7 +215,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCount(2)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -237,7 +237,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -260,7 +260,7 @@ public class TestScalarStatsCalculator
                 .highValue(10.0)
                 .distinctValuesCount(4)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -284,7 +284,7 @@ public class TestScalarStatsCalculator
     private SymbolStatsAssertion assertCalculate(Expression scalarExpression, PlanNodeStatsEstimate inputStatistics)
     {
         TransactionManager transactionManager = new TestingTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {

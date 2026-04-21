@@ -22,6 +22,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
@@ -29,7 +30,6 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -54,6 +54,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
@@ -63,7 +64,9 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDenyTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranch;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
@@ -72,11 +75,14 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyFastForwardBranch;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -84,15 +90,18 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeTableBranchPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -101,7 +110,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
-import static java.lang.String.format;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -444,6 +452,15 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        // check if user owns the existing view for refreshing the view
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
+            denyRefreshView(viewName.toString());
+        }
+    }
+
+    @Override
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {
@@ -513,6 +530,17 @@ public class FileBasedAccessControl
         // check if user owns the existing materialized view, and if they will be an owner of the materialized view after the rename
         if (!checkTablePermission(context, viewName, OWNERSHIP) || !checkTablePermission(context, newViewName, OWNERSHIP)) {
             denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
+        }
+        if (!checkCanSetAuthorization(context, principal)) {
+            denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 
@@ -674,8 +702,8 @@ public class FileBasedAccessControl
     public Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
     {
         return functionNames.stream()
-                .filter(name -> isSchemaOwner(context, name.getSchemaName()) ||
-                        checkAnyFunctionPermission(context, new SchemaRoutineName(name.getSchemaName(), name.getFunctionName()), FunctionAccessControlRule::canExecuteFunction))
+                .filter(name -> isSchemaOwner(context, name.schemaName()) ||
+                        checkAnyFunctionPermission(context, new SchemaRoutineName(name.schemaName(), name.functionName()), FunctionAccessControlRule::canExecuteFunction))
                 .collect(toImmutableSet());
     }
 
@@ -704,6 +732,62 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        if (!checkAnyTablePermission(context, tableName)) {
+            denyShowBranches(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyCreateBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyDropBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyFastForwardBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyGrantTableBranchPrivilege(privilege.toString(), tableName.toString(), branchName);
+        }
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyDenyTableBranchPrivilege(privilege.toString(), tableName.toString(), branchName);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyRevokeTableBranchPrivilege(privilege.toString(), tableName.toString(), branchName);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
@@ -719,30 +803,6 @@ public class FileBasedAccessControl
                 .stream()
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
-    }
-
-    @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
-    {
-        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return Optional.empty();
-        }
-
-        ConnectorIdentity identity = context.getIdentity();
-        List<ViewExpression> masks = tableRules.stream()
-                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.getColumnMask(catalogName, tableName.getSchemaName(), columnName))
-                // we return the first one we find
-                .findFirst()
-                .stream()
-                .flatMap(Optional::stream)
-                .toList();
-
-        if (masks.size() > 1) {
-            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", tableName, columnName));
-        }
-
-        return masks.stream().findFirst();
     }
 
     @Override

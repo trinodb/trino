@@ -23,6 +23,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -34,6 +35,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -42,10 +44,10 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -78,6 +80,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
@@ -144,20 +147,20 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
-    {
-        Span span = startSpan("getTableHandleForExecute", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
-        }
-    }
-
-    @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
     {
         Span span = startSpan("getTableHandleForExecute", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+        }
+    }
+
+    @Override
+    public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        Span span = startSpan("getColumnHandlesForTableExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnHandlesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);
         }
     }
 
@@ -180,20 +183,20 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         Span span = startSpan("finishTableExecute", tableExecuteHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
         }
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         Span span = startSpan("executeTableExecute", tableExecuteHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.executeTableExecute(session, tableExecuteHandle);
+            return delegate.executeTableExecute(session, tableExecuteHandle);
         }
     }
 
@@ -252,12 +255,20 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         Span span = startSpan("getInfo", table);
         try (var _ = scopedSpan(span)) {
-            return delegate.getInfo(table);
+            return delegate.getInfo(session, table);
         }
+    }
+
+    @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        // Do not trace getMetrics as this is expected to be a quick local jvm call,
+        // and adding this span would only obfuscate the trace
+        return delegate.getMetrics(session);
     }
 
     @Override
@@ -470,11 +481,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         Span span = startSpan("addColumn", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            delegate.addColumn(session, tableHandle, column);
+        try (var ignored = scopedSpan(span)) {
+            delegate.addColumn(session, tableHandle, column, position);
         }
     }
 
@@ -484,6 +495,24 @@ public class TracingConnectorMetadata
         Span span = startSpan("addField", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
+    }
+
+    @Override
+    public void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        Span span = startSpan("setDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setDefaultValue(session, tableHandle, column, defaultValue);
+        }
+    }
+
+    @Override
+    public void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        Span span = startSpan("dropDefaultValue", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropDefaultValue(session, tableHandle, columnHandle);
         }
     }
 
@@ -587,11 +616,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", tableMetadata.getTable());
         try (var _ = scopedSpan(span)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, tableMetadata);
+            return delegate.getStatisticsCollectionMetadataForWrite(session, tableMetadata, tableReplace);
         }
     }
 
@@ -710,27 +739,20 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
         }
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            ConnectorInsertTableHandle insertHandle,
-            Collection<Slice> fragments,
-            Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
     {
         Span span = startSpan("finishRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceTableFunctions);
+            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
         }
     }
 
@@ -758,15 +780,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getUpdateLayout", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getUpdateLayout(session, tableHandle);
-        }
-    }
-
-    @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        Span span = startSpan("beginMerge", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle, retryMode);
         }
     }
 
@@ -812,6 +825,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("setViewAuthorization", viewName);
         try (var _ = scopedSpan(span)) {
             delegate.setViewAuthorization(session, viewName, principal);
+        }
+    }
+
+    @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition)
+    {
+        Span span = startSpan("refreshView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.refreshView(session, viewName, definition);
         }
     }
 
@@ -944,8 +966,8 @@ public class TracingConnectorMetadata
     @Override
     public Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
     {
-        Span span = startSpan("getFunctions", name.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        Span span = startSpan("getFunctions", name.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.functionName());
         try (var _ = scopedSpan(span)) {
             return delegate.getFunctions(session, name);
         }
@@ -990,8 +1012,8 @@ public class TracingConnectorMetadata
     @Override
     public Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
     {
-        Span span = startSpan("getLanguageFunctions", name.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        Span span = startSpan("getLanguageFunctions", name.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.functionName());
         try (var _ = scopedSpan(span)) {
             return delegate.getLanguageFunctions(session, name);
         }
@@ -1000,8 +1022,8 @@ public class TracingConnectorMetadata
     @Override
     public boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
     {
-        Span span = startSpan("languageFunctionExists", name.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        Span span = startSpan("languageFunctionExists", name.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.functionName());
         try (var _ = scopedSpan(span)) {
             return delegate.languageFunctionExists(session, name, signatureToken);
         }
@@ -1010,8 +1032,8 @@ public class TracingConnectorMetadata
     @Override
     public void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
     {
-        Span span = startSpan("createLanguageFunction", name.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        Span span = startSpan("createLanguageFunction", name.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.functionName());
         try (var _ = scopedSpan(span)) {
             delegate.createLanguageFunction(session, name, function, replace);
         }
@@ -1020,10 +1042,55 @@ public class TracingConnectorMetadata
     @Override
     public void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
     {
-        Span span = startSpan("dropLanguageFunction", name.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        Span span = startSpan("dropLanguageFunction", name.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.functionName());
         try (var _ = scopedSpan(span)) {
             delegate.dropLanguageFunction(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+    {
+        Span span = startSpan("createBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createBranch(session, tableHandle, branch, fromBranch, saveMode, properties);
+        }
+    }
+
+    @Override
+    public void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("dropBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        Span span = startSpan("fastForwardBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.fastForwardBranch(session, tableHandle, sourceBranch, targetBranch);
+        }
+    }
+
+    @Override
+    public Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("listBranches", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.listBranches(session, tableName);
+        }
+    }
+
+    @Override
+    public boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        Span span = startSpan("branchExists", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.branchExists(session, tableName, branch);
         }
     }
 
@@ -1172,6 +1239,33 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void grantTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("grantTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.grantTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void denyTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("denyTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.denyTableBranchPrivileges(session, tableName, branchName, privileges, grantee);
+        }
+    }
+
+    @Override
+    public void revokeTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("revokeTableBranchPrivileges", tableName);
+        try (var _ = scopedSpan(span)) {
+            delegate.revokeTableBranchPrivileges(session, tableName, branchName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         Span span = startSpan("getTableProperties", table);
@@ -1231,16 +1325,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("applyJoin");
         try (var _ = scopedSpan(span)) {
             return delegate.applyJoin(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, List<JoinCondition> joinConditions, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
-    {
-        Span span = startSpan("applyJoin");
-        try (var _ = scopedSpan(span)) {
-            return delegate.applyJoin(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments, statistics);
         }
     }
 
@@ -1332,6 +1416,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
+    {
+        Span span = startSpan("getMaterializedViewFreshness", name);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
+        }
+    }
+
+    @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         Span span = startSpan("getMaterializedViewFreshness", name);
@@ -1346,6 +1439,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("renameMaterializedView", source);
         try (var _ = scopedSpan(span)) {
             delegate.renameMaterializedView(session, source, target);
+        }
+    }
+
+    @Override
+    public void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        Span span = startSpan("setMaterializedViewAuthorization", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewAuthorization(session, viewName, principal);
         }
     }
 
@@ -1412,6 +1514,33 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan("getTableCredentials", tableFunctionHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, tableFunctionHandle);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("ConnectorMetadata." + methodName)
@@ -1445,7 +1574,25 @@ public class TracingConnectorMetadata
                 .setAttribute(TrinoAttributes.TABLE, prefix.getTable().orElse(null));
     }
 
+    private Span startSpan(String methodName, ConnectorWritableTableHandle handle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.HANDLE, handle.toString());
+        }
+        return span;
+    }
+
     private Span startSpan(String methodName, ConnectorTableHandle handle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.HANDLE, handle.toString());
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, ConnectorTableFunctionHandle handle)
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {

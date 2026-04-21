@@ -171,8 +171,7 @@ public abstract class BaseJdbcTableStatisticsTest
                         "('comment', 1e0, 0e0, null)," +
                         "(null, null, null, 1e0)");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "varchar_duplicates",
                 // each letter A-E repeated 5 times
                 " AS SELECT nationkey, chr(codepoint('A') + nationkey / 5) fl FROM  tpch.tiny.nation")) {

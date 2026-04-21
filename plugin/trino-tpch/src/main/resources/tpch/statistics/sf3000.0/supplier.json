@@ -1,34 +1,34 @@
  {
-    "rowCount" : 3.0E7,
+    "rowCount" : 30000000,
      "columns" : {
         "s_phone" : {
-             "dataSize" : 4.5E8,
-             "distinctValuesCount" : 3.9779123E7
+             "dataSize" : 450000000,
+             "distinctValuesCount" : 39779123
         },
         "s_nationkey" : {
-             "distinctValuesCount" : 19.0,
+             "distinctValuesCount" : 19,
              "min" : 0,
              "max" : 24
         },
         "s_comment" : {
-             "dataSize" : 1.874956852E9,
-             "distinctValuesCount" : 2.6935549E7
+             "dataSize" : 1874956852,
+             "distinctValuesCount" : 26935549
         },
         "s_name" : {
-             "dataSize" : 5.4E8,
-             "distinctValuesCount" : 4.1540295E7
+             "dataSize" : 540000000,
+             "distinctValuesCount" : 41540295
         },
         "s_acctbal" : {
-             "distinctValuesCount" : 806049.0,
+             "distinctValuesCount" : 806049,
              "min" : -999.99,
              "max" : 9999.99
         },
         "s_address" : {
-             "dataSize" : 7.50004849E8,
-             "distinctValuesCount" : 2.579357E7
+             "dataSize" : 750004849,
+             "distinctValuesCount" : 25793570
         },
         "s_suppkey" : {
-             "distinctValuesCount" : 4.5300013E7,
+             "distinctValuesCount" : 45300013,
              "min" : 1,
              "max" : 30000000
         }

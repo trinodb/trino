@@ -34,14 +34,14 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long cardinality(@SqlType(SetDigestType.NAME) Slice digest)
+    public static long cardinality(@SqlType(StandardTypes.SET_DIGEST) Slice digest)
     {
         return SetDigest.newInstance(digest).cardinality();
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static long intersectionCardinality(@SqlType(SetDigestType.NAME) Slice slice1, @SqlType(SetDigestType.NAME) Slice slice2)
+    public static long intersectionCardinality(@SqlType(StandardTypes.SET_DIGEST) Slice slice1, @SqlType(StandardTypes.SET_DIGEST) Slice slice2)
     {
         SetDigest digest1 = SetDigest.newInstance(slice1);
         SetDigest digest2 = SetDigest.newInstance(slice2);
@@ -65,7 +65,7 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double jaccardIndex(@SqlType(SetDigestType.NAME) Slice slice1, @SqlType(SetDigestType.NAME) Slice slice2)
+    public static double jaccardIndex(@SqlType(StandardTypes.SET_DIGEST) Slice slice1, @SqlType(StandardTypes.SET_DIGEST) Slice slice2)
     {
         SetDigest digest1 = SetDigest.newInstance(slice1);
         SetDigest digest2 = SetDigest.newInstance(slice2);
@@ -75,7 +75,7 @@ public final class SetDigestFunctions
 
     @ScalarFunction
     @SqlType("map(bigint,smallint)")
-    public static SqlMap hashCounts(@TypeParameter("map(bigint,smallint)") Type mapType, @SqlType(SetDigestType.NAME) Slice slice)
+    public static SqlMap hashCounts(@TypeParameter("map(bigint,smallint)") Type mapType, @SqlType(StandardTypes.SET_DIGEST) Slice slice)
     {
         SetDigest digest = SetDigest.newInstance(slice);
         return buildMapValue(

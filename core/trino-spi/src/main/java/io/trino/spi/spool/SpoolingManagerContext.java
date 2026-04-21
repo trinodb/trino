@@ -15,9 +15,8 @@ package io.trino.spi.spool;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.spi.Experimental;
+import io.trino.spi.Node;
 
-@Experimental(eta = "2025-05-31")
 public interface SpoolingManagerContext
 {
     default OpenTelemetry getOpenTelemetry()
@@ -31,6 +30,11 @@ public interface SpoolingManagerContext
     }
 
     default boolean isCoordinator()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Node getCurrentNode()
     {
         throw new UnsupportedOperationException();
     }

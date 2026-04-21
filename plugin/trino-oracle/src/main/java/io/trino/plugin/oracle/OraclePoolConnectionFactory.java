@@ -15,13 +15,15 @@ package io.trino.plugin.oracle;
 
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.jdbc.datasource.OpenTelemetryDataSource;
+import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetry;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
+
+import javax.sql.DataSource;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -34,7 +36,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class OraclePoolConnectionFactory
         implements ConnectionFactory
 {
-    private final OpenTelemetryDataSource dataSource;
+    private final DataSource dataSource;
 
     public OraclePoolConnectionFactory(
             String connectionUrl,
@@ -43,6 +45,7 @@ public class OraclePoolConnectionFactory
             int connectionPoolMinSize,
             int connectionPoolMaxSize,
             Duration inactiveConnectionTimeout,
+            Duration connectionPoolWaitDuration,
             OpenTelemetry openTelemetry)
             throws SQLException
     {
@@ -59,6 +62,7 @@ public class OraclePoolConnectionFactory
         dataSource.setValidateConnectionOnBorrow(true);
         dataSource.setConnectionProperties(connectionProperties);
         dataSource.setInactiveConnectionTimeout(toIntExact(inactiveConnectionTimeout.roundTo(SECONDS)));
+        dataSource.setConnectionWaitDuration(connectionPoolWaitDuration.toJavaTime());
         credentialProvider.getConnectionUser(Optional.empty())
                 .ifPresent(user -> {
                     try {
@@ -77,7 +81,11 @@ public class OraclePoolConnectionFactory
                         throw new RuntimeException(e);
                     }
                 });
-        this.dataSource = new OpenTelemetryDataSource(dataSource, openTelemetry);
+
+        JdbcTelemetry jdbcTelemetry = JdbcTelemetry.builder(openTelemetry)
+                .setDataSourceInstrumenterEnabled(true)
+                .build();
+        this.dataSource = jdbcTelemetry.wrap(dataSource);
     }
 
     @Override

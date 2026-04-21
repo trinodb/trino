@@ -1,0 +1,153 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI love Trino\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-590\",\"object\":\"chat.completion\",\"created\":1739563576,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"positive\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":62,\"completion_tokens\":4,\"total_tokens\":66}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "294" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:16 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI am sad\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-233\",\"object\":\"chat.completion\",\"created\":1739563588,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"negative\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":61,\"completion_tokens\":4,\"total_tokens\":65}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "294" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:28 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe sky is blue\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-747\",\"object\":\"chat.completion\",\"created\":1739563604,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"neutral\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":62,\"completion_tokens\":4,\"total_tokens\":66}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "293" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:44 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-417\",\"object\":\"chat.completion\",\"created\":1739563619,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"mixed\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":66,\"completion_tokens\":4,\"total_tokens\":70}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "291" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:59 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T12:07:02-08:00"
+  }
+}

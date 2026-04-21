@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
-import redis.clients.jedis.Jedis;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,7 +42,7 @@ public class RedisSplitManager
         implements ConnectorSplitManager
 {
     private final Set<HostAddress> nodes;
-    private final RedisJedisManager jedisManager;
+    private final RedisClientManager clientManager;
 
     private static final long REDIS_MAX_SPLITS = 100;
     private static final long REDIS_STRIDE_SPLITS = 100;
@@ -51,11 +50,11 @@ public class RedisSplitManager
     @Inject
     public RedisSplitManager(
             RedisConnectorConfig redisConnectorConfig,
-            RedisJedisManager jedisManager)
+            RedisClientManager clientManager)
     {
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.nodes = ImmutableSet.copyOf(redisConnectorConfig.getNodes());
-        this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
+        this.clientManager = requireNonNull(clientManager, "clientManager is null");
     }
 
     @Override
@@ -78,9 +77,8 @@ public class RedisSplitManager
         // when Redis keys are provides in a zset, create multiple
         // splits by splitting zset in chunks
         if (redisTableHandle.keyDataFormat().equals("zset")) {
-            try (Jedis jedis = jedisManager.getJedisPool(nodes.get(0)).getResource()) {
-                numberOfKeys = jedis.zcount(redisTableHandle.keyName(), "-inf", "+inf");
-            }
+            numberOfKeys = clientManager.getClient(nodes.get(0))
+                    .zcount(redisTableHandle.keyName(), "-inf", "+inf");
         }
 
         long stride = REDIS_STRIDE_SPLITS;

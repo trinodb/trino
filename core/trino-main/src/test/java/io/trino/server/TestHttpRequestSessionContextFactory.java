@@ -36,7 +36,7 @@ import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -79,8 +79,8 @@ public class TestHttpRequestSessionContextFactory
                 Optional.of("testRemote"),
                 Optional.empty());
         assertThat(context.getSource().orElse(null)).isEqualTo("testSource");
-        assertThat(context.getCatalog().orElse(null)).isEqualTo("testCatalog");
-        assertThat(context.getSchema().orElse(null)).isEqualTo("testSchema");
+        assertThat(context.getCatalog().orElse(null)).isEqualTo("testcatalog"); // lowercased
+        assertThat(context.getSchema().orElse(null)).isEqualTo("testschema"); // lowercased
         assertThat(context.getPath().orElse(null)).isEqualTo("testPath");
         assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser")
                 .withGroups(ImmutableSet.of("testUser"))
@@ -122,19 +122,31 @@ public class TestHttpRequestSessionContextFactory
                 userHeaders,
                 Optional.of("testRemote"),
                 Optional.empty());
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("testUser")
+                        .withGroups(ImmutableSet.of("testUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         context = sessionContextFactory(protocolHeaders).createSessionContext(
                 emptyHeaders,
                 Optional.of("testRemote"),
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()));
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("mappedUser")
+                        .withGroups(ImmutableSet.of("test", "mappedUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         context = sessionContextFactory(protocolHeaders).createSessionContext(
                 userHeaders,
                 Optional.of("testRemote"),
                 Optional.of(Identity.ofUser("mappedUser")));
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("testUser")
+                        .withGroups(ImmutableSet.of("testUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         assertInvalidSession(protocolHeaders, emptyHeaders)
                 .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
@@ -189,7 +201,7 @@ public class TestHttpRequestSessionContextFactory
     {
         return new HttpRequestSessionContextFactory(
                 new PreparedStatementEncoder(new ProtocolConfig()),
-                createTestMetadataManager(),
+                createTestingMetadataManager(),
                 ImmutableSet::of,
                 new AllowAllAccessControl(),
                 new ProtocolConfig()

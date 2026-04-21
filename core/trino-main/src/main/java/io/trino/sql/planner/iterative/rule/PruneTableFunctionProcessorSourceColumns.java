@@ -77,8 +77,6 @@ public class PruneTableFunctionProcessorSourceColumns
             specification.orderingScheme().ifPresent(orderingScheme -> requiredInputs.addAll(orderingScheme.orderBy()));
         });
 
-        node.getHashSymbol().ifPresent(requiredInputs::add);
-
         Optional<Map<Symbol, Symbol>> updatedMarkerSymbols = node.getMarkerSymbols()
                 .map(mapping -> filterKeys(mapping, requiredInputs.build()::contains));
 
@@ -97,7 +95,6 @@ public class PruneTableFunctionProcessorSourceColumns
                         node.getSpecification(),
                         node.getPrePartitioned(),
                         node.getPreSorted(),
-                        node.getHashSymbol(),
                         node.getHandle())))
                 .orElse(Result.empty());
     }

@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.LittleEndianDataInputStream;
@@ -29,7 +30,6 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -41,14 +41,15 @@ import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
@@ -60,7 +61,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -74,12 +76,12 @@ import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
-import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
-import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID_HEADER;
 import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -135,7 +137,7 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private HttpResponseFuture<?> future;
     @GuardedBy("this")
-    private DateTime lastUpdate = DateTime.now();
+    private Instant lastUpdate = Instant.now();
     @GuardedBy("this")
     private long token;
     @GuardedBy("this")
@@ -280,18 +282,18 @@ public final class HttpPageBufferClient
     @Override
     public void close()
     {
-        boolean shouldDestroyTaskResults;
         Future<?> future;
         synchronized (this) {
-            shouldDestroyTaskResults = !closed;
-
+            if (closed) {
+                return;
+            }
             closed = true;
 
             future = this.future;
 
             this.future = null;
 
-            lastUpdate = DateTime.now();
+            lastUpdate = Instant.now();
         }
 
         if (future != null && !future.isDone()) {
@@ -299,9 +301,7 @@ public final class HttpPageBufferClient
         }
 
         // destroy task results on the remote node; response is ignored
-        if (shouldDestroyTaskResults) {
-            destroyTaskResults();
-        }
+        destroyTaskResults();
     }
 
     public synchronized void scheduleRequest()
@@ -326,7 +326,7 @@ public final class HttpPageBufferClient
             }
         }, delayNanos, NANOSECONDS);
 
-        lastUpdate = DateTime.now();
+        lastUpdate = Instant.now();
         requestsScheduled.incrementAndGet();
     }
 
@@ -349,7 +349,7 @@ public final class HttpPageBufferClient
             sendGetResults();
         }
 
-        lastUpdate = DateTime.now();
+        lastUpdate = Instant.now();
     }
 
     private synchronized void sendGetResults()
@@ -358,7 +358,7 @@ public final class HttpPageBufferClient
         lastRequestStartNanos = ticker.read();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
-                        .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(TRINO_MAX_SIZE_HEADER, maxResponseSize.toString())
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
@@ -465,7 +465,7 @@ public final class HttpPageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = Instant.now();
                 }
                 clientCallback.requestComplete(HttpPageBufferClient.this);
             }
@@ -542,7 +542,7 @@ public final class HttpPageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = Instant.now();
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.clientFinished(HttpPageBufferClient.this);
@@ -590,7 +590,7 @@ public final class HttpPageBufferClient
             if (future == expectedFuture) {
                 future = null;
             }
-            lastUpdate = DateTime.now();
+            lastUpdate = Instant.now();
         }
         clientCallback.requestComplete(HttpPageBufferClient.this);
     }
@@ -639,8 +639,11 @@ public final class HttpPageBufferClient
 
     private static Throwable rewriteException(Throwable t)
     {
-        if (t instanceof ResponseTooLargeException) {
-            return new PageTooLargeException();
+        if (Throwables.getCausalChain(t).stream()
+                .anyMatch(e -> nullToEmpty(e.getMessage()).contains("exceeded maximum length"))) {
+            PageTooLargeException pageTooLargeException = new PageTooLargeException();
+            pageTooLargeException.addSuppressed(t);
+            return pageTooLargeException;
         }
         return t;
     }
@@ -698,12 +701,12 @@ public final class HttpPageBufferClient
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
-                String contentType = response.getHeader(CONTENT_TYPE);
-                if (contentType == null) {
+                Optional<String> contentType = response.getHeader(CONTENT_TYPE);
+                if (contentType.isEmpty()) {
                     throw new PageTransportErrorException(fromUri(uri), format("%s header is not set: %s", CONTENT_TYPE, response));
                 }
-                if (!mediaTypeMatches(contentType, TRINO_PAGES_TYPE)) {
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", TRINO_PAGES_TYPE, contentType));
+                if (!mediaTypeMatches(contentType.orElseThrow(), TRINO_PAGES_TYPE)) {
+                    throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", TRINO_PAGES_TYPE, contentType.orElseThrow()));
                 }
 
                 String taskInstanceId = getTaskInstanceId(response, uri);
@@ -750,47 +753,32 @@ public final class HttpPageBufferClient
 
         private static String getTaskInstanceId(Response response, URI uri)
         {
-            String taskInstanceId = response.getHeader(TRINO_TASK_INSTANCE_ID);
-            if (taskInstanceId == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID));
-            }
-            return taskInstanceId;
+            return response.getHeader(TRINO_TASK_INSTANCE_ID_HEADER)
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID_HEADER)));
         }
 
         private static long getToken(Response response, URI uri)
         {
-            String tokenHeader = response.getHeader(TRINO_PAGE_TOKEN);
-            if (tokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN));
-            }
-            return Long.parseLong(tokenHeader);
+            return Long.parseLong(response.getHeader(TRINO_PAGE_TOKEN_HEADER)
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN_HEADER))));
         }
 
         private static long getNextToken(Response response, URI uri)
         {
-            String nextTokenHeader = response.getHeader(TRINO_PAGE_NEXT_TOKEN);
-            if (nextTokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN));
-            }
-            return Long.parseLong(nextTokenHeader);
+            return Long.parseLong(response.getHeader(TRINO_PAGE_NEXT_TOKEN_HEADER)
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN_HEADER))));
         }
 
         private static boolean getComplete(Response response, URI uri)
         {
-            String bufferComplete = response.getHeader(TRINO_BUFFER_COMPLETE);
-            if (bufferComplete == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE));
-            }
-            return Boolean.parseBoolean(bufferComplete);
+            return Boolean.parseBoolean(response.getHeader(TRINO_BUFFER_COMPLETE_HEADER)
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE_HEADER))));
         }
 
         private static boolean getTaskFailed(Response response, URI uri)
         {
-            String taskFailed = response.getHeader(TRINO_TASK_FAILED);
-            if (taskFailed == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED));
-            }
-            return Boolean.parseBoolean(taskFailed);
+            return Boolean.parseBoolean(response.getHeader(TRINO_TASK_FAILED_HEADER)
+                    .orElseThrow(() -> new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED_HEADER))));
         }
 
         private static boolean mediaTypeMatches(String value, MediaType range)

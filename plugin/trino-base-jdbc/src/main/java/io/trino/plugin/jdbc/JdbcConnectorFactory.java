@@ -16,14 +16,10 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.opentelemetry.api.OpenTelemetry;
-import io.trino.spi.NodeManager;
-import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogName;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -59,16 +55,14 @@ public class JdbcConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
-                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
-                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
-                binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
+                "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorContextModule(catalogName, context),
                 new JdbcModule(),
                 module.get());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 

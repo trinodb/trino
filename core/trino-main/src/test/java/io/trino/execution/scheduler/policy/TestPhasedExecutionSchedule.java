@@ -28,10 +28,11 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.TaskLifecycleListener;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -53,7 +54,7 @@ import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinP
 import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -63,7 +64,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPhasedExecutionSchedule
 {
     private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
-            createTestMetadataManager(),
+            createTestingMetadataManager(),
             createTestingFunctionManager(),
             new TypeOperators(),
             new DynamicFilterConfig());
@@ -384,7 +385,7 @@ public class TestPhasedExecutionSchedule
         }
 
         @Override
-        public void recordGetSplitTime(long start)
+        public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
         {
             throw new UnsupportedOperationException();
         }

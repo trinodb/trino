@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.iceberg;
 
+import io.trino.jdbc.Row;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -75,14 +76,14 @@ public class TestIcebergPartitionEvolution
 
         assertThat(onTrino().executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'test_dropped_partition_field$partitions'"))
                 .containsOnly(
-                        row("partition", "row(a varchar, b varchar)"),
+                        row("partition", "row(\"a\" varchar, \"b\" varchar)"),
                         row("record_count", "bigint"),
                         row("file_count", "bigint"),
                         row("total_size", "bigint"),
                         row("data", "row(" +
                                 // A/B is now partitioning column in the first partitioning spec, and non-partitioning in new one
-                                (dropFirst ? "a" : "b") + " row(min varchar, max varchar, null_count bigint, nan_count bigint), " +
-                                "c row(min varchar, max varchar, null_count bigint, nan_count bigint))"));
+                                (dropFirst ? "\"a\"" : "\"b\"") + " row(\"min\" varchar, \"max\" varchar, \"null_count\" bigint, \"nan_count\" bigint), " +
+                                "\"c\" row(\"min\" varchar, \"max\" varchar, \"null_count\" bigint, \"nan_count\" bigint))"));
         assertThat(onTrino().executeQuery("SELECT partition, record_count, file_count, data FROM \"test_dropped_partition_field$partitions\""))
                 .containsOnly(
                         row(
@@ -152,12 +153,12 @@ public class TestIcebergPartitionEvolution
         return new Object[][] {{true}, {false}};
     }
 
-    private static io.trino.jdbc.Row singletonMetrics(Object value)
+    private static Row singletonMetrics(Object value)
     {
         return dataMetrics(value, value, 0, null);
     }
 
-    private static io.trino.jdbc.Row dataMetrics(Object min, Object max, long nullCount, Long nanCount)
+    private static Row dataMetrics(Object min, Object max, long nullCount, Long nanCount)
     {
         return rowBuilder()
                 .addField("min", min)
@@ -167,8 +168,8 @@ public class TestIcebergPartitionEvolution
                 .build();
     }
 
-    private static io.trino.jdbc.Row.Builder rowBuilder()
+    private static Row.Builder rowBuilder()
     {
-        return io.trino.jdbc.Row.builder();
+        return Row.builder();
     }
 }

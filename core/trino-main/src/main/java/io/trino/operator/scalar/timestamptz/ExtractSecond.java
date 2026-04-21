@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Second of the minute of the given timestamp")
 @ScalarFunction("second")
-public class ExtractSecond
+public final class ExtractSecond
 {
     private ExtractSecond() {}
 

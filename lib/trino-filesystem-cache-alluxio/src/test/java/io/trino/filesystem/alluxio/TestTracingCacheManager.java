@@ -16,7 +16,7 @@ package io.trino.filesystem.alluxio;
 import alluxio.client.file.cache.CacheManager;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestTracingCacheManager
 {

@@ -247,8 +247,6 @@ public class TestLocalDynamicFilterConsumer
                 ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(filter1, right1, filter2, right2, filter3, right3));
         TestingDynamicFilterCollector collector = new TestingDynamicFilterCollector();
         LocalDynamicFilterConsumer consumer = LocalDynamicFilterConsumer.create(

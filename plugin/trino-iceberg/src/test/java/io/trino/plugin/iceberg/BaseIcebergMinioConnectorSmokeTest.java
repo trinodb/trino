@@ -13,14 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.minio.messages.Event;
+import io.minio.messages.NotificationRecords.Event;
 import io.trino.Session;
+import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -28,18 +33,25 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -73,10 +85,9 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                                .put("fs.hadoop.enabled", "false")
-                                .put("fs.native-s3.enabled", "true")
-                                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                                .put("fs.s3.enabled", "true")
+                                .put("s3.aws-access-key", MINIO_ROOT_USER)
+                                .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                                 .put("s3.region", MINIO_REGION)
                                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                                 .put("s3.path-style-access", "true")
@@ -95,7 +106,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .build();
     }
 
-    public ImmutableMap<String, String> getAdditionalIcebergProperties()
+    public Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
     }
@@ -164,6 +175,48 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     }
 
     @Test
+    void testHiveMetastoreTableParameter()
+    {
+        try (TestTable table = newTrinoTable("test_table_params", "(id int)")) {
+            String snapshotId = getTableParameterValue(table.getName(), "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+    }
+
+    @Test
+    void testHiveMetastoreMaterializedParameter()
+    {
+        String mvName = "test_mv_params_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_mv_params", "(id int)")) {
+            assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + table.getName());
+            String snapshotId = getTableParameterValue(mvName, "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(mvName, "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mvName);
+        }
+    }
+
+    private String getTableParameterValue(String tableName, String parameterKey)
+    {
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        return onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = '" + parameterKey + "' AND tbl_id = " + tableId);
+    }
+
+    @Test
     public void testExpireSnapshotsBatchDeletes()
     {
         String tableName = "test_expiring_snapshots_" + randomNameSuffix();
@@ -171,7 +224,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
         Queue<Event> events = new ConcurrentLinkedQueue<>();
         hiveMinioDataLake.getMinioClient().captureBucketNotifications(bucketName, event -> {
-            if (event.eventType().toString().toLowerCase(ENGLISH).contains("remove")) {
+            if (event.eventName().contains("ObjectRemoved")) {
                 events.add(event);
             }
         });
@@ -198,10 +251,12 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
         assertThat(events).hasSize(3);
-        // if files were deleted in batch there should be only one request id because there was one request only
+        // since we have delegated the batch delete operation to iceberg there are two requests.
+        // the first request is for data and the second is for statistics files.
+        // https://github.com/apache/iceberg/blob/9a23420592e2b8be5f792c8e6eb32a64e92e4088/core/src/main/java/org/apache/iceberg/IncrementalFileCleanup.java#L58
         assertThat(events.stream()
                 .map(event -> event.responseElements().get("x-amz-request-id"))
-                .collect(toImmutableSet())).hasSize(1);
+                .collect(toImmutableSet())).hasSize(2);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -233,6 +288,25 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Override
+    protected AutoCloseable createSparkIcebergTable(String schema)
+    {
+        HiveMetastore metastore = getHiveMetastore(getQueryRunner());
+        // simulate iceberg table created by spark with lowercase table type
+        Table lowerCaseTableType = Table.builder()
+                .setDatabaseName(schema)
+                .setTableName("lowercase_type_" + randomNameSuffix())
+                .setOwner(Optional.empty())
+                .setDataColumns(ImmutableList.of(new Column("id", HiveType.HIVE_STRING, Optional.empty(), ImmutableMap.of())))
+                .setTableType(EXTERNAL_TABLE.name())
+                .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
+                .setParameter("EXTERNAL", "TRUE")
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH))
+                .build();
+        metastore.createTable(lowerCaseTableType, NO_PRIVILEGES);
+        return () -> metastore.dropTable(lowerCaseTableType.getDatabaseName(), lowerCaseTableType.getTableName(), true);
+    }
+
     private String onMetastore(@Language("SQL") String sql)
     {
         return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
@@ -254,7 +328,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()

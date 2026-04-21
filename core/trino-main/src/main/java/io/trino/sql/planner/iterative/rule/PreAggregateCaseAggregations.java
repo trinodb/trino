@@ -45,6 +45,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -65,7 +66,6 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -179,7 +179,7 @@ public class PreAggregateCaseAggregations
                 context);
         AggregationNode preAggregation = createPreAggregation(
                 preProjection,
-                preGroupingExpressions.getOutputs(),
+                preGroupingExpressions.outputs(),
                 preAggregations,
                 context);
         Map<CaseAggregation, Symbol> newProjectionSymbols = getNewProjectionSymbols(aggregations, context);
@@ -213,7 +213,6 @@ public class PreAggregateCaseAggregations
                 aggregationNode.getGroupingSets(),
                 aggregationNode.getPreGroupedSymbols(),
                 aggregationNode.getStep(),
-                aggregationNode.getHashSymbol(),
                 aggregationNode.getGroupIdSymbol());
     }
 
@@ -248,7 +247,7 @@ public class PreAggregateCaseAggregations
 
     private AggregationNode createPreAggregation(
             PlanNode source,
-            List<Symbol> groupingKeys,
+            Set<Symbol> groupingKeys,
             Map<PreAggregationKey, PreAggregation> preAggregations,
             Context context)
     {
@@ -289,7 +288,7 @@ public class PreAggregateCaseAggregations
         return aggregations.stream()
                 .collect(toImmutableSetMultimap(PreAggregationKey::new, identity()))
                 .asMap().entrySet().stream().collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             PreAggregationKey key = entry.getKey();
                             Set<CaseAggregation> caseAggregations = (Set<CaseAggregation>) entry.getValue();
@@ -320,7 +319,7 @@ public class PreAggregateCaseAggregations
     private Optional<List<CaseAggregation>> extractCaseAggregations(AggregationNode aggregationNode, ProjectNode projectNode, Context context)
     {
         ImmutableList.Builder<CaseAggregation> caseAggregations = ImmutableList.builder();
-        for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
             Optional<CaseAggregation> caseAggregation = extractCaseAggregation(
                     aggregation.getKey(),
                     aggregation.getValue(),
@@ -357,8 +356,8 @@ public class PreAggregateCaseAggregations
         Expression projection = projectNode.getAssignments().get(projectionSymbol);
         Expression unwrappedProjection;
         // unwrap top-level cast
-        if (projection instanceof Cast) {
-            unwrappedProjection = ((Cast) projection).expression();
+        if (projection instanceof Cast cast) {
+            unwrappedProjection = cast.expression();
         }
         else {
             unwrappedProjection = projection;
@@ -375,7 +374,7 @@ public class PreAggregateCaseAggregations
         Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.functionName(), fromTypes(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation
@@ -430,7 +429,7 @@ public class PreAggregateCaseAggregations
 
     private Expression optimizeExpression(Expression expression, Context context)
     {
-        return newOptimizer(plannerContext).process(expression, context.getSession(), ImmutableMap.of()).orElse(expression);
+        return plannerContext.getExpressionOptimizer().process(expression, context.getSession(), ImmutableMap.of()).orElse(expression);
     }
 
     private static class CaseAggregation

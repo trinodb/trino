@@ -25,7 +25,7 @@
 - Add the {func}`convex_hull_agg` and {func}`geometry_union_agg` geospatial aggregation functions.
 - Add `(TYPE IO, FORMAT JSON)` option for {doc}`/sql/explain` that shows
   input tables with constraints and the output table in JSON format.
-- Add {doc}`/connector/kudu`.
+- Add Kudu connector.
 - Raise required Java version to 8u151. This avoids correctness issues for
   map to map cast when running under some earlier JVM versions, including 8u92.
 

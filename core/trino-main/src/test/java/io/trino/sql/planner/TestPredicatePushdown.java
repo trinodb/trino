@@ -34,6 +34,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -43,6 +44,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPredicatePushdown
@@ -74,11 +76,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter(BIGINT, "t_k", "u_k")
+                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
                                                 filter(
                                                         new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
@@ -98,11 +101,12 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .dynamicFilter(BIGINT, "t_k", "u_k")
+                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
                                                 filter(
                                                         new Comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
+                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
                                                         tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
@@ -172,8 +176,10 @@ public class TestPredicatePushdown
         assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
                 noSemiJoinRewrite(),
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
-                                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", dynamicFilter("DF"),
+                                filter(
+                                        TRUE,
+                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY")),
                                         tableScan("lineitem", ImmutableMap.of(
                                                 "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,

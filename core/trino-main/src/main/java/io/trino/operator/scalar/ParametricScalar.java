@@ -75,6 +75,9 @@ public class ParametricScalar
         if (!details.isDeterministic()) {
             functionMetadata.nondeterministic();
         }
+        if (details.neverFails()) {
+            functionMetadata.neverFails();
+        }
         if (deprecated) {
             functionMetadata.deprecated();
         }

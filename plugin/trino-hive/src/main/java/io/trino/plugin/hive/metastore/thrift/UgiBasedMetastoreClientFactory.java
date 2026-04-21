@@ -15,12 +15,9 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Inject;
 import io.trino.plugin.base.security.UserNameProvider;
-import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -66,11 +63,8 @@ public class UgiBasedMetastoreClientFactory
         }
         catch (Throwable t) {
             // close client and suppress any error from close
-            try (Closeable ignored = client) {
+            try (var _ = client) {
                 throw t;
-            }
-            catch (IOException e) {
-                // impossible; will be suppressed
             }
         }
     }

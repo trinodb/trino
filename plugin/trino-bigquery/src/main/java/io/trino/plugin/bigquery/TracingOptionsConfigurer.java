@@ -37,14 +37,14 @@ public class TracingOptionsConfigurer
     public TracingOptionsConfigurer(OpenTelemetry openTelemetry)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
-        this.grpcInterceptorProvider = () -> ImmutableList.of(GrpcTelemetry.create(openTelemetry).newClientInterceptor());
+        this.grpcInterceptorProvider = () -> ImmutableList.of(GrpcTelemetry.create(openTelemetry).createClientInterceptor());
     }
 
     @Override
     public BigQueryOptions.Builder configure(BigQueryOptions.Builder builder, ConnectorSession session)
     {
         return builder.setTransportOptions(HttpTransportOptions.newBuilder()
-                .setHttpTransportFactory(() -> new ApacheHttpTransport(ApacheHttpClientTelemetry.create(openTelemetry).newHttpClient()))
+                .setHttpTransportFactory(() -> new ApacheHttpTransport(ApacheHttpClientTelemetry.create(openTelemetry).createHttpClient()))
                 .build());
     }
 

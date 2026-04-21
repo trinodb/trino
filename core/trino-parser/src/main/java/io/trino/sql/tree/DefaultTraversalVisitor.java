@@ -118,6 +118,11 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitQuery(Query node, C context)
     {
+        if (!node.getSessionProperties().isEmpty()) {
+            for (SessionProperty sessionProperty : node.getSessionProperties()) {
+                process(sessionProperty.getValue(), context);
+            }
+        }
         if (node.getWith().isPresent()) {
             process(node.getWith().get(), context);
         }
@@ -362,6 +367,23 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitTable(Table node, C context)
+    {
+        node.getQueryPeriod().ifPresent(period -> process(period, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitQueryPeriod(QueryPeriod node, C context)
+    {
+        node.getStart().ifPresent(start -> process(start, context));
+        node.getEnd().ifPresent(end -> process(end, context));
+
+        return null;
+    }
+
+    @Override
     protected Void visitInListExpression(InListExpression node, C context)
     {
         for (Expression value : node.getValues()) {
@@ -534,9 +556,17 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitRow(Row node, C context)
     {
-        for (Expression expression : node.getItems()) {
-            process(expression, context);
+        for (Row.Field field : node.getFields()) {
+            process(field, context);
         }
+        return null;
+    }
+
+    @Override
+    protected Void visitRowField(Row.Field node, C context)
+    {
+        node.getName().ifPresent(name -> process(name, context));
+        process(node.getExpression(), context);
         return null;
     }
 
@@ -586,6 +616,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitNearest(Nearest node, C context)
+    {
+        process(node.getRelation(), context);
+        node.getWhere().ifPresent(expression -> process(expression, context));
+        process(node.getMatch(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitGroupBy(GroupBy node, C context)
     {
         for (GroupingElement groupingElement : node.getGroupingElements()) {
@@ -602,6 +641,12 @@ public abstract class DefaultTraversalVisitor<C>
             process(expression, context);
         }
 
+        return null;
+    }
+
+    @Override
+    protected Void visitAutoGroupBy(AutoGroupBy node, C context)
+    {
         return null;
     }
 
@@ -792,6 +837,15 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitExplainAnalyze(ExplainAnalyze node, C context)
     {
         process(node.getStatement(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitCall(Call node, C context)
+    {
+        for (CallArgument argument : node.getArguments()) {
+            process(argument.getValue(), context);
+        }
         return null;
     }
 

@@ -94,7 +94,7 @@ public final class TestInt96ValueDecoder
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                LocalDateTime[] constants = new LocalDateTime[] {
+                LocalDateTime[] constants = {
                         LocalDateTime.MIN,
                         LocalDateTime.of(1410, 7, 15, 14, 30, 12),
                         LocalDateTime.of(1920, 8, 15, 23, 59, 59, 10020030),

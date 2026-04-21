@@ -103,7 +103,7 @@ public class OptimizeDuplicateInsensitiveJoins
         @Override
         public Optional<PlanNode> visitProject(ProjectNode node, Void context)
         {
-            boolean isDeterministic = node.getAssignments().getExpressions().stream()
+            boolean isDeterministic = node.getAssignments().expressions().stream()
                     .allMatch(DeterminismEvaluator::isDeterministic);
             if (!isDeterministic) {
                 // non-deterministic projections could be used in downstream filters which could

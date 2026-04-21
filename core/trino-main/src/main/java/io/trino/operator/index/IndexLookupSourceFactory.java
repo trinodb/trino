@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -49,7 +48,6 @@ public class IndexLookupSourceFactory
     public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
-            OptionalInt keyOutputHashChannel,
             List<Type> outputTypes,
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
@@ -65,7 +63,6 @@ public class IndexLookupSourceFactory
             IndexLoader shared = new IndexLoader(
                     lookupSourceInputChannels,
                     keyOutputChannels,
-                    keyOutputHashChannel,
                     outputTypes,
                     indexBuildDriverFactoryProvider,
                     10_000,
@@ -80,7 +77,6 @@ public class IndexLookupSourceFactory
             this.indexLoaderSupplier = () -> new IndexLoader(
                     lookupSourceInputChannels,
                     keyOutputChannels,
-                    keyOutputHashChannel,
                     outputTypes,
                     indexBuildDriverFactoryProvider,
                     10_000,

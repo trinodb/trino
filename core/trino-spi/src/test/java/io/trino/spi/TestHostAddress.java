@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestHostAddress
+final class TestHostAddress
 {
     @Test
     public void testEquality()

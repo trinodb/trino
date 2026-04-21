@@ -18,11 +18,10 @@ import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionPolicy;
 import com.datastax.oss.driver.internal.core.loadbalancing.DefaultLoadBalancingPolicy;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.datastax.oss.driver.internal.core.specex.ConstantSpeculativeExecutionPolicy;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -32,13 +31,12 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.cassandra.v4_4.CassandraTelemetry;
+import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.cassandra.ptf.Query;
 import io.trino.plugin.cassandra.tls.CassandraTlsModule;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -49,28 +47,21 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.PASSWORD;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
-
-    public CassandraClientModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
+        verifyConnectorUnsafeAllowed(binder, "cassandra");
 
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
@@ -86,40 +77,20 @@ public class CassandraClientModule
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
-        install(conditionalModule(
-                CassandraClientConfig.class,
-                CassandraClientConfig::isTlsEnabled,
-                new CassandraTlsModule()));
+        CassandraClientConfig cassandraClientConfig = buildConfigObject(CassandraClientConfig.class);
+        if (cassandraClientConfig.isTlsEnabled()) {
+            install(new CassandraTlsModule());
+        }
 
-        install(conditionalModule(
-                CassandraClientConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD,
-                new PasswordAuthenticationModule()));
+        if (cassandraClientConfig.getAuthenticationType() == PASSWORD) {
+            install(new PasswordAuthenticationModule());
+        }
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         newSetBinder(binder, CassandraSessionConfigurator.class);
 
         closingBinder(binder).registerCloseable(CassandraSession.class);
-    }
-
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            return typeManager.getType(TypeId.of(value));
-        }
     }
 
     @Singleton
@@ -167,7 +138,7 @@ public class CassandraClientModule
                 driverConfigLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, config.getProtocolVersion().name());
             }
 
-            driverConfigLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionPolicy.class.getName());
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS, ExponentialReconnectionPolicy.class.getName());
             driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY, Duration.ofMillis(500));
             driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY, Duration.ofSeconds(10));
             driverConfigLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS, config.getRetryPolicy().getPolicyClass().getName());
@@ -195,7 +166,7 @@ public class CassandraClientModule
             driverConfigLoaderBuilder.withString(DefaultDriverOption.REQUEST_CONSISTENCY, config.getConsistencyLevel().name());
 
             if (config.getSpeculativeExecutionLimit().isPresent()) {
-                driverConfigLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.specex.ConstantSpeculativeExecutionPolicy.class.getName());
+                driverConfigLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS, ConstantSpeculativeExecutionPolicy.class.getName());
                 // maximum number of executions
                 driverConfigLoaderBuilder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX, config.getSpeculativeExecutionLimit().get());
                 // delay before a new execution is launched

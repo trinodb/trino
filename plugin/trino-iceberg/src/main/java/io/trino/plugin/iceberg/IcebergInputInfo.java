@@ -13,16 +13,36 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
-public record IcebergInputInfo(Optional<Long> snapshotId, Optional<Boolean> partitioned, String tableDefaultFileFormat)
+public record IcebergInputInfo(
+        int formatVersion,
+        OptionalLong snapshotId,
+        List<String> partitionFields,
+        String tableDefaultFileFormat,
+        Optional<String> totalRecords,
+        Optional<String> deletedRecords,
+        Optional<String> totalDataFiles,
+        Optional<String> totalDeleteFiles,
+        Optional<String> totalPositionDeletes,
+        Optional<String> totalEqualityDeletes)
 {
     public IcebergInputInfo
     {
         requireNonNull(snapshotId, "snapshotId is null");
-        requireNonNull(partitioned, "partitioned is null");
+        partitionFields = ImmutableList.copyOf(partitionFields);
         requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
+        requireNonNull(totalRecords, "totalRecords is null");
+        requireNonNull(deletedRecords, "deletedRecords is null");
+        requireNonNull(totalDataFiles, "totalDataFiles is null");
+        requireNonNull(totalDeleteFiles, "totalDeleteFiles is null");
+        requireNonNull(totalPositionDeletes, "totalPositionDeletes is null");
+        requireNonNull(totalEqualityDeletes, "totalEqualityDeletes is null");
     }
 }

@@ -26,6 +26,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
@@ -49,8 +50,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 public class InternalFunctionBundle
         implements FunctionBundle
@@ -76,14 +77,14 @@ public class InternalFunctionBundle
 
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
 
         specializedAggregationCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
         specializedWindowCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
+                .expireAfterWrite(ofHours(1)));
 
         this.functions = functions.stream()
                 .collect(toImmutableMap(function -> function.getFunctionMetadata().getFunctionId(), Function.identity()));

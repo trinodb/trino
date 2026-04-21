@@ -31,6 +31,7 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -62,6 +63,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
@@ -88,13 +90,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Splitter.fixedLength;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -105,6 +105,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
@@ -119,6 +120,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -135,7 +137,7 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    protected final List<Runnable> rollbackActions = new ArrayList<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -632,12 +634,34 @@ public class DefaultJdbcMetadata
     {
         if (!isComplexJoinPushdownEnabled(session)) {
             // Fallback to the old join pushdown code
-            return JdbcMetadata.super.applyJoin(
+            List<JoinCondition> conditions;
+            if (joinCondition instanceof Call call && AND_FUNCTION_NAME.equals(call.getFunctionName())) {
+                conditions = new ArrayList<>(call.getArguments().size());
+                for (ConnectorExpression argument : call.getArguments()) {
+                    if (Constant.TRUE.equals(argument)) {
+                        continue;
+                    }
+                    Optional<JoinCondition> condition = JoinCondition.from(argument, leftAssignments.keySet(), rightAssignments.keySet());
+                    if (condition.isEmpty()) {
+                        // We would need to add a FilterNode on top of the result
+                        return Optional.empty();
+                    }
+                    conditions.add(condition.get());
+                }
+            }
+            else {
+                Optional<JoinCondition> condition = JoinCondition.from(joinCondition, leftAssignments.keySet(), rightAssignments.keySet());
+                if (condition.isEmpty()) {
+                    return Optional.empty();
+                }
+                conditions = List.of(condition.get());
+            }
+            return applyJoin(
                     session,
                     joinType,
                     left,
                     right,
-                    joinCondition,
+                    conditions,
                     leftAssignments,
                     rightAssignments,
                     statistics);
@@ -690,6 +714,11 @@ public class DefaultJdbcMetadata
             joinConditions.add(converted.get());
         }
 
+        List<ParameterizedExpression> convertedJoinConditions = joinConditions.build();
+        if (convertedJoinConditions.isEmpty()) {
+            return Optional.empty();
+        }
+
         Optional<PreparedQuery> joinQuery = jdbcClient.implementJoin(
                 session,
                 joinType,
@@ -699,7 +728,7 @@ public class DefaultJdbcMetadata
                 asPreparedQuery(rightHandle),
                 newRightColumns.entrySet().stream()
                         .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getColumnName())),
-                joinConditions.build(),
+                convertedJoinConditions,
                 statistics);
 
         if (joinQuery.isEmpty()) {
@@ -733,8 +762,7 @@ public class DefaultJdbcMetadata
     }
 
     @Deprecated
-    @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+    private Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
             ConnectorSession session,
             JoinType joinType,
             ConnectorTableHandle left,
@@ -869,11 +897,11 @@ public class DefaultJdbcMetadata
     {
         requireNonNull(assignments, "assignments is null");
         requireNonNull(expression, "expression is null");
-        if (!(expression instanceof Variable)) {
+        if (!(expression instanceof Variable variable)) {
             return Optional.empty();
         }
 
-        String name = ((Variable) expression).getName();
+        String name = variable.getName();
         ColumnHandle columnHandle = assignments.get(name);
         verifyNotNull(columnHandle, "No assignment for %s", name);
         return Optional.of(((JdbcColumnHandle) columnHandle));
@@ -900,7 +928,7 @@ public class DefaultJdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         if (limit > Integer.MAX_VALUE) {
-            // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
+            // Some databases, for example Redshift, do not support limit exceeding 2147483647.
             return Optional.empty();
         }
 
@@ -1171,8 +1199,8 @@ public class DefaultJdbcMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata, rollbackActions::add);
+        rollbackActions.add(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
         return handle;
     }
 
@@ -1230,15 +1258,27 @@ public class DefaultJdbcMetadata
         }
     }
 
-    private void setRollback(Runnable action)
-    {
-        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
-    }
-
     @Override
     public void rollback()
     {
-        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        if (rollbackActions.isEmpty()) {
+            return;
+        }
+
+        List<Throwable> exceptions = new ArrayList<>();
+        for (Runnable action : rollbackActions) {
+            try {
+                action.run();
+            }
+            catch (Throwable t) {
+                exceptions.add(t);
+            }
+        }
+        if (!exceptions.isEmpty()) {
+            TrinoException trinoException = new TrinoException(JDBC_ERROR, "Error rollback");
+            exceptions.forEach(trinoException::addSuppressed);
+            throw trinoException;
+        }
     }
 
     @Override
@@ -1250,7 +1290,7 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        rollbackActions.add(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
         return handle;
     }
 
@@ -1299,36 +1339,15 @@ public class DefaultJdbcMetadata
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
-        }
-
-        if (!jdbcClient.supportsMerge()) {
-            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-        }
-
-        if (!isNonTransactionalMerge(session)) {
-            throw new TrinoException(NOT_SUPPORTED, "Non-transactional MERGE is disabled");
+            if (isNonTransactionalMerge(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Query and task retries are incompatible with non-transactional merge");
+            }
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
 
-        List<JdbcColumnHandle> primaryKeys = jdbcClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
-        if (primaryKeys.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
-        }
-
-        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
-        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
-
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName);
-        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(
-                session,
-                new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()),
-                ImmutableList.copyOf(columns),
-                retryMode);
-
-        return new JdbcMergeTableHandle(handle, jdbcOutputTableHandle, primaryKeys, columns, updateColumnHandles);
+        return jdbcClient.beginMerge(session, handle, updateColumnHandles, rollbackActions::add, retryMode);
     }
 
     @Override
@@ -1340,7 +1359,8 @@ public class DefaultJdbcMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
-        finishInsert(session, handle.getOutputTableHandle(), ImmutableList.of(), fragments, computedStatistics);
+
+        jdbcClient.finishMerge(session, handle, getSuccessfulPageSinkIds(fragments));
     }
 
     @Override
@@ -1398,11 +1418,11 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata, ColumnPosition position)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        jdbcClient.addColumn(session, tableHandle, columnMetadata);
+        jdbcClient.addColumn(session, tableHandle, columnMetadata, position);
     }
 
     @Override

@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -240,7 +241,7 @@ public class PrometheusRecordCursor
         }
         else if (type instanceof MapType mapType) {
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
                     writeObject(keyBuilder, mapType.getKeyType(), entry.getKey());
                     writeObject(valueBuilder, mapType.getValueType(), entry.getValue());
                 }

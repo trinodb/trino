@@ -249,12 +249,6 @@ final class TestBlackHoleSmoke
         assertUpdate("DROP VIEW " + viewName);
     }
 
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
-                "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '" + tableName + "'");
-    }
-
     @Test
     void testFieldLength()
     {

@@ -21,6 +21,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SetSessionAuthorization;
@@ -28,6 +29,8 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.transaction.TransactionManager;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -91,6 +94,18 @@ public class SetSessionAuthorizationTask
             accessControl.checkCanImpersonateUser(originalIdentity, user);
         }
         stateMachine.setSetAuthorizationUser(user);
+        SelectedRole selectedRole;
+        Set<String> enabledRoles = originalIdentity.getEnabledRoles();
+        if (enabledRoles.isEmpty()) {
+            selectedRole = new SelectedRole(SelectedRole.Type.NONE, Optional.empty());
+        }
+        else if (enabledRoles.size() == 1) {
+            selectedRole = new SelectedRole(SelectedRole.Type.ROLE, Optional.of(enabledRoles.iterator().next()));
+        }
+        else {
+            selectedRole = new SelectedRole(SelectedRole.Type.ALL, Optional.empty());
+        }
+        stateMachine.addSetOriginalRoles(selectedRole);
         return immediateFuture(null);
     }
 }

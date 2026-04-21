@@ -20,33 +20,43 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class Table
         extends QueryBody
 {
     private final QualifiedName name;
     private final Optional<QueryPeriod> queryPeriod;
+    private final Optional<Identifier> branch;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name, Optional.empty());
+        this(Optional.empty(), name, Optional.empty(), Optional.empty());
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name, Optional.empty());
+        this(Optional.of(location), name, Optional.empty(), Optional.empty());
     }
 
-    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, Optional<Identifier> branch)
     {
-        this(Optional.of(location), name, Optional.of(queryPeriod));
+        this(Optional.of(location), name, Optional.empty(), branch);
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod, Optional<Identifier> branch)
+    {
+        this(Optional.of(location), name, Optional.of(queryPeriod), branch);
+    }
+
+    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod, Optional<Identifier> branch)
     {
         super(location);
-        this.name = name;
-        this.queryPeriod = queryPeriod;
+        this.name = requireNonNull(name, "name is null");
+        this.queryPeriod = requireNonNull(queryPeriod, "queryPeriod is null");
+        this.branch = requireNonNull(branch, "branch is null");
+        checkArgument(!(queryPeriod.isPresent() && branch.isPresent()), "Query period and branch cannot both be specified");
     }
 
     public QualifiedName getName()
@@ -75,6 +85,7 @@ public class Table
         return toStringHelper(this)
                 .addValue(name)
                 .addValue(queryPeriod)
+                .addValue(branch)
                 .toString();
     }
 
@@ -90,13 +101,14 @@ public class Table
 
         Table table = (Table) o;
         return Objects.equals(name, table.name) &&
-                Objects.equals(queryPeriod, table.getQueryPeriod());
+                Objects.equals(queryPeriod, table.getQueryPeriod()) &&
+                Objects.equals(branch, table.branch);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, queryPeriod);
+        return Objects.hash(name, queryPeriod, branch);
     }
 
     @Override
@@ -113,5 +125,10 @@ public class Table
     public Optional<QueryPeriod> getQueryPeriod()
     {
         return queryPeriod;
+    }
+
+    public Optional<Identifier> getBranch()
+    {
+        return branch;
     }
 }

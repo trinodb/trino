@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.cache.SafeCaches;
 import io.trino.client.ErrorInfo;
 import io.trino.client.FailureException;
@@ -31,7 +32,6 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.testing.QueryFailedException;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import org.assertj.core.util.CheckReturnValue;
 
 import java.util.Optional;
 import java.util.stream.Stream;

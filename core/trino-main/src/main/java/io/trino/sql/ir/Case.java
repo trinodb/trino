@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
@@ -30,18 +31,14 @@ public record Case(List<WhenClause> whenClauses, Expression defaultValue)
 {
     public Case
     {
+        checkArgument(!whenClauses.isEmpty(), "whenClauses is empty");
         whenClauses = ImmutableList.copyOf(whenClauses);
         requireNonNull(defaultValue, "defaultValue is null");
 
         for (WhenClause clause : whenClauses) {
             validateType(BOOLEAN, clause.getOperand());
+            validateType(defaultValue.type(), clause.getResult());
         }
-
-        for (int i = 1; i < whenClauses.size(); i++) {
-            validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
-        }
-
-        validateType(whenClauses.getFirst().getResult().type(), defaultValue);
     }
 
     @Override

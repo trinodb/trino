@@ -16,25 +16,24 @@ package io.trino.sql.routine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.SqlToRowExpressionTranslator;
-import io.trino.sql.relational.StandardFunctionResolution;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -79,12 +78,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
+import static io.trino.sql.ir.IrExpressions.call;
+import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbolMap;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constantNull;
-import static io.trino.sql.relational.Expressions.field;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlRoutinePlanner
@@ -95,7 +92,7 @@ public final class SqlRoutinePlanner
     public SqlRoutinePlanner(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.optimizer = newOptimizer(plannerContext);
+        this.optimizer = plannerContext.getExpressionOptimizer();
     }
 
     public IrRoutine planSqlFunction(Session session, SqlRoutineAnalysis analysis)
@@ -123,7 +120,6 @@ public final class SqlRoutinePlanner
         private final Session session;
         private final List<IrVariable> allVariables;
         private final Analysis analysis;
-        private final StandardFunctionResolution resolution;
 
         private final AtomicInteger labelCounter = new AtomicInteger();
 
@@ -133,7 +129,6 @@ public final class SqlRoutinePlanner
                 Analysis analysis)
         {
             this.session = requireNonNull(session, "session is null");
-            this.resolution = new StandardFunctionResolution(plannerContext.getMetadata());
             this.allVariables = requireNonNull(allVariables, "allVariables is null");
             this.analysis = requireNonNull(analysis, "analysis is null");
         }
@@ -152,8 +147,8 @@ public final class SqlRoutinePlanner
             ImmutableList.Builder<IrVariable> blockVariables = ImmutableList.builder();
             for (VariableDeclaration declaration : node.getVariableDeclarations()) {
                 Type type = analysis.getType(declaration.getType());
-                RowExpression defaultValue = declaration.getDefaultValue()
-                        .map(expression -> toRowExpression(newContext, expression))
+                io.trino.sql.ir.Expression defaultValue = declaration.getDefaultValue()
+                        .map(expression -> toExpression(newContext, expression))
                         .orElse(constantNull(type));
 
                 for (Identifier name : declaration.getNames()) {
@@ -178,13 +173,13 @@ public final class SqlRoutinePlanner
 
             for (ElseIfClause elseIf : node.getElseIfClauses().reversed()) {
                 ifFalse = Optional.of(new IrIf(
-                        toRowExpression(context, elseIf.getExpression()),
+                        toExpression(context, elseIf.getExpression()),
                         block(statements(elseIf.getStatements(), context)),
                         ifFalse));
             }
 
             return new IrIf(
-                    toRowExpression(context, node.getExpression()),
+                    toExpression(context, node.getExpression()),
                     block(statements(node.getStatements(), context)),
                     ifFalse);
         }
@@ -193,7 +188,7 @@ public final class SqlRoutinePlanner
         protected IrStatement visitCaseStatement(CaseStatement node, Context context)
         {
             if (node.getExpression().isPresent()) {
-                RowExpression valueExpression = toRowExpression(context, node.getExpression().get());
+                io.trino.sql.ir.Expression valueExpression = toExpression(context, node.getExpression().get());
                 IrVariable valueVariable = new IrVariable(allVariables.size(), valueExpression.type(), valueExpression);
 
                 IrStatement statement = node.getElseClause()
@@ -201,16 +196,16 @@ public final class SqlRoutinePlanner
                         .orElseGet(() -> new IrBlock(ImmutableList.of(), ImmutableList.of()));
 
                 for (CaseStatementWhenClause whenClause : node.getWhenClauses().reversed()) {
-                    RowExpression conditionValue = toRowExpression(context, whenClause.getExpression());
+                    io.trino.sql.ir.Expression conditionValue = toExpression(context, whenClause.getExpression());
 
-                    RowExpression testValue = field(valueVariable.field(), valueVariable.type());
+                    io.trino.sql.ir.Expression testValue = new Reference(valueVariable.type(), variableReferenceName(valueVariable));
                     if (!testValue.type().equals(conditionValue.type())) {
                         ResolvedFunction castFunction = plannerContext.getMetadata().getCoercion(testValue.type(), conditionValue.type());
                         testValue = call(castFunction, testValue);
                     }
 
-                    ResolvedFunction equals = resolution.comparisonFunction(EQUAL, testValue.type(), conditionValue.type());
-                    RowExpression condition = call(equals, testValue, conditionValue);
+                    ResolvedFunction equals = plannerContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(testValue.type(), conditionValue.type()));
+                    io.trino.sql.ir.Expression condition = call(equals, testValue, conditionValue);
 
                     IrStatement ifTrue = block(statements(whenClause.getStatements(), context));
                     statement = new IrIf(condition, ifTrue, Optional.of(statement));
@@ -223,7 +218,7 @@ public final class SqlRoutinePlanner
                     .orElseGet(() -> new IrBlock(ImmutableList.of(), ImmutableList.of()));
 
             for (CaseStatementWhenClause whenClause : node.getWhenClauses().reversed()) {
-                RowExpression condition = toRowExpression(context, whenClause.getExpression());
+                io.trino.sql.ir.Expression condition = toExpression(context, whenClause.getExpression());
                 IrStatement ifTrue = block(statements(whenClause.getStatements(), context));
                 statement = new IrIf(condition, ifTrue, Optional.of(statement));
             }
@@ -236,7 +231,7 @@ public final class SqlRoutinePlanner
         {
             Context newContext = context.newScope();
             Optional<IrLabel> label = getSqlLabel(newContext, node.getLabel());
-            RowExpression condition = toRowExpression(newContext, node.getExpression());
+            io.trino.sql.ir.Expression condition = toExpression(newContext, node.getExpression());
             List<IrStatement> statements = statements(node.getStatements(), newContext);
             return new IrWhile(label, condition, block(statements));
         }
@@ -246,7 +241,7 @@ public final class SqlRoutinePlanner
         {
             Context newContext = context.newScope();
             Optional<IrLabel> label = getSqlLabel(newContext, node.getLabel());
-            RowExpression condition = toRowExpression(newContext, node.getCondition());
+            io.trino.sql.ir.Expression condition = toExpression(newContext, node.getCondition());
             List<IrStatement> statements = statements(node.getStatements(), newContext);
             return new IrRepeat(label, condition, block(statements));
         }
@@ -263,7 +258,7 @@ public final class SqlRoutinePlanner
         @Override
         protected IrStatement visitReturnStatement(ReturnStatement node, Context context)
         {
-            return new IrReturn(toRowExpression(context, node.getValue()));
+            return new IrReturn(toExpression(context, node.getValue()));
         }
 
         @Override
@@ -272,7 +267,7 @@ public final class SqlRoutinePlanner
             Identifier name = node.getTarget();
             IrVariable target = context.variables().get(identifierValue(name));
             checkArgument(target != null, "Variable not declared in scope: %s", name);
-            return new IrSet(target, toRowExpression(context, node.getValue()));
+            return new IrSet(target, toExpression(context, node.getValue()));
         }
 
         @Override
@@ -303,7 +298,7 @@ public final class SqlRoutinePlanner
             return label;
         }
 
-        private RowExpression toRowExpression(Context context, Expression expression)
+        private io.trino.sql.ir.Expression toExpression(Context context, Expression expression)
         {
             // build symbol and field indexes for translation
             List<Field> fields = context.variables().entrySet().stream()
@@ -321,7 +316,7 @@ public final class SqlRoutinePlanner
 
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> nodeRefSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
 
-            // Apply casts, desugar expression, and preform other rewrites
+            // Apply casts, desugar expression, and perform other rewrites
             TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext);
             io.trino.sql.ir.Expression translated = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
 
@@ -331,9 +326,28 @@ public final class SqlRoutinePlanner
             // optimize the expression
             io.trino.sql.ir.Expression optimized = optimizer.process(lambdaCaptureDesugared, session, ImmutableMap.of()).orElse(lambdaCaptureDesugared);
 
-            // translate to RowExpression
-            TranslationVisitor translator = new TranslationVisitor(plannerContext.getMetadata(), plannerContext.getTypeManager(), ImmutableMap.of(), context.variables());
-            return translator.process(optimized, null);
+            // Replace symbol references with routine variable references
+            List<Map.Entry<String, IrVariable>> variableEntries = List.copyOf(context.variables().entrySet());
+            ImmutableMap.Builder<String, io.trino.sql.ir.Expression> symbolReplacements = ImmutableMap.builder();
+            for (int i = 0; i < fieldSymbols.size(); i++) {
+                Symbol symbol = fieldSymbols.get(i);
+                IrVariable variable = variableEntries.get(i).getValue();
+                symbolReplacements.put(symbol.name(), new Reference(variable.type(), variableReferenceName(variable)));
+            }
+            Map<String, io.trino.sql.ir.Expression> replacements = symbolReplacements.buildOrThrow();
+
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public io.trino.sql.ir.Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    io.trino.sql.ir.Expression replacement = replacements.get(node.name());
+                    if (replacement != null) {
+                        return replacement;
+                    }
+                    return node;
+                }
+            }, optimized);
         }
 
         public static io.trino.sql.ir.Expression coerceIfNecessary(Analysis analysis, Expression original, io.trino.sql.ir.Expression rewritten)
@@ -342,7 +356,7 @@ public final class SqlRoutinePlanner
             if (coercion == null) {
                 return rewritten;
             }
-            return new io.trino.sql.ir.Cast(rewritten, coercion);
+            return new Cast(rewritten, coercion);
         }
 
         private List<IrStatement> statements(List<ControlStatement> statements, Context context)
@@ -360,7 +374,10 @@ public final class SqlRoutinePlanner
         private static String identifierValue(Identifier name)
         {
             // TODO: this should use getCanonicalValue()
-            return name.getValue();
+            // stop-gap: lowercasing for now to match what is happening during analysis;
+            // otherwise we do not support non-lowercase variables in functions.
+            // Rework as part of https://github.com/trinodb/trino/pull/24829
+            return name.getValue().toLowerCase(ENGLISH);
         }
     }
 
@@ -378,29 +395,8 @@ public final class SqlRoutinePlanner
         }
     }
 
-    private static class TranslationVisitor
-            extends SqlToRowExpressionTranslator.Visitor
+    static String variableReferenceName(IrVariable variable)
     {
-        private final Map<String, IrVariable> variables;
-
-        public TranslationVisitor(
-                Metadata metadata,
-                TypeManager typeManager,
-                Map<Symbol, Integer> layout,
-                Map<String, IrVariable> variables)
-        {
-            super(metadata, typeManager, layout);
-            this.variables = requireNonNull(variables, "variables is null");
-        }
-
-        @Override
-        protected RowExpression visitReference(Reference node, Void context)
-        {
-            IrVariable variable = variables.get(node.name());
-            if (variable != null) {
-                return field(variable.field(), variable.type());
-            }
-            return super.visitReference(node, context);
-        }
+        return "$sqlvar_" + variable.field();
     }
 }

@@ -33,19 +33,19 @@ public class TestFailures
 
         // add exception 1 --> add suppress (exception 2) --> add cause (exception 1)
         ExecutionFailureInfo failure = toFailure(exception1);
-        assertThat(failure.getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getCause()).isNull();
-        assertThat(failure.getSuppressed()).hasSize(1);
-        assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
-        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.message()).isEqualTo("fake exception 1");
+        assertThat(failure.cause()).isNull();
+        assertThat(failure.suppressed()).hasSize(1);
+        assertThat(failure.suppressed().get(0).message()).isEqualTo("fake exception 2");
+        assertThat(failure.errorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 2 --> add cause (exception 2) --> add suppress (exception 1)
         failure = toFailure(exception2);
-        assertThat(failure.getMessage()).isEqualTo("fake exception 2");
-        assertThat(failure.getCause()).isNotNull();
-        assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getSuppressed()).isEmpty();
-        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.message()).isEqualTo("fake exception 2");
+        assertThat(failure.cause()).isNotNull();
+        assertThat(failure.cause().message()).isEqualTo("fake exception 1");
+        assertThat(failure.suppressed()).isEmpty();
+        assertThat(failure.errorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 1 --> add suppress (exception 2) --> add suppress (exception 1)
         exception1 = new TrinoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
@@ -53,21 +53,21 @@ public class TestFailures
         exception1.addSuppressed(exception2);
         exception2.addSuppressed(exception1);
         failure = toFailure(exception1);
-        assertThat(failure.getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getCause()).isNull();
-        assertThat(failure.getSuppressed()).hasSize(1);
-        assertThat(failure.getSuppressed().get(0).getMessage()).isEqualTo("fake exception 2");
-        assertThat(failure.getErrorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
+        assertThat(failure.message()).isEqualTo("fake exception 1");
+        assertThat(failure.cause()).isNull();
+        assertThat(failure.suppressed()).hasSize(1);
+        assertThat(failure.suppressed().get(0).message()).isEqualTo("fake exception 2");
+        assertThat(failure.errorCode()).isEqualTo(TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 2 --> add cause (exception 1) --> add cause (exception 2)
         exception1 = new RuntimeException("fake exception 1");
         exception2 = new RuntimeException("fake exception 2", exception1);
         exception1.initCause(exception2);
         failure = toFailure(exception2);
-        assertThat(failure.getMessage()).isEqualTo("fake exception 2");
-        assertThat(failure.getCause()).isNotNull();
-        assertThat(failure.getCause().getMessage()).isEqualTo("fake exception 1");
-        assertThat(failure.getSuppressed()).isEmpty();
-        assertThat(failure.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertThat(failure.message()).isEqualTo("fake exception 2");
+        assertThat(failure.cause()).isNotNull();
+        assertThat(failure.cause().message()).isEqualTo("fake exception 1");
+        assertThat(failure.suppressed()).isEmpty();
+        assertThat(failure.errorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
     }
 }

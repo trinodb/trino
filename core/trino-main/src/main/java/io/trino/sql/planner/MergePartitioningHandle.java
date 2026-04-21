@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -100,6 +101,29 @@ public final class MergePartitioningHandle
         return "MERGE " + parts;
     }
 
+    public OptionalInt getBucketCount(Function<PartitioningHandle, OptionalInt> getBucketCount)
+    {
+        OptionalInt optionalInsertBucketCount = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle())
+                .map(getBucketCount)
+                .orElse(OptionalInt.empty());
+        OptionalInt optionalUpdateBucketCount = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle())
+                .map(getBucketCount)
+                .orElse(OptionalInt.empty());
+
+        if (optionalInsertBucketCount.isPresent() && optionalUpdateBucketCount.isPresent()) {
+            int insertBucketCount = optionalInsertBucketCount.getAsInt();
+            int updateBucketCount = optionalUpdateBucketCount.getAsInt();
+            if (insertBucketCount != updateBucketCount) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched bucket counts: " + insertBucketCount + " vs " + updateBucketCount);
+            }
+        }
+
+        if (optionalInsertBucketCount.isPresent()) {
+            return optionalInsertBucketCount;
+        }
+        return optionalUpdateBucketCount;
+    }
+
     public NodePartitionMap getNodePartitioningMap(Function<PartitioningHandle, NodePartitionMap> getMap)
     {
         Optional<NodePartitionMap> optionalInsertMap = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap);
@@ -109,7 +133,7 @@ public final class MergePartitioningHandle
             NodePartitionMap insertMap = optionalInsertMap.get();
             NodePartitionMap updateMap = optionalUpdateMap.get();
             if (!insertMap.getPartitionToNode().equals(updateMap.getPartitionToNode()) ||
-                    !Arrays.equals(insertMap.getBucketToPartition(), updateMap.getBucketToPartition())) {
+                    !Arrays.equals(insertMap.getBucketToPartition().bucketToPartition(), updateMap.getBucketToPartition().bucketToPartition())) {
                 throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
             }
         }

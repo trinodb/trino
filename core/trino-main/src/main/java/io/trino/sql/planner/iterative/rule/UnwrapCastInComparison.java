@@ -25,9 +25,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
@@ -68,6 +66,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -78,7 +77,6 @@ import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -152,7 +150,7 @@ public class UnwrapCastInComparison
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            this.optimizer = newOptimizer(plannerContext);
+            this.optimizer = plannerContext.getExpressionOptimizer();
         }
 
         @Override
@@ -187,13 +185,13 @@ public class UnwrapCastInComparison
             Type sourceType = cast.expression().type();
             Type targetType = expression.right().type();
 
-            if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) rightValue).orElse(expression);
+            if (sourceType instanceof TimestampType timestampType && targetType == DATE) {
+                return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue).orElse(expression);
             }
 
-            if (targetType instanceof TimestampWithTimeZoneType) {
+            if (targetType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
-                rightValue = withTimeZone(((TimestampWithTimeZoneType) targetType), rightValue, session.getTimeZoneKey());
+                rightValue = withTimeZone(timestampWithTimeZoneType, rightValue, session.getTimeZoneKey());
             }
 
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
@@ -409,8 +407,8 @@ public class UnwrapCastInComparison
                         (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
-            if (source instanceof DecimalType) {
-                int precision = ((DecimalType) source).getPrecision();
+            if (source instanceof DecimalType decimalType) {
+                int precision = decimalType.getPrecision();
 
                 if (precision > 15 && target.equals(DOUBLE)) {
                     // decimal(p,s) with p > 15 doesn't fit in a double without loss
@@ -431,11 +429,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from DATE to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
@@ -444,11 +438,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from TIMESTAMP to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 // CAST from TIMESTAMP WITH TIME ZONE to d and back to TIMESTAMP WITH TIME ZONE does not round trip for most types d
                 // TODO add test coverage
@@ -486,11 +476,6 @@ public class UnwrapCastInComparison
         private Object coerce(Object value, ResolvedFunction coercion)
         {
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
-        }
-
-        private boolean typeHasNaN(Type type)
-        {
-            return type instanceof DoubleType || type instanceof RealType;
         }
 
         private int compare(Type type, Object first, Object second)
@@ -541,9 +526,7 @@ public class UnwrapCastInComparison
         ZoneOffsetTransition transition = zone.getRules().previousTransition(instant.plusNanos(1));
         if (transition != null) {
             // DST change forward and the instant is ambiguous, being within the 'gap' area non-monotonic remapping
-            if (!transition.getDuration().isNegative() && !transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant)) {
-                return false;
-            }
+            return transition.getDuration().isNegative() || transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant);
         }
         return true;
     }

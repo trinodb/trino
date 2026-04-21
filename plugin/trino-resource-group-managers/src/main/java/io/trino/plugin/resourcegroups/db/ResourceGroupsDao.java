@@ -17,6 +17,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 import org.jdbi.v3.sqlobject.statement.UseRowMapper;
+import org.jdbi.v3.sqlobject.statement.UseRowReducer;
 
 import java.util.List;
 
@@ -25,18 +26,18 @@ public interface ResourceGroupsDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups_global_properties (\n" +
             "  name VARCHAR(128) NOT NULL PRIMARY KEY,\n" +
             "  value VARCHAR(512) NULL,\n" +
-            "  CHECK (name in ('cpu_quota_period'))\n" +
+            "  CHECK (name in ('cpu_quota_period', 'physical_data_scan_quota_period'))\n" +
             ")")
     void createResourceGroupsGlobalPropertiesTable();
 
-    @SqlQuery("SELECT value FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
-    @UseRowMapper(ResourceGroupGlobalProperties.Mapper.class)
-    List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();
+    @SqlQuery("SELECT name, value FROM resource_groups_global_properties WHERE name IN ('cpu_quota_period', 'physical_data_scan_quota_period')")
+    @UseRowReducer(ResourceGroupGlobalPropertiesReducer.class)
+    ResourceGroupGlobalProperties getResourceGroupGlobalProperties();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
             "  resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  name VARCHAR(250) NOT NULL,\n" +
-            "  soft_memory_limit VARCHAR(128) NOT NULL,\n" +
+            "  soft_memory_limit VARCHAR(128),\n" +
             "  max_queued INT NOT NULL,\n" +
             "  soft_concurrency_limit INT NULL,\n" +
             "  hard_concurrency_limit INT NOT NULL,\n" +
@@ -45,6 +46,7 @@ public interface ResourceGroupsDao
             "  jmx_export BOOLEAN NULL,\n" +
             "  soft_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_cpu_limit VARCHAR(128) NULL,\n" +
+            "  hard_physical_data_scan_limit VARCHAR(128) NULL,\n" +
             "  parent BIGINT NULL,\n" +
             "  environment VARCHAR(128) NULL,\n" +
             "  PRIMARY KEY (resource_group_id),\n" +
@@ -54,13 +56,13 @@ public interface ResourceGroupsDao
 
     @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
             "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
-            "  hard_cpu_limit, parent\n" +
+            "  hard_cpu_limit, hard_physical_data_scan_limit, parent\n" +
             "FROM resource_groups\n" +
             "WHERE environment = :environment\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.user_group_regex\n" +
+    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.original_user_regex, S.authenticated_user_regex, S.query_text_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.user_group_regex\n" +
             "FROM selectors S\n" +
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
             "WHERE R.environment = :environment\n" +
@@ -73,7 +75,10 @@ public interface ResourceGroupsDao
             "  priority BIGINT NOT NULL,\n" +
             "  user_regex VARCHAR(512),\n" +
             "  user_group_regex VARCHAR(512),\n" +
+            "  original_user_regex VARCHAR(512),\n" +
+            "  authenticated_user_regex VARCHAR(512),\n" +
             "  source_regex VARCHAR(512),\n" +
+            "  query_text_regex VARCHAR(1024),\n" +
             "  query_type VARCHAR(512),\n" +
             "  client_tags VARCHAR(512),\n" +
             "  selector_resource_estimate VARCHAR(1024),\n" +
@@ -85,7 +90,7 @@ public interface ResourceGroupsDao
             "  environment VARCHAR(128),\n" +
             "  source VARCHAR(512) NOT NULL,\n" +
             "  query_type VARCHAR(512),\n" +
-            "  update_time DATETIME NOT NULL,\n" +
+            "  update_time TIMESTAMP NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
             "  PRIMARY KEY (environment, source, query_type),\n" +
             "  UNIQUE (source, environment, query_type, resource_group_id)\n" +

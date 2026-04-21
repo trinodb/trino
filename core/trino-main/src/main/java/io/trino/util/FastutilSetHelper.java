@@ -45,7 +45,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.PrimitiveIterator;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -55,12 +54,12 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Boolean.TRUE;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.invoke.MethodType.methodType;
+import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
 public final class FastutilSetHelper
@@ -89,7 +88,7 @@ public final class FastutilSetHelper
         if (!type.getJavaType().isPrimitive()) {
             return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle, type));
         }
-        throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
+        throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getDisplayName());
     }
 
     public static boolean in(boolean booleanValue, BooleanOpenHashSet set)
@@ -234,7 +233,7 @@ public final class FastutilSetHelper
             Boolean result = longEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 
@@ -278,7 +277,7 @@ public final class FastutilSetHelper
             Boolean result = doubleEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 
@@ -334,7 +333,7 @@ public final class FastutilSetHelper
             Boolean result = objectEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 
@@ -343,7 +342,7 @@ public final class FastutilSetHelper
         private static final NonEvictableCache<MethodKey<?>, GeneratedMethod<?>> generatedMethodCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .maximumSize(1_000)
-                        .expireAfterWrite(2, TimeUnit.HOURS));
+                        .expireAfterWrite(ofHours(2)));
 
         private static <T> T getGeneratedMethod(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
         {
@@ -463,6 +462,6 @@ public final class FastutilSetHelper
                 type instanceof TimeType ||
                 type instanceof DateType ||
                 type instanceof TimestampType timestampType && timestampType.isShort() ||
-                (type instanceof DecimalType && ((DecimalType) type).isShort());
+                type instanceof DecimalType decimalType && decimalType.isShort();
     }
 }

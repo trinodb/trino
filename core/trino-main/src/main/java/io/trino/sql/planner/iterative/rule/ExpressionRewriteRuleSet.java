@@ -40,7 +40,7 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -163,7 +163,7 @@ public class ExpressionRewriteRuleSet
         {
             boolean anyRewritten = false;
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+            for (Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
@@ -258,8 +258,6 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRightOutputSymbols(),
                         joinNode.isMaySkipOutputDuplicates(),
                         filter,
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
                         joinNode.getDynamicFilters(),
@@ -300,18 +298,18 @@ public class ExpressionRewriteRuleSet
 
             boolean anyRewritten = false;
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (Expression row : valuesNode.getRows().get()) {
+            for (Expression original : valuesNode.getRows().get()) {
                 Expression rewritten;
-                if (row instanceof Row) {
+                if (original instanceof Row row) {
                     // preserve the structure of row
-                    rewritten = new Row(((Row) row).items().stream()
-                            .map(item -> rewriter.rewrite(item, context))
-                            .collect(toImmutableList()));
+                    rewritten = new Row(
+                            row.items().stream().map(item -> rewriter.rewrite(item, context)).toList(),
+                            row.type());
                 }
                 else {
-                    rewritten = rewriter.rewrite(row, context);
+                    rewritten = rewriter.rewrite(original, context);
                 }
-                if (!row.equals(rewritten)) {
+                if (!original.equals(rewritten)) {
                     anyRewritten = true;
                 }
                 rows.add(rewritten);
@@ -352,7 +350,7 @@ public class ExpressionRewriteRuleSet
 
             // rewrite MEASURES expressions
             ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
+            for (Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 ExpressionAndValuePointers pointers = entry.getValue().getExpressionAndValuePointers();
                 Optional<ExpressionAndValuePointers> newPointers = rewrite(pointers, context);
                 if (newPointers.isPresent()) {
@@ -366,7 +364,7 @@ public class ExpressionRewriteRuleSet
 
             // rewrite DEFINE expressions
             ImmutableMap.Builder<IrLabel, ExpressionAndValuePointers> rewrittenDefinitions = ImmutableMap.builder();
-            for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
+            for (Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
                 ExpressionAndValuePointers pointers = entry.getValue();
                 Optional<ExpressionAndValuePointers> newPointers = rewrite(pointers, context);
                 if (newPointers.isPresent()) {
@@ -383,7 +381,6 @@ public class ExpressionRewriteRuleSet
                         node.getId(),
                         node.getSource(),
                         node.getSpecification(),
-                        node.getHashSymbol(),
                         node.getPrePartitionedInputs(),
                         node.getPreSortedOrderPrefix(),
                         node.getWindowFunctions(),

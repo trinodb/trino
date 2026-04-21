@@ -1,0 +1,51 @@
+syntax = "proto2";
+package io_trino_hive_formats_line_protobuf_examples;
+
+option java_package = "io.trino.hive.formats.line.protobuf.examples";
+option java_outer_classname = "DataRecordProtos";
+
+message DataRecord {
+
+    enum EnumType {
+        ENUM0 = 0;
+        ENUM1 = 1;
+        ENUM2 = 2;
+    }
+
+    optional double doubleField = 1;
+    optional float floatField = 2;
+    optional int32 int32Field = 3;
+    optional int64 int64Field = 4;
+    optional uint32 uint32Field = 5;
+    optional uint64 uint64Field = 6;
+    optional sint32 sint32Field = 7;
+    optional sint64 sint64Field = 8;
+    optional fixed32 fixed32Field = 9;
+    optional fixed64 fixed64Field = 10;
+    optional sfixed32 sfixed32Field = 11;
+    optional sfixed64 sfixed64Field = 12;
+    optional bool boolField = 13;
+    optional string stringField = 14 [default = "theDefault"];
+    optional bytes bytesField = 15;
+    optional EnumType enumField = 16;
+    optional DataRecord innerRecord = 17;
+
+    repeated double doubleArrayField = 18;
+    repeated float floatArrayField = 19;
+    repeated int32 int32ArrayField = 20;
+    repeated int64 int64ArrayField = 21;
+    repeated uint32 uint32ArrayField = 22;
+    repeated uint64 uint64ArrayField = 23;
+    repeated sint32 sint32ArrayField = 24;
+    repeated sint64 sint64ArrayField = 25;
+    repeated fixed32 fixed32ArrayField = 26;
+    repeated fixed64 fixed64ArrayField = 27;
+    repeated sfixed32 sfixed32ArrayField = 28;
+    repeated sfixed64 sfixed64ArrayField = 29;
+    repeated bool boolArrayField = 30;
+    repeated string stringArrayField = 31;
+    repeated bytes bytesArrayField = 32;
+    repeated EnumType enumArrayField = 33;
+    repeated DataRecord innerRecordArray = 34;
+}
+

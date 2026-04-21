@@ -31,6 +31,7 @@ import io.trino.tpcds.Table;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -58,7 +59,7 @@ public class TpcdsTableStatisticsFactory
 
         if (rowCount > 0) {
             Map<String, ColumnStatisticsData> columnsData = statisticsData.columns();
-            for (Map.Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
+            for (Entry<String, ColumnHandle> entry : columnHandles.entrySet()) {
                 TpcdsColumnHandle columnHandle = (TpcdsColumnHandle) entry.getValue();
                 tableStatistics.setColumnStatistics(entry.getValue(), toColumnStatistics(columnsData.get(entry.getKey()), columnHandle.type(), rowCount));
             }
@@ -91,8 +92,8 @@ public class TpcdsTableStatisticsFactory
 
     private static double toDouble(Object value, Type type)
     {
-        if (value instanceof String && type.equals(DATE)) {
-            return LocalDate.parse((CharSequence) value).toEpochDay();
+        if (value instanceof String string && type.equals(DATE)) {
+            return LocalDate.parse(string).toEpochDay();
         }
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE)) {
             return ((Number) value).doubleValue();

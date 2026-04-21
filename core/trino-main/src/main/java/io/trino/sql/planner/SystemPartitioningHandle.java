@@ -16,13 +16,12 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.operator.BucketPartitionFunction;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 import java.util.Objects;
@@ -136,12 +135,12 @@ public final class SystemPartitioningHandle
         return partitioning.toString();
     }
 
-    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int[] bucketToPartition, TypeOperators typeOperators)
+    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, NullSafeHashCompiler hashCompiler)
     {
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, isHashPrecomputed, bucketToPartition.length, typeOperators);
+        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, hashCompiler);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
@@ -149,7 +148,7 @@ public final class SystemPartitioningHandle
     {
         SINGLE {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, NullSafeHashCompiler hashCompiler)
             {
                 checkArgument(bucketCount == 1, "Single partition can only have one bucket");
                 return new SingleBucketFunction();
@@ -157,41 +156,36 @@ public final class SystemPartitioningHandle
         },
         HASH {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, NullSafeHashCompiler hashCompiler)
             {
-                if (isHashPrecomputed) {
-                    return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
-                }
-
-                return new HashBucketFunction(createPagePrefixHashGenerator(partitionChannelTypes, typeOperators), bucketCount);
+                return new HashBucketFunction(createPagePrefixHashGenerator(partitionChannelTypes, hashCompiler), bucketCount);
             }
         },
         ROUND_ROBIN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, NullSafeHashCompiler hashCompiler)
             {
                 return new RoundRobinBucketFunction(bucketCount);
             }
         },
         BROADCAST {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, NullSafeHashCompiler hashCompiler)
             {
                 throw new UnsupportedOperationException();
             }
         },
         UNKNOWN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, boolean isHashPrecomputed, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, NullSafeHashCompiler hashCompiler)
             {
                 throw new UnsupportedOperationException();
             }
         };
 
         public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
-                boolean isHashPrecomputed,
                 int bucketCount,
-                TypeOperators typeOperators);
+                NullSafeHashCompiler hashCompiler);
 
         private static class SingleBucketFunction
                 implements BucketFunction

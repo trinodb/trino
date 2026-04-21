@@ -13,18 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -39,7 +38,7 @@ public class TestIcebergColumnHandle
     @Test
     public void testRoundTrip()
     {
-        testRoundTrip(new IcebergColumnHandle(primitiveColumnIdentity(12, "blah"), BIGINT, ImmutableList.of(), BIGINT, true, Optional.of("this is a comment")));
+        testRoundTrip(IcebergColumnHandle.optional(primitiveColumnIdentity(12, "blah")).columnType(BIGINT).comment("this is a comment").build());
 
         // Nested column
         ColumnIdentity foo1 = new ColumnIdentity(1, "foo1", PRIMITIVE, ImmutableList.of());
@@ -48,38 +47,33 @@ public class TestIcebergColumnHandle
         Type nestedColumnType = RowType.from(ImmutableList.of(
                 RowType.field("foo2", BIGINT),
                 RowType.field("foo3", new ArrayType(BIGINT))));
-        IcebergColumnHandle nestedColumn = new IcebergColumnHandle(
-                new ColumnIdentity(
+        IcebergColumnHandle nestedColumn = IcebergColumnHandle.optional(new ColumnIdentity(
                         5,
                         "foo5",
                         STRUCT,
-                        ImmutableList.of(foo2, foo3)),
-                nestedColumnType,
-                ImmutableList.of(),
-                nestedColumnType,
-                true,
-                Optional.empty());
+                        ImmutableList.of(foo2, foo3)))
+                .columnType(nestedColumnType)
+                .build();
         testRoundTrip(nestedColumn);
 
-        IcebergColumnHandle partialColumn = new IcebergColumnHandle(
-                new ColumnIdentity(
+        IcebergColumnHandle partialColumn = IcebergColumnHandle.optional(new ColumnIdentity(
                         5,
                         "foo5",
                         STRUCT,
-                        ImmutableList.of(foo2, foo3)),
-                nestedColumnType,
-                ImmutableList.of(2),
-                BIGINT,
-                true,
-                Optional.empty());
+                        ImmutableList.of(foo2, foo3)))
+                .fieldType(nestedColumnType, BIGINT)
+                .path(2)
+                .build();
         testRoundTrip(partialColumn);
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)
     {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IcebergColumnHandle.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        JsonCodec<IcebergColumnHandle> codec = new JsonCodecFactory(jsonMapper)
+                .jsonCodec(IcebergColumnHandle.class);
 
         String json = codec.toJson(expected);
         IcebergColumnHandle actual = codec.fromJson(json);

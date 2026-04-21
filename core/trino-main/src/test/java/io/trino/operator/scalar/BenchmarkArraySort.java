@@ -14,26 +14,21 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.ScalarFunction;
-import io.trino.spi.function.SqlType;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.ExpressionCompiler;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -41,7 +36,6 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -57,7 +51,7 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -87,37 +81,36 @@ public class BenchmarkArraySort
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"array_sort", "old_array_sort"})
-        private String name = "array_sort";
-
         private Page page;
         private PageProcessor pageProcessor;
 
         @Setup
         public void setup()
         {
-            TestingFunctionResolution functionResolution = new TestingFunctionResolution(InternalFunctionBundle.extractFunctions(BenchmarkArraySort.class));
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> projectionsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
             Block[] blocks = new Block[TYPES.size()];
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                projectionsBuilder.add(new CallExpression(
-                        functionResolution.resolveFunction(name, fromTypes(arrayType)),
-                        ImmutableList.of(field(i, arrayType))));
+                projectionsBuilder.add(call(
+                        functionResolution.resolveFunction("array_sort", fromTypes(arrayType)),
+                        new Reference(arrayType, "$col_" + i)));
+                layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+            List<Expression> projections = projectionsBuilder.build();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             page = new Page(blocks);
         }
 
@@ -153,7 +146,7 @@ public class BenchmarkArraySort
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // assure the benchmarks are valid before running
@@ -162,30 +155,5 @@ public class BenchmarkArraySort
         new BenchmarkArraySort().arraySort(data);
 
         benchmark(BenchmarkArraySort.class).run();
-    }
-
-    private static final BlockPositionComparison VARCHAR_COMPARISON = new BlockTypeOperators(new TypeOperators()).getComparisonUnorderedLastOperator(VARCHAR);
-
-    @ScalarFunction
-    @SqlType("array(varchar)")
-    public static Block oldArraySort(@SqlType("array(varchar)") Block block)
-    {
-        List<Integer> positions = Ints.asList(new int[block.getPositionCount()]);
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            positions.set(i, i);
-        }
-
-        positions.sort((p1, p2) -> {
-            //TODO: This could be quite slow, it should use parametric equals
-            return (int) VARCHAR_COMPARISON.compare(block, p1, block, p2);
-        });
-
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount());
-
-        for (int position : positions) {
-            VARCHAR.appendTo(block, position, blockBuilder);
-        }
-
-        return blockBuilder.build();
     }
 }

@@ -141,6 +141,7 @@ public class GcsOutputStream
                 if (e.getCode() == HTTP_PRECON_FAILED) {
                     throw new FileAlreadyExistsException(location.toString());
                 }
+                throw new IOException(e);
             }
             catch (IOException e) {
                 throw new IOException("Error closing file: " + location, e);

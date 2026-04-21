@@ -16,9 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.TypeId;
 
 import java.time.Duration;
@@ -43,14 +43,15 @@ public record IcebergMaterializedViewDefinition(
         Optional<String> schema,
         List<Column> columns,
         Optional<Duration> gracePeriod,
+        Optional<WhenStaleBehavior> whenStaleBehavior,
         Optional<String> comment,
         List<CatalogSchemaName> path)
 {
     private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
     private static final String MATERIALIZED_VIEW_SUFFIX = " */";
 
-    private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(IcebergMaterializedViewDefinition.class);
+    private static final JsonCodec<IcebergMaterializedViewDefinition> materializedViewCodec = new JsonCodecFactory()
+            .jsonCodec(IcebergMaterializedViewDefinition.class);
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
     {
@@ -79,6 +80,7 @@ public record IcebergMaterializedViewDefinition(
                         .map(column -> new Column(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
                 definition.getComment(),
                 definition.getPath());
     }
@@ -90,6 +92,7 @@ public record IcebergMaterializedViewDefinition(
         requireNonNull(schema, "schema is null");
         columns = List.copyOf(requireNonNull(columns, "columns is null"));
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         requireNonNull(comment, "comment is null");
         path = path == null ? ImmutableList.of() : ImmutableList.copyOf(path);
 
@@ -110,6 +113,7 @@ public record IcebergMaterializedViewDefinition(
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         gracePeriod.ifPresent(value -> joiner.add("gracePeriod≥=" + value));
+        whenStaleBehavior.ifPresent(value -> joiner.add("whenStaleBehavior=" + value.name()));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(Collectors.joining(", ", "path=(", ")")));
         return getClass().getSimpleName() + joiner;

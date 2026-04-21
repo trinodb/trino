@@ -14,26 +14,29 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.io.Resources;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.tpcds.Table;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Writer;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
 
 public class TableStatisticsDataRepository
 {
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new Jdk8Module());
+    private final JsonMapper jsonMapper = new JsonMapperProvider().get();
 
     public void save(
             String schemaName,
@@ -42,7 +45,7 @@ public class TableStatisticsDataRepository
     {
         schemaName = normalizeSchemaName(schemaName);
         String filename = table.getName();
-        Path path = Paths.get("trino-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
+        Path path = Path.of("trino-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
         writeStatistics(path, statisticsData);
     }
 
@@ -57,11 +60,11 @@ public class TableStatisticsDataRepository
         File file = path.toFile();
         file.getParentFile().mkdirs();
         try {
-            objectMapper
+            jsonMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
-            try (FileWriter fileWriter = new FileWriter(file, UTF_8, true)) {
-                fileWriter.append('\n');
+            try (Writer writer = Files.newBufferedWriter(path, UTF_8, CREATE, WRITE)) {
+                writer.append('\n');
             }
         }
         catch (IOException e) {
@@ -84,7 +87,9 @@ public class TableStatisticsDataRepository
             return Optional.empty();
         }
         try {
-            return Optional.of(parseJson(objectMapper, resource, TableStatisticsData.class));
+            try (InputStream inputStream = Resources.asByteSource(resource).openStream()) {
+                return Optional.of(parseJson(jsonMapper, inputStream, TableStatisticsData.class));
+            }
         }
         catch (Exception e) {
             throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);

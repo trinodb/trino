@@ -15,13 +15,38 @@ package io.trino.spi.block;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestBlockUtil
+final class TestBlockUtil
 {
+    @Test
+    public void testCompactIsNull()
+    {
+        int positions = 2048;
+        int region = 1024;
+        boolean[] allNull = new boolean[positions];
+        boolean[] halfNulls = new boolean[positions];
+        boolean[] noNulls = new boolean[positions];
+        boolean[] mixedNulls = new boolean[positions];
+        Arrays.fill(allNull, true);
+        Arrays.fill(halfNulls, region, positions, true);
+        for (int i = 0; i < mixedNulls.length; i++) {
+            mixedNulls[i] = i % 2 == 0;
+        }
+
+        for (int i = 0; i < 1_000; i++) {
+            assertThat(BlockUtil.compactIsNull(allNull, 0, region)).isNotNull();
+            assertThat(BlockUtil.compactIsNull(mixedNulls, 0, region)).isNotNull();
+            assertThat(BlockUtil.compactIsNull(noNulls, 0, region)).isNull();
+            assertThat(BlockUtil.compactIsNull(halfNulls, 0, region)).isNull();
+        }
+    }
+
     @Test
     public void testCalculateNewArraySize()
     {

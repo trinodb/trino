@@ -28,7 +28,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Difference of the given times in the given unit")
 @ScalarFunction("date_diff")
-public class DateDiff
+public final class DateDiff
 {
     private DateDiff() {}
 

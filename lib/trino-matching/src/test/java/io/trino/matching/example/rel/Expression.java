@@ -13,6 +13,4 @@
  */
 package io.trino.matching.example.rel;
 
-public class Expression
-{
-}
+public class Expression {}

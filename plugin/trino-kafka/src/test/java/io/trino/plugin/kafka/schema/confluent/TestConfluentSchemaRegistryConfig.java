@@ -23,8 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.MARK;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.MARK;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestConfluentSchemaRegistryConfig

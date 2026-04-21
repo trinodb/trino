@@ -17,21 +17,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * Adapts {@link ConnectorSplitSource} to {@link SplitSource} interface.
@@ -39,7 +40,7 @@ import static java.util.Objects.requireNonNull;
  * Thread-safety: the implementations is not thread-safe
  *
  * Note: The implementation is internally not thread-safe but also {@link ConnectorSplitSource} is
- * not required to be thread-safe.
+ * not required to be thread-safe, except the close() method which may be called concurrently.
  */
 @NotThreadSafe
 public class ConnectorAwareSplitSource
@@ -52,6 +53,7 @@ public class ConnectorAwareSplitSource
     private ConnectorSplitSource source;
     private boolean finished;
     private Optional<Optional<List<Object>>> tableExecuteSplitsInfo = Optional.empty();
+    private Metrics metrics = Metrics.EMPTY;
 
     public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source)
     {
@@ -93,11 +95,12 @@ public class ConnectorAwareSplitSource
         closeSource();
     }
 
-    private void closeSource()
+    private synchronized void closeSource()
     {
         if (source != null) {
             try {
                 source.close();
+                metrics = source.getMetrics();
             }
             finally {
                 source = null;
@@ -126,8 +129,17 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
+    public Metrics getMetrics()
+    {
+        if (source == null) {
+            return metrics;
+        }
+        return source.getMetrics();
+    }
+
+    @Override
     public String toString()
     {
-        return catalogHandle + ":" + firstNonNull(source, sourceToString);
+        return catalogHandle + ":" + requireNonNullElse(source, sourceToString);
     }
 }

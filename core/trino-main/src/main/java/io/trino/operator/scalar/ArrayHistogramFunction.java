@@ -38,7 +38,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 
 @Description("Return a map containing the counts of the elements in the array")
-@ScalarFunction(value = "array_histogram")
+@ScalarFunction(value = "array_histogram", neverFails = true)
 public final class ArrayHistogramFunction
 {
     private ArrayHistogramFunction() {}
@@ -74,7 +74,7 @@ public final class ArrayHistogramFunction
         ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             int position = arrayBlock.getUnderlyingValuePosition(i);
-            if (!arrayBlock.isNull(position)) {
+            if (!valueBlock.isNull(position)) {
                 histogram.add(0, valueBlock, position, 1L);
             }
         }

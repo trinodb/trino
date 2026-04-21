@@ -63,7 +63,6 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.falseIfNotNull;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
@@ -126,8 +125,8 @@ public class UnwrapDateTruncInComparison
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
-            evaluator = new IrExpressionEvaluator(plannerContext);
-            optimizer = newOptimizer(plannerContext);
+            evaluator = plannerContext.getExpressionEvaluator();
+            optimizer = plannerContext.getExpressionOptimizer();
         }
 
         @Override

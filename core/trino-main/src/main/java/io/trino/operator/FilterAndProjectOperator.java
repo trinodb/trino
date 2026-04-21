@@ -23,6 +23,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -62,7 +63,7 @@ public class FilterAndProjectOperator
                         yieldSignal,
                         outputMemoryContext,
                         metrics,
-                        page))
+                        SourcePage.create(page)))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                 .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }

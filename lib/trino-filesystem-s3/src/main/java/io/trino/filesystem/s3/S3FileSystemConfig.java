@@ -19,6 +19,8 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -27,8 +29,10 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import software.amazon.awssdk.core.signer.Signer;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Optional;
 import java.util.Set;
@@ -39,11 +43,65 @@ import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetr
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
 import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
 
+@DefunctConfig("s3.exclusive-create")
 public class S3FileSystemConfig
 {
     public enum S3SseType
     {
         NONE, S3, KMS, CUSTOMER
+    }
+
+    public enum StorageClassType
+    {
+        STANDARD,
+        STANDARD_IA,
+        INTELLIGENT_TIERING,
+        REDUCED_REDUNDANCY,
+        ONEZONE_IA,
+        GLACIER,
+        DEEP_ARCHIVE,
+        OUTPOSTS,
+        GLACIER_IR,
+        SNOW,
+        EXPRESS_ONEZONE;
+
+        public static StorageClass toStorageClass(StorageClassType storageClass)
+        {
+            return switch (storageClass) {
+                case STANDARD -> StorageClass.STANDARD;
+                case STANDARD_IA -> StorageClass.STANDARD_IA;
+                case INTELLIGENT_TIERING -> StorageClass.INTELLIGENT_TIERING;
+                case REDUCED_REDUNDANCY -> StorageClass.REDUCED_REDUNDANCY;
+                case ONEZONE_IA -> StorageClass.ONEZONE_IA;
+                case GLACIER -> StorageClass.GLACIER;
+                case DEEP_ARCHIVE -> StorageClass.DEEP_ARCHIVE;
+                case OUTPOSTS -> StorageClass.OUTPOSTS;
+                case GLACIER_IR -> StorageClass.GLACIER_IR;
+                case SNOW -> StorageClass.SNOW;
+                case EXPRESS_ONEZONE -> StorageClass.EXPRESS_ONEZONE;
+            };
+        }
+    }
+
+    public enum SignerType
+    {
+        AwsS3V4Signer,
+        Aws4Signer,
+        AsyncAws4Signer,
+        Aws4UnsignedPayloadSigner,
+        EventStreamAws4Signer;
+
+        @SuppressWarnings("deprecation")
+        public Signer create()
+        {
+            return switch (this) {
+                case AwsS3V4Signer -> software.amazon.awssdk.auth.signer.AwsS3V4Signer.create();
+                case Aws4Signer -> software.amazon.awssdk.auth.signer.Aws4Signer.create();
+                case AsyncAws4Signer -> software.amazon.awssdk.auth.signer.AsyncAws4Signer.create();
+                case Aws4UnsignedPayloadSigner -> software.amazon.awssdk.auth.signer.Aws4UnsignedPayloadSigner.create();
+                case EventStreamAws4Signer -> software.amazon.awssdk.auth.signer.EventStreamAws4Signer.create();
+            };
+        }
     }
 
     public enum ObjectCannedAcl
@@ -56,7 +114,7 @@ public class S3FileSystemConfig
         BUCKET_OWNER_READ,
         BUCKET_OWNER_FULL_CONTROL;
 
-        public static ObjectCannedACL getCannedAcl(S3FileSystemConfig.ObjectCannedAcl cannedAcl)
+        public static ObjectCannedACL getCannedAcl(ObjectCannedAcl cannedAcl)
         {
             return switch (cannedAcl) {
                 case NONE -> null;
@@ -91,6 +149,7 @@ public class S3FileSystemConfig
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
+    private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
     private String externalId;
@@ -100,13 +159,14 @@ public class S3FileSystemConfig
     private String sseKmsKeyId;
     private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
-    private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
+    private SignerType signerType;
+    private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
     private Integer maxConnections = 500;
     private Duration connectionTtl;
     private Duration connectionMaxIdleTime;
     private Duration socketConnectTimeout;
-    private Duration socketReadTimeout;
+    private Duration socketTimeout;
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
@@ -116,8 +176,8 @@ public class S3FileSystemConfig
     private Set<String> nonProxyHosts = ImmutableSet.of();
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
     private RetryMode retryMode = RetryMode.LEGACY;
-    private int maxErrorRetries = 10;
-    private boolean supportsExclusiveCreate = true;
+    private int maxErrorRetries = 20;
+    private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
 
     public String getAwsAccessKey()
@@ -179,6 +239,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setPathStyleAccess(boolean pathStyleAccess)
     {
         this.pathStyleAccess = pathStyleAccess;
+        return this;
+    }
+
+    public StorageClassType getStorageClass()
+    {
+        return storageClass;
+    }
+
+    @Config("s3.storage-class")
+    @ConfigDescription("The S3 storage class to use when writing the data")
+    public S3FileSystemConfig setStorageClass(StorageClassType storageClass)
+    {
+        this.storageClass = storageClass;
         return this;
     }
 
@@ -347,6 +420,19 @@ public class S3FileSystemConfig
         return true;
     }
 
+    public Optional<SignerType> getSignerType()
+    {
+        return Optional.ofNullable(signerType);
+    }
+
+    @ConfigDescription("AWS signing protocol to use while authenticating S3 requests")
+    @Config("s3.signer-type")
+    public S3FileSystemConfig setSignerType(SignerType signerType)
+    {
+        this.signerType = signerType;
+        return this;
+    }
+
     @NotNull
     @MinDataSize("5MB")
     @MaxDataSize("256MB")
@@ -427,16 +513,17 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public Optional<Duration> getSocketReadTimeout()
+    public Optional<Duration> getSocketTimeout()
     {
-        return Optional.ofNullable(socketReadTimeout);
+        return Optional.ofNullable(socketTimeout);
     }
 
-    @Config("s3.socket-read-timeout")
-    @ConfigDescription("Maximum time allowed for socket reads before timing out")
-    public S3FileSystemConfig setSocketReadTimeout(Duration socketReadTimeout)
+    @LegacyConfig("s3.socket-read-timeout")
+    @Config("s3.socket-timeout")
+    @ConfigDescription("Maximum time allowed for socket reads/writes before timing out")
+    public S3FileSystemConfig setSocketTimeout(Duration socketTimeout)
     {
-        this.socketReadTimeout = socketReadTimeout;
+        this.socketTimeout = socketTimeout;
         return this;
     }
 
@@ -526,16 +613,16 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public boolean isSupportsExclusiveCreate()
+    public boolean isCrossRegionAccessEnabled()
     {
-        return supportsExclusiveCreate;
+        return crossRegionAccessEnabled;
     }
 
-    @Config("s3.exclusive-create")
-    @ConfigDescription("Whether S3-compatible storage supports exclusive create (true for Minio and AWS S3)")
-    public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
+    @Config("s3.cross-region-access")
+    @ConfigDescription("Enable S3 cross region access")
+    public S3FileSystemConfig setCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
     {
-        this.supportsExclusiveCreate = supportsExclusiveCreate;
+        this.crossRegionAccessEnabled = crossRegionAccessEnabled;
         return this;
     }
 

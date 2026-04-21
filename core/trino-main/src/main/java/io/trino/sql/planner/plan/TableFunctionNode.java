@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.TableFunctionHandle;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.table.Argument;
 import io.trino.sql.planner.Symbol;
 

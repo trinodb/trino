@@ -29,7 +29,6 @@ public final class MemoryPoolInfo
     private final long reservedRevocableBytes;
     private final Map<QueryId, Long> queryMemoryReservations;
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations;
-    private final Map<QueryId, Long> queryMemoryRevocableReservations;
     private final Map<String, Long> taskMemoryReservations;
     private final Map<String, Long> taskMemoryRevocableReservations;
 
@@ -40,7 +39,6 @@ public final class MemoryPoolInfo
             @JsonProperty("reservedRevocableBytes") long reservedRevocableBytes,
             @JsonProperty("queryMemoryReservations") Map<QueryId, Long> queryMemoryReservations,
             @JsonProperty("queryMemoryAllocations") Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations,
-            @JsonProperty("queryMemoryRevocableReservations") Map<QueryId, Long> queryMemoryRevocableReservations,
             @JsonProperty("taskMemoryReservations") Map<String, Long> taskMemoryReservations,
             @JsonProperty("taskMemoryRevocableReservations") Map<String, Long> taskMemoryRevocableReservations)
     {
@@ -49,7 +47,6 @@ public final class MemoryPoolInfo
         this.reservedRevocableBytes = reservedRevocableBytes;
         this.queryMemoryReservations = Map.copyOf(queryMemoryReservations);
         this.queryMemoryAllocations = Map.copyOf(queryMemoryAllocations);
-        this.queryMemoryRevocableReservations = Map.copyOf(queryMemoryRevocableReservations);
         this.taskMemoryReservations = Map.copyOf(taskMemoryReservations);
         this.taskMemoryRevocableReservations = Map.copyOf(taskMemoryRevocableReservations);
     }
@@ -88,12 +85,6 @@ public final class MemoryPoolInfo
     public Map<QueryId, List<MemoryAllocation>> getQueryMemoryAllocations()
     {
         return queryMemoryAllocations;
-    }
-
-    @JsonProperty
-    public Map<QueryId, Long> getQueryMemoryRevocableReservations()
-    {
-        return queryMemoryRevocableReservations;
     }
 
     @JsonProperty

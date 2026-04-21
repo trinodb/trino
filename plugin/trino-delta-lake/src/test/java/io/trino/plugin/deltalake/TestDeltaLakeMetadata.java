@@ -22,7 +22,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
@@ -30,22 +29,18 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.spi.NodeManager;
-import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -62,7 +57,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.tests.BogusType;
@@ -86,12 +80,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -188,19 +182,13 @@ public class TestDeltaLakeMetadata
                 .put("hive.metastore.catalog.dir", temporaryCatalogDirectory.getPath())
                 .buildOrThrow();
 
+        TestingConnectorContext context = new TestingConnectorContext();
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                binder -> {
-                    ConnectorContext context = new TestingConnectorContext();
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                    binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
-                },
+                new ConnectorContextModule("test", context),
                 // connector modules
+                new DeltaLakeSecurityModule(),
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
@@ -479,7 +467,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1));
         deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
-        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true, 0)));
+        assertThat(deltaLakeMetadata.getInfo(SESSION, tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
@@ -492,7 +480,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of());
         deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable(), Optional.empty(), Optional.empty());
-        assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false, 0)));
+        assertThat(deltaLakeMetadata.getInfo(SESSION, tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false, 0)));
         deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
@@ -507,10 +495,8 @@ public class TestDeltaLakeMetadata
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 createConstrainedColumnsTuple(constrainedColumns),
                 TupleDomain.all(),
-                Optional.of(DeltaLakeTableHandle.WriteType.UPDATE),
+                false,
                 Optional.of(projectedColumns),
-                Optional.of(ImmutableList.of(BOOLEAN_COLUMN_HANDLE)),
-                Optional.of(ImmutableList.of(DOUBLE_COLUMN_HANDLE)),
                 Optional.empty(),
                 0,
                 false);
@@ -534,7 +520,7 @@ public class TestDeltaLakeMetadata
         return assignments.entrySet().stream()
                 .map(assignment -> {
                     DeltaLakeColumnHandle column = ((DeltaLakeColumnHandle) assignment.getValue());
-                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.baseType());
+                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::type).orElse(column.baseType());
                     return new Assignment(
                             assignment.getKey(),
                             assignment.getValue(),

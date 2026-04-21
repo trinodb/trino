@@ -60,6 +60,8 @@ public record DeltaLakeColumnHandle(
             field("position", BIGINT),
             field("partition", VARCHAR));
 
+    // Note: update `isMetadataColumnHandle` method when adding new metadata columns
+
     public static final String PATH_COLUMN_NAME = "$path";
     public static final Type PATH_TYPE = VARCHAR;
 
@@ -90,7 +92,7 @@ public record DeltaLakeColumnHandle(
     @JsonIgnore
     public String qualifiedPhysicalName()
     {
-        return projectionInfo.map(projectionInfo -> basePhysicalColumnName + "#" + projectionInfo.getPartialName())
+        return projectionInfo.map(projectionInfo -> basePhysicalColumnName + "#" + projectionInfo.partialName())
                 .orElse(basePhysicalColumnName);
     }
 
@@ -113,7 +115,7 @@ public record DeltaLakeColumnHandle(
     @JsonIgnore
     public Type type()
     {
-        return projectionInfo.map(DeltaLakeColumnProjectionInfo::getType)
+        return projectionInfo.map(DeltaLakeColumnProjectionInfo::type)
                 .orElse(baseType);
     }
 
@@ -121,7 +123,7 @@ public record DeltaLakeColumnHandle(
     public String toString()
     {
         return qualifiedPhysicalName() +
-                ":" + projectionInfo.map(DeltaLakeColumnProjectionInfo::getType).orElse(baseType).getDisplayName() +
+                ":" + projectionInfo.map(DeltaLakeColumnProjectionInfo::type).orElse(baseType).getDisplayName() +
                 ":" + columnType;
     }
 
@@ -160,5 +162,10 @@ public record DeltaLakeColumnHandle(
     public static DeltaLakeColumnHandle mergeRowIdColumnHandle()
     {
         return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, OptionalInt.empty(), ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED, Optional.empty());
+    }
+
+    public static boolean isMetadataColumnHandle(DeltaLakeColumnHandle columnHandle)
+    {
+        return columnHandle.equals(fileModifiedTimeColumnHandle()) || columnHandle.equals(pathColumnHandle()) || columnHandle.equals(fileSizeColumnHandle());
     }
 }

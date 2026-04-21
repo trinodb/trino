@@ -16,6 +16,7 @@ package io.trino.execution.executor.timesharing;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
+import io.airlift.log.Logger;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.timesharing.SimulationTask.IntermediateTask;
@@ -35,6 +36,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class SimulationController
 {
+    private static final Logger log = Logger.get(SimulationController.class);
+
     private static final int DEFAULT_MIN_SPLITS_PER_TASK = 3;
 
     private final TimeSharingTaskExecutor taskExecutor;
@@ -63,7 +66,7 @@ class SimulationController
 
     public synchronized void clearPendingQueue()
     {
-        System.out.println("Clearing pending queue..");
+        log.info("Clearing pending queue..");
         clearPendingQueue.set(true);
     }
 
@@ -116,7 +119,7 @@ class SimulationController
                 return;
             }
 
-            System.out.println("Cleared pending queue.");
+            log.info("Clearing pending queue.");
             clearPendingQueue.set(false);
         }
 
@@ -151,9 +154,7 @@ class SimulationController
                 if (specification.getTotalTasks().isPresent() &&
                         specificationEnabled.get(specification) &&
                         specification.getTotalTasks().getAsInt() <= completedTasks.get(specification).size() + runningTasks.get(specification).size()) {
-                    System.out.println();
-                    System.out.println(specification.getName() + " disabled for reaching target count " + specification.getTotalTasks());
-                    System.out.println();
+                    log.info("\n%s disabled for reaching target count %s\n", specification.getName(), specification.getTotalTasks());
                     disableSpecification(specification);
                     continue;
                 }

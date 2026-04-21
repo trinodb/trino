@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -50,7 +50,7 @@ public class ArrayToJsonCast
 
     private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, Block.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private ArrayToJsonCast()
     {
@@ -82,7 +82,7 @@ public class ArrayToJsonCast
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeStartArray();
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     writer.writeJsonValue(jsonGenerator, block, i);

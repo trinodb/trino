@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Supplier;
@@ -84,7 +86,7 @@ public class ScanQueryPageSource
         // representations in JSON, but a single normalized representation as doc_field.
         List<String> documentFields = flattenFields(columns).entrySet().stream()
                 .filter(entry -> entry.getValue().equals(TIMESTAMP_MILLIS))
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableList());
 
         columnBuilders = columns.stream()
@@ -150,7 +152,7 @@ public class ScanQueryPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         long size = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
@@ -186,7 +188,7 @@ public class ScanQueryPageSource
             columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
         }
 
-        return new Page(blocks);
+        return SourcePage.create(new Page(blocks));
     }
 
     private static Map<String, Object> resolveField(Map<String, Object> document, OpenSearchColumnHandle columnHandle)
@@ -212,7 +214,7 @@ public class ScanQueryPageSource
         if (value == null) {
             Map<String, Object> result = new HashMap<>();
             String prefix = field + ".";
-            for (Map.Entry<String, Object> entry : document.entrySet()) {
+            for (Entry<String, Object> entry : document.entrySet()) {
                 String key = entry.getKey();
                 if (key.startsWith(prefix)) {
                     result.put(key.substring(prefix.length()), entry.getValue());
@@ -240,8 +242,8 @@ public class ScanQueryPageSource
 
     private void flattenFields(Map<String, Type> result, String fieldName, Type type)
     {
-        if (type instanceof RowType) {
-            for (RowType.Field field : ((RowType) type).getFields()) {
+        if (type instanceof RowType rowType) {
+            for (RowType.Field field : rowType.getFields()) {
                 flattenFields(result, appendPath(fieldName, field.getName().get()), field.getType());
             }
         }

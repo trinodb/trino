@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -69,6 +70,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -190,12 +192,14 @@ public class H2QueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         MaterializedResult materializedRows = new MaterializedResult(
+                Optional.of(session),
                 handle.setSqlParser(new RawSqlParser())
                         .setTemplateEngine((template, context) -> template)
                         .createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
-                resultTypes);
+                resultTypes,
+                ImmutableList.of());
 
         return materializedRows;
     }
@@ -270,6 +274,21 @@ public class H2QueryRunner
                     else {
                         row.add(doubleValue);
                     }
+                }
+                else if (type instanceof DecimalType decimalType) {
+                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
+                    if (resultSet.wasNull()) {
+                        row.add(null);
+                    }
+                    else {
+                        row.add(decimalValue
+                                .setScale(decimalType.getScale(), HALF_UP)
+                                .round(new MathContext(decimalType.getPrecision())));
+                    }
+                }
+                else if (NUMBER == type) {
+                    throw new UnsupportedOperationException("H2QueryRunner is incapable of testing queries involving Trino NUMBER. " +
+                            "H2's DECIMAL has similar capabilities to Trino's NUMBER, but syntax differs due to different type name and edge case values.");
                 }
                 else if (JSON.equals(type)) {
                     String stringValue = resultSet.getString(i);
@@ -357,17 +376,6 @@ public class H2QueryRunner
                     Object objectValue = resultSet.getObject(i);
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
-                }
-                else if (type instanceof DecimalType decimalType) {
-                    BigDecimal decimalValue = resultSet.getBigDecimal(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(decimalValue
-                                .setScale(decimalType.getScale(), HALF_UP)
-                                .round(new MathContext(decimalType.getPrecision())));
-                    }
                 }
                 else if (type instanceof ArrayType) {
                     Array array = resultSet.getArray(i);

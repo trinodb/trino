@@ -112,7 +112,7 @@ public class BenchmarkTupleDomainParquetPredicate
         domainFromDictionary(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkTupleDomainParquetPredicate.class).run();

@@ -17,5 +17,4 @@ public sealed interface RecordFieldReadAction
         permits
         SkipFieldRecordFieldReadAction,
         DefaultValueFieldRecordFieldReadAction,
-        ReadFieldAction
-{}
+        ReadFieldAction {}

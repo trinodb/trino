@@ -14,11 +14,9 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -66,16 +64,6 @@ public record BigQuerySplit(
     static BigQuerySplit emptyProjection(long numberOfRows)
     {
         return new BigQuerySplit(STORAGE, "", "", ImmutableList.of(), numberOfRows, Optional.empty(), OptionalInt.of(0));
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of(
-                "mode", mode.name(),
-                "filter", filter.orElse(""),
-                "streamName", streamName,
-                "emptyRowsToGenerate", String.valueOf(emptyRowsToGenerate));
     }
 
     @Override

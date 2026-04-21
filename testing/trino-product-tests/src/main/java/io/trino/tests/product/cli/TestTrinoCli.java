@@ -91,8 +91,7 @@ public class TestTrinoCli
     private String jdbcUser;
 
     public TestTrinoCli()
-            throws IOException
-    {}
+            throws IOException {}
 
     @AfterMethodWithContext
     @Override
@@ -113,10 +112,10 @@ public class TestTrinoCli
             throws IOException
     {
         launchTrinoCli("--version");
-        assertThat(trino.readRemainingOutputLines()).containsExactly("Trino CLI " + readPrestoCliVersion());
+        assertThat(trino.readRemainingOutputLines()).containsExactly("Trino CLI " + readTrinoCliVersion());
     }
 
-    private static String readPrestoCliVersion()
+    private static String readTrinoCliVersion()
     {
         try {
             String version = Resources.toString(Resources.getResource("trino-cli-version.txt"), UTF_8).trim();

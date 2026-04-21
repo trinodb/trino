@@ -17,12 +17,16 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import org.apache.orc.OrcProto;
 import org.apache.orc.protobuf.ByteString;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 
@@ -115,6 +119,34 @@ public class TestOrcMetadataReader
                 assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(maxSlice);
             }
         }
+    }
+
+    @Test
+    void testToStripeInformationLargeRowCount()
+            throws IOException
+    {
+        OrcProto.StripeInformation stripe = OrcProto.StripeInformation.newBuilder()
+                .setNumberOfRows(2 * (long) Integer.MAX_VALUE)
+                .setOffset(0)
+                .setIndexLength(100)
+                .setDataLength(200)
+                .setFooterLength(50)
+                .build();
+
+        OrcProto.Type.Builder typeBigInt = OrcProto.Type.newBuilder()
+                .setKind(OrcProto.Type.Kind.LONG);
+
+        OrcProto.Footer footer = OrcProto.Footer.newBuilder()
+                .addTypes(OrcProto.Type.newBuilder().setKind(OrcProto.Type.Kind.STRUCT))
+                .addTypes(typeBigInt)
+                .addTypes(typeBigInt)
+                .addAllStripes(List.of(stripe))
+                .build();
+        InputStream input = new ByteArrayInputStream(footer.toByteArray());
+
+        OrcMetadataReader orcMetadataReader = new OrcMetadataReader(new OrcReaderOptions());
+        Footer actualFooter = orcMetadataReader.readFooter(ORIGINAL, input);
+        assertThat(actualFooter.getStripes().getFirst().getNumberOfRows()).isEqualTo(stripe.getNumberOfRows());
     }
 
     private static final Slice STRING_APPLE = utf8Slice("apple");

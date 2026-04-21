@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
@@ -26,7 +27,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DummySpillerFactory
         implements SpillerFactory
@@ -41,11 +42,11 @@ public class DummySpillerFactory
             private final List<Iterable<Page>> spills = new ArrayList<>();
 
             @Override
-            public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+            public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
             {
                 spillsCount++;
                 spills.add(ImmutableList.copyOf(pageIterator));
-                return immediateVoidFuture();
+                return immediateFuture(DataSize.ofBytes(0));
             }
 
             @Override

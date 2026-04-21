@@ -71,7 +71,7 @@ class ThriftTableMetadata
     {
         Set<String> keyColumns = indexableColumns.stream()
                 .map(ThriftColumnHandle.class::cast)
-                .map(ThriftColumnHandle::getColumnName)
+                .map(ThriftColumnHandle::columnName)
                 .collect(toImmutableSet());
         return indexableKeys.contains(keyColumns);
     }

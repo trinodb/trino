@@ -50,7 +50,9 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -142,7 +144,7 @@ public class CheckpointWriter
 
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(columnTypes, columnNames, false, false);
 
-        ParquetWriter writer = new ParquetWriter(
+        ParquetWriter parquetWriter = new ParquetWriter(
                 outputFile.create(),
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
@@ -154,25 +156,69 @@ public class CheckpointWriter
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
 
-        writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry());
-        writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry());
-        for (TransactionEntry transactionEntry : entries.transactionEntries()) {
-            writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
-        }
-        List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
-        List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
-                .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
-                .collect(toImmutableList());
-        for (AddFileEntry addFileEntry : entries.addFileEntries()) {
-            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.metadataEntry(), entries.protocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
-        }
-        for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
-            writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
+        try (CheckpointPageWriter writer = new CheckpointPageWriter(parquetWriter, pageBuilder)) {
+            writer.addEntry(_ -> writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry()));
+            writer.addEntry(_ -> writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry()));
+            for (TransactionEntry transactionEntry : entries.transactionEntries()) {
+                writer.addEntry(_ -> writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry));
+            }
+            List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
+            List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
+                    .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
+                    .collect(toImmutableList());
+            for (AddFileEntry addFileEntry : entries.addFileEntries()) {
+                writer.addEntry(_ -> writeAddFileEntry(
+                        pageBuilder,
+                        addEntryType,
+                        addFileEntry,
+                        entries.metadataEntry(),
+                        entries.protocolEntry(),
+                        partitionColumns,
+                        partitionValuesParsedFieldTypes,
+                        writeStatsAsJson,
+                        writeStatsAsStruct));
+            }
+            for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
+                writer.addEntry(_ -> writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry));
+            }
         }
         // Not writing commit infos for now. DB does not keep them in the checkpoints by default
+    }
 
-        writer.write(pageBuilder.build());
-        writer.close();
+    private record CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
+            implements AutoCloseable
+    {
+        private CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
+        {
+            this.writer = requireNonNull(writer, "writer is null");
+            this.pageBuilder = requireNonNull(pageBuilder, "pageBuilder is null");
+        }
+
+        public void addEntry(Consumer<PageBuilder> entryWriter)
+                throws IOException
+        {
+            entryWriter.accept(pageBuilder);
+            if (pageBuilder.isFull()) {
+                flush();
+            }
+        }
+
+        private void flush()
+                throws IOException
+        {
+            if (!pageBuilder.isEmpty()) {
+                writer.write(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            flush();
+            writer.close();
+        }
     }
 
     private void writeMetadataEntry(PageBuilder pageBuilder, RowType entryType, MetadataEntry metadataEntry)
@@ -403,8 +449,8 @@ public class CheckpointWriter
             writeString(builders.get(0), type, 0, "storageType", deletionVector.get().storageType());
             writeString(builders.get(1), type, 1, "pathOrInlineDv", deletionVector.get().pathOrInlineDv());
             writeLong(builders.get(2), type, 2, "offset", (long) deletionVector.get().offset().orElse(0));
-            writeLong(builders.get(4), type, 4, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
-            writeLong(builders.get(5), type, 5, "cardinality", deletionVector.get().cardinality());
+            writeLong(builders.get(3), type, 3, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
+            writeLong(builders.get(4), type, 4, "cardinality", deletionVector.get().cardinality());
         });
     }
 
@@ -450,7 +496,7 @@ public class CheckpointWriter
 
                     return values.entrySet().stream()
                             .collect(toMap(
-                                    Map.Entry::getKey,
+                                    Entry::getKey,
                                     entry -> {
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
@@ -477,7 +523,7 @@ public class CheckpointWriter
                 values ->
                         values.entrySet().stream()
                                 .collect(toMap(
-                                        Map.Entry::getKey,
+                                        Entry::getKey,
                                         entry -> {
                                             Object value = entry.getValue();
                                             if (value instanceof Integer) {
@@ -547,7 +593,7 @@ public class CheckpointWriter
         }
         MapType mapType = (MapType) field.getType();
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBlockBuilder, valueBlockBuilder) -> {
-            for (Map.Entry<String, String> entry : values.entrySet()) {
+            for (Entry<String, String> entry : values.entrySet()) {
                 mapType.getKeyType().writeSlice(keyBlockBuilder, utf8Slice(entry.getKey()));
                 if (entry.getValue() == null) {
                     valueBlockBuilder.appendNull();

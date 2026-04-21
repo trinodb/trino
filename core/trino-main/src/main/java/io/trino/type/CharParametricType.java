@@ -48,15 +48,14 @@ public class CharParametricType
 
         TypeParameter parameter = parameters.get(0);
 
-        if (!parameter.isLongLiteral()) {
+        if (!(parameter instanceof TypeParameter.Numeric(long value))) {
             throw new IllegalArgumentException("CHAR length must be a number");
         }
 
-        long length = parameter.getLongLiteral();
-        if (length < 0 || length > CharType.MAX_LENGTH) {
-            throw new IllegalArgumentException("Invalid CHAR length " + length);
+        if (value < 0 || value > CharType.MAX_LENGTH) {
+            throw new IllegalArgumentException("Invalid CHAR length " + value);
         }
 
-        return createCharType(toIntExact(length));
+        return createCharType(toIntExact(value));
     }
 }

@@ -71,7 +71,7 @@ public class BenchmarkBoxedBoolean
     public void identity(BenchmarkData data, Blackhole blackhole)
     {
         for (int i = 0; i < ARRAY_SIZE; i++) {
-            if (TRUE == data.constants[i]) {
+            if (TRUE.equals(data.constants[i])) {
                 blackhole.consume(0xDEADBEAF);
             }
             else {
@@ -143,7 +143,7 @@ public class BenchmarkBoxedBoolean
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkBoxedBoolean.class)

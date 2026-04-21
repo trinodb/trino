@@ -50,12 +50,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -112,8 +114,7 @@ abstract class BaseTestHiveOnDataLake
                                 .put("hive.metastore-refresh-interval", "1d")
                                 // This is required to reduce memory pressure to test writing large files
                                 .put("s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
-                                // This is required to enable AWS Athena partition projection
-                                .put("hive.partition-projection-enabled", "true")
+                                .put("hive.hive-views.enabled", "true")
                                 .buildOrThrow())
                 .build();
     }
@@ -133,6 +134,37 @@ abstract class BaseTestHiveOnDataLake
             throws Exception
     {
         hiveMinioDataLake.close();
+    }
+
+    @Test
+    public void testHiveViewColumnComment()
+    {
+        String tableName = "default.test_with_column_comment" + randomNameSuffix();
+        String viewName = "default.test_view_with_column_comment" + randomNameSuffix();
+        String partitionedViewName = "default.test_partitioned_view_with_column_comment" + randomNameSuffix();
+
+        hiveMinioDataLake.runOnHive(format("CREATE TABLE %s(id int, name string) PARTITIONED BY (ds date)", tableName));
+        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(id, name COMMENT 'comment', ds COMMENT 'test comment') AS SELECT * FROM %s", viewName, tableName));
+        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(name COMMENT 'comment', ds COMMENT 'test comment') PARTITIONED ON (ds) AS SELECT name, ds FROM %s", partitionedViewName, tableName));
+
+        assertThat(query("DESCRIBE " + viewName)).result()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row("id", "integer", "", "")
+                        .row("name", "varchar", "", "comment")
+                        .row("ds", "date", "", "test comment")
+                        .build());
+
+        assertThat(query("DESCRIBE " + partitionedViewName)).result()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row("name", "varchar", "", "comment")
+                        .row("ds", "date", "", "test comment")
+                        .build());
+
+        assertUpdate("DROP VIEW " + viewName);
+        assertUpdate("DROP VIEW " + partitionedViewName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -251,6 +283,131 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    public void testUpdateStatisticInsertOverwritePartitionedTable()
+    {
+        String partitionValue = "0";
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String tableName = "test_statistic" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        computeActual(getCreateTableStatement(
+                testTable,
+                "partitioned_by=ARRAY['regionkey']"));
+        copyTpchNationToTable(session, testTable);
+        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
+        Partition partition = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
+        Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
+                HIVE_TEST_SCHEMA,
+                tableName,
+                ImmutableSet.of("regionkey=0"),
+                partition.getColumns().stream().map(Column::getName).collect(toSet()));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(16));
+
+        assertUpdate(session, "INSERT INTO " + testTable + "(name, comment, nationkey, regionkey) values ('name1', 'comment1', 20, 0)", 1);
+
+        partitionStatistics = metastoreClient.getPartitionColumnStatistics(
+                HIVE_TEST_SCHEMA,
+                tableName,
+                ImmutableSet.of("regionkey=0"),
+                partition.getColumns().stream().map(Column::getName).collect(toSet()));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(20));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(20));
+    }
+
+    /**
+     * Regression test for <a href="https://github.com/trinodb/trino/issues/28330">#28330</a>
+     */
+    @Test
+    public void testUpdateStatisticInsertOverwritePartitionedTableTimestamp()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String tableName = "test_statistic_overwrite_timestamp" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        assertUpdate(session, "CREATE TABLE " + testTable + "(" +
+                "    history_batch_timestamp TIMESTAMP, " +
+                "    dt VARCHAR  ) " +
+                "WITH (partitioned_by=ARRAY['dt'])");
+
+        // First insert - verify statistics are collected
+        assertUpdate(session, "INSERT INTO " + testTable + "(history_batch_timestamp, dt) VALUES " +
+                "(TIMESTAMP '2026-02-03 10:00:00', '2026-02-03')", 1);
+
+        // Verify statistics after first insert
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM " + testTable + " WHERE dt = '2026-02-03')",
+                """
+                VALUES
+                    ('history_batch_timestamp', null, 1.0, 0.0, null, '2026-02-03 10:00:00.000', '2026-02-03 10:00:00.000'),
+                    ('dt', 10.0, 1.0, 0.0, null, null, null),
+                    (null, null, null, null, 1.0, null, null)
+                """);
+
+        // Second insert with different timestamp - should overwrite
+        assertUpdate(session, "INSERT INTO " + testTable + "(history_batch_timestamp, dt) VALUES " +
+                "(TIMESTAMP '2026-02-03 15:30:00', '2026-02-03')", 1);
+
+        // Verify statistics are updated after overwrite (not appended)
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM " + testTable + " WHERE dt = '2026-02-03')",
+                """
+                VALUES
+                    ('history_batch_timestamp', null, 1.0, 0.0, null, '2026-02-03 15:30:00.000', '2026-02-03 15:30:00.000'),
+                    ('dt', 10.0, 1.0, 0.0, null, null, null),
+                    (null, null, null, null, 1.0, null, null)
+                """);
+
+        // Verify only one row exists (confirming overwrite, not append)
+        assertQuery("SELECT COUNT(*) FROM " + testTable, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + testTable);
+    }
+
+    @Test
+    public void testUpdateStatisticInsertAppendPartitionedTable()
+    {
+        String partitionValue = "0";
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String tableName = "test_statistic" + randomNameSuffix();
+        String testTable = getFullyQualifiedTestTableName(tableName);
+        computeActual(session, getCreateTableStatement(
+                testTable,
+                "partitioned_by=ARRAY['regionkey']"));
+        copyTpchNationToTable(session, testTable);
+        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
+        Partition partition = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
+        Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
+                HIVE_TEST_SCHEMA,
+                tableName,
+                ImmutableSet.of("regionkey=0"),
+                partition.getColumns().stream().map(Column::getName).collect(toSet()));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(16));
+
+        computeActual(session, "INSERT INTO " + testTable + "(name, comment, nationkey, regionkey) values ('name1', 'comment1', 20, 0)");
+
+        partitionStatistics = metastoreClient.getPartitionColumnStatistics(
+                HIVE_TEST_SCHEMA,
+                tableName,
+                ImmutableSet.of("regionkey=0"),
+                partition.getColumns().stream().map(Column::getName).collect(toSet()));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
+        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(20));
+    }
+
+    @Test
     public void testSyncPartitionCaseSensitivePathVariation()
     {
         String tableName = "test_sync_partition_case_variation_" + randomNameSuffix();
@@ -339,14 +496,14 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(
                 "SELECT * FROM " + fullyQualifiedTestTableName,
                 """
-                    VALUES
-                            ('Trino', 'rocks', 'hyphens', 'with-hyphen'),
-                            ('Trino', 'rocks', 'dots', 'with.dot'),
-                            ('Trino', 'rocks', 'colons', 'with:colon'),
-                            ('Trino', 'rocks', 'slashes', 'with/slash'),
-                            ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
-                            ('Trino', 'rocks', 'percents', 'with%percent')
-                    """);
+                VALUES
+                        ('Trino', 'rocks', 'hyphens', 'with-hyphen'),
+                        ('Trino', 'rocks', 'dots', 'with.dot'),
+                        ('Trino', 'rocks', 'colons', 'with:colon'),
+                        ('Trino', 'rocks', 'slashes', 'with/slash'),
+                        ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
+                        ('Trino', 'rocks', 'percents', 'with%percent')
+                """);
 
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
@@ -888,6 +1045,231 @@ abstract class BaseTestHiveOnDataLake
     }
 
     @Test
+    void testReadDatePartitionProjectionWithFormat()
+    {
+        String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s/", HIVE_TEST_SCHEMA, tableName);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy/M/dd HH@mm@ss', " +
+                        "    partition_projection_range=ARRAY['2025/1/20 00@00@00', '2025/1/21 00@00@00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  format='TEXTFILE')");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.format[ |]+yyyy/MM/dd[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.interval.unit[ |]+days[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.range[ |]+2025/01/01,2025/01/30[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.format[ |]+yyyy/M/dd HH@mm@ss[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.interval.unit[ |]+hours[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.range[ |]+2025/1/20 00@00@00,2025/1/21 00@00@00[ |]+");
+
+        byte[] row1 = "POLAND_1\u0001Comment".getBytes(UTF_8);
+        byte[] row2 = "POLAND_2\u0001Comment".getBytes(UTF_8);
+        byte[] row3 = "CZECH_2\u0001Comment".getBytes(UTF_8);
+        List<String> columns = ImmutableList.of("dt", "ts");
+        // row : ("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 01:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row1, tablePath + makePartName(columns, ImmutableList.of("2025/01/23", "2025/1/20 01@00@00")) + "/data.txt");
+        // row : ("'POLAND_2'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 02:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row2, tablePath + makePartName(columns, ImmutableList.of("2025/01/23", "2025/1/20 02@00@00")) + "/data.txt");
+        // row: ("'CZECH_2'", "'Comment'", "DATE '2025-1-24'", "TIMESTAMP '2025-1-20 10:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row3, tablePath + makePartName(columns, ImmutableList.of("2025/01/24", "2025/1/20 10@00@00")) + "/data.txt");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE name = 'POLAND_1'", "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23'",
+                "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')," +
+                        "('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23' AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt IN (DATE '2025-01-23', DATE '2025-01-24', DATE '2025-01-25') AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')," +
+                        "('CZECH_2', 'Comment', DATE '2025-1-24', TIMESTAMP '2025-1-20 10:00:00')");
+    }
+
+    @Test
+    void testReadDatePartitionProjectionWithFormatAndLocationTemplate()
+    {
+        String tableName = "partition_projection_read_custom_date" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationTemplate = format("s3://%s/%s/xxx/${dt}/${ts}-xyz", bucketName, tablePath);
+        String projectionLocationValueFormat = tablePath + "/xxx/%s/%s-xyz";
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy/M/dd HH@mm@ss', " +
+                        "    partition_projection_range=ARRAY['2025/1/20 00@00@00', '2025/1/21 00@00@00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        "  partition_projection_location_template='%s',".formatted(projectionLocationTemplate) +
+                        "  format='TEXTFILE')");
+
+        assertThat(
+                hiveMinioDataLake
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.format[ |]+yyyy/MM/dd[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.interval.unit[ |]+days[ |]+")
+                .containsPattern("[ |]+projection\\.dt\\.range[ |]+2025/01/01,2025/01/30[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.type[ |]+date[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.format[ |]+yyyy/M/dd HH@mm@ss[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.interval.unit[ |]+hours[ |]+")
+                .containsPattern("[ |]+projection\\.ts\\.range[ |]+2025/1/20 00@00@00,2025/1/21 00@00@00[ |]+");
+
+        byte[] row1 = "POLAND_1\u0001Comment".getBytes(UTF_8);
+        byte[] row2 = "POLAND_2\u0001Comment".getBytes(UTF_8);
+        byte[] row3 = "CZECH_2\u0001Comment".getBytes(UTF_8);
+        // row : ("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 01:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row1, projectionLocationValueFormat.formatted("2025/01/23", "2025/1/20 01@00@00") + "/data.txt");
+        // row : ("'POLAND_2'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-1-20 02:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row2, projectionLocationValueFormat.formatted("2025/01/23", "2025/1/20 02@00@00") + "/data.txt");
+        // row: ("'CZECH_2'", "'Comment'", "DATE '2025-1-24'", "TIMESTAMP '2025-1-20 10:00:00'")
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, row3, projectionLocationValueFormat.formatted("2025/01/24", "2025/1/20 10@00@00") + "/data.txt");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE name = 'POLAND_1'", "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')");
+
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23'",
+                "VALUES ('POLAND_1', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 01:00:00')," +
+                        "('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt = DATE '2025-01-23' AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName + " WHERE dt IN (DATE '2025-01-23', DATE '2025-01-24', DATE '2025-01-25') AND ts > TIMESTAMP '2025-1-20 01:00:00'",
+                "VALUES ('POLAND_2', 'Comment', DATE '2025-01-23', TIMESTAMP '2025-01-20 02:00:00')," +
+                        "('CZECH_2', 'Comment', DATE '2025-1-24', TIMESTAMP '2025-1-20 10:00:00')");
+    }
+
+    @Test
+    void testWriteNotSupportedWithCustomProjection()
+    {
+        String tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tablePath = format("%s/%s", HIVE_TEST_SCHEMA, tableName);
+        String projectionLocationPrefix = format("s3://%s/%s/", bucketName, tablePath);
+
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy/MM/dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025/01/01', '2025/01/30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt'], " +
+                        "  partition_projection_enabled=true)");
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'")))))
+                .failure()
+                .hasMessage("Writing to date partition projection column 'dt' with format 'yyyy/MM/dd' is not supported");
+
+        tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy-MM-dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025-01-01', '2025-01-30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-M-dd HH:mm:ss', " +
+                        "    partition_projection_range=ARRAY['2025-1-20 00:00:00', '2025-1-21 00:00:00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        // wrong pattern
+                        "  partition_projection_location_template='%s')".formatted(projectionLocationPrefix + "${dt}/${ts}"));
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-01-20 10:10:10'")))))
+                .failure()
+                .hasMessage("Partition projection with storage location template is not compatible with Hive");
+
+        tableName = "partition_write_not_support_custom_" + randomNameSuffix();
+        fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        computeActual(
+                "CREATE TABLE " + fullyQualifiedTestTableName + " ( " +
+                        "  name varchar(25), " +
+                        "  comment varchar(152), " +
+                        "  dt DATE WITH (" +
+                        "    partition_projection_format='yyyy-MM-dd',\n" +
+                        "    partition_projection_interval=1,\n" +
+                        "    partition_projection_interval_unit='DAYS', \n" +
+                        "    partition_projection_range=ARRAY['2025-01-01', '2025-01-30'], \n" +
+                        "    partition_projection_type='date'" +
+                        "  ), " +
+                        "  ts timestamp WITH (" +
+                        "    partition_projection_type='date', " +
+                        "    partition_projection_format='yyyy-M-dd HH:mm:ss', " +
+                        "    partition_projection_range=ARRAY['2025-1-20 00:00:00', '2025-1-21 00:00:00'], " +
+                        "    partition_projection_interval=1, " +
+                        "    partition_projection_interval_unit='HOURS'" +
+                        "  )" +
+                        ") WITH ( " +
+                        "  partitioned_by=ARRAY['dt','ts'], " +
+                        "  partition_projection_enabled=true, " +
+                        // wrong order
+                        "  partition_projection_location_template='%s')".formatted(projectionLocationPrefix + "ts=${ts}/dt=${dt}"));
+        assertThat(query(createInsertStatement(
+                fullyQualifiedTestTableName,
+                ImmutableList.of(ImmutableList.of("'POLAND_1'", "'Comment'", "DATE '2025-1-23'", "TIMESTAMP '2025-01-20 10:10:10'")))))
+                .failure()
+                .hasMessage("Partition projection with storage location template is not compatible with Hive");
+    }
+
+    @Test
     public void testDatePartitionProjectionOnDateColumnWithDefaults()
     {
         String tableName = "nation_" + randomNameSuffix();
@@ -906,7 +1288,7 @@ abstract class BaseTestHiveOnDataLake
                         "  short_name2 date WITH (" +
                         "    partition_projection_type='date', " +
                         "    partition_projection_format='yyyy-MM-dd', " +
-                        "    partition_projection_range=ARRAY['2001-1-22', '2001-1-25']" +
+                        "    partition_projection_range=ARRAY['2001-01-22', '2001-01-25']" +
                         "  )" +
                         ") WITH ( " +
                         "  partitioned_by=ARRAY['short_name1', 'short_name2'], " +
@@ -921,7 +1303,7 @@ abstract class BaseTestHiveOnDataLake
                 .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy-MM-dd[ |]+")
-                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-1-22,2001-1-25[ |]+");
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-01-22,2001-01-25[ |]+");
 
         computeActual(createInsertStatement(
                 fullyQualifiedTestTableName,
@@ -981,7 +1363,7 @@ abstract class BaseTestHiveOnDataLake
                         "  short_name2 timestamp WITH (" +
                         "    partition_projection_type='date', " +
                         "    partition_projection_format='yyyy-MM-dd HH:mm:ss', " +
-                        "    partition_projection_range=ARRAY['2001-1-22 00:00:00', '2001-1-22 00:00:06'], " +
+                        "    partition_projection_range=ARRAY['2001-01-22 00:00:00', '2001-01-22 00:00:06'], " +
                         "    partition_projection_interval=2, " +
                         "    partition_projection_interval_unit='SECONDS'" +
                         "  )" +
@@ -998,7 +1380,7 @@ abstract class BaseTestHiveOnDataLake
                 .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy-MM-dd HH:mm:ss[ |]+")
-                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-1-22 00:00:00,2001-1-22 00:00:06[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-01-22 00:00:00,2001-01-22 00:00:06[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.interval[ |]+2[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.interval\\.unit[ |]+seconds[ |]+");
 
@@ -1434,10 +1816,13 @@ abstract class BaseTestHiveOnDataLake
                 format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'", fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
-        assertThatThrownBy(
-                () -> getQueryRunner().execute(
-                        format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName)))
-                .hasMessage("Column projection for column 'short_name2' failed. Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 IN ('001', '003')", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_1', 'CZECH_1'");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_1', 'POLAND_2'");
 
         assertThatThrownBy(
                 () -> getQueryRunner().execute(
@@ -1549,7 +1934,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text '2001-01-01' could not be parsed at index 10");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1564,7 +1949,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"NOW*3DAYS\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text 'NOW*3DAYS' could not be parsed at index 0");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1670,7 +2055,7 @@ abstract class BaseTestHiveOnDataLake
         // Expect invalid Partition Projection properties to fail
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + fullyQualifiedTestTableName))
                 .hasMessage("Column projection for column 'date_time' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text '2001-01-01' could not be parsed at index 10");
 
         // Append kill switch table property to ignore Partition Projection properties
         hiveMinioDataLake.runOnHive(
@@ -1723,11 +2108,11 @@ abstract class BaseTestHiveOnDataLake
         assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName), 4);
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
                 """
-                        VALUES
-                            ('a_varchar', 4.0, 2.0, 0.0, null, null, null),
-                            ('month', null, 3.0, 0.0, null, 1, 3),
-                            (null, null, null, null, 4.0, null, null)
-                        """);
+                VALUES
+                    ('a_varchar', 4.0, 2.0, 0.0, null, null, null),
+                    ('month', null, 3.0, 0.0, null, 1, 3),
+                    (null, null, null, null, 4.0, null, null)
+                """);
 
         assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES ('E', '04')", 1);
         addPartitions(
@@ -1740,13 +2125,13 @@ abstract class BaseTestHiveOnDataLake
         assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['04']])", 1);
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(externalTableName),
                 """
-                        VALUES
-                            ('a_varchar', 5.0, 2.0, 0.0, null, null, null),
-                            ('month', null, 4.0, 0.0, null, 1, 4),
-                            (null, null, null, null, 5.0, null, null)
-                        """);
+                VALUES
+                    ('a_varchar', 5.0, 2.0, 0.0, null, null, null),
+                    ('month', null, 4.0, 0.0, null, 1, 4),
+                    (null, null, null, null, 5.0, null, null)
+                """);
         // TODO (https://github.com/trinodb/trino/issues/15998) fix selective ANALYZE for table with non-canonical partition values
-        assertQueryFails("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['4']])", ".*Partition.*not found.*");
+        assertQueryFails("ANALYZE " + getFullyQualifiedTestTableName(externalTableName) + " WITH (partitions = ARRAY[ARRAY['4']])", "Partition month=4 no longer exists.*");
 
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(externalTableName));
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
@@ -1936,23 +2321,23 @@ abstract class BaseTestHiveOnDataLake
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 1, 12),
-                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 1, 12),
+                    ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 3.0, null, null)
+                """);
 
         assertUpdate(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName));
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 2, 12),
-                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 3.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 2, 12),
+                    ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 3.0, null, null)
+                """);
 
         assertUpdate("DELETE FROM " + getFullyQualifiedTestTableName(tableName) + " WHERE p_varchar ='part1' and p_integer = 10");
 
@@ -1962,12 +2347,12 @@ abstract class BaseTestHiveOnDataLake
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
-                        VALUES
-                            ('data', null, 1.0, 0.0, null, 2, 12),
-                            ('p_varchar', 10.0, 1.0, 0.0, null, null, null),
-                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
-                            (null, null, null, null, 2.0, null, null)
-                        """);
+                VALUES
+                    ('data', null, 1.0, 0.0, null, 2, 12),
+                    ('p_varchar', 10.0, 1.0, 0.0, null, null, null),
+                    ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                    (null, null, null, null, 2.0, null, null)
+                """);
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
     }
 
@@ -1990,6 +2375,100 @@ abstract class BaseTestHiveOnDataLake
         finally {
             hiveMinioDataLake.runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
         }
+    }
+
+    @Test
+    public void testSupportTimestampStatistics()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .build();
+        String testTable = HIVE_TEST_SCHEMA + ".test_timestamp_statistics" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + testTable + "(\n" +
+                "    VendorID BIGINT,\n" +
+                "    tpep_pickup_datetime TIMESTAMP,\n" +
+                "    tpep_dropoff_datetime TIMESTAMP,\n" +
+                "    passenger_count DOUBLE,\n" +
+                "    trip_distance DOUBLE,\n" +
+                "    payment_type BIGINT,\n" +
+                "    Fare_amount DOUBLE,\n" +
+                "    Tip_amount DOUBLE,\n" +
+                "    Total_amount DOUBLE\n" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + testTable + " VALUES" +
+                "(1, TIMESTAMP '2025-09-19 11:00:00', TIMESTAMP '2025-09-19 10:10:00', 2, 3.5, 1, 10.0, 2.0, 12.0)," +
+                "(2, TIMESTAMP '2025-09-19 12:30:00', TIMESTAMP '2025-09-20 15:40:10', 4, 8.0, 2, 12.0, 5.0, 19.0)", 2);
+
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+        String expectedStatsAfterAnalyze =
+                """
+                VALUES
+                      ('vendorid', null, '2.0', '0.0', null, '1', '2'),
+                      ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:00.000'),
+                      ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:10.000'),
+                      ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
+                      ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
+                      ('payment_type', null, '2.0', '0.0', null, '1', '2'),
+                      ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
+                      ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
+                      ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
+                      (null, null, null, null, '2.0', null, null)
+                """;
+        assertQuery("SHOW STATS FOR " + testTable, expectedStatsAfterAnalyze);
+
+        // Call ANALYZE twice (regression test for https://github.com/trinodb/trino/issues/26214)
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+
+        assertQuery("SHOW STATS FOR " + testTable, expectedStatsAfterAnalyze);
+
+        assertUpdate(session, "DROP TABLE " + testTable);
+    }
+
+    @Test
+    public void testSupportTimestampStatisticsWithNanoseconds()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
+                .setCatalogSessionProperty("hive", "timestamp_precision", "NANOSECONDS")
+                .build();
+        String testTable = HIVE_TEST_SCHEMA + ".test_timestamp_statistics" + randomNameSuffix();
+        assertUpdate(session, "CREATE TABLE " + testTable + "(\n" +
+                "    VendorID BIGINT,\n" +
+                "    tpep_pickup_datetime TIMESTAMP(9),\n" +
+                "    tpep_dropoff_datetime TIMESTAMP(9),\n" +
+                "    passenger_count DOUBLE,\n" +
+                "    trip_distance DOUBLE,\n" +
+                "    payment_type BIGINT,\n" +
+                "    Fare_amount DOUBLE,\n" +
+                "    Tip_amount DOUBLE,\n" +
+                "    Total_amount DOUBLE\n" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + testTable + " VALUES" +
+                "(1, TIMESTAMP '2025-09-19 11:00:00.555555', TIMESTAMP '2025-09-19 10:10:00.123456', 2, 3.5, 1, 10.0, 2.0, 12.0)," +
+                "(2, TIMESTAMP '2025-09-19 12:30:00.555555', TIMESTAMP '2025-09-20 15:40:10.123456', 4, 8.0, 2, 12.0, 5.0, 19.0)", 2);
+
+        assertUpdate(session, "ANALYZE " + testTable, 2);
+
+        assertQuery(
+                "SHOW STATS FOR " + testTable,
+                """
+                        VALUES
+                              ('vendorid', null, '2.0', '0.0', null, '1', '2'),
+                              ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:01.000'),
+                              ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:11.000'),
+                              ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
+                              ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
+                              ('payment_type', null, '2.0', '0.0', null, '1', '2'),
+                              ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
+                              ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
+                              ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
+                              (null, null, null, null, '2.0', null, null)
+                        """);
+
+        assertUpdate(session, "DROP TABLE " + testTable);
     }
 
     @Test
@@ -2211,15 +2690,19 @@ abstract class BaseTestHiveOnDataLake
                 tableName);
     }
 
-    protected void copyTpchNationToTable(String testTable)
+    protected void copyTpchNationToTable(String testTable) {
+        copyTpchNationToTable(getSession(), testTable);
+    }
+
+    protected void copyTpchNationToTable(Session session, String testTable)
     {
-        computeActual(format("INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation"));
+        computeActual(session, "INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation");
     }
 
     private void testWriteWithFileSize(String testTable, int scaleFactorInThousands, long fileSizeRangeStart, long fileSizeRangeEnd)
     {
         String scaledColumnExpression = format("array_join(transform(sequence(1, %d), x-> array_join(repeat(comment, 1000), '')), '')", scaleFactorInThousands);
-        computeActual(format("INSERT INTO " + testTable + " SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", scaledColumnExpression, scaledColumnExpression));
+        computeActual(format("INSERT INTO %s SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", testTable, scaledColumnExpression, scaledColumnExpression));
         query(format("SELECT length(col1) FROM %s", testTable))
                 .assertThat()
                 .result()

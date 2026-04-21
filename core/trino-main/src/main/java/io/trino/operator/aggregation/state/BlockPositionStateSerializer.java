@@ -41,7 +41,8 @@ public class BlockPositionStateSerializer
             out.appendNull();
         }
         else {
-            type.appendTo(state.getBlock(), state.getPosition(), out);
+            Block block = state.getBlock();
+            out.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(state.getPosition()));
         }
     }
 

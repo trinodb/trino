@@ -15,6 +15,7 @@ package io.trino.hive.formats;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ import java.time.LocalDate;
 import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
+import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +33,7 @@ public class TestHiveFormatUtils
     @Test
     public void test()
     {
+        assertThat(parseHiveTimestamp("2024-11-28 21:04:54.982 ")).isEqualTo(new DecodedTimestamp(1732827894, 982000000));
         assertThat(parseHiveDate("5881580-07-11")).isEqualTo(LocalDate.of(5881580, 7, 11));
         assertThat(parseHiveDate("+5881580-07-11")).isEqualTo(LocalDate.of(5881580, 7, 11));
         assertThat(parseHiveDate("-5877641-06-23")).isEqualTo(LocalDate.of(-5877641, 6, 23));

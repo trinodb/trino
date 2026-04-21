@@ -28,6 +28,7 @@ import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
@@ -47,6 +48,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -214,7 +216,7 @@ public class GlobalFunctionCatalog
 
     public static boolean isBuiltinFunctionName(CatalogSchemaFunctionName functionName)
     {
-        return functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(BUILTIN_SCHEMA);
+        return functionName.catalogName().equals(GlobalSystemConnector.NAME) && functionName.schemaName().equals(BUILTIN_SCHEMA);
     }
 
     public static CatalogSchemaFunctionName builtinFunctionName(OperatorType operatorType)
@@ -265,7 +267,7 @@ public class GlobalFunctionCatalog
             this.functionsByLowerCaseName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<String, Collection<FunctionMetadata>> entry : this.functionsByLowerCaseName.asMap().entrySet()) {
+            for (Entry<String, Collection<FunctionMetadata>> entry : this.functionsByLowerCaseName.asMap().entrySet()) {
                 Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(FunctionMetadata::getKind)

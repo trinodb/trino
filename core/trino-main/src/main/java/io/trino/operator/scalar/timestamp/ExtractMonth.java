@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Month of the year of the given timestamp")
-@ScalarFunction("month")
-public class ExtractMonth
+@ScalarFunction(value = "month", neverFails = true)
+public final class ExtractMonth
 {
     private ExtractMonth() {}
 

@@ -103,6 +103,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -257,17 +258,9 @@ public class BigQueryMetadata
 
     private List<SchemaTableName> listTablesInRemoteSchema(BigQueryClient client, String projectId, String remoteSchemaName)
     {
-        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         try {
             Iterable<TableId> tableIds = client.listTableIds(DatasetId.of(projectId, remoteSchemaName));
-            for (TableId tableId : tableIds) {
-                // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, tableId.getTable().toLowerCase(ENGLISH), tableIds)
-                        .filter(RemoteDatabaseObject::isAmbiguous)
-                        .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, tableId.getTable()),
-                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
-            }
+            return client.listNonAmbiguousSchemaTableNames(projectId, remoteSchemaName, tableIds);
         }
         catch (TrinoException e) {
             if (e.getErrorCode() == BIGQUERY_LISTING_TABLE_ERROR.toErrorCode() &&
@@ -276,12 +269,10 @@ public class BigQueryMetadata
                     bigQueryException.getMessage().contains("Not found: Dataset")) {
                 // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
                 log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+                return ImmutableList.of();
             }
-            else {
-                throw e;
-            }
+            throw e;
         }
-        return tableNames.build();
     }
 
     @Override
@@ -387,8 +378,8 @@ public class BigQueryMetadata
             //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
             List<String> sourceUris = externalTableDefinition.getSourceUris();
             return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
-                   isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
-                   (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
+                    isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
+                    (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
         }
         return false;
     }
@@ -734,7 +725,7 @@ public class BigQueryMetadata
                     targetTable.projectId(),
                     targetTable.datasetName(),
                     generateTemporaryTableName(session));
-            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, null)), Optional.empty());
+            createTable(client, pageSinkTable.projectId(), pageSinkTable.datasetName(), pageSinkTable.tableName(), ImmutableList.of(typeManager.toField(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, Optional.empty())), Optional.empty());
             closer.register(() -> bigQueryClientFactory.create(session).dropTable(pageSinkTable.toTableId()));
 
             insertIntoSinkTable(session, pageSinkTable, pageSinkIdColumnName, fragments);
@@ -850,7 +841,7 @@ public class BigQueryMetadata
             boolean replace,
             boolean ignoreExisting)
     {
-        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        // TODO Fix BaseBigQueryFailureRecoveryTest and TestBigQueryWithDifferentProjectIdConnectorSmokeTest when implementing this method
         ConnectorMetadata.super.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
     }
 
@@ -966,7 +957,7 @@ public class BigQueryMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<BigQueryColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 
@@ -1078,7 +1069,7 @@ public class BigQueryMetadata
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
 
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 BigQueryColumnHandle columnHandle = (BigQueryColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 if (columnHandle.isPushdownSupported()) {
@@ -1127,11 +1118,11 @@ public class BigQueryMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryHandle)) {
+        if (!(handle instanceof QueryHandle queryHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((QueryHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = queryHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }

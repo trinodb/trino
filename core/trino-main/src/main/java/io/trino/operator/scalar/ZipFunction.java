@@ -24,8 +24,8 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -68,7 +68,7 @@ public final class ZipFunction
                         .typeVariableConstraints(typeParameters.stream().map(TypeVariableConstraint::typeVariable).collect(toImmutableList()))
                         .returnType(arrayType(rowType(typeParameters.stream()
                                 .map(TypeSignature::new)
-                                .map(TypeSignatureParameter::anonymousField)
+                                .map(TypeParameter::anonymousField)
                                 .collect(toImmutableList()))))
                         .argumentTypes(typeParameters.stream()
                                 .map(name -> arrayType(new TypeSignature(name)))
@@ -104,12 +104,12 @@ public final class ZipFunction
         RowType rowType = RowType.anonymous(types);
         RowBlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
-            buildRow(types, outputBuilder, outputPosition, arrays);
+            buildRow(outputBuilder, outputPosition, arrays);
         }
         return outputBuilder.build();
     }
 
-    private static void buildRow(List<Type> types, RowBlockBuilder outputBuilder, int outputPosition, Block[] arrays)
+    private static void buildRow(RowBlockBuilder outputBuilder, int outputPosition, Block[] arrays)
     {
         outputBuilder.buildEntry(fieldBuilders -> {
             for (int fieldIndex = 0; fieldIndex < arrays.length; fieldIndex++) {
@@ -117,7 +117,8 @@ public final class ZipFunction
                     fieldBuilders.get(fieldIndex).appendNull();
                 }
                 else {
-                    types.get(fieldIndex).appendTo(arrays[fieldIndex], outputPosition, fieldBuilders.get(fieldIndex));
+                    Block block = arrays[fieldIndex];
+                    fieldBuilders.get(fieldIndex).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(outputPosition));
                 }
             }
         });

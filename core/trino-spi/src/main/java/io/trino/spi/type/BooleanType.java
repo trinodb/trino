@@ -20,11 +20,11 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
@@ -43,6 +43,7 @@ public final class BooleanType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "boolean";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(BooleanType.class, lookup(), boolean.class);
 
     private static final long TRUE_XX_HASH = XxHash64.hash(1);
@@ -69,7 +70,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class, ByteArrayBlock.class);
+        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -100,6 +101,12 @@ public final class BooleanType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;
@@ -118,24 +125,13 @@ public final class BooleanType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
         return getBoolean(block, position);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((ByteArrayBlockBuilder) blockBuilder).writeByte(getBoolean(block, position) ? (byte) 1 : 0);
-        }
     }
 
     @Override
@@ -178,7 +174,8 @@ public final class BooleanType
     private static boolean readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return fixedSizeSlice[fixedSizeOffset] != 0;
     }
@@ -186,10 +183,10 @@ public final class BooleanType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             boolean value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         fixedSizeSlice[fixedSizeOffset] = (byte) (value ? 1 : 0);
     }

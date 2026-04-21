@@ -35,7 +35,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@ScalarFunction("array_distinct")
+@ScalarFunction(value = "array_distinct", neverFails = true)
 @Description("Remove duplicate values from the given array")
 public final class ArrayDistinctFunction
 {
@@ -51,7 +51,6 @@ public final class ArrayDistinctFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block distinct(
-            @TypeParameter("E") Type type,
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
@@ -75,7 +74,6 @@ public final class ArrayDistinctFunction
         }
 
         BlockSet distinctElements = new BlockSet(
-                type,
                 elementIdentical,
                 elementHashCode,
                 array.getPositionCount());

@@ -63,7 +63,7 @@
 - Add support for Alluxio Catalog Service. ({issue}`2116`)
 - Remove unnecessary `hive.metastore.glue.use-instance-credentials` configuration property. ({issue}`3265`)
 - Remove unnecessary `hive.s3.use-instance-credentials` configuration property. ({issue}`3265`)
-- Add flexible {ref}`hive-s3-security-mapping`, allowing for separate credentials
+- Add flexible S3 security mapping, allowing for separate credentials
   or IAM roles for specific users or buckets/paths. ({issue}`3265`)
 - Add support for specifying an External ID for an IAM role trust policy using
   the `hive.metastore.glue.external-id` configuration property ({issue}`3144`)

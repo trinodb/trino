@@ -37,7 +37,7 @@ class TestFileSystemSpooledSegmentHandle
     public void testStorageIdentifierStability()
     {
         Instant expireAt = Instant.ofEpochMilli(90000);
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), context, expireAt);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), "nodeId", context, expireAt);
         assertThat(handle.identifier())
                 .isEqualTo("0000002QWG0G2081040G208104");
     }
@@ -45,9 +45,9 @@ class TestFileSystemSpooledSegmentHandle
     @Test
     public void testLexicalOrdering()
     {
-        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(1));
-        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(3));
-        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(2));
+        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, "nodeId", context, now.plusMillis(1));
+        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, "nodeId", context, now.plusMillis(3));
+        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, "nodeId", context, now.plusMillis(2));
 
         assertThat(handle2.identifier())
                 .isGreaterThan(handle1.identifier());

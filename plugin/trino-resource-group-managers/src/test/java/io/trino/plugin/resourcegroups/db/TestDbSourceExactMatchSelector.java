@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.resourcegroups.QueryType.DELETE;
 import static io.trino.spi.resourcegroups.QueryType.INSERT;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -32,8 +33,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDbSourceExactMatchSelector
 {
-    private static final JsonCodec<ResourceGroupId> CODEC = JsonCodec.jsonCodec(ResourceGroupId.class);
+    private static final JsonCodec<ResourceGroupId> CODEC = jsonCodec(ResourceGroupId.class);
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final String QUERY = "select * from table";
     private final H2ResourceGroupsDao dao;
 
     public TestDbSourceExactMatchSelector()
@@ -53,11 +55,11 @@ public class TestDbSourceExactMatchSelector
 
         DbSourceExactMatchSelector selector = new DbSourceExactMatchSelector("test", dao);
 
-        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.empty()))).isEqualTo(Optional.empty());
-        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()))).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId1));
-        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(SELECT.name()))).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId2));
-        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(DELETE.name())))).isEqualTo(Optional.empty());
+        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), "testuser", Optional.empty(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.empty()))).isEqualTo(Optional.empty());
+        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), "testuser", Optional.empty(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.of(INSERT.name()))).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId1));
+        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), "testuser", Optional.empty(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.of(SELECT.name()))).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId2));
+        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), "testuser", Optional.empty(), Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.of(DELETE.name())))).isEqualTo(Optional.empty());
 
-        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), Optional.of("@test@test_new"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name())))).isEqualTo(Optional.empty());
+        assertThat(selector.match(new SelectionCriteria(true, "testuser", ImmutableSet.of(), "testuser", Optional.empty(), Optional.of("@test@test_new"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.of(INSERT.name())))).isEqualTo(Optional.empty());
     }
 }

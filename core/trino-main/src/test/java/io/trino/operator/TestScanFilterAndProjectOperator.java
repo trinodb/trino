@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
 import io.trino.Session;
@@ -24,23 +25,25 @@ import io.trino.metadata.Split;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.index.PageRecordSet;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.TestPageProcessor.LazyPagePageProjection;
 import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.relational.RowExpression;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -52,9 +55,13 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -62,6 +69,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.toValues;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -70,12 +78,11 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -100,9 +107,8 @@ public class TestScanFilterAndProjectOperator
         runner = new StandaloneQueryRunner(session);
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         expressionCompiler = new ExpressionCompiler(
-                functionManager,
-                new PageFunctionCompiler(functionManager, 0),
-                new ColumnarFilterCompiler(functionManager, 0));
+                new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
+                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
     }
 
     @AfterAll
@@ -123,18 +129,20 @@ public class TestScanFilterAndProjectOperator
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
-                cursorProcessor,
+                (_) -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
@@ -161,22 +169,23 @@ public class TestScanFilterAndProjectOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        RowExpression filter = call(
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        Expression filter = call(
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                field(0, BIGINT),
-                constant(10L, BIGINT));
-        List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.of(filter), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
+                col0, new Constant(BIGINT, 10L));
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(input),
-                cursorProcessor,
+                (_) -> (_, _, _, _, _, dynamicFilter_) -> new FixedPageSource(input),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
@@ -205,23 +214,19 @@ public class TestScanFilterAndProjectOperator
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
-        Page input = new Page(100, inputBlock, new LazyBlock(100, () -> {
-            throw new AssertionError("Lazy block should not be loaded");
-        }));
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new LazyPagePageProjection()));
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new SinglePagePageSource(input),
-                cursorProcessor,
+                (_) -> (_, _, _, _, _, _) -> new SinglePagePageSource(input),
                 (_) -> pageProcessor,
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
@@ -244,18 +249,20 @@ public class TestScanFilterAndProjectOperator
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
-        List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        List<Expression> projections = ImmutableList.of(col0);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
-                cursorProcessor,
+                (_) -> (_, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
@@ -293,27 +300,28 @@ public class TestScanFilterAndProjectOperator
         // match each column with a projection
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                functionManager,
-                new PageFunctionCompiler(functionManager, 0),
-                new ColumnarFilterCompiler(functionManager, 0));
-        ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
+                new PageFunctionCompiler(functionManager, runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getTypeManager(), 0),
+                new ColumnarFilterCompiler(functionManager, runner.getPlannerContext().getMetadata(), 0));
+        Reference col0 = new Reference(BIGINT, "$col_0");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+        ImmutableList.Builder<Expression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), col0));
         }
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
+        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, Optional.empty(), Optional.empty(), projections.build(), layout, Optional.empty(), OptionalInt.of(MAX_BATCH_SIZE));
+        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(ImmutableList.of(input)),
-                cursorProcessor,
+                (_) -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
+                Optional.empty(),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
-                ImmutableList.of(BIGINT),
+                ImmutableList.copyOf(nCopies(totalColumns, BIGINT)),
                 DataSize.ofBytes(0),
                 0);
 
@@ -344,64 +352,29 @@ public class TestScanFilterAndProjectOperator
     }
 
     @Test
-    public void testRecordCursorYield()
+    public void testRecordMaterializedBytes()
     {
-        // create a generic long function that yields for projection on every row
-        // verify we will yield #row times totally
+        Block block = createIntsBlock(1, 2, 3);
+        SourcePage page = new TestingSourcePage(3, block, block, block);
 
-        // create a table with 15 rows
-        int length = 15;
-        Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), length, 0);
-        DriverContext driverContext = newDriverContext();
+        page.getBlock(1);
 
-        // set up generic long function with a callback to force yield
-        runner.addFunctions(new InternalFunctionBundle(new GenericLongFunction("record_cursor", value -> {
-            driverContext.getYieldSignal().forceYieldForTesting();
-            return value;
-        })));
-        FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                functionManager,
-                new PageFunctionCompiler(functionManager, 0),
-                new ColumnarFilterCompiler(functionManager, 0));
+        AtomicLong sizeInBytes = new AtomicLong();
+        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
 
-        List<RowExpression> projections = ImmutableList.of(call(
-                runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_record_cursor", fromTypes(BIGINT)),
-                field(0, BIGINT)));
-        Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
-        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
+        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 1);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (catalog) -> (session, split, table, columns, dynamicFilter) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
-                cursorProcessor,
-                (_) -> pageProcessor.get(),
-                TEST_TABLE_HANDLE,
-                ImmutableList.of(),
-                DynamicFilter.EMPTY,
-                ImmutableList.of(BIGINT),
-                DataSize.ofBytes(0),
-                0);
+        page.getBlock(2);
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 2);
 
-        SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
-        operator.noMoreSplits();
+        page.getBlock(1);
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 2);
 
-        // start driver; get null value due to yield for the first 15 times
-        for (int i = 0; i < length; i++) {
-            driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-            assertThat(operator.getOutput()).isNull();
-            driverContext.getYieldSignal().reset();
-        }
-
-        // the 16th yield is not going to prevent the operator from producing a page
-        driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-        Page output = operator.getOutput();
-        driverContext.getYieldSignal().reset();
-        assertThat(output).isNotNull();
-        assertThat(toValues(BIGINT, output.getBlock(0))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
+        page.getBlock(0);
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(block.getSizeInBytes() * 3);
     }
 
     private static List<Page> toPages(Operator operator)
@@ -438,9 +411,9 @@ public class TestScanFilterAndProjectOperator
     public static class SinglePagePageSource
             implements ConnectorPageSource
     {
-        private Page page;
+        private SourcePage page;
 
-        public SinglePagePageSource(Page page)
+        public SinglePagePageSource(SourcePage page)
         {
             this.page = page;
         }
@@ -476,9 +449,12 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
-        public Page getNextPage()
+        public SourcePage getNextSourcePage()
         {
-            Page page = this.page;
+            SourcePage page = this.page;
+            if (page == null) {
+                return null;
+            }
             this.page = null;
             return page;
         }

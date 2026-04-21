@@ -171,7 +171,6 @@ public class PushdownFilterIntoRowNumber
                 node.getPartitionBy(),
                 node.isOrderSensitive(),
                 node.getRowNumberSymbol(),
-                Optional.of(newRowCountPerPartition),
-                node.getHashSymbol());
+                Optional.of(newRowCountPerPartition));
     }
 }

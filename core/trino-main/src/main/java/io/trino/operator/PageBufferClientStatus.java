@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
@@ -28,7 +28,7 @@ public class PageBufferClientStatus
 {
     private final URI uri;
     private final String state;
-    private final DateTime lastUpdate;
+    private final Instant lastUpdate;
     private final long rowsReceived;
     private final int pagesReceived;
     // use optional to keep the output size down, since this renders for every destination
@@ -43,7 +43,7 @@ public class PageBufferClientStatus
     @JsonCreator
     public PageBufferClientStatus(@JsonProperty("uri") URI uri,
             @JsonProperty("state") String state,
-            @JsonProperty("lastUpdate") DateTime lastUpdate,
+            @JsonProperty("lastUpdate") Instant lastUpdate,
             @JsonProperty("rowsReceived") long rowsReceived,
             @JsonProperty("pagesReceived") int pagesReceived,
             @JsonProperty("rowsRejected") OptionalLong rowsRejected,
@@ -81,7 +81,7 @@ public class PageBufferClientStatus
     }
 
     @JsonProperty
-    public DateTime getLastUpdate()
+    public Instant getLastUpdate()
     {
         return lastUpdate;
     }

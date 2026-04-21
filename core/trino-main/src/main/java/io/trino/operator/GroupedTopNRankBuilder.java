@@ -19,7 +19,9 @@ import io.trino.array.LongBigArray;
 import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
@@ -42,7 +44,8 @@ public class GroupedTopNRankBuilder
     private final List<Type> sourceTypes;
     private final boolean produceRanking;
     private final int[] groupByChannels;
-    private final GroupByHash groupByHash;
+    @Nullable
+    private GroupByHash groupByHash; // null after output starts
     private final PageWithPositionComparator comparator;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
     private final GroupedTopNRankAccumulator groupedTopNRankAccumulator;
@@ -102,6 +105,9 @@ public class GroupedTopNRankBuilder
     @Override
     public Work<?> processPage(Page page)
     {
+        if (groupByHash == null) {
+            throw new IllegalStateException("already producing results");
+        }
         return new TransformWork<>(
                 groupByHash.getGroupIds(page.getColumns(groupByChannels)),
                 groupIds -> {
@@ -113,14 +119,19 @@ public class GroupedTopNRankBuilder
     @Override
     public Iterator<Page> buildResult()
     {
-        return new ResultIterator();
+        if (groupByHash == null) {
+            throw new IllegalStateException("already producing results");
+        }
+        int groupIdCount = groupByHash.getGroupCount();
+        groupByHash = null;
+        return new ResultIterator(groupIdCount);
     }
 
     @Override
     public long getEstimatedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + groupByHash.getEstimatedSize()
+                + (groupByHash == null ? 0L : groupByHash.getEstimatedSize())
                 + pageManager.sizeOf()
                 + groupedTopNRankAccumulator.sizeOf();
     }
@@ -148,15 +159,16 @@ public class GroupedTopNRankBuilder
             extends AbstractIterator<Page>
     {
         private final PageBuilder pageBuilder;
-        private final int groupIdCount = groupByHash.getGroupCount();
+        private final int groupIdCount;
         private int currentGroupId = -1;
         private final LongBigArray rowIdOutput = new LongBigArray();
         private final LongBigArray rankingOutput = new LongBigArray();
         private long currentGroupSize;
         private int currentIndexInGroup;
 
-        ResultIterator()
+        private ResultIterator(int groupIdCount)
         {
+            this.groupIdCount = groupIdCount;
             ImmutableList.Builder<Type> sourceTypesBuilders = ImmutableList.<Type>builder().addAll(sourceTypes);
             if (produceRanking) {
                 sourceTypesBuilders.add(BIGINT);
@@ -187,7 +199,8 @@ public class GroupedTopNRankBuilder
                 Page page = pageManager.getPage(rowId);
                 int position = pageManager.getPosition(rowId);
                 for (int i = 0; i < sourceTypes.size(); i++) {
-                    sourceTypes.get(i).appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
+                    Block block = page.getBlock(i);
+                    pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                 }
                 if (produceRanking) {
                     BIGINT.writeLong(pageBuilder.getBlockBuilder(sourceTypes.size()), rankingOutput.get(currentIndexInGroup));

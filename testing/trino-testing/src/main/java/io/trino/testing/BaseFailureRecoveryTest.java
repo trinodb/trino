@@ -17,10 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
-import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.StageStats;
@@ -126,13 +124,9 @@ public abstract class BaseFailureRecoveryTest
                 ImmutableMap.of(
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         "scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString()),
-                new AbstractConfigurationAwareModule() {
-                    @Override
-                    protected void setup(Binder binder)
-                    {
-                        configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-                        newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
-                    }
+                binder -> {
+                    configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
+                    newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
                 });
     }
 
@@ -252,10 +246,13 @@ public abstract class BaseFailureRecoveryTest
     @Test
     protected void testUpdateWithSubquery()
     {
-        testTableModification(
+        testNonSelect(
+                Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
-                Optional.of("DROP TABLE <table>"));
+                Optional.of("DROP TABLE <table>"),
+                true,
+                Optional.of("orderkey"));
     }
 
     @Test
@@ -276,14 +273,14 @@ public abstract class BaseFailureRecoveryTest
                 Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 """
-                        MERGE INTO <table> t
-                        USING (SELECT orderkey, 'X' clerk FROM <table>) s
-                        ON t.orderkey = s.orderkey
-                        WHEN MATCHED AND s.orderkey > 1000
-                            THEN UPDATE SET clerk = t.clerk || s.clerk
-                        WHEN MATCHED AND s.orderkey <= 1000
-                            THEN DELETE
-                        """,
+                MERGE INTO <table> t
+                USING (SELECT orderkey, 'X' clerk FROM <table>) s
+                ON t.orderkey = s.orderkey
+                WHEN MATCHED AND s.orderkey > 1000
+                    THEN UPDATE SET clerk = t.clerk || s.clerk
+                WHEN MATCHED AND s.orderkey <= 1000
+                    THEN DELETE
+                """,
                 Optional.of("DROP TABLE <table>"),
                 true,
                 Optional.of("orderkey"));
@@ -495,9 +492,7 @@ public abstract class BaseFailureRecoveryTest
         return true;
     }
 
-    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
-    {
-    }
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey) {}
 
     protected class FailureRecoveryAssert
     {
@@ -610,12 +605,12 @@ public abstract class BaseFailureRecoveryTest
             String queryId = null;
             try {
                 resultWithPlan = getDistributedQueryRunner().executeWithPlan(withTraceToken(session, traceToken), resolveTableName(query, tableName));
-                queryId = resultWithPlan.queryId().getId();
+                queryId = resultWithPlan.queryId().id();
             }
             catch (RuntimeException e) {
                 failure = e;
-                if (e instanceof QueryFailedException) {
-                    queryId = ((QueryFailedException) e).getQueryId().getId();
+                if (e instanceof QueryFailedException queryFailedException) {
+                    queryId = queryFailedException.getQueryId().id();
                 }
             }
 

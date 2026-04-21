@@ -81,7 +81,7 @@ public class TestTableFunctionInvocation
                                 public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
                                 {
                                     if (functionHandle instanceof TestingTableFunctions.TestingTableFunctionHandle handle) {
-                                        return switch (handle.name().getFunctionName()) {
+                                        return switch (handle.name().functionName()) {
                                             case "identity_function" -> new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider();
                                             case "identity_pass_through_function" ->
                                                     new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider();

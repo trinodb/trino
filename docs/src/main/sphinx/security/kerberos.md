@@ -160,7 +160,7 @@ authentication is denied. For more complex user-mapping rules, see
 ## Troubleshooting
 
 Getting Kerberos authentication working can be challenging. You can
-independently verify some of the configuration outside of Trino to help narrow
+independently verify some of the configuration outside Trino to help narrow
 your focus when trying to solve a problem.
 
 ### Kerberos verification

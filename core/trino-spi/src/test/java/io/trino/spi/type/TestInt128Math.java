@@ -36,7 +36,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestInt128Math
+final class TestInt128Math
 {
     private static final Int128 MAX_DECIMAL = Int128.valueOf(Decimals.MAX_UNSCALED_DECIMAL.toBigInteger());
     private static final Int128 MIN_DECIMAL = Int128.valueOf(Decimals.MIN_UNSCALED_DECIMAL.toBigInteger());

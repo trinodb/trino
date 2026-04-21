@@ -18,40 +18,40 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 public class RuleStats
 {
-    private final AtomicLong invocations = new AtomicLong();
-    private final AtomicLong hits = new AtomicLong();
+    private final LongAdder invocations = new LongAdder();
+    private final LongAdder hits = new LongAdder();
     private final TimeDistribution time = new TimeDistribution(TimeUnit.MICROSECONDS);
-    private final AtomicLong failures = new AtomicLong();
+    private final LongAdder failures = new LongAdder();
 
     public void record(long nanos, boolean match)
     {
         if (match) {
-            hits.incrementAndGet();
+            hits.increment();
         }
 
-        invocations.incrementAndGet();
+        invocations.increment();
         time.add(nanos);
     }
 
     public void recordFailure()
     {
-        failures.incrementAndGet();
+        failures.increment();
     }
 
     @Managed
     public long getInvocations()
     {
-        return invocations.get();
+        return invocations.sum();
     }
 
     @Managed
     public long getHits()
     {
-        return hits.get();
+        return hits.sum();
     }
 
     @Managed
@@ -64,6 +64,6 @@ public class RuleStats
     @Managed
     public long getFailures()
     {
-        return failures.get();
+        return failures.sum();
     }
 }

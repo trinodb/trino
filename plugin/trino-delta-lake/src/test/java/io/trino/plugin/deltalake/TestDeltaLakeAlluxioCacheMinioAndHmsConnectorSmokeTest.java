@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,18 +33,8 @@ public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
 {
     private Path cacheDirectory;
 
-    @BeforeAll
-    @Override
-    public void init()
-            throws Exception
-    {
-        cacheDirectory = Files.createTempDirectory("cache");
-        super.init();
-    }
-
     @AfterAll
-    @Override
-    public void cleanUp()
+    final void deleteDirectory()
     {
         try (Stream<Path> walk = Files.walk(cacheDirectory)) {
             Iterator<Path> iterator = walk.sorted(Comparator.reverseOrder()).iterator();
@@ -63,6 +52,12 @@ public class TestDeltaLakeAlluxioCacheMinioAndHmsConnectorSmokeTest
     @Override
     protected Map<String, String> deltaStorageConfiguration()
     {
+        try {
+            cacheDirectory = Files.createTempDirectory("cache");
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return ImmutableMap.<String, String>builder()
                 .putAll(super.deltaStorageConfiguration())
                 .put("fs.cache.enabled", "true")

@@ -137,9 +137,7 @@ final class NFA
     record Transition(int target, Condition condition) {}
 
     sealed interface Condition
-            permits Value, Prefix
-    {
-    }
+            permits Value, Prefix {}
 
     record Value(byte value)
             implements Condition {}

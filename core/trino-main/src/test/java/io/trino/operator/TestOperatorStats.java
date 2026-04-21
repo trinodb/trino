@@ -24,16 +24,16 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOperatorStats
 {
-    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, Map.of("some_info", "some_value"));
+    private static final TableFinishInfo NON_MERGEABLE_INFO = new TableFinishInfo(Optional.empty(), new Duration(1, SECONDS), new Duration(1, SECONDS));
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(
@@ -41,6 +41,7 @@ public class TestOperatorStats
             1,
             41,
             new PlanNodeId("test"),
+            Optional.of(new PlanNodeId("test2")),
             "test",
 
             1,
@@ -53,7 +54,6 @@ public class TestOperatorStats
             new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -90,6 +90,7 @@ public class TestOperatorStats
             1,
             41,
             new PlanNodeId("test"),
+            Optional.of(new PlanNodeId("test2")),
             "test",
 
             1,
@@ -102,7 +103,6 @@ public class TestOperatorStats
             new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -137,7 +137,7 @@ public class TestOperatorStats
     @Test
     public void testJson()
     {
-        JsonCodec<OperatorStats> codec = JsonCodec.jsonCodec(OperatorStats.class);
+        JsonCodec<OperatorStats> codec = jsonCodec(OperatorStats.class);
 
         String json = codec.toJson(EXPECTED);
         OperatorStats actual = codec.fromJson(json);
@@ -160,7 +160,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(6));
         assertThat(actual.getInputPositions()).isEqualTo(7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(8.0);
@@ -190,8 +189,8 @@ public class TestOperatorStats
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
         assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(26));
-        assertThat(actual.getInfo().getClass()).isEqualTo(SplitOperatorInfo.class);
-        assertThat(((SplitOperatorInfo) actual.getInfo()).getSplitInfo()).isEqualTo(NON_MERGEABLE_INFO.getSplitInfo());
+        assertThat(actual.getInfo().getClass()).isEqualTo(TableFinishInfo.class);
+        assertThat(((TableFinishInfo) actual.getInfo()).getStatisticsCpuTime()).isEqualTo(NON_MERGEABLE_INFO.getStatisticsCpuTime());
     }
 
     @Test
@@ -212,7 +211,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
         assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);
@@ -262,7 +260,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
         assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);

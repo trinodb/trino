@@ -1,0 +1,283 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nI are happy. What you doing?\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_011SLQbCNxe3eoNaWG4bamTJ\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"I am happy. What are you doing?\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":33,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":12}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:36Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:37Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "45" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:42Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:36Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122af09c8b36464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:37 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01Mci2yVnHKx643cbLAELDzG" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThe sky ain't blue.\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_01Y8Ccw8kchVJ37RPoTTrbyu\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"The sky isn't blue.\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":31,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":9}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:37Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:37Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "44" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:43Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:37Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122af0e4c8e6464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:37 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01WFuSi3LRAprdhLRYsy9Bc3" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThis sentence have some mistake\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_017u6gLXmYJ5hx3PUJdruDgj\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"This sentence has some mistakes.\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":30,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":9}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:38Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:38Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "44" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:44Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:38Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122af1399086464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:38 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01X3D2wamiBqBTXA3dbMSM4e" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nShe dont know what to did.\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_01P8Jxrg2GMWcZTD8jsVNzRH\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"She doesn't know what to do.\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":32,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":11}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:39Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:39Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "43" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:46Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:39Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122af17ad6a6464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:39 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01612KAQYfUpFhxri1nWU2v5" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nHe go to school every days.\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_01Rp736eTRRz3R9Ndu48PQce\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"He goes to school every day.\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":32,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":10}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:40Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:40Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "43" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:47Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:40Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122af1cea566464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:40 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01AMuSDkaJjqPNC4JLXvD2BQ" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T20:51:40-08:00"
+  }
+}

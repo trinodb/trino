@@ -41,6 +41,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -105,7 +106,7 @@ public class ApplyTableScanRedirection
         Map<String, ColumnHandle> destinationColumnHandles = plannerContext.getMetadata().getColumnHandles(context.getSession(), destinationTableHandle);
         ImmutableMap.Builder<Symbol, Cast> casts = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
+        for (Entry<Symbol, ColumnHandle> assignment : scanNode.getAssignments().entrySet()) {
             String destinationColumn = columnMapping.get(assignment.getValue());
             if (destinationColumn == null) {
                 throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for source column %s in table scan redirection", assignment.getValue()));
@@ -138,7 +139,7 @@ public class ApplyTableScanRedirection
 
         TupleDomain<String> requiredFilter = tableScanRedirectApplicationResult.get().getFilter();
         if (requiredFilter.isAll()) {
-            ImmutableMap<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
+            Map<Symbol, ColumnHandle> newAssignments = newAssignmentsBuilder.buildOrThrow();
             return Result.ofPlanNode(applyProjection(
                     context.getIdAllocator(),
                     ImmutableSet.copyOf(scanNode.getOutputSymbols()),

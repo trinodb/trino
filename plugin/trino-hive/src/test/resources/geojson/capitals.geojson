@@ -1,0 +1,368 @@
+{
+    "type": "FeatureCollection",
+    "features": [{
+        "properties": {
+            "country": "Bangladesh",
+            "city": "Dhaka",
+            "tld": "bd",
+            "iso3": "BGD",
+            "iso2": "BD"
+        },
+        "geometry": {
+            "coordinates": [90.24, 23.43],
+            "type": "Point"
+        },
+        "id": "BD"
+    }, {
+        "properties": {
+            "country": "Belgium",
+            "city": "Brussels",
+            "tld": "be",
+            "iso3": "BEL",
+            "iso2": "BE"
+        },
+        "geometry": {
+            "coordinates": [4.2, 50.5],
+            "type": "Point"
+        },
+        "id": "BE"
+    }, {
+        "properties": {
+            "country": "Burkina Faso",
+            "city": "Ouagadougou",
+            "tld": "bf",
+            "iso3": "BFA",
+            "iso2": "BF"
+        },
+        "geometry": {
+            "coordinates": [-1.31, 12.22],
+            "type": "Point"
+        },
+        "id": "BF"
+    }, {
+        "properties": {
+            "country": "Bulgaria",
+            "city": "Sofia",
+            "tld": "bg",
+            "iso3": "BGR",
+            "iso2": "BG"
+        },
+        "geometry": {
+            "coordinates": [23.19, 42.41],
+            "type": "Point"
+        },
+        "id": "BG"
+    }, {
+        "properties": {
+            "country": "Bosnia and Herzegovina",
+            "city": "Sarajevo",
+            "tld": "ba",
+            "iso3": "BIH",
+            "iso2": "BA"
+        },
+        "geometry": {
+            "coordinates": [18.25, 43.52],
+            "type": "Point"
+        },
+        "id": "BA"
+    }, {
+        "properties": {
+            "country": "Barbados",
+            "city": "Bridgetown",
+            "tld": "bb",
+            "iso3": "BRB",
+            "iso2": "BB"
+        },
+        "geometry": {
+            "coordinates": [-59.37, 13.06],
+            "type": "Point"
+        },
+        "id": "BB"
+    }, {
+        "properties": {
+            "country": "Wallis and Futuna",
+            "city": "Mata-Utu",
+            "tld": "wf",
+            "iso3": "WLF",
+            "iso2": "WF"
+        },
+        "geometry": {
+            "coordinates": [-171.56, -13.57],
+            "type": "Point"
+        },
+        "id": "WF"
+    }, {
+        "properties": {
+            "country": "Saint Barthelemy",
+            "city": "Gustavia",
+            "tld": "bl",
+            "iso3": "BLM",
+            "iso2": "BL"
+        },
+        "geometry": {
+            "coordinates": [-62.51, 17.53],
+            "type": "Point"
+        },
+        "id": "BL"
+    }, {
+        "properties": {
+            "country": "Bermuda",
+            "city": "Hamilton",
+            "tld": "bm",
+            "iso3": "BMU",
+            "iso2": "BM"
+        },
+        "geometry": {
+            "coordinates": [-64.47, 32.17],
+            "type": "Point"
+        },
+        "id": "BM"
+    }, {
+        "properties": {
+            "country": "Brunei",
+            "city": "Bandar Seri Begawan",
+            "tld": "bn",
+            "iso3": "BRN",
+            "iso2": "BN"
+        },
+        "geometry": {
+            "coordinates": [114.56, 4.53],
+            "type": "Point"
+        },
+        "id": "BN"
+    }, {
+        "properties": {
+            "country": "Bolivia",
+            "city": "La Paz",
+            "tld": "bo",
+            "iso3": "BOL",
+            "iso2": "BO"
+        },
+        "geometry": {
+            "coordinates": [-68.09, -16.3],
+            "type": "Point"
+        },
+        "id": "BO"
+    }, {
+        "properties": {
+            "country": "Bahrain",
+            "city": "Manama",
+            "tld": "bh",
+            "iso3": "BHR",
+            "iso2": "BH"
+        },
+        "geometry": {
+            "coordinates": [50.34, 26.14],
+            "type": "Point"
+        },
+        "id": "BH"
+    }, {
+        "properties": {
+            "country": "Burundi",
+            "city": "Bujumbura",
+            "tld": "bi",
+            "iso3": "BDI",
+            "iso2": "BI"
+        },
+        "geometry": {
+            "coordinates": [29.21, -3.22],
+            "type": "Point"
+        },
+        "id": "BI"
+    }, {
+        "properties": {
+            "country": "Benin",
+            "city": "Porto-Novo",
+            "tld": "bj",
+            "iso3": "BEN",
+            "iso2": "BJ"
+        },
+        "geometry": {
+            "coordinates": [2.37, 6.29],
+            "type": "Point"
+        },
+        "id": "BJ"
+    }, {
+        "properties": {
+            "country": "Bhutan",
+            "city": "Thimphu",
+            "tld": "bt",
+            "iso3": "BTN",
+            "iso2": "BT"
+        },
+        "geometry": {
+            "coordinates": [89.36, 27.29],
+            "type": "Point"
+        },
+        "id": "BT"
+    }, {
+        "properties": {
+            "country": "Jamaica",
+            "city": "Kingston",
+            "tld": "jm",
+            "iso3": "JAM",
+            "iso2": "JM"
+        },
+        "geometry": {
+            "coordinates": [-76.48, 18],
+            "type": "Point"
+        },
+        "id": "JM"
+    }, {
+        "properties": {
+            "country": "Botswana",
+            "city": "Gaborone",
+            "tld": "bw",
+            "iso3": "BWA",
+            "iso2": "BW"
+        },
+        "geometry": {
+            "coordinates": [25.55, -24.45],
+            "type": "Point"
+        },
+        "id": "BW"
+    }, {
+        "properties": {
+            "country": "Samoa",
+            "city": "Apia",
+            "tld": "ws",
+            "iso3": "WSM",
+            "iso2": "WS"
+        },
+        "geometry": {
+            "coordinates": [-171.44, -13.5],
+            "type": "Point"
+        },
+        "id": "WS"
+    }, {
+        "properties": {
+            "country": "Brazil",
+            "city": "Brasilia",
+            "tld": "br",
+            "iso3": "BRA",
+            "iso2": "BR"
+        },
+        "geometry": {
+            "coordinates": [-47.55, -15.47],
+            "type": "Point"
+        },
+        "id": "BR"
+    }, {
+        "properties": {
+            "country": "Bahamas",
+            "city": "Nassau",
+            "tld": "bs",
+            "iso3": "BHS",
+            "iso2": "BS"
+        },
+        "geometry": {
+            "coordinates": [-77.21, 25.05],
+            "type": "Point"
+        },
+        "id": "BS"
+    }, {
+        "properties": {
+            "country": "Jersey",
+            "city": "Saint Helier",
+            "tld": "je",
+            "iso3": "JEY",
+            "iso2": "JE"
+        },
+        "geometry": {
+            "coordinates": [-2.06, 49.11],
+            "type": "Point"
+        },
+        "id": "JE"
+    }, {
+        "properties": {
+            "country": "Belarus",
+            "city": "Minsk",
+            "tld": "by",
+            "iso3": "BLR",
+            "iso2": "BY"
+        },
+        "geometry": {
+            "coordinates": [27.34, 53.54],
+            "type": "Point"
+        },
+        "id": "BY"
+    }, {
+        "properties": {
+            "country": "Belize",
+            "city": "Belmopan",
+            "tld": "bz",
+            "iso3": "BLZ",
+            "iso2": "BZ"
+        },
+        "geometry": {
+            "coordinates": [-88.46, 17.15],
+            "type": "Point"
+        },
+        "id": "BZ"
+    }, {
+        "properties": {
+            "country": "Russia",
+            "city": "Moscow",
+            "tld": "ru",
+            "iso3": "RUS",
+            "iso2": "RU"
+        },
+        "geometry": {
+            "coordinates": [37.35, 55.45],
+            "type": "Point"
+        },
+        "id": "RU"
+    }, {
+        "properties": {
+            "country": "Rwanda",
+            "city": "Kigali",
+            "tld": "rw",
+            "iso3": "RWA",
+            "iso2": "RW"
+        },
+        "geometry": {
+            "coordinates": [30.04, -1.57],
+            "type": "Point"
+        },
+        "id": "RW"
+    }, {
+        "properties": {
+            "country": "Serbia",
+            "city": "Belgrade",
+            "tld": "rs",
+            "iso3": "SRB",
+            "iso2": "RS"
+        },
+        "geometry": {
+            "coordinates": [20.3, 44.5],
+            "type": "Point"
+        },
+        "id": "RS"
+    }, {
+        "properties": {
+            "country": "Timor-Leste",
+            "city": "Dili",
+            "tld": "tl",
+            "iso3": "TLS",
+            "iso2": "TL"
+        },
+        "geometry": {
+            "coordinates": [125.36, -8.35],
+            "type": "Point"
+        },
+        "id": "TL"
+    }, {
+        "properties": {
+            "country": "Turkmenistan",
+            "city": "Ashgabat",
+            "tld": "tm",
+            "iso3": "TKM",
+            "iso2": "TM"
+        },
+        "geometry": {
+            "coordinates": [58.23, 37.57],
+            "type": "Point"
+        },
+        "id": "TM"
+    }]
+}

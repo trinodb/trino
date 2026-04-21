@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StaticRuntimeInfoProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragment;
@@ -52,10 +52,10 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.NodeVersion.UNKNOWN;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
@@ -193,6 +193,7 @@ public class BasePlanTest
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
+                        "TestMinimalPlanCleanup",
                         planTester.getPlannerContext(),
                         new RuleStatsRecorder(),
                         planTester.getStatsCalculator(),

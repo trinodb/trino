@@ -26,13 +26,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.scheduler.TestingExchangeSourceHandle;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.AssignmentResult;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeId;
@@ -40,6 +40,7 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -58,6 +59,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Queue;
@@ -315,14 +317,14 @@ public class TestEventDrivenTaskSource
                 new TableExecuteContextManager(),
                 exchanges,
                 remoteSources.entrySet().stream()
-                        .collect(toImmutableSetMultimap(Map.Entry::getValue, Map.Entry::getKey)),
+                        .collect(toImmutableSetMultimap(Entry::getValue, Entry::getKey)),
                 () -> splitSources,
                 testingSplitAssigner,
                 executor,
                 1,
                 1,
                 partitioningScheme,
-                getSplitDuration -> getSplitInvocations.incrementAndGet())) {
+                (_, _, _) -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
                 AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
@@ -349,12 +351,12 @@ public class TestEventDrivenTaskSource
 
         Map<Integer, SetMultimap<PlanNodeId, TestingExchangeSourceHandle>> expectedHandles = new HashMap<>();
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> expectedSplits = new HashMap<>();
-        for (Map.Entry<PlanFragmentId, ExchangeSourceHandle> entry : sourceHandles.entries()) {
+        for (Entry<PlanFragmentId, ExchangeSourceHandle> entry : sourceHandles.entries()) {
             TestingExchangeSourceHandle handle = (TestingExchangeSourceHandle) entry.getValue();
             PlanNodeId planNodeId = remoteSources.get(entry.getKey());
             expectedHandles.computeIfAbsent(handle.getPartitionId(), key -> HashMultimap.create()).put(planNodeId, handle);
         }
-        for (Map.Entry<PlanNodeId, ConnectorSplit> entry : splits.entries()) {
+        for (Entry<PlanNodeId, ConnectorSplit> entry : splits.entries()) {
             TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue();
             expectedSplits.computeIfAbsent(split.getBucket().orElseThrow(), key -> HashMultimap.create()).put(entry.getKey(), split);
         }
@@ -363,7 +365,7 @@ public class TestEventDrivenTaskSource
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> actualSplits = new HashMap<>();
         for (TaskDescriptor taskDescriptor : taskDescriptors) {
             int partitionId = taskDescriptor.getPartitionId();
-            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
+            for (Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
                 if (entry.getValue().getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
@@ -501,6 +503,12 @@ public class TestEventDrivenTaskSource
         public Optional<List<Object>> getTableExecuteSplitsInfo()
         {
             return Optional.empty();
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return Metrics.EMPTY;
         }
 
         public synchronized boolean isClosed()

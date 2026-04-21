@@ -149,25 +149,12 @@ public class CassandraTokenSplitManager
         return new TokenSplit(range, endpoints);
     }
 
-    public static class TokenSplit
+    public record TokenSplit(TokenRange tokenRange, List<String> hosts)
     {
-        private final TokenRange tokenRange;
-        private final List<String> hosts;
-
-        public TokenSplit(TokenRange tokenRange, List<String> hosts)
+        public TokenSplit
         {
-            this.tokenRange = requireNonNull(tokenRange, "tokenRange is null");
-            this.hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
-        }
-
-        public TokenRange getTokenRange()
-        {
-            return tokenRange;
-        }
-
-        public List<String> getHosts()
-        {
-            return hosts;
+            requireNonNull(tokenRange, "tokenRange is null");
+            hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
         }
 
         @Override

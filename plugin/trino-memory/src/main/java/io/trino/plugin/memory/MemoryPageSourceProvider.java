@@ -23,10 +23,12 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -35,6 +37,8 @@ import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +64,7 @@ public final class MemoryPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -136,7 +141,7 @@ public final class MemoryPageSourceProvider
         }
 
         @Override
-        public Page getNextPage()
+        public SourcePage getNextSourcePage()
         {
             if (enableLazyDynamicFiltering && dynamicFilter.isAwaitable()) {
                 return null;
@@ -146,14 +151,14 @@ public final class MemoryPageSourceProvider
                 close();
                 return null;
             }
-            Page page = delegate.getNextPage();
+            SourcePage page = delegate.getNextSourcePage();
             if (page == null) {
                 return null;
             }
             completedPositions += page.getPositionCount();
 
             if (!predicate.isAll()) {
-                page = applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
+                applyFilter(page, predicate.transformKeys(columns::indexOf).getDomains().get());
             }
             rows += page.getPositionCount();
             return page;
@@ -191,7 +196,7 @@ public final class MemoryPageSourceProvider
         }
     }
 
-    private static Page applyFilter(Page page, Map<Integer, Domain> domains)
+    private static void applyFilter(SourcePage page, Map<Integer, Domain> domains)
     {
         int[] positions = new int[page.getPositionCount()];
         int length = 0;
@@ -200,12 +205,12 @@ public final class MemoryPageSourceProvider
                 positions[length++] = position;
             }
         }
-        return page.getPositions(positions, 0, length);
+        page.selectPositions(positions, 0, length);
     }
 
-    private static boolean positionMatchesPredicate(Page page, int position, Map<Integer, Domain> domains)
+    private static boolean positionMatchesPredicate(SourcePage page, int position, Map<Integer, Domain> domains)
     {
-        for (Map.Entry<Integer, Domain> entry : domains.entrySet()) {
+        for (Entry<Integer, Domain> entry : domains.entrySet()) {
             int channel = entry.getKey();
             Domain domain = entry.getValue();
             Object value = TypeUtils.readNativeValue(domain.getType(), page.getBlock(channel), position);

@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -37,21 +36,6 @@ public class TestParquetWriterConfig
                 .setPageValueCount(ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT)
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
                 .setValidationPercentage(5));
-    }
-
-    @Test
-    public void testLegacyProperties()
-    {
-        assertDeprecatedEquivalence(
-                ParquetWriterConfig.class,
-                Map.of(
-                        "parquet.writer.validation-percentage", "42",
-                        "parquet.writer.block-size", "33MB",
-                        "parquet.writer.page-size", "7MB"),
-                Map.of(
-                        "parquet.optimized-writer.validation-percentage", "42",
-                        "hive.parquet.writer.block-size", "33MB",
-                        "hive.parquet.writer.page-size", "7MB"));
     }
 
     @Test

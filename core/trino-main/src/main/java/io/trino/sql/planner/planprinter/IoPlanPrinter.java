@@ -47,7 +47,7 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
 import java.util.HashSet;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -761,7 +761,7 @@ public class IoPlanPrinter
                 return new Constraint(true, ImmutableSet.of());
             }
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
                 ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),
@@ -783,7 +783,7 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     discreteValues -> formattedRanges.addAll(
                             discreteValues.getValues().stream()
-                                    .map(value -> valuePrinter.castToVarcharOrFail(type, value))
+                                    .map(value -> valuePrinter.render(type, value))
                                     .map(value -> new FormattedMarker(Optional.of(value), Bound.EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
@@ -799,13 +799,13 @@ public class IoPlanPrinter
             FormattedMarker low = range.isLowUnbounded()
                     ? new FormattedMarker(Optional.empty(), Bound.ABOVE)
                     : new FormattedMarker(
-                    Optional.of(valuePrinter.castToVarcharOrFail(range.getType(), range.getLowBoundedValue())),
+                    Optional.of(valuePrinter.render(range.getType(), range.getLowBoundedValue())),
                     range.isLowInclusive() ? Bound.EXACTLY : Bound.ABOVE);
 
             FormattedMarker high = range.isHighUnbounded()
                     ? new FormattedMarker(Optional.empty(), Bound.BELOW)
                     : new FormattedMarker(
-                    Optional.of(valuePrinter.castToVarcharOrFail(range.getType(), range.getHighBoundedValue())),
+                    Optional.of(valuePrinter.render(range.getType(), range.getHighBoundedValue())),
                     range.isHighInclusive() ? Bound.EXACTLY : Bound.BELOW);
 
             return new FormattedRange(low, high);

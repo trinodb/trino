@@ -23,8 +23,7 @@ public interface BlockBuilder
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations
-     * and any unloaded nested blocks.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
      * For example, in dictionary blocks, this only counts each dictionary entry once,
      * rather than each time a value is referenced.
      */
@@ -55,6 +54,19 @@ public interface BlockBuilder
      * Append the values at the specified positions.
      */
     void appendPositions(ValueBlock block, int[] positions, int offset, int length);
+
+    /**
+     * Append the values in the specified range of a Block, this should be used only when
+     * the Block type can be potentially something other than ValueBlock.
+     */
+    default void appendBlockRange(Block rawBlock, int offset, int length)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> appendRepeated(rleBlock.getValue(), 0, length);
+            case DictionaryBlock dictionaryBlock -> appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset() + offset, length);
+            case ValueBlock valueBlock -> appendRange(valueBlock, offset, length);
+        }
+    }
 
     /**
      * Appends a null value to the block.

@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinType;
@@ -25,7 +25,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
@@ -68,8 +67,6 @@ public class TestSchedulingOrderVisitor
                 sourceJoin,
                 filteringSource,
                 planBuilder.symbol("semiJoinOutput"),
-                Optional.empty(),
-                Optional.empty(),
                 a,
                 b));
         assertThat(order).isEqualTo(ImmutableList.of(b.getId(), a.getId()));

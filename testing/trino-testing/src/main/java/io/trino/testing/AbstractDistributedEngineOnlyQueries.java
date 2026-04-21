@@ -33,10 +33,11 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -223,9 +224,6 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         // ExplainAnalyzeOperator may finish before dynamic filter stats are reported to QueryInfo
         assertEventually(() -> assertExplainAnalyze(
-                Session.builder(getSession())
-                        .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
-                        .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Dynamic filters: \n.*ranges=25, \\{\\[0], ..., \\[24]}.* collection time=\\d+.*"));
     }
@@ -300,14 +298,14 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
                 .matches("VALUES BIGINT '0'");
 
-        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation", 25);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "CREATE TABLE create_table_as_table AS TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM create_table_as_table"))
                 .matches("SELECT * FROM tpch.tiny.nation");
 
         // Verify that hidden column is not present in the created table
-        assertThat(query("SELECT min(row_number) FROM n"))
+        assertThat(query("SELECT min(row_number) FROM create_table_as_table"))
                 .failure().hasMessage("line 1:12: Column 'row_number' cannot be resolved");
-        assertUpdate(getSession(), "DROP TABLE n");
+        assertUpdate(getSession(), "DROP TABLE create_table_as_table");
     }
 
     @Test
@@ -322,20 +320,20 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("VALUES BIGINT '0'");
 
         // Create empty target table for INSERT
-        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation WITH NO DATA", 0);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "CREATE TABLE test_insert_table_into_table AS TABLE tpch.tiny.nation WITH NO DATA", 0);
+        assertThat(query("SELECT * FROM test_insert_table_into_table"))
                 .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
 
         // Verify that the hidden column is not present in the created table
-        assertThat(query("SELECT row_number FROM n"))
+        assertThat(query("SELECT row_number FROM test_insert_table_into_table"))
                 .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
 
         // Insert values from the original table into the created table
-        assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "INSERT INTO test_insert_table_into_table TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM test_insert_table_into_table"))
                 .matches("SELECT * FROM tpch.tiny.nation");
 
-        assertUpdate(getSession(), "DROP TABLE n");
+        assertUpdate(getSession(), "DROP TABLE test_insert_table_into_table");
     }
 
     @Test
@@ -402,5 +400,32 @@ public abstract class AbstractDistributedEngineOnlyQueries
         String rowFields = colNames + (", " + colNames).repeat(94) + ", orderkey, custkey,  orderstatus, totalprice";
         @Language("SQL") String query = "SELECT row(" + rowFields + ") FROM (select * from tpch.tiny.orders limit 1) t(" + colNames + ")";
         assertThat(getQueryRunner().execute(query).getOnlyValue()).isNotNull();
+    }
+
+    @Test
+    public void testFragmentPartitioningWithValues()
+    {
+        // Test fragment with empty VALUES and a table scan
+        Session broadcastJonSession = testSessionBuilder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .build();
+        assertUpdate("CREATE TABLE t1 (a bigint)");
+        assertUpdate("INSERT INTO t1 VALUES (1), (2), (3)", 3);
+        assertUpdate("CREATE TABLE t2 (a bigint, b varchar)");
+        assertThat(query(
+                broadcastJonSession,
+                """
+                WITH t3 AS (
+                            SELECT a, CAST(null AS varchar) b FROM t1
+                            UNION ALL
+                            SELECT a, b FROM t2)
+                SELECT * FROM t3 WHERE b IN (SELECT b FROM t2)
+                """))
+                .returnsEmptyResult();
+        assertUpdate("DROP TABLE t1");
+        assertUpdate("DROP TABLE t2");
+
+        // Test fragment with empty VALUES and no table scans
+        assertQuery("SELECT * FROM (SELECT 2 WHERE FALSE)");
     }
 }

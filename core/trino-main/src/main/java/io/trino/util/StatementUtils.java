@@ -19,6 +19,7 @@ import io.trino.execution.AddColumnTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
+import io.trino.execution.CreateBranchTask;
 import io.trino.execution.CreateCatalogTask;
 import io.trino.execution.CreateFunctionTask;
 import io.trino.execution.CreateMaterializedViewTask;
@@ -29,8 +30,10 @@ import io.trino.execution.CreateViewTask;
 import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
 import io.trino.execution.DenyTask;
+import io.trino.execution.DropBranchTask;
 import io.trino.execution.DropCatalogTask;
 import io.trino.execution.DropColumnTask;
+import io.trino.execution.DropDefaultValueTask;
 import io.trino.execution.DropFunctionTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropNotNullConstraintTask;
@@ -38,9 +41,11 @@ import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
 import io.trino.execution.DropTableTask;
 import io.trino.execution.DropViewTask;
+import io.trino.execution.FastForwardBranchTask;
 import io.trino.execution.GrantRolesTask;
 import io.trino.execution.GrantTask;
 import io.trino.execution.PrepareTask;
+import io.trino.execution.RefreshViewTask;
 import io.trino.execution.RenameColumnTask;
 import io.trino.execution.RenameMaterializedViewTask;
 import io.trino.execution.RenameSchemaTask;
@@ -51,16 +56,15 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
+import io.trino.execution.SetAuthorizationTask;
 import io.trino.execution.SetColumnTypeTask;
+import io.trino.execution.SetDefaultValueTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
-import io.trino.execution.SetSchemaAuthorizationTask;
 import io.trino.execution.SetSessionAuthorizationTask;
 import io.trino.execution.SetSessionTask;
-import io.trino.execution.SetTableAuthorizationTask;
 import io.trino.execution.SetTimeZoneTask;
-import io.trino.execution.SetViewAuthorizationTask;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TruncateTableTask;
 import io.trino.execution.UseTask;
@@ -70,6 +74,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -83,8 +88,10 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropNotNullConstraint;
@@ -94,6 +101,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
@@ -101,6 +109,7 @@ import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -111,16 +120,16 @@ import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
-import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
-import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.SetViewAuthorization;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -186,6 +195,7 @@ public final class StatementUtils
             .add(basicStatement(ShowSession.class, DESCRIBE))
             .add(basicStatement(ShowStats.class, DESCRIBE))
             .add(basicStatement(ShowTables.class, DESCRIBE))
+            .add(basicStatement(ShowBranches.class, DESCRIBE))
             // Table Procedure
             .add(basicStatement(TableExecute.class, ALTER_TABLE_EXECUTE))
             // DML
@@ -204,6 +214,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(CreateMaterializedView.class, CreateMaterializedViewTask.class))
             .add(dataDefinitionStatement(CreateCatalog.class, CreateCatalogTask.class))
             .add(dataDefinitionStatement(CreateFunction.class, CreateFunctionTask.class))
+            .add(dataDefinitionStatement(CreateBranch.class, CreateBranchTask.class))
             .add(dataDefinitionStatement(CreateRole.class, CreateRoleTask.class))
             .add(dataDefinitionStatement(CreateSchema.class, CreateSchemaTask.class))
             .add(dataDefinitionStatement(CreateTable.class, CreateTableTask.class))
@@ -213,15 +224,18 @@ public final class StatementUtils
             .add(dataDefinitionStatement(DropCatalog.class, DropCatalogTask.class))
             .add(dataDefinitionStatement(DropColumn.class, DropColumnTask.class))
             .add(dataDefinitionStatement(DropFunction.class, DropFunctionTask.class))
+            .add(dataDefinitionStatement(DropBranch.class, DropBranchTask.class))
             .add(dataDefinitionStatement(DropMaterializedView.class, DropMaterializedViewTask.class))
             .add(dataDefinitionStatement(DropRole.class, DropRoleTask.class))
             .add(dataDefinitionStatement(DropSchema.class, DropSchemaTask.class))
             .add(dataDefinitionStatement(DropTable.class, DropTableTask.class))
             .add(dataDefinitionStatement(DropView.class, DropViewTask.class))
             .add(dataDefinitionStatement(TruncateTable.class, TruncateTableTask.class))
+            .add(dataDefinitionStatement(FastForwardBranch.class, FastForwardBranchTask.class))
             .add(dataDefinitionStatement(Grant.class, GrantTask.class))
             .add(dataDefinitionStatement(GrantRoles.class, GrantRolesTask.class))
             .add(dataDefinitionStatement(Prepare.class, PrepareTask.class))
+            .add(dataDefinitionStatement(RefreshView.class, RefreshViewTask.class))
             .add(dataDefinitionStatement(RenameColumn.class, RenameColumnTask.class))
             .add(dataDefinitionStatement(RenameMaterializedView.class, RenameMaterializedViewTask.class))
             .add(dataDefinitionStatement(RenameSchema.class, RenameSchemaTask.class))
@@ -232,17 +246,17 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
+            .add(dataDefinitionStatement(SetDefaultValue.class, SetDefaultValueTask.class))
+            .add(dataDefinitionStatement(DropDefaultValue.class, DropDefaultValueTask.class))
             .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
             .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
-            .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
+            .add(dataDefinitionStatement(SetAuthorizationStatement.class, SetAuthorizationTask.class))
             .add(dataDefinitionStatement(SetSession.class, SetSessionTask.class))
             .add(dataDefinitionStatement(SetSessionAuthorization.class, SetSessionAuthorizationTask.class))
             .add(dataDefinitionStatement(SetProperties.class, SetPropertiesTask.class))
-            .add(dataDefinitionStatement(SetTableAuthorization.class, SetTableAuthorizationTask.class))
             .add(dataDefinitionStatement(SetTimeZone.class, SetTimeZoneTask.class))
-            .add(dataDefinitionStatement(SetViewAuthorization.class, SetViewAuthorizationTask.class))
             .add(dataDefinitionStatement(StartTransaction.class, StartTransactionTask.class))
             .add(dataDefinitionStatement(Use.class, UseTask.class))
             .build().stream()
@@ -250,8 +264,8 @@ public final class StatementUtils
 
     public static Optional<QueryType> getQueryType(Statement statement)
     {
-        if (statement instanceof ExplainAnalyze) {
-            return getQueryType(((ExplainAnalyze) statement).getStatement());
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return getQueryType(explainAnalyze.getStatement());
         }
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement.getClass()))
                 .map(StatementTypeInfo::getQueryType);

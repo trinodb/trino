@@ -31,7 +31,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
-public class DateFormat
+public final class DateFormat
 {
     private DateFormat() {}
 

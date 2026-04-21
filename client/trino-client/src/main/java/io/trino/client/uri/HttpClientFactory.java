@@ -14,6 +14,7 @@
 package io.trino.client.uri;
 
 import io.trino.client.ClientException;
+import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.extraHeaders;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpLogging;
@@ -54,43 +56,11 @@ public class HttpClientFactory
         OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
         setupCookieJar(builder);
 
-        if (!uri.isUseSecureConnection()) {
-            setupInsecureSsl(builder);
-        }
-
         if (uri.hasPassword()) {
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL is required for authentication with username and password");
             }
             builder.addNetworkInterceptor(basicAuth(uri.getRequiredUser(), uri.getPassword().orElseThrow(() -> new RuntimeException("Password expected"))));
-        }
-
-        if (uri.isUseSecureConnection()) {
-            ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();
-            if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
-                setupSsl(
-                        builder,
-                        uri.getSslKeyStorePath(),
-                        uri.getSslKeyStorePassword(),
-                        uri.getSslKeyStoreType(),
-                        uri.getSslUseSystemKeyStore(),
-                        uri.getSslTrustStorePath(),
-                        uri.getSslTrustStorePassword(),
-                        uri.getSslTrustStoreType(),
-                        uri.getSslUseSystemTrustStore());
-            }
-            if (sslVerificationMode.equals(FULL)) {
-                uri.getHostnameInCertificate().ifPresent(certHostname ->
-                        setupAlternateHostnameVerification(builder, certHostname));
-            }
-
-            if (sslVerificationMode.equals(CA)) {
-                builder.hostnameVerifier((hostname, session) -> true);
-            }
-
-            if (sslVerificationMode.equals(NONE)) {
-                setupInsecureSsl(builder);
-            }
         }
 
         if (uri.getKerberosRemoteServiceName().isPresent()) {
@@ -116,6 +86,10 @@ public class HttpClientFactory
                 throw new RuntimeException("TLS/SSL required for authentication using an access token");
             }
             builder.addNetworkInterceptor(tokenAuth(uri.getAccessToken().get()));
+        }
+
+        if (!uri.getExtraHeaders().isEmpty()) {
+            builder.addNetworkInterceptor(extraHeaders(uri.getExtraHeaders()));
         }
 
         if (uri.isExternalAuthenticationEnabled()) {
@@ -145,7 +119,6 @@ public class HttpClientFactory
             builder.addNetworkInterceptor(authenticator);
         }
 
-        uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
         return builder;
     }
 
@@ -157,6 +130,44 @@ public class HttpClientFactory
         setupHttpProxy(builder, uri.getHttpProxy());
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
+
+        if (uri.isLocalRedirectDisallowed()) {
+            builder.addNetworkInterceptor(new DisallowLocalRedirectInterceptor());
+        }
+
+        if (uri.isUseSecureConnection()) {
+            ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();
+            if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
+                setupSsl(
+                        builder,
+                        uri.getSslKeyStorePath(),
+                        uri.getSslKeyStorePassword(),
+                        uri.getSslKeyStoreType(),
+                        uri.getSslUseSystemKeyStore(),
+                        uri.getSslTrustStorePath(),
+                        uri.getSslTrustStorePassword(),
+                        uri.getSslTrustStoreType(),
+                        uri.getSslUseSystemTrustStore());
+            }
+            if (sslVerificationMode.equals(FULL)) {
+                uri.getHostnameInCertificate().ifPresent(certHostname ->
+                        setupAlternateHostnameVerification(builder, certHostname));
+            }
+
+            if (sslVerificationMode.equals(CA)) {
+                builder.hostnameVerifier((hostname, session) -> true);
+            }
+
+            if (sslVerificationMode.equals(NONE)) {
+                setupInsecureSsl(builder);
+            }
+        }
+        else {
+            setupInsecureSsl(builder);
+        }
+
+        uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
+
         return builder;
     }
 

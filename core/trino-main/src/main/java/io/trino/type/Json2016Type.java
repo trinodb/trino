@@ -15,7 +15,7 @@ package io.trino.type;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.json.JsonInputConversionException;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
@@ -23,9 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -34,16 +32,23 @@ import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 public class Json2016Type
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "json2016";
     public static final Json2016Type JSON_2016 = new Json2016Type();
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
 
     public Json2016Type()
     {
-        super(new TypeSignature(StandardTypes.JSON_2016), JsonNode.class);
+        super(new TypeSignature(NAME), JsonNode.class);
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public Object getObjectValue(Block block, int position)
     {
         return getObject(block, position);
     }

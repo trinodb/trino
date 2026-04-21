@@ -44,7 +44,7 @@ public class TableFunctionProcessorBuilder
     private Optional<DataOrganizationSpecification> specification = Optional.empty();
     private Set<Symbol> prePartitioned = ImmutableSet.of();
     private int preSorted;
-    private Optional<Symbol> hashSymbol = Optional.empty();
+    private ConnectorTableFunctionHandle connectorHandle = new ConnectorTableFunctionHandle() {};
 
     public TableFunctionProcessorBuilder() {}
 
@@ -108,9 +108,9 @@ public class TableFunctionProcessorBuilder
         return this;
     }
 
-    public TableFunctionProcessorBuilder hashSymbol(Symbol hashSymbol)
+    public TableFunctionProcessorBuilder connectorHandle(ConnectorTableFunctionHandle connectorHandle)
     {
-        this.hashSymbol = Optional.of(hashSymbol);
+        this.connectorHandle = connectorHandle;
         return this;
     }
 
@@ -128,7 +128,6 @@ public class TableFunctionProcessorBuilder
                 specification,
                 prePartitioned,
                 preSorted,
-                hashSymbol,
-                new TableFunctionHandle(TEST_CATALOG_HANDLE, new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(TEST_CATALOG_HANDLE, connectorHandle, TestingTransactionHandle.create()));
     }
 }

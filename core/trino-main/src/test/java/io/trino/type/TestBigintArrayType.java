@@ -16,14 +16,13 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +31,7 @@ public class TestBigintArrayType
 {
     public TestBigintArrayType()
     {
-        super(TESTING_TYPE_MANAGER.getType(arrayType(BIGINT.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(BIGINT.getTypeSignature()))));
+        super(new ArrayType(BIGINT), List.class, createTestBlock(new ArrayType(BIGINT)));
     }
 
     public static ValueBlock createTestBlock(Type arrayType)
@@ -51,7 +50,7 @@ public class TestBigintArrayType
         Block block = (Block) value;
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
-            BIGINT.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
         BIGINT.writeLong(blockBuilder, 1L);
 

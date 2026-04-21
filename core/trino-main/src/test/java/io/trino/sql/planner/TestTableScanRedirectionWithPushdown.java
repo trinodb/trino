@@ -387,7 +387,7 @@ public class TestTableScanRedirectionWithPushdown
                     throw new UnsupportedOperationException();
                 }
                 String dereferenceTargetName = variable.getName();
-                newVariableName = ((MockConnectorColumnHandle) assignments.get(dereferenceTargetName)).getName() + "#" + dereference.getField();
+                newVariableName = ((MockConnectorColumnHandle) assignments.get(dereferenceTargetName)).name() + "#" + dereference.getField();
                 newVariable = new Variable(newVariableName, type);
                 newColumnHandle = new MockConnectorColumnHandle(newVariableName, type);
             }

@@ -13,7 +13,9 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.Session;
@@ -34,12 +36,11 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import org.assertj.core.util.VisibleForTesting;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -68,10 +69,6 @@ public class PushPartialAggregationThroughJoin
             return false;
         }
 
-        if (aggregationNode.getHashSymbol().isPresent()) {
-            // TODO: add support for hash symbol in aggregation node
-            return false;
-        }
         return aggregationNode.getStep() == PARTIAL && aggregationNode.getGroupingSetCount() == 1;
     }
 
@@ -254,9 +251,7 @@ public class PushPartialAggregationThroughJoin
         return Streams.concat(
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
                         node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream(),
-                        node.getLeftHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream(),
-                        node.getRightHashSymbol().map(ImmutableSet::of).orElse(ImmutableSet.of()).stream())
+                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 
@@ -310,8 +305,6 @@ public class PushPartialAggregationThroughJoin
                 rightChild.getOutputSymbols(),
                 child.isMaySkipOutputDuplicates(),
                 child.getFilter(),
-                child.getLeftHashSymbol(),
-                child.getRightHashSymbol(),
                 child.getDistributionType(),
                 child.isSpillable(),
                 child.getDynamicFilters(),
@@ -328,8 +321,8 @@ public class PushPartialAggregationThroughJoin
 
     private PlanNode toIntermediateAggregation(AggregationNode partialAggregation, PlanNode source, Context context)
     {
-        Map<Symbol, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
+        ImmutableMap.Builder<Symbol, Aggregation> intermediateAggregation = ImmutableMap.builder();
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
 
@@ -353,14 +346,12 @@ public class PushPartialAggregationThroughJoin
         return new AggregationNode(
                 context.getIdAllocator().getNextId(),
                 source,
-                intermediateAggregation,
+                intermediateAggregation.buildOrThrow(),
                 partialAggregation.getGroupingSets(),
                 // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
                 // through the join may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
                 ImmutableList.of(),
                 INTERMEDIATE,
-                // hash symbol is not supported by this rule
-                Optional.empty(),
                 partialAggregation.getGroupIdSymbol());
     }
 }

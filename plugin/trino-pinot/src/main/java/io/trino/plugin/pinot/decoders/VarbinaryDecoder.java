@@ -18,9 +18,8 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 
+import java.util.HexFormat;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -36,8 +35,8 @@ public class VarbinaryDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
-            Slice slice = Slices.wrappedBuffer(toBytes((String) value));
+        else if (value instanceof String string) {
+            Slice slice = Slices.wrappedBuffer(toBytes(string));
             ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {
@@ -47,11 +46,6 @@ public class VarbinaryDecoder
 
     public static byte[] toBytes(String stringValue)
     {
-        try {
-            return Hex.decodeHex(stringValue.toCharArray());
-        }
-        catch (DecoderException e) {
-            throw new IllegalArgumentException("Value: " + stringValue + " is not Hex encoded", e);
-        }
+        return HexFormat.of().parseHex(stringValue);
     }
 }

@@ -19,14 +19,14 @@ final class Preconditions
 {
     private Preconditions() {}
 
-    public static String checkNotNullOrEmpty(String value, String name)
+    static String checkNotNullOrEmpty(String value, String name)
     {
         requireNonNull(value, name + " is null");
         checkArgument(!value.isEmpty(), name + " is empty");
         return value;
     }
 
-    public static void checkArgument(boolean assertion, String message)
+    static void checkArgument(boolean assertion, String message)
     {
         if (!assertion) {
             throw new IllegalArgumentException(message);

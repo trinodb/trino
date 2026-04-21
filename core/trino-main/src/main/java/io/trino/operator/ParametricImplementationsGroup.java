@@ -134,7 +134,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
 
         public void addImplementation(T implementation)
         {
-            if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
+            if (!implementation.getSignature().isGeneric()
                     && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                     && !implementation.getSignature().getReturnType().isCalculated()) {
                 exactImplementations.put(implementation.getSignature(), implementation);

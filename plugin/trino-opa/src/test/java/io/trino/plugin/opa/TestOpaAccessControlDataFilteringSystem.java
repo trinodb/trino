@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @Testcontainers
 @TestInstance(PER_CLASS)
-public class TestOpaAccessControlDataFilteringSystem
+final class TestOpaAccessControlDataFilteringSystem
 {
     @Container
     private static final OpaContainer OPA_CONTAINER = new OpaContainer();
@@ -122,7 +122,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testRowFilteringEnabled()
+    void testRowFilteringEnabled()
             throws Exception
     {
         setupTrinoWithOpa(
@@ -140,7 +140,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testRowFilteringDisabledDoesNothing()
+    void testRowFilteringDisabledDoesNothing()
             throws Exception
     {
         setupTrinoWithOpa(
@@ -157,7 +157,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testColumnMasking()
+    void testColumnMasking()
             throws Exception
     {
         testColumnMasking(
@@ -167,7 +167,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testBatchColumnMasking()
+    void testBatchColumnMasking()
             throws Exception
     {
         testColumnMasking(
@@ -239,7 +239,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testColumnMaskingDisabledDoesNothing()
+    void testColumnMaskingDisabledDoesNothing()
             throws Exception
     {
         setupTrinoWithOpa(new OpaConfig().setOpaUri(OPA_CONTAINER.getOpaUriForPolicyPath(OPA_ALLOW_POLICY_NAME)));
@@ -254,7 +254,7 @@ public class TestOpaAccessControlDataFilteringSystem
     }
 
     @Test
-    public void testColumnMaskingAndRowFiltering()
+    void testColumnMaskingAndRowFiltering()
             throws Exception
     {
         setupTrinoWithOpa(

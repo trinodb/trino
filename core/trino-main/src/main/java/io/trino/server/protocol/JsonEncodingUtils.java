@@ -22,7 +22,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -35,6 +34,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
@@ -44,12 +44,14 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VariantType;
+import io.trino.spi.variant.Variant;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Base64;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -65,9 +67,10 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.util.Objects.requireNonNull;
 
-public class JsonEncodingUtils
+public final class JsonEncodingUtils
 {
     private JsonEncodingUtils() {}
 
@@ -80,17 +83,18 @@ public class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
+    private static final VariantEncoder VARIANT_ENCODER = new VariantEncoder();
 
-    public static TypeEncoder[] createTypeEncoders(Session session, List<OutputColumn> columns)
+    public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
-        verify(!columns.isEmpty(), "Columns must not be empty");
+        verify(!types.isEmpty(), "Columns must not be empty");
 
         boolean supportsParametricDateTime = requireNonNull(session, "session is null")
                 .getClientCapabilities()
                 .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
 
-        return columns.stream()
-                .map(column -> createTypeEncoder(column.type(), supportsParametricDateTime))
+        return types.stream()
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
                 .toArray(TypeEncoder[]::new);
     }
 
@@ -107,10 +111,11 @@ public class JsonEncodingUtils
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
+            case VariantType _ -> VARIANT_ENCODER;
             // TODO: add specialized Short/Long decimal encoders
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
             case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
-            case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
+            case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
                     .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
                     .toArray(TypeEncoder[]::new));
@@ -118,17 +123,21 @@ public class JsonEncodingUtils
         };
     }
 
-    public static void writePagesToJsonGenerator(ConnectorSession connectorSession, Consumer<TrinoException> throwableConsumer, JsonGenerator generator, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
+    public static void writePagesToJsonGenerator(Consumer<TrinoException> throwableConsumer, JsonGenerator generator, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
     {
         verify(typeEncoders.length == sourcePageChannels.length, "Source page channels and type encoders must have the same length");
         try {
             generator.writeStartArray();
 
             for (Page page : pages) {
+                Block[] blocks = new Block[sourcePageChannels.length];
+                for (int i = 0; i < sourcePageChannels.length; i++) {
+                    blocks[i] = page.getBlock(sourcePageChannels[i]);
+                }
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     generator.writeStartArray();
                     for (int column = 0; column < typeEncoders.length; column++) {
-                        typeEncoders[column].encode(generator, connectorSession, page.getBlock(sourcePageChannels[column]), position);
+                        typeEncoders[column].encode(generator, blocks[column], position);
                     }
                     generator.writeEndArray();
                 }
@@ -141,17 +150,17 @@ public class JsonEncodingUtils
         }
     }
 
-    public interface TypeEncoder
+    public sealed interface TypeEncoder
     {
-        void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
     }
 
-    private static class BigintEncoder
+    private static final class BigintEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -162,11 +171,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class IntegerEncoder
+    private static final class IntegerEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -177,11 +186,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class BooleanEncoder
+    private static final class BooleanEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -192,11 +201,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class SmallintEncoder
+    private static final class SmallintEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -207,11 +216,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class TinyintEncoder
+    private static final class TinyintEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -222,11 +231,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class DoubleEncoder
+    private static final class DoubleEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -237,11 +246,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class RealEncoder
+    private static final class RealEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -252,11 +261,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class VarcharEncoder
+    private static final class VarcharEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -268,7 +277,7 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class CharEncoder
+    private static final class CharEncoder
             implements TypeEncoder
     {
         private final int length;
@@ -279,7 +288,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -291,11 +300,11 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class VarbinaryEncoder
+    private static final class VarbinaryEncoder
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -309,7 +318,24 @@ public class JsonEncodingUtils
         }
     }
 
-    private static class ArrayEncoder
+    private static final class VariantEncoder
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            Variant variant = VARIANT.getObject(block, position);
+            generator.writeRawValue(VariantUtil.asJson(variant).toStringUtf8());
+        }
+    }
+
+    private static final class ArrayEncoder
             implements TypeEncoder
     {
         private final ArrayType arrayType;
@@ -322,7 +348,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -333,13 +359,13 @@ public class JsonEncodingUtils
             Block arrayBlock = arrayType.getObject(block, position);
             generator.writeStartArray();
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                typeEncoder.encode(generator, session, arrayBlock, i);
+                typeEncoder.encode(generator, arrayBlock, i);
             }
             generator.writeEndArray();
         }
     }
 
-    private static class MapEncoder
+    private static final class MapEncoder
             implements TypeEncoder
     {
         private final MapType mapType;
@@ -352,7 +378,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -368,21 +394,17 @@ public class JsonEncodingUtils
             verify(keyBlock.getPositionCount() == valueBlock.getPositionCount(), "Key and value blocks have different number of positions");
             generator.writeStartObject();
             for (int i = 0; i < map.getSize(); i++) {
-                // Map keys are always serialized as strings for backward compatibility with existing clients,
-                // except for SqlVarbinary type which is encoded as base64-encoded string.
+                // Map keys are always serialized as strings for backward compatibility with existing clients.
                 // Map values are always properly encoded using their types.
                 // TODO: improve in v2 JSON format
-                switch (mapType.getKeyType().getObjectValue(session, keyBlock, offset + i)) {
-                    case SqlVarbinary varbinary -> generator.writeFieldName(Base64.getEncoder().encodeToString(varbinary.getBytes()));
-                    case Object value -> generator.writeFieldName(value.toString());
-                }
-                valueEncoder.encode(generator, session, valueBlock, offset + i);
+                generator.writeFieldName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
+                valueEncoder.encode(generator, valueBlock, offset + i);
             }
             generator.writeEndObject();
         }
     }
 
-    private static class RowEncoder
+    private static final class RowEncoder
             implements TypeEncoder
     {
         private final RowType rowType;
@@ -395,7 +417,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -405,13 +427,13 @@ public class JsonEncodingUtils
             SqlRow row = rowType.getObject(block, position);
             generator.writeStartArray();
             for (int i = 0; i < row.getFieldCount(); i++) {
-                fieldEncoders[i].encode(generator, session, row.getRawFieldBlock(i), row.getRawIndex());
+                fieldEncoders[i].encode(generator, row.getRawFieldBlock(i), row.getRawIndex());
             }
             generator.writeEndArray();
         }
     }
 
-    private static class TypeObjectValueEncoder
+    private static final class TypeObjectValueEncoder
             implements TypeEncoder
     {
         private final Type type;
@@ -424,7 +446,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -432,12 +454,15 @@ public class JsonEncodingUtils
                 return;
             }
 
-            Object value = roundParametricTypes(type.getObjectValue(session, block, position));
+            Object value = roundParametricTypes(type.getObjectValue(block, position));
 
             switch (value) {
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);
                 case SqlDate dateValue -> generator.writeString(dateValue.toString());
                 case SqlDecimal decimalValue -> generator.writeString(decimalValue.toString());
+                // When client does not have NUMBER capability, NUMBER values are sent as varchar (strings).
+                // When it has the capability, they are also sent as strings.
+                case SqlNumber number -> generator.writeString(number.toString());
                 case SqlIntervalDayTime intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlIntervalYearMonth intervalValue -> generator.writeString(intervalValue.toString());
                 case SqlTime timeValue -> generator.writeString(timeValue.toString());

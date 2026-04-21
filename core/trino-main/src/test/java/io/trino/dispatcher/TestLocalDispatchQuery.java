@@ -15,15 +15,12 @@ package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
-import io.trino.Session;
-import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorCatalogServiceProvider;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
@@ -32,6 +29,7 @@ import io.trino.event.QueryMonitor;
 import io.trino.event.QueryMonitorConfig;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.DataDefinitionExecution;
 import io.trino.execution.DataDefinitionTask;
@@ -39,28 +37,29 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStateMachine;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.server.protocol.Slug;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionManager;
@@ -75,11 +74,12 @@ import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -96,7 +96,7 @@ public class TestLocalDispatchQuery
     {
         countDownLatch = new CountDownLatch(1);
         Executor executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        Metadata metadata = createTestMetadataManager();
+        Metadata metadata = createTestingMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControl = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -121,14 +121,16 @@ public class TestLocalDispatchQuery
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.of(QueryType.DATA_DEFINITION),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
         QueryMonitor queryMonitor = new QueryMonitor(
-                JsonCodec.jsonCodec(StageInfo.class),
-                JsonCodec.jsonCodec(OperatorStats.class),
-                JsonCodec.jsonCodec(ExecutionFailureInfo.class),
-                JsonCodec.jsonCodec(StatsAndCosts.class),
+                jsonCodec(StagesInfo.class),
+                jsonCodec(OperatorStats.class),
+                jsonCodec(ExecutionFailureInfo.class),
+                jsonCodec(StatsAndCosts.class),
                 new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
                 new NodeInfo("node"),
                 new NodeVersion("version"),
@@ -142,7 +144,7 @@ public class TestLocalDispatchQuery
                                 () -> { throw new UnsupportedOperationException(); }),
                         LanguageFunctionProvider.DISABLED),
                 new QueryMonitorConfig());
-        CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
+        CreateTable createTable = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
         QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, ImmutableList.of(), Optional.empty());
         DataDefinitionExecution.DataDefinitionExecutionFactory dataDefinitionExecutionFactory = new DataDefinitionExecution.DataDefinitionExecutionFactory(
                 ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>of(CreateTable.class, new TestCreateTableTask()));
@@ -156,7 +158,7 @@ public class TestLocalDispatchQuery
                 queryStateMachine,
                 Futures.immediateFuture(dataDefinitionExecution),
                 queryMonitor,
-                new TestClusterSizeMonitor(new InMemoryNodeManager(ImmutableSet.of()), new NodeSchedulerConfig()),
+                new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
                 executor,
                 queryExecution -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {
@@ -176,10 +178,16 @@ public class TestLocalDispatchQuery
         public void loadInitialCatalogs() {}
 
         @Override
-        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+        public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
-        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+        public PrunableState getPrunableState()
+        {
+            return PrunableState.empty();
+        }
+
+        @Override
+        public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
         {
             throw new UnsupportedOperationException();
         }

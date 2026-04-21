@@ -58,13 +58,6 @@ final class BlockUtil
         }
     }
 
-    static void checkValidPositions(boolean[] positions, int positionCount)
-    {
-        if (positions.length != positionCount) {
-            throw new IllegalArgumentException(format("Invalid positions array size %d, actual position count is %d", positions.length, positionCount));
-        }
-    }
-
     static void checkValidPosition(int position, int positionCount)
     {
         if (position < 0 || position >= positionCount) {
@@ -103,16 +96,7 @@ final class BlockUtil
 
     static int calculateBlockResetSize(int currentSize)
     {
-        long newSize = (long) ceil(currentSize * BLOCK_RESET_SKEW);
-
-        // verify new size is within reasonable bounds
-        if (newSize < DEFAULT_CAPACITY) {
-            newSize = DEFAULT_CAPACITY;
-        }
-        else if (newSize > MAX_ARRAY_SIZE) {
-            newSize = MAX_ARRAY_SIZE;
-        }
-        return (int) newSize;
+        return clamp((long) ceil(currentSize * BLOCK_RESET_SKEW), DEFAULT_CAPACITY, MAX_ARRAY_SIZE);
     }
 
     static int calculateBlockResetBytes(int currentBytes)
@@ -122,6 +106,31 @@ final class BlockUtil
             return MAX_ARRAY_SIZE;
         }
         return (int) newBytes;
+    }
+
+    /**
+     * Returns an array containing elements in the specified range of the specified <code>isNull</code> array.
+     * If the input array is null, null is returned. If the range matches the entire array, the input array
+     * will be returned. Otherwise, a copy will be returned.
+     */
+    static boolean[] compactIsNull(@Nullable boolean[] isNull, int index, int length)
+    {
+        if (isNull == null) {
+            return null;
+        }
+        checkArrayRange(isNull, index, length);
+        if (index == 0 && length == isNull.length) {
+            return isNull;
+        }
+        for (int i = 0; i < length; i++) {
+            if (isNull[i + index]) {
+                boolean[] result = new boolean[length];
+                System.arraycopy(isNull, i + index, result, i, length - i);
+                return result;
+            }
+        }
+        // No nulls encountered, return null as the result
+        return null;
     }
 
     /**
@@ -201,33 +210,6 @@ final class BlockUtil
         return Arrays.copyOfRange(array, index, index + length);
     }
 
-    static int countSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase)
-    {
-        checkArrayRange(offsets, offsetBase, positions.length);
-        int used = 0;
-        for (int i = 0; i < positions.length; i++) {
-            int offsetStart = offsets[offsetBase + i];
-            int offsetEnd = offsets[offsetBase + i + 1];
-            used += ((positions[i] ? 1 : 0) * (offsetEnd - offsetStart));
-        }
-        return used;
-    }
-
-    static int countAndMarkSelectedPositionsFromOffsets(boolean[] positions, int[] offsets, int offsetBase, boolean[] elementPositions)
-    {
-        checkArrayRange(offsets, offsetBase, positions.length);
-        int used = 0;
-        for (int i = 0; i < positions.length; i++) {
-            int offsetStart = offsets[offsetBase + i];
-            int offsetEnd = offsets[offsetBase + i + 1];
-            if (positions[i]) {
-                used += (offsetEnd - offsetStart);
-                Arrays.fill(elementPositions, offsetStart, offsetEnd, true);
-            }
-        }
-        return used;
-    }
-
     /**
      * Returns <tt>true</tt> if the two specified arrays contain the same object in every position.
      * Unlike the {@link Arrays#equals(Object[], Object[])} method, this method compares using reference equals.
@@ -244,27 +226,6 @@ final class BlockUtil
             }
         }
         return true;
-    }
-
-    /**
-     * Returns the input blocks array if all blocks are already loaded, otherwise returns a new blocks array with all blocks loaded
-     */
-    static Block[] ensureBlocksAreLoaded(Block[] blocks)
-    {
-        for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
-                }
-                return loadedBlocks;
-            }
-        }
-        // No newly loaded blocks
-        return blocks;
     }
 
     static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
@@ -356,17 +317,6 @@ final class BlockUtil
         }
 
         return buffer;
-    }
-
-    static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
-    {
-        rawBlock = rawBlock.getLoadedBlock();
-        switch (rawBlock) {
-            case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
-            case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
-            case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, offset, length);
-            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + rawBlock.getClass().getSimpleName());
-        }
     }
 
     /**

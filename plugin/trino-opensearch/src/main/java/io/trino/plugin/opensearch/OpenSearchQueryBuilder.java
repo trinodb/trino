@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -59,7 +60,7 @@ public final class OpenSearchQueryBuilder
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
-            for (Map.Entry<OpenSearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+            for (Entry<OpenSearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
                 OpenSearchColumnHandle column = entry.getKey();
                 Domain domain = entry.getValue();
 

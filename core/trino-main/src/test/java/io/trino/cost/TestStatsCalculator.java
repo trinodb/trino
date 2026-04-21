@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -53,7 +52,7 @@ public class TestStatsCalculator
         queryRunner.createCatalog(
                 queryRunner.getDefaultSession().getCatalog().get(),
                 "tpch",
-                ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+                ImmutableMap.of("tpch.splits-per-node", "1"));
     }
 
     @AfterAll

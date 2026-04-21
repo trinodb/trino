@@ -28,7 +28,6 @@ import org.weakref.jmx.Managed;
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -42,6 +41,7 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
+import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockTypeOperators
@@ -69,7 +69,7 @@ public final class BlockTypeOperators
         this.generatedBlockOperatorCache = buildNonEvictableCacheWithWeakInvalidateAll(
                 CacheBuilder.newBuilder()
                         .maximumSize(10_000)
-                        .expireAfterWrite(2, TimeUnit.HOURS));
+                        .expireAfterWrite(ofHours(2)));
     }
 
     public BlockPositionEqual getEqualOperator(Type type)

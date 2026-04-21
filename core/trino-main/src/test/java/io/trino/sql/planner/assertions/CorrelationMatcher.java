@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -46,7 +43,7 @@ public class CorrelationMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(
                 shapeMatches(node),
@@ -60,7 +57,7 @@ public class CorrelationMatcher
 
         int i = 0;
         for (String alias : this.correlation) {
-            if (!symbolAliases.get(alias).equals(actualCorrelation.get(i++).toSymbolReference())) {
+            if (!context.symbolAliases().get(alias).equals(actualCorrelation.get(i++).toSymbolReference())) {
                 return NO_MATCH;
             }
         }
@@ -69,11 +66,11 @@ public class CorrelationMatcher
 
     private List<Symbol> getCorrelation(PlanNode node)
     {
-        if (node instanceof ApplyNode) {
-            return ((ApplyNode) node).getCorrelation();
+        if (node instanceof ApplyNode applyNode) {
+            return applyNode.getCorrelation();
         }
-        if (node instanceof CorrelatedJoinNode) {
-            return ((CorrelatedJoinNode) node).getCorrelation();
+        if (node instanceof CorrelatedJoinNode correlatedJoinNode) {
+            return correlatedJoinNode.getCorrelation();
         }
         throw new IllegalStateException("Unexpected plan node: " + node);
     }

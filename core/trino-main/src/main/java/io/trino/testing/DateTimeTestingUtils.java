@@ -92,24 +92,6 @@ public final class DateTimeTestingUtils
         return sqlTimestampOf(precision, dateTime.getMillis());
     }
 
-    /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, DateTime dateTime)}
-     */
-    @Deprecated
-    public static SqlTimestamp sqlTimestampOf(DateTime dateTime)
-    {
-        return sqlTimestampOf(dateTime.getMillis());
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, long millis)}
-     */
-    @Deprecated
-    public static SqlTimestamp sqlTimestampOf(long millis)
-    {
-        return sqlTimestampOf(3, millis);
-    }
-
     public static SqlTimestamp sqlTimestampOf(int precision, long millis)
     {
         return SqlTimestamp.fromMillis(precision, millis);
@@ -123,29 +105,6 @@ public final class DateTimeTestingUtils
             int nanoOfSecond)
     {
         return sqlTimeOf(precision, LocalTime.of(hour, minuteOfHour, secondOfMinute, nanoOfSecond));
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimeOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond)}
-     */
-    @Deprecated
-    public static SqlTime sqlTimeOf(
-            int hourOfDay,
-            int minuteOfHour,
-            int secondOfMinute,
-            int millisOfSecond)
-    {
-        LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond));
-        return sqlTimeOf(time);
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimeOf(int precision, LocalTime time)}
-     */
-    @Deprecated
-    public static SqlTime sqlTimeOf(LocalTime time)
-    {
-        return sqlTimeOf(3, time);
     }
 
     public static SqlTime sqlTimeOf(int precision, LocalTime time)

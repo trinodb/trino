@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Day of the year of the given timestamp")
 @ScalarFunction(value = "day_of_year", alias = "doy")
-public class ExtractDayOfYear
+public final class ExtractDayOfYear
 {
     private ExtractDayOfYear() {}
 

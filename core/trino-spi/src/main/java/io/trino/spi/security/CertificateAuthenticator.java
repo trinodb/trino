@@ -16,6 +16,7 @@ package io.trino.spi.security;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Optional;
 
 public interface CertificateAuthenticator
 {
@@ -28,5 +29,20 @@ public interface CertificateAuthenticator
      * @return the authenticated entity
      * @throws AccessDeniedException if not allowed
      */
+    @Deprecated
     Principal authenticate(List<X509Certificate> certificates);
+
+    /**
+     * If implemented and authenticated; extract principal from client certificate and
+     * provide an {@link Identity}.
+     *
+     * @param certificates This client certificate chain, in ascending order of trust.
+     * The first certificate in the chain is the one set by the client, the next is the
+     * one used to authenticate the first, and so on.
+     * @return the authenticated {@link Identity}
+     */
+    default Optional<Identity> createAuthenticatedIdentity(List<X509Certificate> certificates)
+    {
+        return Optional.empty();
+    }
 }

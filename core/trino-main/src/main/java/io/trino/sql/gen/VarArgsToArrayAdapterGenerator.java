@@ -25,6 +25,7 @@ import io.trino.util.Reflection;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Array;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -130,7 +131,7 @@ public final class VarArgsToArrayAdapterGenerator
         for (int i = 0; i < argsLength; i++) {
             parameterListBuilder.add(arg("input_" + i, javaType));
         }
-        ImmutableList<Parameter> parameterList = parameterListBuilder.build();
+        List<Parameter> parameterList = parameterListBuilder.build();
 
         MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToArray", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();

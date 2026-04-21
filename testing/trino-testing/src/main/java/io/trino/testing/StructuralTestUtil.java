@@ -25,7 +25,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
@@ -159,13 +159,13 @@ public final class StructuralTestUtil
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeSignature()),
+                TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
         return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
-                    TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
+                    TypeParameter.typeParameter(elementType.getTypeSignature())));
     }
 }

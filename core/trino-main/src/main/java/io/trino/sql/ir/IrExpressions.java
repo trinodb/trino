@@ -16,45 +16,52 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MODULUS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 
-public class IrExpressions
+public final class IrExpressions
 {
-    // TODO: these should be attributes of the function
-    private static final List<CatalogSchemaFunctionName> NEVER_FAIL = ImmutableList.of(
-            builtinFunctionName("length"),
-            builtinFunctionName("try_cast"),
-            builtinFunctionName("$not"),
-            builtinFunctionName("substring"),
-            builtinFunctionName("trim"),
-            builtinFunctionName("ltrim"),
-            builtinFunctionName("rtrim"),
-            builtinFunctionName("replace"),
-            builtinFunctionName("reverse"),
-            builtinFunctionName("lower"),
-            builtinFunctionName("upper"),
-            builtinFunctionName("to_utf8"),
-            builtinFunctionName(LIKE_FUNCTION_NAME));
-
     private IrExpressions() {}
+
+    public static Constant constantNull(Type type)
+    {
+        return new Constant(type, null);
+    }
+
+    public static Call call(ResolvedFunction function, Expression... arguments)
+    {
+        return new Call(function, Arrays.asList(arguments));
+    }
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
-        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), new Constant(trueCase.type(), null));
+        return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), constantNull(trueCase.type()));
     }
 
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
@@ -85,23 +92,22 @@ public class IrExpressions
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)
     {
         return switch (expression) {
+            // These expressions never fail
+            case Bind _, Constant _, FieldReference _, Lambda _, Reference _ -> false;
+
+            // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
             case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
-            case Bind e -> false;
-            case Call e -> mayFail(e.function()) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument)); // TODO: allow functions to be marked as non-failing
+            case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
             case Cast e -> mayFail(plannerContext, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Comparison e -> mayFail(plannerContext, e.left()) || mayFail(plannerContext, e.right());
-            case Constant e -> false;
-            case FieldReference e -> false;
             case In e -> mayFail(plannerContext, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case IsNull e -> mayFail(plannerContext, e.value());
-            case Lambda e -> false;
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
-            case Reference e -> false;
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
@@ -120,22 +126,54 @@ public class IrExpressions
             return false;
         }
 
-        if (cast.type().equals(VARCHAR)) {
+        return !cast.type().equals(VARCHAR);
+    }
+
+    private static boolean mayFail(Call call)
+    {
+        ResolvedFunction function = call.function();
+        if (function.neverFails() || isDynamicFilterFunction(function.name())) {
             return false;
         }
-
+        List<Expression> arguments = call.arguments();
+        if (isModulsOrDivide(function) && arguments.get(1) instanceof Constant divisor && !canCauseDivisionByZeroError(divisor)) {
+            return false;
+        }
         return true;
     }
 
-    private static boolean mayFail(ResolvedFunction function)
+    private static boolean isModulsOrDivide(ResolvedFunction function)
     {
-        return !NEVER_FAIL.contains(function.name()) && !isDynamicFilterFunction(function.name());
+        return (function.name().equals(builtinFunctionName(MODULUS)) || function.name().equals(builtinFunctionName(DIVIDE))) && function.signature().getArity() == 2;
+    }
+
+    private static boolean canCauseDivisionByZeroError(Constant divisor)
+    {
+        Object value = divisor.value();
+        if (value == null) {
+            return false; // dividing by null is null
+        }
+        return switch (divisor.type()) {
+            case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> (long) value == 0;
+            case DecimalType decimalType -> {
+                if (decimalType.isShort()) {
+                    yield (long) value == 0;
+                }
+                yield ((Int128) value).isZero();
+            }
+            case NumberType _ -> switch (((TrinoNumber) value).toBigDecimal()) {
+                case TrinoNumber.BigDecimalValue(BigDecimal bigdecimal) -> bigdecimal.signum() == 0;
+                case TrinoNumber.Infinity _, TrinoNumber.NotANumber _ -> false;
+            };
+            case RealType _, DoubleType _ -> false; // will return NaN or ±Inf on division by 0
+            default -> true;
+        };
     }
 
     public static Expression not(Metadata metadata, Expression expression)
     {
-        return new Call(
+        return call(
                 metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN)),
-                ImmutableList.of(expression));
+                expression);
     }
 }

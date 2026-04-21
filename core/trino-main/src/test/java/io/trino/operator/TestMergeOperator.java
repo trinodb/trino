@@ -27,11 +27,12 @@ import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -45,8 +46,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,6 +59,8 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsBlocked;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsUnblocked;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -89,7 +94,7 @@ public class TestMergeOperator
     public void setUp()
     {
         executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-merge-operator-%s"));
-        serdeFactory = new TestingPagesSerdeFactory();
+        serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, serdeFactory), executor);
@@ -100,7 +105,8 @@ public class TestMergeOperator
                 httpClient,
                 new HttpClientConfig(),
                 executor,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                Optional.of(new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1))));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 
@@ -170,7 +176,7 @@ public class TestMergeOperator
     public void testMergeDifferentTypes()
             throws Exception
     {
-        ImmutableList<Type> types = ImmutableList.of(BIGINT, INTEGER);
+        List<Type> types = ImmutableList.of(BIGINT, INTEGER);
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(1, 0), ImmutableList.of(1, 0), ImmutableList.of(DESC_NULLS_FIRST, ASC_NULLS_FIRST));
         operator.addSplit(createRemoteSplit(TASK_1_ID));
         operator.addSplit(createRemoteSplit(TASK_2_ID));
@@ -200,7 +206,7 @@ public class TestMergeOperator
         taskBuffers.getUnchecked(TASK_2_ID).addPages(task2Pages, true);
         assertOperatorIsUnblocked(operator);
 
-        ImmutableList<Type> outputTypes = ImmutableList.of(INTEGER, BIGINT);
+        List<Type> outputTypes = ImmutableList.of(INTEGER, BIGINT);
         Page expected = rowPagesBuilder(outputTypes)
                 .row(null, 0)
                 .row(5, null)

@@ -17,12 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
@@ -55,7 +56,6 @@ import org.assertj.core.description.Description;
 import org.assertj.core.description.TextDescription;
 import org.assertj.core.presentation.Representation;
 import org.assertj.core.presentation.StandardRepresentation;
-import org.assertj.core.util.CanIgnoreReturnValue;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
@@ -64,6 +64,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -650,7 +651,7 @@ public class QueryAssertions
         private final boolean ordered;
         private boolean skipTypesCheck;
 
-        private ResultAssert(
+        public ResultAssert(
                 QueryRunner runner,
                 Session session,
                 Description description,
@@ -758,6 +759,21 @@ public class QueryAssertions
         }
 
         @CanIgnoreReturnValue
+        public ResultAssert hasColumnNames(String... expectedColumnNames)
+        {
+            return hasColumnNames(Arrays.asList(expectedColumnNames));
+        }
+
+        @CanIgnoreReturnValue
+        public ResultAssert hasColumnNames(List<String> expectedColumnNames)
+        {
+            assertThat(actual.getColumnNames())
+                    .as("Column names for query [%s]", description)
+                    .isEqualTo(expectedColumnNames);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public ResultAssert hasTypes(List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
@@ -821,14 +837,14 @@ public class QueryAssertions
                 return run("VALUES ROW(%s)".formatted(expression));
             }
 
-            List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
+            List<Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
 
             List<String> columns = entries.stream()
-                    .map(Map.Entry::getKey)
+                    .map(Entry::getKey)
                     .collect(toList());
 
             List<String> values = entries.stream()
-                    .map(Map.Entry::getValue)
+                    .map(Entry::getValue)
                     .collect(toList());
 
             // Evaluate the expression using two modes:

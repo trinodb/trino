@@ -13,20 +13,24 @@
  */
 package io.trino.metadata;
 
+import com.google.inject.Inject;
+import io.trino.simd.BlockEncodingSimdSupport;
+import io.trino.simd.BlockEncodingSimdSupport.SimdSupport;
 import io.trino.spi.block.ArrayBlockEncoding;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.ByteArrayBlockEncoding;
 import io.trino.spi.block.DictionaryBlockEncoding;
 import io.trino.spi.block.Fixed12BlockEncoding;
 import io.trino.spi.block.Int128ArrayBlockEncoding;
 import io.trino.spi.block.IntArrayBlockEncoding;
-import io.trino.spi.block.LazyBlockEncoding;
 import io.trino.spi.block.LongArrayBlockEncoding;
 import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.ShortArrayBlockEncoding;
 import io.trino.spi.block.VariableWidthBlockEncoding;
+import io.trino.spi.block.VariantBlockEncoding;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,37 +40,51 @@ import static java.util.Objects.requireNonNull;
 
 public final class BlockEncodingManager
 {
-    private final Map<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+    // for deserialization
+    private final Map<String, BlockEncoding> blockEncodingsByName = new ConcurrentHashMap<>();
+    // for serialization
+    private final Map<Class<? extends Block>, BlockEncoding> blockEncodingNamesByClass = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager()
+    @Inject
+    public BlockEncodingManager(BlockEncodingSimdSupport blockEncodingSimdSupport)
     {
         // add the built-in BlockEncodings
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Fixed12BlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
+        SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
+        addBlockEncoding(new VariableWidthBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressByte(), simdSupport.expandByte()));
+        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressShort(), simdSupport.expandShort()));
+        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressInt(), simdSupport.expandInt()));
+        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong()));
+        addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new VariantBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new MapBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new RowBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new RunLengthBlockEncoding());
-        addBlockEncoding(new LazyBlockEncoding());
     }
 
-    public BlockEncoding getBlockEncoding(String encodingName)
+    public BlockEncoding getBlockEncodingByName(String encodingName)
     {
-        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        BlockEncoding blockEncoding = blockEncodingsByName.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding: %s", encodingName);
+        return blockEncoding;
+    }
+
+    public BlockEncoding getBlockEncodingByBlockClass(Class<? extends Block> clazz)
+    {
+        BlockEncoding blockEncoding = blockEncodingNamesByClass.get(clazz);
+        checkArgument(blockEncoding != null, "Unknown block encoding for block: %s", clazz.getName());
         return blockEncoding;
     }
 
     public void addBlockEncoding(BlockEncoding blockEncoding)
     {
         requireNonNull(blockEncoding, "blockEncoding is null");
-        BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
-        checkArgument(existingEntry == null, "Encoding already registered: %s", blockEncoding.getName());
+        BlockEncoding existingEntryByClass = blockEncodingNamesByClass.putIfAbsent(blockEncoding.getBlockClass(), blockEncoding);
+        checkArgument(existingEntryByClass == null, "Encoding already registered: %s", blockEncoding.getName());
+        BlockEncoding existingEntryByName = blockEncodingsByName.putIfAbsent(blockEncoding.getName(), blockEncoding);
+        checkArgument(existingEntryByName == null, "Encoding already registered: %s", blockEncoding.getName());
     }
 }

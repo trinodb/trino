@@ -13,16 +13,14 @@
  */
 package io.trino.spiller;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import io.airlift.units.DataSize;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PageSerializer;
@@ -41,26 +39,29 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.collect.Iterators.transform;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
-import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class FileSingleStreamSpiller
         implements SingleStreamSpiller
 {
-    @VisibleForTesting
-    static final int BUFFER_SIZE = 4 * 1024;
+    private final List<SpillFile> spillFiles;
+    private volatile int currentFileIndex;
 
-    private final FileHolder targetFile;
     private final Closer closer = Closer.create();
     private final PagesSerdeFactory serdeFactory;
     private volatile Optional<SecretKey> encryptionKey;
@@ -71,9 +72,9 @@ public class FileSingleStreamSpiller
 
     private final ListeningExecutorService executor;
 
-    private boolean writable = true;
-    private long spilledPagesInMemorySize;
-    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
+    private final AtomicBoolean writable = new AtomicBoolean(true);
+    private final AtomicLong spilledPagesInMemorySize = new AtomicLong();
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0L));
 
     private final Runnable fileSystemErrorHandler;
 
@@ -81,12 +82,15 @@ public class FileSingleStreamSpiller
             PagesSerdeFactory serdeFactory,
             Optional<SecretKey> encryptionKey,
             ListeningExecutorService executor,
-            Path spillPath,
+            List<Path> spillPaths,
             SpillerStats spillerStats,
             SpillContext spillContext,
             LocalMemoryContext memoryContext,
             Runnable fileSystemErrorHandler)
     {
+        requireNonNull(spillPaths, "spillPaths is null");
+        checkArgument(!spillPaths.isEmpty(), "spillPaths is empty");
+
         this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
         this.encrypted = encryptionKey.isPresent();
@@ -104,10 +108,14 @@ public class FileSingleStreamSpiller
         // This means we start accounting for the memory before the spiller thread allocates it, and we release the memory reservation
         // before/after the spiller thread allocates that memory -- -- whether before or after depends on whether writePages() is in the
         // middle of execution when close() is called (note that this applies to both readPages() and writePages() methods).
-        this.memoryContext.setBytes(BUFFER_SIZE);
+        this.memoryContext.setBytes((long) SpillFile.BUFFER_SIZE * spillPaths.size());
         this.fileSystemErrorHandler = requireNonNull(fileSystemErrorHandler, "filesystemErrorHandler is null");
         try {
-            this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
+            ImmutableList.Builder<SpillFile> builder = ImmutableList.builderWithExpectedSize(spillPaths.size());
+            for (Path path : spillPaths) {
+                builder.add(closer.register(new SpillFile(Files.createTempFile(path, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX))));
+            }
+            this.spillFiles = builder.build();
         }
         catch (IOException e) {
             this.fileSystemErrorHandler.run();
@@ -116,7 +124,7 @@ public class FileSingleStreamSpiller
     }
 
     @Override
-    public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+    public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
     {
         requireNonNull(pageIterator, "pageIterator is null");
         checkNoSpillInProgress();
@@ -127,65 +135,143 @@ public class FileSingleStreamSpiller
     @Override
     public long getSpilledPagesInMemorySize()
     {
-        return spilledPagesInMemorySize;
+        return spilledPagesInMemorySize.longValue();
     }
 
     @Override
     public Iterator<Page> getSpilledPages()
     {
         checkNoSpillInProgress();
-        return readPages();
+        checkState(writable.getAndSet(false), "Repeated reads are disallowed to prevent potential resource leaks");
+
+        try {
+            Optional<SecretKey> encryptionKey = this.encryptionKey;
+            checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
+
+            PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+            this.encryptionKey = Optional.empty();
+
+            int fileCount = spillFiles.size();
+            List<Iterator<Page>> iterators = new ArrayList<>(fileCount);
+            for (SpillFile file : spillFiles) {
+                iterators.add(readFilePages(deserializer, file, closer));
+            }
+
+            return new AbstractIterator<>()
+            {
+                int fileIndex;
+
+                @Override
+                protected Page computeNext()
+                {
+                    Iterator<Page> iterator = iterators.get(fileIndex);
+                    if (!iterator.hasNext()) {
+                        checkAllIteratorsExhausted(iterators);
+                        return endOfData();
+                    }
+
+                    Page page = iterator.next();
+                    fileIndex = (fileIndex + 1) % fileCount;
+                    return page;
+                }
+            };
+        }
+        catch (IOException e) {
+            fileSystemErrorHandler.run();
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
+        }
     }
 
     @Override
     public ListenableFuture<List<Page>> getAllSpilledPages()
     {
-        return executor.submit(() -> ImmutableList.copyOf(getSpilledPages()));
+        checkNoSpillInProgress();
+        checkState(writable.getAndSet(false), "Repeated reads are disallowed to prevent potential resource leaks");
+
+        Optional<SecretKey> encryptionKey = this.encryptionKey;
+        checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
+
+        this.encryptionKey = Optional.empty();
+
+        List<ListenableFuture<List<Page>>> futures = new ArrayList<>();
+        for (SpillFile file : spillFiles) {
+            futures.add(executor.submit(() -> {
+                PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+                ImmutableList.Builder<Page> pages = ImmutableList.builder();
+                try (Closer closer = Closer.create()) {
+                    readFilePages(deserializer, file, closer).forEachRemaining(pages::add);
+                }
+                return pages.build();
+            }));
+        }
+
+        // Combine pages from all spill files according to the round-robin order.
+        return Futures.transform(Futures.allAsList(futures), pagesPerFile -> {
+            ImmutableList.Builder<Page> builder = ImmutableList.builderWithExpectedSize(pagesPerFile.stream().mapToInt(List::size).sum());
+            int fileCount = spillFiles.size();
+
+            List<Iterator<Page>> iterators = new ArrayList<>(fileCount);
+            for (List<Page> pages : pagesPerFile) {
+                iterators.add(pages.iterator());
+            }
+
+            int fileIndex = 0;
+            while (iterators.get(fileIndex).hasNext()) {
+                builder.add(iterators.get(fileIndex).next());
+                fileIndex = (fileIndex + 1) % fileCount;
+            }
+            checkAllIteratorsExhausted(iterators);
+            return builder.build();
+        }, executor);
     }
 
-    private void writePages(Iterator<Page> pageIterator)
+    private static void checkAllIteratorsExhausted(List<Iterator<Page>> iterators)
     {
-        checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+        iterators.forEach(iterator -> checkState(!iterator.hasNext(), "spill file iterator not fully consumed"));
+    }
+
+    private DataSize writePages(Iterator<Page> pages)
+    {
+        checkState(writable.get(), "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
 
         Optional<SecretKey> encryptionKey = this.encryptionKey;
         checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
         PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
-        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
-            while (pageIterator.hasNext()) {
-                Page page = pageIterator.next();
-                spilledPagesInMemorySize += page.getSizeInBytes();
-                Slice serializedPage = serializer.serialize(page);
-                long pageSize = serializedPage.length();
-                localSpillContext.updateBytes(pageSize);
-                spillerStats.addToTotalSpilledBytes(pageSize);
-                output.writeBytes(serializedPage);
+
+        long spilledPagesBytes = 0;
+        int fileIndex = currentFileIndex;
+        int fileCount = spillFiles.size();
+
+        try {
+            while (pages.hasNext()) {
+                Page page = pages.next();
+                long pageSizeInBytes = page.getSizeInBytes();
+                Slice serialized = serializer.serialize(page);
+                long serializedPageSize = serialized.length();
+
+                spillFiles.get(fileIndex).writeBytes(serialized);
+
+                spilledPagesBytes += pageSizeInBytes;
+
+                spilledPagesInMemorySize.addAndGet(pageSizeInBytes);
+                localSpillContext.updateBytes(serializedPageSize);
+                spillerStats.addToTotalSpilledBytes(serializedPageSize);
+
+                fileIndex = (fileIndex + 1) % fileCount;
+            }
+
+            currentFileIndex = fileIndex;
+
+            for (SpillFile file : spillFiles) {
+                file.closeOutput();
             }
         }
         catch (UncheckedIOException | IOException e) {
             fileSystemErrorHandler.run();
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
-    }
 
-    private Iterator<Page> readPages()
-    {
-        checkState(writable, "Repeated reads are disallowed to prevent potential resource leaks");
-        writable = false;
-
-        try {
-            Optional<SecretKey> encryptionKey = this.encryptionKey;
-            checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
-            PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
-            // encryption key is safe to discard since it now belongs to the PageDeserializer and repeated reads are disallowed
-            this.encryptionKey = Optional.empty();
-            InputStream input = closer.register(targetFile.newInputStream());
-            Iterator<Page> pages = PagesSerdeUtil.readPages(deserializer, input);
-            return closeWhenExhausted(pages, input);
-        }
-        catch (IOException e) {
-            fileSystemErrorHandler.run();
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
-        }
+        return DataSize.ofBytes(spilledPagesBytes);
     }
 
     @Override
@@ -207,6 +293,17 @@ public class FileSingleStreamSpiller
     private void checkNoSpillInProgress()
     {
         checkState(spillInProgress.isDone(), "spill in progress");
+    }
+
+    /**
+     * Returns an iterator that exposes all pages stored in the given file.
+     * Pages are lazily deserialized as the iterator is consumed.
+     */
+    private Iterator<Page> readFilePages(PageDeserializer deserializer, SpillFile file, Closer closer)
+            throws IOException
+    {
+        InputStream input = closer.register(file.newInputStream());
+        return transform(closeWhenExhausted(PagesSerdeUtil.readSerializedPages(input), input), deserializer::deserialize);
     }
 
     private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)

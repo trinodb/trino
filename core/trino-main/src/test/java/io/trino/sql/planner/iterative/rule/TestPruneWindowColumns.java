@@ -61,7 +61,7 @@ public class TestPruneWindowColumns
     private static final ResolvedFunction MIN_FUNCTION = new TestingFunctionResolution().resolveFunction("min", fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
-            ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "aggOrderInput1", "aggOrderInput2", "unused");
+            ImmutableList.of("orderKey", "partitionKey", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "aggOrderInput1", "aggOrderInput2", "unused");
     private static final Set<String> inputSymbolNameSet = ImmutableSet.copyOf(inputSymbolNameList);
 
     private static final WindowNode.Frame FRAME1 = new WindowNode.Frame(
@@ -112,8 +112,7 @@ public class TestPruneWindowColumns
                                                         ImmutableList.of("orderKey"),
                                                         ImmutableMap.of("orderKey", ASC_NULLS_FIRST))
                                                 .preSortedOrderPrefix(0)
-                                                .addFunction("output2", windowFunction("min", ImmutableList.of("input2"), FRAME2, List.of(sort("aggOrderInput2", ASCENDING, FIRST))))
-                                                .hashSymbol("hash"),
+                                                .addFunction("output2", windowFunction("min", ImmutableList.of("input2"), FRAME2, List.of(sort("aggOrderInput2", ASCENDING, FIRST)))),
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.difference(inputSymbolNameSet, ImmutableSet.of("input1", "startValue1", "endValue1", "aggOrderInput1")),
@@ -165,8 +164,7 @@ public class TestPruneWindowColumns
                                                         ImmutableMap.of("orderKey", ASC_NULLS_FIRST))
                                                 .preSortedOrderPrefix(0)
                                                 .addFunction("output1", windowFunction("min", ImmutableList.of("input1"), FRAME1, List.of(sort("aggOrderInput1", ASCENDING, FIRST))))
-                                                .addFunction("output2", windowFunction("min", ImmutableList.of("input2"), FRAME2, List.of(sort("aggOrderInput2", ASCENDING, FIRST))))
-                                                .hashSymbol("hash"),
+                                                .addFunction("output2", windowFunction("min", ImmutableList.of("input2"), FRAME2, List.of(sort("aggOrderInput2", ASCENDING, FIRST)))),
                                         strictProject(
                                                 Maps.asMap(
                                                         Sets.filter(inputSymbolNameSet, symbolName -> !symbolName.equals("unused")),
@@ -181,7 +179,6 @@ public class TestPruneWindowColumns
     {
         Symbol orderKey = p.symbol("orderKey");
         Symbol partitionKey = p.symbol("partitionKey");
-        Symbol hash = p.symbol("hash");
         Symbol startValue1 = p.symbol("startValue1");
         Symbol startValue2 = p.symbol("startValue2");
         Symbol endValue1 = p.symbol("endValue1");
@@ -194,7 +191,7 @@ public class TestPruneWindowColumns
         Symbol output1 = p.symbol("output1");
         Symbol output2 = p.symbol("output2");
 
-        List<Symbol> inputs = ImmutableList.of(orderKey, partitionKey, hash, startValue1, startValue2, endValue1, endValue2, input1, input2, aggOrderInput1, aggOrderInput2, unused);
+        List<Symbol> inputs = ImmutableList.of(orderKey, partitionKey, startValue1, startValue2, endValue1, endValue2, input1, input2, aggOrderInput1, aggOrderInput2, unused);
         List<Symbol> outputs = ImmutableList.<Symbol>builder().addAll(inputs).add(output1, output2).build();
 
         return p.project(
@@ -239,7 +236,6 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey)),
                                         false,
                                         false)),
-                        hash,
                         p.values(
                                 inputs.stream()
                                         .filter(sourceFilter)

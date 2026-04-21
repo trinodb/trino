@@ -24,8 +24,8 @@ import java.lang.invoke.VarHandle;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
-import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.Math.multiplyExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -64,7 +64,7 @@ final class FlatSet
 
     private byte[] control;
     private byte[][] recordGroups;
-    private final VariableWidthData variableWidthData;
+    private final AppendOnlyVariableWidthData variableWidthData;
 
     private int size;
     private int maxFill;
@@ -89,7 +89,7 @@ final class FlatSet
         control = new byte[capacity + VECTOR_LENGTH];
 
         boolean variableWidth = type.isFlatVariableWidth();
-        variableWidthData = variableWidth ? new VariableWidthData() : null;
+        variableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
 
         recordValueOffset = (variableWidth ? POINTER_SIZE : 0);
         recordSize = recordValueOffset + type.getFlatFixedSize();
@@ -234,12 +234,12 @@ final class FlatSet
         int recordOffset = getRecordOffset(index);
 
         // write value
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthLength = type.getFlatVariableWidthSize(block, position);
             variableWidthChunk = variableWidthData.allocate(records, recordOffset, variableWidthLength);
-            variableWidthChunkOffset = VariableWidthData.getChunkOffset(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
 
         try {
@@ -328,15 +328,18 @@ final class FlatSet
         int recordOffset = getRecordOffset(index);
 
         try {
-            byte[] variableWidthChunk = EMPTY_CHUNK;
+            byte[] variableWidthChunk = null;
+            int variableWidthChunkOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+                variableWidthChunkOffset = getChunkOffset(records, recordOffset);
             }
 
             return (long) hashFlat.invokeExact(
                     records,
                     recordOffset + recordValueOffset,
-                    variableWidthChunk);
+                    variableWidthChunk,
+                    variableWidthChunkOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -360,9 +363,11 @@ final class FlatSet
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);
 
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
+        int leftVariableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(leftRecords, leftRecordOffset);
         }
 
         try {
@@ -370,6 +375,7 @@ final class FlatSet
                     leftRecords,
                     leftRecordOffset + recordValueOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     right,
                     rightPosition);
         }

@@ -54,12 +54,12 @@ public class SuiteCompatibility
     {
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
-        ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
+        List<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
                 .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY, ICEBERG_FORMAT_VERSION_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
-        ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
+        List<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
                 .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY)
                         .build())
@@ -82,7 +82,7 @@ public class SuiteCompatibility
             int testVersion = currentVersion - 1; // always test last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
                 if (testVersion == 456) {
-                    // 456 release was skipped.
+                    // 456 is invalid - release process errors resulted in invalid artifacts.
                     testVersion--;
                 }
                 if (testVersion < FIRST_TRINO_VERSION) {

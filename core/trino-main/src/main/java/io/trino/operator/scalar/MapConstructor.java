@@ -125,7 +125,7 @@ public final class MapConstructor
             }
             try {
                 if ((boolean) keyIndeterminate.invoke(keyBlock, i)) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(keyBlock, i));
                 }
             }
             catch (Throwable t) {

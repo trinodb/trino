@@ -25,6 +25,4 @@ public record AggregationFunction(
         Optional<Symbol> filter,
         Optional<OrderingScheme> orderingScheme,
         boolean distinct,
-        List<Expression> arguments)
-{
-}
+        List<Expression> arguments) {}

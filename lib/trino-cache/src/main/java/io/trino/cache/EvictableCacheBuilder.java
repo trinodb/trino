@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.cache.EvictableCache.Token;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -32,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Builder for {@link Cache} and {@link LoadingCache} instances, similar to {@link CacheBuilder},
@@ -189,7 +189,7 @@ public final class EvictableCacheBuilder<K, V>
                     // Avoid overhead of EvictableCache wrapper.
                     CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                             .maximumSize(0)
-                            .expireAfterWrite(0, SECONDS);
+                            .expireAfterWrite(Duration.ZERO);
                     if (recordStats) {
                         cacheBuilder.recordStats();
                     }
@@ -239,7 +239,7 @@ public final class EvictableCacheBuilder<K, V>
         });
     }
 
-    @ElementTypesAreNonnullByDefault
+    @NotNullByDefault
     private record TokenWeigher<K, V>(Weigher<? super K, ? super V> delegate)
             implements Weigher<Token<K>, V>
     {

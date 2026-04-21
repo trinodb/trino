@@ -22,7 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -96,7 +96,7 @@ public class TestDatabaseEventClient
             null,
             null);
 
-    private MySQLContainer<?> mysqlContainer;
+    private MySQLContainer mysqlContainer;
     private String mysqlContainerUrl;
     private JsonCodec<List<String>> codec;
     private DatabaseEventClient eventClient;
@@ -104,7 +104,7 @@ public class TestDatabaseEventClient
     @BeforeAll
     public void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
+        mysqlContainer = new MySQLContainer("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         codec = new JsonCodecFactory().listJsonCodec(String.class);
@@ -115,7 +115,7 @@ public class TestDatabaseEventClient
         eventClient.postConstruct();
     }
 
-    private static String getJdbcUrl(MySQLContainer<?> container)
+    private static String getJdbcUrl(MySQLContainer container)
     {
         return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),

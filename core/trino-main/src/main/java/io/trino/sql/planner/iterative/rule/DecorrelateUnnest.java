@@ -296,7 +296,7 @@ public class DecorrelateUnnest
                 .collect(toImmutableList());
         PlanNode unnestSource = lookup.resolve(unnestNode.getSource());
         boolean basedOnCorrelation = ImmutableSet.copyOf(correlation).containsAll(unnestSymbols) ||
-                unnestSource instanceof ProjectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(((ProjectNode) unnestSource).getAssignments().getExpressions()));
+                unnestSource instanceof ProjectNode projectNode && ImmutableSet.copyOf(correlation).containsAll(SymbolsExtractor.extractUnique(projectNode.getAssignments().expressions()));
 
         return isScalar(unnestNode.getSource(), lookup) &&
                 unnestNode.getReplicateSymbols().isEmpty() &&
@@ -400,8 +400,7 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.of(2),
-                        Optional.empty());
+                        Optional.of(2));
             }
             Expression predicate = ifExpression(
                     new Comparison(
@@ -442,7 +441,6 @@ public class DecorrelateUnnest
                         ImmutableList.of(uniqueSymbol),
                         false,
                         rowNumberSymbol,
-                        Optional.empty(),
                         Optional.empty());
             }
 
@@ -473,7 +471,6 @@ public class DecorrelateUnnest
                     source.getPlan(),
                     new DataOrganizationSpecification(ImmutableList.of(uniqueSymbol), Optional.of(node.getOrderingScheme())),
                     ImmutableMap.of(rowNumberSymbol, rowNumberFunction),
-                    Optional.empty(),
                     ImmutableSet.of(),
                     0);
 

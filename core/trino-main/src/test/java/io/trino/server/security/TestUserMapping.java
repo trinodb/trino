@@ -22,8 +22,10 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
-import static io.trino.server.security.UserMapping.Case.KEEP;
 import static io.trino.server.security.UserMapping.createUserMapping;
+import static io.trino.util.Case.KEEP;
+import static io.trino.util.Case.LOWER;
+import static io.trino.util.Case.UPPER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -121,7 +123,7 @@ public class TestUserMapping
     public void testLowercaseUsernameRule()
             throws UserMappingException
     {
-        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@EXAMPLE\\.COM", "$1", true, UserMapping.Case.LOWER)));
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@EXAMPLE\\.COM", "$1", true, LOWER)));
         assertThat(userMapping.mapUser("TEST@EXAMPLE.COM")).isEqualTo("test");
     }
 
@@ -129,7 +131,7 @@ public class TestUserMapping
     public void testUppercaseUsernameRule()
             throws UserMappingException
     {
-        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@example\\.com", "$1", true, UserMapping.Case.UPPER)));
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@example\\.com", "$1", true, UPPER)));
         assertThat(userMapping.mapUser("test@example.com")).isEqualTo("TEST");
     }
 

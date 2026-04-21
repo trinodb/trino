@@ -24,19 +24,18 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Row(List<Expression> items)
+public record Row(List<Expression> items, Type type)
         implements Expression
 {
+    public Row(List<Expression> items)
+    {
+        this(items, RowType.anonymous(items.stream().map(Expression::type).toList()));
+    }
+
     public Row
     {
         requireNonNull(items, "items is null");
         items = ImmutableList.copyOf(items);
-    }
-
-    @Override
-    public Type type()
-    {
-        return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
     }
 
     @Override

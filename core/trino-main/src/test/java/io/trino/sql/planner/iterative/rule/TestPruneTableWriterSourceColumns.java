@@ -76,17 +76,15 @@ public class TestPruneTableWriterSourceColumns
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol partition = p.symbol("partition");
-                    Symbol hash = p.symbol("hash");
                     return p.tableWriter(
                             ImmutableList.of(a),
                             ImmutableList.of("column_a"),
                             Optional.of(p.partitioningScheme(
-                                    ImmutableList.of(partition, hash),
                                     ImmutableList.of(partition),
-                                    hash)),
+                                    ImmutableList.of(partition))),
                             Optional.empty(),
                             Optional.empty(),
-                            p.values(a, partition, hash));
+                            p.values(a, partition));
                 })
                 .doesNotFire();
     }

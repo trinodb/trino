@@ -1251,6 +1251,23 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testReadInt32AsDate()
+            throws Exception
+    {
+        List<Integer> writeValues = IntStream.range(0, 1000).boxed().collect(toImmutableList());
+        List<SqlDate> readValues = writeValues.stream()
+                .map(AbstractTestParquetReader::intToSqlDate)
+                .collect(toImmutableList());
+        tester.testRoundTrip(javaIntObjectInspector, writeValues, readValues, DATE);
+        tester.testRoundTrip(
+                javaIntObjectInspector,
+                writeValues,
+                readValues,
+                DATE,
+                Optional.of(parseMessageType("message hive_date { optional INT32 test (INTEGER(16,false)); }")));
+    }
+
+    @Test
     public void testSchemaWithRepeatedOptionalRequiredFields()
             throws Exception
     {
@@ -2250,7 +2267,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return sqlTimestampOf((long) input);
+        return sqlTimestampOf(3, (long) input);
     }
 
     private static Date intToDate(Integer input)

@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.DUMMY_ROW_TYPE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -60,17 +61,6 @@ import static org.apache.avro.Schema.Type.UNION;
 public class AvroSchemaConverter
 {
     private static final SchemaFormatter JSON_PRETTY_FORMATTER = SchemaFormatter.getInstance("json/pretty");
-
-    public static final String DUMMY_FIELD_NAME = "$empty_field_marker";
-
-    public static final RowType DUMMY_ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BooleanType.BOOLEAN)));
-
-    public enum EmptyFieldStrategy
-    {
-        IGNORE,
-        MARK,
-        FAIL,
-    }
 
     private static final Set<Schema.Type> INTEGRAL_TYPES = ImmutableSet.of(INT, LONG);
     private static final Set<Schema.Type> DECIMAL_TYPES = ImmutableSet.of(FLOAT, DOUBLE);

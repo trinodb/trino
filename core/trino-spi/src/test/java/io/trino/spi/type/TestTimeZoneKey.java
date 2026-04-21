@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -29,7 +29,7 @@ import static java.util.Comparator.comparingInt;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestTimeZoneKey
+final class TestTimeZoneKey
 {
     private static final TimeZoneKey PLUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(7 * 60);
     private static final TimeZoneKey MINUS_7_KEY = TimeZoneKey.getTimeZoneKeyForOffset(-7 * 60);
@@ -229,14 +229,14 @@ public class TestTimeZoneKey
         // Zone file should not (normally) be changed, so let's make this more difficult
         assertThat(hasher.hash().asLong())
                 .describedAs("zone-index.properties file contents changed!")
-                .isEqualTo(4825838578917475630L);
+                .isEqualTo(3765670086753811806L);
     }
 
     @Test
     public void testRoundTripSerialization()
             throws IOException
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
 
         for (TimeZoneKey zoneKey : TimeZoneKey.getTimeZoneKeys()) {
             String json = mapper.writeValueAsString(zoneKey);

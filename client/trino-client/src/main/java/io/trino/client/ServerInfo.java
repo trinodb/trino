@@ -34,6 +34,8 @@ public class ServerInfo
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
+    private final Optional<String> coordinatorId;
+    private final Optional<String> nodeId;
 
     @JsonCreator
     public ServerInfo(
@@ -41,13 +43,17 @@ public class ServerInfo
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("starting") boolean starting,
-            @JsonProperty("uptime") Optional<Duration> uptime)
+            @JsonProperty("uptime") Optional<Duration> uptime,
+            @JsonProperty("coordinatorId") Optional<String> coordinatorId,
+            @JsonProperty("nodeId") Optional<String> nodeId)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.starting = starting;
         this.uptime = requireNonNull(uptime, "uptime is null");
+        this.coordinatorId = requireNonNull(coordinatorId, "coordinatorId is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
     }
 
     @JsonProperty
@@ -80,6 +86,18 @@ public class ServerInfo
         return uptime;
     }
 
+    @JsonProperty
+    public Optional<String> getCoordinatorId()
+    {
+        return coordinatorId;
+    }
+
+    @JsonProperty
+    public Optional<String> getNodeId()
+    {
+        return nodeId;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -89,16 +107,20 @@ public class ServerInfo
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         ServerInfo that = (ServerInfo) o;
-        return Objects.equals(nodeVersion, that.nodeVersion) &&
-                Objects.equals(environment, that.environment);
+        return coordinator == that.coordinator
+                && starting == that.starting
+                && Objects.equals(nodeVersion, that.nodeVersion)
+                && Objects.equals(environment, that.environment)
+                && Objects.equals(uptime, that.uptime)
+                && Objects.equals(coordinatorId, that.coordinatorId)
+                && Objects.equals(nodeId, that.nodeId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeVersion, environment);
+        return Objects.hash(nodeVersion, environment, coordinator, starting, uptime, coordinatorId, nodeId);
     }
 
     @Override
@@ -109,6 +131,8 @@ public class ServerInfo
                 .add("environment", environment)
                 .add("coordinator", coordinator)
                 .add("uptime", uptime.orElse(null))
+                .add("coordinatorId", coordinatorId.orElse(null))
+                .add("nodeId", nodeId.orElse(null))
                 .omitNullValues()
                 .toString();
     }

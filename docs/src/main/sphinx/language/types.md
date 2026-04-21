@@ -49,9 +49,9 @@ Integer numbers can be expressed as numeric literals in the following formats:
   for decimal `9` or `0b101010` for decimal `42``.
 
 Underscore characters are ignored within literal values, and can be used to
-increase readability. For example, decimal integer `123_456.789_123` is
-equivalent to `123456.789123`. Preceding and trailing underscores are not
-permitted.
+increase readability. For example, decimal integer `123_456` is equivalent to 
+`123456`. Preceding underscores, trailing underscores, and consecutive underscores
+are not permitted.
 
 Integers are supported by the following data types.
 
@@ -83,8 +83,8 @@ Floating-point, fixed-precision numbers can be expressed as numeric literal
 using scientific notation such as `1.03e1` and are cast as `DOUBLE` data type.
 Underscore characters are ignored within literal values, and can be used to
 increase readability. For example, value `123_456.789e4` is equivalent to
-`123456.789e4`. Preceding underscores, trailing underscores, and underscores
-beside the comma (`.`) are not permitted.
+`123456.789e4`. Preceding underscores, trailing underscores, consecutive
+underscores, and underscores beside the comma (`.`) are not permitted.
 
 ### `REAL`
 
@@ -100,6 +100,54 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
+(number-data-type)=
+### `NUMBER`
+
+A floating point, decimal number of unspecified precision of at least 50 decimal digits.
+The type supports positive values as small as `1e-100` or smaller, and
+values as large as `1e100` or larger.
+
+```sql
+SELECT NUMBER '3.1415926535897932384626433832795028841971693993751'
+-- 3.1415926535897932384626433832795028841971693993751 without loss of precision
+
+SELECT NUMBER '12345678901234567890123456789012345678901234567890e30'
+-- 1.234567890123456789012345678901234567890123456789E+79 without loss of precision
+```
+
+The `NUMBER` type supports the special values `Infinity`, `-Infinity`, and `NaN`,
+following similar semantics to floating-point types:
+
+```sql
+SELECT NUMBER 'Infinity';
+-- Infinity
+
+SELECT NUMBER '-Infinity';
+-- -Infinity
+
+SELECT NUMBER 'NaN';
+-- NaN
+```
+
+Division by zero raises a "Division by zero" error:
+
+```sql
+SELECT NUMBER '1' / NUMBER '0';
+-- ERROR: Division by zero
+```
+
+`NaN` is not equal to any value, including itself:
+
+```
+SELECT NUMBER 'NaN' = NUMBER 'NaN';
+-- false
+```
+
+Ordering follows the convention: `-Infinity` < all finite values < `Infinity` < `NaN`.
+
+Example literals: `NUMBER '10.3'`, `NUMBER '1234567890'`,
+`NUMBER '1e3'`, `NUMBER 'Infinity'`, `NUMBER 'NaN'`
+
 (exact-numeric-data-types)=
 ## Exact numeric
 
@@ -108,8 +156,8 @@ are supported by the `DECIMAL` data type.
 
 Underscore characters are ignored within literal values, and can be used to
 increase readability. For example, decimal `123_456.789_123` is equivalent to
-`123456.789123`. Preceding underscores, trailing underscores, and underscores
-beside the comma (`.`) are not permitted.
+`123456.789123`. Preceding underscores, trailing underscores, consecutive
+underscores, and underscores beside the comma (`.`) are not permitted.
 
 Leading zeros in literal values are permitted and ignored. For example,
 `000123.456` is equivalent to `123.456`.
@@ -154,12 +202,14 @@ Single quotes in string literals can be escaped by using another single quote:
 
 ### `CHAR`
 
-Fixed length character data. A `CHAR` type without length specified has a default length of 1.
-A `CHAR(x)` value always has `x` characters. For example, casting `dog` to `CHAR(7)`
-adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
-`CHAR` values. As a result, two character values with different lengths (`CHAR(x)` and
-`CHAR(y)` where `x != y`) will never be equal. As with `VARCHAR`, a single quote in a `CHAR` 
-literal can be escaped with another single quote:
+Fixed length character data. A `CHAR` type without length specified has a
+default length of 1. A `CHAR(x)` value always has a fixed length of `x`
+characters. For example, casting `dog` to `CHAR(7)` adds four implicit trailing
+spaces.
+
+As with `VARCHAR`, a single quote in a `CHAR` literal can be escaped with
+another single quote:
+
 ```sql
 SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'
 ```
@@ -178,14 +228,56 @@ The binary data has to use hexadecimal format. For example, the binary form of
 SELECT from_utf8(x'65683F');
 ```
 
+Binary literals ignore any whitespace characters. For example, the literal
+`X'FFFF 0FFF  3FFF FFFF'` is equivalent to `X'FFFF0FFF3FFFFFFF'`.
+
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`
 :::
 
+(json-data-type)=
 ### `JSON`
 
 JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON string,
 `true`, `false` or `null`.
+
+(variant-data-type)=
+### `VARIANT`
+
+A semi-structured value type. A `VARIANT` value can represent any of the following:
+
+- object (key-value structure)
+- array
+- string
+- number (integer, decimal, and floating-point)
+- boolean
+- null
+- date and time values
+
+`VARIANT` is designed for working with semi-structured data efficiently, and is
+commonly used with connectors and file formats that support a native variant type.
+
+`VARIANT` differs from {ref}`json-data-type` in that it preserves the full
+underlying value type, rather than reducing values to a limited set of JSON
+types.
+
+Examples:
+```sql
+SELECT typeof(CAST(JSON '{"a": 1, "b": [true, null]}' AS VARIANT));
+-- variant
+
+SELECT CAST(CAST(JSON '123' AS VARIANT) AS BIGINT);
+-- 123
+```
+
+`VARIANT` follows the [Apache Iceberg Variant specification](https://github.com/apache/parquet-format/blob/master/VariantEncoding.md).
+Trino implements this specification directly, including its type system, value
+encoding, and semantics.
+
+This ensures consistent behavior when reading and writing variant values across
+systems that support the same specification.
+
+See also {doc}`/functions/variant`
 
 (date-time-data-types)=
 ## Date and time
@@ -327,7 +419,8 @@ More information in [](/functions/array).
 ### `MAP`
 
 A map between the given component types. A map is a collection of key-value
-pairs, where each key is associated with a single value.
+pairs, where each key is associated with a single value. Map keys are required,
+while map values can be null.
 
 Example: `MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])`
 

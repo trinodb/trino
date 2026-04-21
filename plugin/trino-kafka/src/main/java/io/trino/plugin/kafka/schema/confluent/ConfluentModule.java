@@ -30,7 +30,6 @@ import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.entities.Schema;
-import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoderFactory;
@@ -60,7 +59,6 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -71,9 +69,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -81,23 +78,17 @@ import static java.util.Objects.requireNonNull;
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
-
-    public ConfluentModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
-        binder.bind(ContentSchemaProvider.class).to(AvroConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class);
+        binder.bind(ContentSchemaProvider.class).to(ConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class)
+                .addBinding()
+                .to(SchemaRegistryClientTtlProvider.class)
+                .in(SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         // Each SchemaRegistry object should have a new instance of SchemaProvider
         newSetBinder(binder, SchemaProvider.class).addBinding().to(LazyLoadedProtobufSchemaProvider.class);
@@ -154,10 +145,13 @@ public class ConfluentModule
             binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
 
             configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
-            install(conditionalModule(ProtobufAnySupportConfig.class,
-                    ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
-                    new ConfluentDesciptorProviderModule(),
-                    new DummyDescriptorProviderModule()));
+
+            if (buildConfigObject(ProtobufAnySupportConfig.class).isProtobufAnySupportEnabled()) {
+                install(new ConfluentDesciptorProviderModule());
+            }
+            else {
+                install(new DummyDescriptorProviderModule());
+            }
         }
     }
 
@@ -193,40 +187,10 @@ public class ConfluentModule
         }
 
         @Override
-        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew)
-        {
-            return SchemaProvider.super.parseSchema(schema, isNew);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew, boolean normalize)
-        {
-            return SchemaProvider.super.parseSchema(schema, isNew, normalize);
-        }
-
-        @Override
         public void configure(Map<String, ?> configuration)
         {
             Map<String, ?> oldConfiguration = this.configuration.getAndSet(ImmutableMap.copyOf(configuration));
             checkState(oldConfiguration == null, "ProtobufSchemaProvider is already configured");
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schema, List<SchemaReference> references, boolean isNew)
-        {
-            return delegate.get().parseSchema(schema, references, isNew);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references, boolean isNew, boolean normalize)
-        {
-            return SchemaProvider.super.parseSchema(schemaString, references, isNew, normalize);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references)
-        {
-            return SchemaProvider.super.parseSchema(schemaString, references);
         }
 
         @Override

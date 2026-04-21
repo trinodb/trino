@@ -29,12 +29,14 @@ public class BooleanEncoding
     private static final Slice FALSE = Slices.utf8Slice("false");
 
     private final Type type;
+    private final boolean isExtendedBooleanLiteral;
     private final Slice nullSequence;
 
-    public BooleanEncoding(Type type, Slice nullSequence)
+    public BooleanEncoding(Type type, Slice nullSequence, boolean isExtendedBooleanLiteral)
     {
         this.type = type;
         this.nullSequence = nullSequence;
+        this.isExtendedBooleanLiteral = isExtendedBooleanLiteral;
     }
 
     @Override
@@ -102,24 +104,39 @@ public class BooleanEncoding
     }
 
     @SuppressWarnings("PointlessArithmeticExpression")
-    private static boolean isFalse(Slice slice, int start, int length)
+    private boolean isFalse(Slice slice, int start, int length)
     {
-        return (length == 5) &&
-                (toUpperCase(slice.getByte(start + 0)) == 'F') &&
-                (toUpperCase(slice.getByte(start + 1)) == 'A') &&
-                (toUpperCase(slice.getByte(start + 2)) == 'L') &&
-                (toUpperCase(slice.getByte(start + 3)) == 'S') &&
-                (toUpperCase(slice.getByte(start + 4)) == 'E');
+        if (length == 5) {
+            return (toUpperCase(slice.getByte(start + 0)) == 'F') &&
+                    (toUpperCase(slice.getByte(start + 1)) == 'A') &&
+                    (toUpperCase(slice.getByte(start + 2)) == 'L') &&
+                    (toUpperCase(slice.getByte(start + 3)) == 'S') &&
+                    (toUpperCase(slice.getByte(start + 4)) == 'E');
+        }
+
+        if (length == 1 && isExtendedBooleanLiteral) {
+            byte byteValue = slice.getByte(start);
+            return toUpperCase(byteValue) == 'F' ||
+                    byteValue == '0';
+        }
+        return false;
     }
 
     @SuppressWarnings("PointlessArithmeticExpression")
-    private static boolean isTrue(Slice slice, int start, int length)
+    private boolean isTrue(Slice slice, int start, int length)
     {
-        return (length == 4) &&
-                (toUpperCase(slice.getByte(start + 0)) == 'T') &&
-                (toUpperCase(slice.getByte(start + 1)) == 'R') &&
-                (toUpperCase(slice.getByte(start + 2)) == 'U') &&
-                (toUpperCase(slice.getByte(start + 3)) == 'E');
+        if (length == 4) {
+            return (toUpperCase(slice.getByte(start + 0)) == 'T') &&
+                    (toUpperCase(slice.getByte(start + 1)) == 'R') &&
+                    (toUpperCase(slice.getByte(start + 2)) == 'U') &&
+                    (toUpperCase(slice.getByte(start + 3)) == 'E');
+        }
+        if (length == 1 && isExtendedBooleanLiteral) {
+            byte byteValue = slice.getByte(start);
+            return toUpperCase(byteValue) == 'T' ||
+                    byteValue == '1';
+        }
+        return false;
     }
 
     private static byte toUpperCase(byte b)

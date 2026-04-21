@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -60,11 +57,11 @@ public class RemoteSourceMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof RemoteSourceNode && sourceFragmentIds.equals(((RemoteSourceNode) node).getSourceFragmentIds());
+        return node instanceof RemoteSourceNode remoteSourceNode && sourceFragmentIds.equals(remoteSourceNode.getSourceFragmentIds());
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         RemoteSourceNode remoteSourceNode = (RemoteSourceNode) node;

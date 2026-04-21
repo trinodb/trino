@@ -97,7 +97,7 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("View already exists: '%s'", viewName);
+                .hasMessage("line 1:1: View already exists: '%s'", viewName);
     }
 
     @Test
@@ -118,7 +118,7 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("Table already exists: '%s'", tableName, tableName);
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), true)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("Table already exists: '%s'", tableName, tableName);
+                .hasMessage("line 1:1: Table already exists: '%s'", tableName, tableName);
     }
 
     @Test
@@ -140,7 +140,7 @@ public class TestCreateViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
-                .hasMessage("Materialized view already exists: '%s'", viewName);
+                .hasMessage("line 1:1: Materialized view already exists: '%s'", viewName);
     }
 
     @Test
@@ -178,6 +178,7 @@ public class TestCreateViewTask
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("mock_table")));
         CreateView statement = new CreateView(
+                new NodeLocation(1, 1),
                 viewName,
                 query,
                 replace,

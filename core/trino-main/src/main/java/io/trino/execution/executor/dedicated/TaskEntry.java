@@ -80,6 +80,10 @@ class TaskEntry
 
     public synchronized void destroy()
     {
+        if (destroyed) {
+            return;
+        }
+
         scheduler.removeGroup(group);
 
         destroyed = true;

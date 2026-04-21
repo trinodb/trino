@@ -17,11 +17,29 @@ import io.trino.spi.Page;
 
 public interface HashGenerator
 {
+    int INITIAL_HASH_VALUE = 0;
+
     long hashPosition(int position, Page page);
+
+    void hash(Page page, int positionOffset, int length, long[] hashes);
 
     default int getPartition(int partitionCount, int position, Page page)
     {
         long rawHash = hashPosition(position, page);
+        return processRawHash(rawHash, partitionCount);
+    }
+
+    default void getPartitions(int partitionCount, int positionOffset, Page page, int length, int[] partitions)
+    {
+        long[] hashes = new long[length];
+        hash(page, positionOffset, length, hashes);
+        for (int i = 0; i < length; i++) {
+            partitions[i] = processRawHash(hashes[i], partitionCount);
+        }
+    }
+
+    private static int processRawHash(long rawHash, int partitionCount)
+    {
         // This function reduces the 64 bit rawHash to [0, partitionCount) uniformly. It first reduces the rawHash to 32 bit
         // integer x then normalize it to x / 2^32 * partitionCount to reduce the range of x from [0, 2^32) to [0, partitionCount)
         return (int) ((Integer.toUnsignedLong(Long.hashCode(rawHash)) * partitionCount) >>> 32);

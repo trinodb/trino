@@ -102,15 +102,13 @@ For floating point arguments, the function additionally returns:
 
 - -0 if the argument is -0,
 - NaN if the argument is NaN,
-- 1 if the argument is +Infinity,
-- -1 if the argument is -Infinity.
 :::
 
 :::{function} sqrt(x) -> double
 Returns the square root of `x`.
 :::
 
-:::{function} truncate(x) -> double
+:::{function} truncate(x) -> [same as input]
 Returns `x` rounded to integer by dropping digits after decimal point.
 :::
 
@@ -202,6 +200,16 @@ Calculates the cosine distance between two dense vectors:
 ```sql
 SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
 -- 0.01613008990009257
+```
+:::
+
+:::{function} cosine_distance(x, y) -> double
+:no-index:
+Calculates the cosine distance between two sparse vectors:
+
+```sql
+SELECT cosine_distance(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]));
+-- 0.0
 ```
 :::
 

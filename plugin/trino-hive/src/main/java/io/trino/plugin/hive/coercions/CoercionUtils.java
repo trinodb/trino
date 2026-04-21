@@ -35,7 +35,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
@@ -458,19 +457,14 @@ public final class CoercionUtils
         public StructCoercer(RowType fromType, RowType toType, List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers)
         {
             super(fromType, toType);
-            checkArgument(toType.getTypeParameters().size() == coercers.size());
-            checkArgument(fromType.getTypeParameters().size() <= coercers.size());
+            checkArgument(toType.getFieldTypes().size() == coercers.size());
+            checkArgument(fromType.getFieldTypes().size() <= coercers.size());
             this.coercers = ImmutableList.copyOf(requireNonNull(coercers, "coercers is null"));
         }
 
         @Override
         public Block apply(Block block)
         {
-            if (block instanceof LazyBlock lazyBlock) {
-                // only load the top level block so non-coerced fields are not loaded
-                block = lazyBlock.getBlock();
-            }
-
             if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
@@ -524,7 +518,7 @@ public final class CoercionUtils
                     newFields[i] = fields.get(i);
                 }
                 else {
-                    newFields[i] = RunLengthEncodedBlock.create(toType.getTypeParameters().get(i), null, fields.get(0).getPositionCount());
+                    newFields[i] = RunLengthEncodedBlock.create(toType.getFieldTypes().get(i), null, fields.get(0).getPositionCount());
                 }
             }
             return newFields;

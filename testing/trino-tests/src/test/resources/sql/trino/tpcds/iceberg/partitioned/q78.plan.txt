@@ -3,10 +3,10 @@ local exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, PARTITIONED):
-                    final aggregation over (d_year_16, ws_bill_customer_sk, ws_item_sk)
+                    final aggregation over (d_year_20, ws_bill_customer_sk, ws_item_sk)
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [ws_bill_customer_sk, ws_item_sk])
-                                intermediate aggregation over (d_year_16, ws_bill_customer_sk, ws_item_sk)
+                                intermediate aggregation over (d_year_20, ws_bill_customer_sk, ws_item_sk)
                                     join (INNER, REPLICATED):
                                         partial aggregation over (ws_bill_customer_sk, ws_item_sk, ws_sold_date_sk)
                                             join (LEFT, PARTITIONED):
@@ -41,10 +41,10 @@ local exchange (GATHER, SINGLE, [])
                                                             scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        final aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_54)
+                                        final aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_61)
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [cs_bill_customer_sk, cs_item_sk, d_year_54])
-                                                    intermediate aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_54)
+                                                remote exchange (REPARTITION, HASH, [cs_bill_customer_sk, cs_item_sk, d_year_61])
+                                                    intermediate aggregation over (cs_bill_customer_sk, cs_item_sk, d_year_61)
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (cs_bill_customer_sk, cs_item_sk, cs_sold_date_sk)
                                                                 join (LEFT, PARTITIONED):

@@ -18,15 +18,15 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SessionTestUtils;
-import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.TaskId;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.MemoryInfo;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
 import org.junit.jupiter.api.Test;
@@ -116,7 +116,7 @@ public class BenchmarkBinPackingNodeAllocator
                 nodes.add(new InternalNode(nodeIdentifier, URI.create("local://127.0.0.1:" + (8000 + i)), NodeVersion.UNKNOWN, false));
                 workerMemoryInfos.put(nodeIdentifier, Optional.of(memoryInfo));
             }
-            InMemoryNodeManager nodeManager = new InMemoryNodeManager(ImmutableSet.copyOf(nodes));
+            TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(ImmutableSet.copyOf(nodes));
 
             nodeAllocatorService = new BinPackingNodeAllocatorService(
                     nodeManager,
@@ -179,6 +179,7 @@ public class BenchmarkBinPackingNodeAllocator
         {
             return new MemoryInfo(
                     4,
+                    0,
                     new MemoryPoolInfo(
                             DataSize.of(64, GIGABYTE).toBytes(),
                             usedMemory.toBytes(),
@@ -189,8 +190,7 @@ public class BenchmarkBinPackingNodeAllocator
                             taskMemoryUsage.entrySet().stream()
                                     .collect(toImmutableMap(
                                             entry -> entry.getKey().toString(),
-                                            entry -> entry.getValue().toBytes())),
-                            ImmutableMap.of()));
+                                            entry -> entry.getValue().toBytes()))));
         }
 
         private void assertAcquired(NodeAllocator.NodeLease lease)
@@ -241,7 +241,7 @@ public class BenchmarkBinPackingNodeAllocator
         benchmark.benchmarkProcessPendingAllocations(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkBinPackingNodeAllocator.class)

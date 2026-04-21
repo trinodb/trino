@@ -34,13 +34,14 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Base64.getUrlDecoder;
 import static java.util.Objects.requireNonNull;
 
 public final class JwkDecoder
 {
     private static final Logger log = Logger.get(JwkDecoder.class);
-    private static final JsonCodec<Keys> KEYS_CODEC = JsonCodec.jsonCodec(Keys.class);
+    private static final JsonCodec<Keys> KEYS_CODEC = jsonCodec(Keys.class);
 
     private JwkDecoder() {}
 
@@ -272,8 +273,8 @@ public final class JwkDecoder
         public Optional<String> getStringProperty(String name)
         {
             Object value = other.get(name);
-            if (value instanceof String && !Strings.isNullOrEmpty((String) value)) {
-                return Optional.of((String) value);
+            if (value instanceof String string && !Strings.isNullOrEmpty(string)) {
+                return Optional.of(string);
             }
             return Optional.empty();
         }

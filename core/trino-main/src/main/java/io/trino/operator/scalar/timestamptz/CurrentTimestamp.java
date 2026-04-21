@@ -30,7 +30,7 @@ import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.roundToNearest;
 
-@ScalarFunction(value = "$current_timestamp", hidden = true)
+@ScalarFunction(value = "$current_timestamp", hidden = true, neverFails = true)
 public final class CurrentTimestamp
 {
     private CurrentTimestamp() {}

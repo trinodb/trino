@@ -70,11 +70,10 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
         implements PluginInstaller
 {
-    private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
+    private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
-            .add("org.openjdk.jol.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
             .build();
@@ -207,7 +206,7 @@ public class PluginManager
         }
 
         for (Type type : plugin.getTypes()) {
-            log.info("Registering type %s", type.getTypeSignature());
+            log.info("Registering type %s", type);
             typeRegistry.addType(type);
         }
 

@@ -15,7 +15,7 @@
 package io.trino.plugin.eventlistener.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.plugin.eventlistener.kafka.metadata.EnvMetadataProvider;
@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestKafkaRecordBuilder
 {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
     private static final Set<String> EXCLUDED_FIELDS = ImmutableSet.of(
             "ioMetadata",
             "payload",
@@ -48,7 +48,7 @@ final class TestKafkaRecordBuilder
     void testBuildKafkaRecord()
             throws IOException
     {
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);
@@ -65,7 +65,7 @@ final class TestKafkaRecordBuilder
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("query", "principal", "analysisTime", "writtenBytes"));
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", exclude, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);
@@ -86,7 +86,7 @@ final class TestKafkaRecordBuilder
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("context", "payload", "analysisTime"));
-        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", "TestSplitCompletedEvent", exclude, TEST_PROVIDER);
+        KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", exclude, TEST_PROVIDER);
         QueryCompletedEvent queryCompletedEvent = TestUtils.queryCompletedEvent;
 
         ProducerRecord<String, String> record = builder.buildCompletedRecord(queryCompletedEvent);
@@ -123,7 +123,6 @@ final class TestKafkaRecordBuilder
         assertThat(jsonNode.get("metadata").get("queryId").isNull()).isFalse();
         assertThat(jsonNode.get("metadata").get("payload")).isNull();
         assertThat(jsonNode.get("statistics").isNull()).isFalse();
-        assertThat(jsonNode.get("statistics").get("totalBytes").isNull()).isFalse();
         assertThat(jsonNode.get("statistics").get("stageGcStatistics")).isNull();
         assertThat(jsonNode.get("statistics").get("planNodeStatsAndCosts")).isNull();
         assertThat(jsonNode.get("statistics").get("operatorSummaries")).isNull();

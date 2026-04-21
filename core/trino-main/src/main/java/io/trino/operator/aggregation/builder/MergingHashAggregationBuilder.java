@@ -41,8 +41,7 @@ public class MergingHashAggregationBuilder
     private final List<AggregatorFactory> aggregatorFactories;
     private final AggregationNode.Step step;
     private final int expectedGroups;
-    private final ImmutableList<Integer> groupByPartialChannels;
-    private final Optional<Integer> hashChannel;
+    private final List<Integer> groupByPartialChannels;
     private final OperatorContext operatorContext;
     private final WorkProcessor<Page> sortedPages;
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
@@ -58,7 +57,6 @@ public class MergingHashAggregationBuilder
             AggregationNode.Step step,
             int expectedGroups,
             List<Type> groupByTypes,
-            Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             WorkProcessor<Page> sortedPages,
             AggregatedMemoryContext aggregatedMemoryContext,
@@ -76,7 +74,6 @@ public class MergingHashAggregationBuilder
         this.step = AggregationNode.Step.partialInput(step);
         this.expectedGroups = expectedGroups;
         this.groupByPartialChannels = groupByPartialChannels.build();
-        this.hashChannel = hashChannel.isPresent() ? Optional.of(groupByTypes.size()) : hashChannel;
         this.operatorContext = operatorContext;
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
@@ -135,6 +132,7 @@ public class MergingHashAggregationBuilder
     public void close()
     {
         hashAggregationBuilder.close();
+        memoryContext.close();
     }
 
     private boolean shouldProduceOutput(long memorySize)
@@ -150,7 +148,7 @@ public class MergingHashAggregationBuilder
                 expectedGroups,
                 groupByTypes,
                 groupByPartialChannels,
-                hashChannel,
+                false, // spillable
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),

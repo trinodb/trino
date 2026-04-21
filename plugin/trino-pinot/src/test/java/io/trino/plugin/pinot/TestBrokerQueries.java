@@ -18,8 +18,8 @@ import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotClient.BrokerResultRow;
 import io.trino.plugin.pinot.client.PinotClient.ResultsIterator;
 import io.trino.plugin.pinot.query.PinotQueryInfo;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.common.utils.DataSchema;
@@ -115,7 +115,7 @@ public class TestBrokerQueries
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
 
-        Page page = pageSource.getNextPage();
+        SourcePage page = pageSource.getNextSourcePage();
         assertThat(page.getChannelCount()).isEqualTo(columnHandles.size());
         assertThat(page.getPositionCount()).isEqualTo(RESPONSE.getResultTable().getRows().size());
         Block block = page.getBlock(0);
@@ -136,7 +136,7 @@ public class TestBrokerQueries
                 ImmutableList.of(),
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
-        Page page = pageSource.getNextPage();
+        SourcePage page = pageSource.getNextSourcePage();
         assertThat(page.getPositionCount()).isEqualTo(RESPONSE.getResultTable().getRows().size());
         assertThat(page.getChannelCount()).isEqualTo(0);
     }
@@ -169,7 +169,7 @@ public class TestBrokerQueries
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
         assertThatExceptionOfType(PinotException.class)
-                .isThrownBy(pageSource::getNextPage)
+                .isThrownBy(pageSource::getNextSourcePage)
                 .withMessage("Broker query returned '3' rows, maximum allowed is '2' rows. with query \"SELECT col_1, col_2, col_3 FROM test_table\"");
     }
 }

@@ -108,7 +108,7 @@ public abstract class AbstractGreatestLeast
                 .mapToObj(i -> wrap(type.getJavaType()))
                 .collect(toImmutableList());
 
-        MethodHandle methodHandle = generate(boundSignature.getName().getFunctionName(), javaTypes, compareMethod);
+        MethodHandle methodHandle = generate(boundSignature.getName().functionName(), javaTypes, compareMethod);
 
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,

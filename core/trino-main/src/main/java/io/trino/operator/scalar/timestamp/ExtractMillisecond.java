@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Millisecond of the second of the given timestamp")
-@ScalarFunction("millisecond")
-public class ExtractMillisecond
+@ScalarFunction(value = "millisecond", neverFails = true)
+public final class ExtractMillisecond
 {
     private ExtractMillisecond() {}
 

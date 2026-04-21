@@ -38,6 +38,7 @@ final class TestingResourceGroups
                 selectors.stream()
                         .map(SelectorSpecBuilder::build)
                         .collect(toImmutableList()),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -50,10 +51,11 @@ final class TestingResourceGroups
     {
         return new ResourceGroupSpec(
                 new ResourceGroupNameTemplate(segmentName),
-                DataSize.of(100, MEGABYTE).toString(),
+                Optional.of(DataSize.of(100, MEGABYTE).toString()),
                 10,
                 Optional.empty(),
                 Optional.of(10),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -72,6 +74,9 @@ final class TestingResourceGroups
     {
         return new SelectorSpecBuilder(
                 new SelectorSpec(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -103,7 +108,10 @@ final class TestingResourceGroups
                     new SelectorSpec(
                             Optional.of(matchLiterals(users)),
                             spec.getUserGroupRegex(),
+                            spec.getOriginalUserRegex(),
+                            spec.getAuthenticatedUserRegex(),
                             spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
@@ -116,7 +124,58 @@ final class TestingResourceGroups
                     new SelectorSpec(
                             spec.getUserRegex(),
                             Optional.of(matchLiterals(groups)),
+                            spec.getOriginalUserRegex(),
+                            spec.getAuthenticatedUserRegex(),
                             spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
+                            spec.getQueryType(),
+                            spec.getClientTags(),
+                            spec.getResourceEstimate(),
+                            spec.getGroup()));
+        }
+
+        public SelectorSpecBuilder originalUserPattern(String originalUserPattern)
+        {
+            return new SelectorSpecBuilder(
+                    new SelectorSpec(
+                            spec.getUserRegex(),
+                            spec.getUserGroupRegex(),
+                            Optional.of(Pattern.compile(originalUserPattern)),
+                            spec.getAuthenticatedUserRegex(),
+                            spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
+                            spec.getQueryType(),
+                            spec.getClientTags(),
+                            spec.getResourceEstimate(),
+                            spec.getGroup()));
+        }
+
+        public SelectorSpecBuilder authenticatedUserPattern(String authenticatedUserPattern)
+        {
+            return new SelectorSpecBuilder(
+                    new SelectorSpec(
+                            spec.getUserRegex(),
+                            spec.getUserGroupRegex(),
+                            spec.getOriginalUserRegex(),
+                            Optional.of(Pattern.compile(authenticatedUserPattern)),
+                            spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
+                            spec.getQueryType(),
+                            spec.getClientTags(),
+                            spec.getResourceEstimate(),
+                            spec.getGroup()));
+        }
+
+        public SelectorSpecBuilder queryTextPattern(String queryTextPattern)
+        {
+            return new SelectorSpecBuilder(
+                    new SelectorSpec(
+                            spec.getUserRegex(),
+                            spec.getUserGroupRegex(),
+                            spec.getOriginalUserRegex(),
+                            spec.getAuthenticatedUserRegex(),
+                            spec.getSourceRegex(),
+                            Optional.of(Pattern.compile(queryTextPattern)),
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),

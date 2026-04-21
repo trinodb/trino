@@ -176,7 +176,7 @@ public class TestAggregationStatsRule
                         .aggregation(ab -> ab
                                 .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
                                 .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
-                                .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableList.of(pb.symbol("y"), pb.symbol("z")), 3, ImmutableSet.of(0)))
+                                .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableSet.of(pb.symbol("y"), pb.symbol("z")), 3, ImmutableSet.of(0)))
                                 .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)

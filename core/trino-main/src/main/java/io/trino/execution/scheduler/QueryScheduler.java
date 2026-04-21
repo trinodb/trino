@@ -14,10 +14,10 @@
 package io.trino.execution.scheduler;
 
 import io.airlift.units.Duration;
-import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.StageId;
-import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskId;
 
 public interface QueryScheduler
@@ -30,9 +30,9 @@ public interface QueryScheduler
 
     BasicStageStats getBasicStageStats();
 
-    BasicStageInfo getBasicStageInfo();
+    BasicStagesInfo getBasicStagesInfo();
 
-    StageInfo getStageInfo();
+    StagesInfo getStagesInfo();
 
     long getUserMemoryReservation();
 

@@ -82,8 +82,8 @@ public final class BigQueryTypeUtils
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);
         }
-        if (type instanceof DecimalType) {
-            return readBigDecimal((DecimalType) type, block, position).toString();
+        if (type instanceof DecimalType decimalType) {
+            return readBigDecimal(decimalType, block, position).toString();
         }
         if (type instanceof VarcharType varcharType) {
             return varcharType.getSlice(block, position).toStringUtf8();
@@ -121,7 +121,7 @@ public final class BigQueryTypeUtils
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
 
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }

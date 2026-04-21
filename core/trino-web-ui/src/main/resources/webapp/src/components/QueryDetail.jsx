@@ -142,17 +142,22 @@ class TaskList extends React.Component {
                     <Td column="state" value={TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
                         {TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}
                     </Td>
-                    <Td column="rows" value={task.stats.rawInputPositions}>
-                        {formatCount(task.stats.rawInputPositions)}
+                    <Td column="rows" value={task.stats.processedInputPositions}>
+                        {formatCount(task.stats.processedInputPositions)}
                     </Td>
-                    <Td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
-                        {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
+                    <Td column="rowsSec" value={computeRate(task.stats.processedInputPositions, elapsedTime)}>
+                        {formatCount(computeRate(task.stats.processedInputPositions, elapsedTime))}
                     </Td>
-                    <Td column="bytes" value={parseDataSize(task.stats.rawInputDataSize)}>
-                        {formatDataSizeBytes(parseDataSize(task.stats.rawInputDataSize))}
+                    <Td column="bytes" value={parseDataSize(task.stats.processedInputDataSize)}>
+                        {formatDataSizeBytes(parseDataSize(task.stats.processedInputDataSize))}
                     </Td>
-                    <Td column="bytesSec" value={computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime)}>
-                        {formatDataSizeBytes(computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime))}
+                    <Td
+                        column="bytesSec"
+                        value={computeRate(parseDataSize(task.stats.processedInputDataSize), elapsedTime)}
+                    >
+                        {formatDataSizeBytes(
+                            computeRate(parseDataSize(task.stats.processedInputDataSize), elapsedTime)
+                        )}
                     </Td>
                     <Td column="splitsPending" value={task.stats.queuedDrivers}>
                         {task.stats.queuedDrivers}
@@ -760,16 +765,15 @@ class StageSummary extends React.Component {
 }
 
 class StageList extends React.Component {
-    getStages(stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages')) {
+    getStages(stagesInfo) {
+        if (stagesInfo === undefined) {
             return []
         }
-
-        return [].concat.apply(stage, stage.subStages.map(this.getStages, this))
+        return stagesInfo.stages
     }
 
     render() {
-        const stages = this.getStages(this.props.outputStage)
+        const stages = this.getStages(this.props.stages)
         const taskRetriesEnabled = this.props.taskRetriesEnabled
 
         if (stages === undefined || stages.length === 0) {
@@ -780,9 +784,10 @@ class StageList extends React.Component {
             )
         }
 
-        const renderedStages = stages.map((stage) => (
-            <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} />
-        ))
+        const renderedStages = stages
+            .slice()
+            .sort((stageA, stageB) => getStageNumber(stageA.stageId) - getStageNumber(stageB.stageId))
+            .map((stage) => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} />)
 
         return (
             <div className="row">
@@ -930,13 +935,13 @@ export class QueryDetail extends React.Component {
         $.get(
             '/ui/api/query/' + queryId,
             function (query) {
-                let lastSnapshotStages = this.state.lastSnapshotStage
+                let lastSnapshotStages = this.state.lastSnapshotStages
                 if (this.state.stageRefresh) {
-                    lastSnapshotStages = query.outputStage
+                    lastSnapshotStages = query.stages
                 }
                 let lastSnapshotTasks = this.state.lastSnapshotTasks
                 if (this.state.taskRefresh) {
-                    lastSnapshotTasks = query.outputStage
+                    lastSnapshotTasks = query.stages
                 }
 
                 let lastRefresh = this.state.lastRefresh
@@ -1134,7 +1139,7 @@ export class QueryDetail extends React.Component {
                     <div className="col-xs-12">
                         <StageList
                             key={this.state.query.queryId}
-                            outputStage={this.state.lastSnapshotStage}
+                            stages={this.state.lastSnapshotStage}
                             taskRetriesEnabled={taskRetriesEnabled}
                         />
                     </div>

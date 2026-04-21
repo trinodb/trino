@@ -24,8 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Day of the week of the given timestamp")
-@ScalarFunction(value = "day_of_week", alias = "dow")
-public class ExtractDayOfWeek
+@ScalarFunction(value = "day_of_week", alias = "dow", neverFails = true)
+public final class ExtractDayOfWeek
 {
     private ExtractDayOfWeek() {}
 

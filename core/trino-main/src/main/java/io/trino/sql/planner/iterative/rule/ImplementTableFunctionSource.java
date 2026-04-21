@@ -165,7 +165,6 @@ public class ImplementTableFunctionSource
                     Optional.empty(),
                     ImmutableSet.of(),
                     0,
-                    Optional.empty(),
                     node.getHandle()));
         }
 
@@ -187,7 +186,6 @@ public class ImplementTableFunctionSource
                     sourceProperties.specification(),
                     ImmutableSet.of(),
                     0,
-                    Optional.empty(),
                     node.getHandle()));
         }
         Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
@@ -248,7 +246,7 @@ public class ImplementTableFunctionSource
         // Remap the symbol mapping: replace the row number symbol with the corresponding marker symbol.
         // In the new map, every source symbol is associated with the corresponding marker symbol.
         // Null value of the marker indicates that the source value should be ignored by the table function.
-        ImmutableMap<Symbol, Symbol> markerSymbols = rowNumberSymbols.entrySet().stream()
+        Map<Symbol, Symbol> markerSymbols = rowNumberSymbols.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> marked.symbolToMarker().get(entry.getValue())));
 
         // Use the final row number symbol for ordering the combined sources.
@@ -282,7 +280,6 @@ public class ImplementTableFunctionSource
                 Optional.of(new DataOrganizationSpecification(finalPartitionBy, finalOrderBy)),
                 ImmutableSet.of(),
                 0,
-                Optional.empty(),
                 node.getHandle()));
     }
 
@@ -319,7 +316,6 @@ public class ImplementTableFunctionSource
                 ImmutableMap.of(
                         rowNumber, new WindowNode.Function(rowNumberFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false, false),
                         partitionSize, new WindowNode.Function(countFunction, ImmutableList.of(), Optional.empty(), FULL_FRAME, false, false)),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -467,8 +463,6 @@ public class ImplementTableFunctionSource
                         Optional.of(joinCondition),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
                         ImmutableMap.of(),
                         Optional.empty()),
                 left.rowNumber(),
@@ -600,8 +594,6 @@ public class ImplementTableFunctionSource
                         right.node().getOutputSymbols(),
                         false,
                         Optional.of(joinCondition),
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),

@@ -26,7 +26,9 @@ public class TestMariaDbLatestConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

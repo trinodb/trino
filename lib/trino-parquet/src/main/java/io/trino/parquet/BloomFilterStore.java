@@ -16,10 +16,15 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import io.trino.parquet.crypto.AesCipherUtils;
+import io.trino.parquet.crypto.ColumnDecryptionContext;
+import io.trino.parquet.crypto.FileDecryptionContext;
+import io.trino.parquet.crypto.ModuleType;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
@@ -48,21 +53,27 @@ public class BloomFilterStore
 
     private final ParquetDataSource dataSource;
     private final Map<ColumnPath, Long> bloomFilterOffsets;
+    private final Map<ColumnPath, ColumnChunkMetadata> columnChunks;
+    private final Optional<FileDecryptionContext> decryptionContext;
 
-    public BloomFilterStore(ParquetDataSource dataSource, BlockMetadata block, Set<ColumnPath> columnsFiltered)
+    public BloomFilterStore(ParquetDataSource dataSource, BlockMetadata block, Set<ColumnPath> columnsFiltered, Optional<FileDecryptionContext> decryptionContext)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         requireNonNull(block, "block is null");
         requireNonNull(columnsFiltered, "columnsFiltered is null");
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
 
         ImmutableMap.Builder<ColumnPath, Long> bloomFilterOffsetBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnPath, ColumnChunkMetadata> chunkBuilder = ImmutableMap.builder();
         for (ColumnChunkMetadata column : block.columns()) {
             ColumnPath path = column.getPath();
             if (hasBloomFilter(column) && columnsFiltered.contains(path)) {
                 bloomFilterOffsetBuilder.put(path, column.getBloomFilterOffset());
+                chunkBuilder.put(path, column);
             }
         }
         this.bloomFilterOffsets = bloomFilterOffsetBuilder.buildOrThrow();
+        this.columnChunks = chunkBuilder.buildOrThrow();
     }
 
     public Optional<BloomFilter> getBloomFilter(ColumnPath columnPath)
@@ -74,9 +85,24 @@ public class BloomFilterStore
             if (columnBloomFilterOffset == null) {
                 return Optional.empty();
             }
-            BasicSliceInput headerSliceInput = dataSource.readFully(columnBloomFilterOffset, MAX_HEADER_LENGTH).getInput();
-            bloomFilterHeader = Util.readBloomFilterHeader(headerSliceInput);
-            bloomFilterDataOffset = columnBloomFilterOffset + headerSliceInput.position();
+            // If the column is encrypted, decrypt the header using the metadata decryptor
+            Optional<ColumnDecryptionContext> columnContext = decryptionContext.flatMap(context -> context.getColumnDecryptionContext(columnPath));
+            if (columnContext.isPresent()) {
+                // Read encrypted header module: SIZE(4) + NONCE + CIPHERTEXT + TAG
+                int encryptedSize = BytesUtils.readIntLittleEndian(dataSource.readFully(columnBloomFilterOffset, AesCipherUtils.SIZE_LENGTH).getBytes(), 0);
+                Slice module = dataSource.readFully(columnBloomFilterOffset, AesCipherUtils.SIZE_LENGTH + encryptedSize);
+                BasicSliceInput in = module.getInput();
+                ColumnChunkMetadata chunk = requireNonNull(columnChunks.get(columnPath), "missing chunk metadata");
+                byte[] aad = AesCipherUtils.createModuleAAD(columnContext.get().fileAad(), ModuleType.BloomFilterHeader, chunk.getRowGroupOrdinal(), chunk.getColumnOrdinal(), -1);
+                bloomFilterHeader = Util.readBloomFilterHeader(in, columnContext.get().metadataDecryptor(), aad);
+                // after read, position() == 4 + encrypted data length
+                bloomFilterDataOffset = columnBloomFilterOffset + in.position();
+            }
+            else {
+                BasicSliceInput headerSliceInput = dataSource.readFully(columnBloomFilterOffset, MAX_HEADER_LENGTH).getInput();
+                bloomFilterHeader = Util.readBloomFilterHeader(headerSliceInput);
+                bloomFilterDataOffset = columnBloomFilterOffset + headerSliceInput.position();
+            }
         }
         catch (IOException exception) {
             throw new UncheckedIOException("Failed to read Bloom filter header", exception);
@@ -87,9 +113,23 @@ public class BloomFilterStore
         }
 
         try {
-            Slice bloomFilterData = dataSource.readFully(bloomFilterDataOffset, bloomFilterHeader.getNumBytes());
-            verify(bloomFilterData.length() > 0, "Read empty bloom filter %s", bloomFilterHeader);
-            return Optional.of(new BlockSplitBloomFilter(bloomFilterData.getBytes()));
+            Optional<ColumnDecryptionContext> columnContext = decryptionContext.flatMap(context -> context.getColumnDecryptionContext(columnPath));
+            if (columnContext.isPresent()) {
+                // Read the whole bitset module: SIZE + NONCE + CIPHERTEXT + TAG
+                int encryptedSize = BytesUtils.readIntLittleEndian(dataSource.readFully(bloomFilterDataOffset, AesCipherUtils.SIZE_LENGTH).getBytes(), 0);
+                Slice module = dataSource.readFully(bloomFilterDataOffset, AesCipherUtils.SIZE_LENGTH + encryptedSize);
+                ColumnChunkMetadata chunk = requireNonNull(columnChunks.get(columnPath), "missing chunk metadata");
+                byte[] aad = AesCipherUtils.createModuleAAD(columnContext.get().fileAad(), ModuleType.BloomFilterBitset, chunk.getRowGroupOrdinal(), chunk.getColumnOrdinal(), -1);
+                byte[] plain = columnContext.get().metadataDecryptor().decrypt(module.getBytes(), aad);
+                verify(plain.length == bloomFilterHeader.getNumBytes(), "Decrypted bloom filter length mismatch: expected %s, got %s", bloomFilterHeader.getNumBytes(), plain.length);
+                return Optional.of(new BlockSplitBloomFilter(plain));
+            }
+            else {
+                // Plaintext bitset
+                Slice bloomFilterData = dataSource.readFully(bloomFilterDataOffset, bloomFilterHeader.getNumBytes());
+                verify(bloomFilterData.length() > 0, "Read empty bloom filter %s", bloomFilterHeader);
+                return Optional.of(new BlockSplitBloomFilter(bloomFilterData.getBytes()));
+            }
         }
         catch (IOException exception) {
             throw new UncheckedIOException("Failed to read Bloom filter data", exception);
@@ -100,7 +140,8 @@ public class BloomFilterStore
             ParquetDataSource dataSource,
             BlockMetadata blockMetadata,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            Optional<FileDecryptionContext> decryptionContext)
     {
         if (!options.useBloomFilter() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
             return Optional.empty();
@@ -117,7 +158,7 @@ public class BloomFilterStore
                 .map(column -> ColumnPath.get(column.getPath()))
                 .collect(toImmutableSet());
 
-        return Optional.of(new BloomFilterStore(dataSource, blockMetadata, columnsFilteredPaths));
+        return Optional.of(new BloomFilterStore(dataSource, blockMetadata, columnsFilteredPaths, decryptionContext));
     }
 
     public static boolean hasBloomFilter(ColumnChunkMetadata columnMetaData)

@@ -19,9 +19,9 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.function.FunctionBundleFactory;
 import io.trino.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
@@ -37,10 +37,9 @@ public class ConnectorContextInstance
     private final MetadataProvider metadataProvider;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
-    private final CatalogHandle catalogHandle;
+    private final FunctionBundleFactory functionBundleFactory;
 
     public ConnectorContextInstance(
-            CatalogHandle catalogHandle,
             OpenTelemetry openTelemetry,
             Tracer tracer,
             NodeManager nodeManager,
@@ -48,7 +47,8 @@ public class ConnectorContextInstance
             TypeManager typeManager,
             MetadataProvider metadataProvider,
             PageSorter pageSorter,
-            PageIndexerFactory pageIndexerFactory)
+            PageIndexerFactory pageIndexerFactory,
+            FunctionBundleFactory functionBundleFactory)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -58,7 +58,7 @@ public class ConnectorContextInstance
         this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+        this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
     }
 
     @Override
@@ -71,12 +71,6 @@ public class ConnectorContextInstance
     public Tracer getTracer()
     {
         return tracer;
-    }
-
-    @Override
-    public CatalogHandle getCatalogHandle()
-    {
-        return catalogHandle;
     }
 
     @Override
@@ -113,5 +107,11 @@ public class ConnectorContextInstance
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public FunctionBundleFactory getFunctionBundleFactory()
+    {
+        return functionBundleFactory;
     }
 }

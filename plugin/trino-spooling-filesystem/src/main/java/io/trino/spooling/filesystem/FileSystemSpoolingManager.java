@@ -20,12 +20,14 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import io.azam.ulidj.MonotonicULID;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.Node;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
@@ -38,12 +40,11 @@ import io.trino.spooling.filesystem.encryption.ExceptionMappingInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
@@ -62,22 +63,23 @@ public class FileSystemSpoolingManager
     private final EncryptionHeadersTranslator encryptionHeadersTranslator;
     private final TrinoFileSystem fileSystem;
     private final FileSystemLayout fileSystemLayout;
-    private final Duration ttl;
+    private final String nodeIdentifier;
+    private final MonotonicULID uuidGenerator;
     private final Duration directAccessTtl;
     private final boolean encryptionEnabled;
     private final boolean explicitAckEnabled;
-    private final Random random = ThreadLocalRandom.current();
 
     @Inject
-    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory, FileSystemLayout fileSystemLayout)
+    public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory, FileSystemLayout fileSystemLayout, Node currentNode)
     {
         requireNonNull(config, "config is null");
         this.location = Location.of(config.getLocation());
         this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null")
                 .create(ConnectorIdentity.ofUser("ignored"));
         this.fileSystemLayout = requireNonNull(fileSystemLayout, "fileSystemLayout is null");
+        this.nodeIdentifier = requireNonNull(currentNode, "currentNode is null").getNodeIdentifier();
         this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
-        this.ttl = config.getTtl();
+        this.uuidGenerator = new MonotonicULID(new TimeToLiveClock(config.getTtl()), new SecureRandom(nodeIdentifier.getBytes(UTF_8)));
         this.directAccessTtl = config.getDirectAccessTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
         this.explicitAckEnabled = config.isExplicitAckEnabled();
@@ -105,11 +107,11 @@ public class FileSystemSpoolingManager
     @Override
     public FileSystemSpooledSegmentHandle create(SpoolingContext context)
     {
-        Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
-        if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(random, context, expireAt, Optional.of(randomAes256()));
-        }
-        return FileSystemSpooledSegmentHandle.random(random, context, expireAt);
+        return new FileSystemSpooledSegmentHandle(
+                context.encoding(),
+                uuidGenerator.generateBinary(),
+                nodeIdentifier,
+                encryptionEnabled ? Optional.of(randomAes256()) : Optional.empty());
     }
 
     @Override
@@ -184,15 +186,19 @@ public class FileSystemSpoolingManager
         // ulid: byte[16]
         // encodingLength: short
         // encoding: byte[encodingLength]
+        // nodeIdentifierLength: short
+        // nodeIdentifier: byte[nodeIdentifierLength]
         // isEncrypted: boolean
-
         byte[] encoding = fileHandle.encoding().getBytes(UTF_8);
-        Slice slice = Slices.allocate(16 + SIZE_OF_SHORT + encoding.length + SIZE_OF_BYTE);
+        byte[] nodeIdentifier = fileHandle.nodeIdentifier().getBytes(UTF_8);
+        Slice slice = Slices.allocate(16 + 2 * SIZE_OF_SHORT + encoding.length + nodeIdentifier.length + SIZE_OF_BYTE);
 
         SliceOutput output = slice.getOutput();
         output.writeBytes(fileHandle.uuid());
-        output.writeShort(fileHandle.encoding().length());
+        output.writeShort(encoding.length);
         output.writeBytes(encoding);
+        output.writeShort(nodeIdentifier.length);
+        output.writeBytes(nodeIdentifier);
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         return output.slice();
     }
@@ -213,10 +219,13 @@ public class FileSystemSpoolingManager
         short encodingLength = input.readShort();
 
         String encoding = input.readSlice(encodingLength).toStringUtf8();
+        short nodeIdentifierLength = input.readShort();
+        String nodeIdentifier = input.readSlice(nodeIdentifierLength).toStringUtf8();
+
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encoding, uuid, nodeIdentifier, Optional.empty());
         }
-        return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
+        return new FileSystemSpooledSegmentHandle(encoding, uuid, nodeIdentifier, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
     private Duration remainingTtl(Instant expiresAt, Duration accessTtl)

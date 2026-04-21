@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
@@ -30,6 +29,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.airlift.units.Duration;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -47,18 +47,16 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
-import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class BigQueryQueryRunner
 {
-    private static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("bigquery.credentials-key");
+    static final String BIGQUERY_CREDENTIALS_KEY = requiredNonEmptySystemProperty("testing.bigquery.credentials-key");
     public static final String TPCH_SCHEMA = "tpch";
     public static final String TEST_SCHEMA = "test";
 
@@ -71,21 +69,28 @@ public final class BigQueryQueryRunner
 
     public static Builder builder()
     {
-        return new Builder();
+        return new Builder(BIGQUERY_CREDENTIALS_KEY);
+    }
+
+    public static Builder builder(String credentialsKey)
+    {
+        return new Builder(credentialsKey);
     }
 
     public static final class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
+        private String credentialsKey;
         private Map<String, String> connectorProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        private Builder()
+        private Builder(String credentialsKey)
         {
             super(testSessionBuilder()
                     .setCatalog("bigquery")
                     .setSchema(TPCH_SCHEMA)
                     .build());
+            this.credentialsKey = requireNonNull(credentialsKey, "credentialsKey is null");
         }
 
         @CanIgnoreReturnValue
@@ -113,6 +118,7 @@ public final class BigQueryQueryRunner
 
                 // note: additional copy via ImmutableList so that if fails on nulls
                 Map<String, String> connectorProperties = new HashMap<>(ImmutableMap.copyOf(this.connectorProperties));
+                connectorProperties.putIfAbsent("bigquery.credentials-key", credentialsKey);
                 connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
                 connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
                 connectorProperties.putIfAbsent("bigquery.rpc-retries", "10");
@@ -144,7 +150,12 @@ public final class BigQueryQueryRunner
 
         public BigQuerySqlExecutor()
         {
-            this.bigQuery = createBigQueryClient();
+            this(BIGQUERY_CREDENTIALS_KEY);
+        }
+
+        public BigQuerySqlExecutor(String credentialsKey)
+        {
+            this.bigQuery = createBigQueryClient(credentialsKey);
         }
 
         @Override
@@ -177,18 +188,6 @@ public final class BigQueryQueryRunner
             bigQuery.delete(dataset, deleteContents());
         }
 
-        public List<String> getSelfCreatedDatasets()
-        {
-            ImmutableList.Builder<String> datasetNames = ImmutableList.builder();
-            for (Dataset dataset : bigQuery.listDatasets(
-                    labelFilter(format("labels.%s:%s",
-                            BIG_QUERY_SQL_EXECUTOR_LABEL.getKey(),
-                            BIG_QUERY_SQL_EXECUTOR_LABEL.getValue()))).iterateAll()) {
-                datasetNames.add(dataset.getDatasetId().getDataset());
-            }
-            return datasetNames.build();
-        }
-
         public List<String> getTableNames(String dataset)
         {
             ImmutableList.Builder<String> tableNames = ImmutableList.builder();
@@ -203,12 +202,18 @@ public final class BigQueryQueryRunner
             return bigQuery;
         }
 
-        private static BigQuery createBigQueryClient()
+        private static BigQuery createBigQueryClient(String credentialsKey)
         {
             try {
-                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(BIGQUERY_CREDENTIALS_KEY));
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(credentialsKey));
                 return BigQueryOptions.newBuilder()
                         .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
+                        .setRetrySettings(new RetryOptionsConfigurer(new BigQueryRpcConfig()
+                                .setRetries(10)
+                                .setRetryDelay(Duration.valueOf("200ms"))
+                                .setRetryMultiplier(1.5)
+                                .setTimeout(Duration.valueOf("30s")))
+                                .retrySettings())
                         .build()
                         .getService();
             }
@@ -218,7 +223,7 @@ public final class BigQueryQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = BigQueryQueryRunner.builder()

@@ -14,7 +14,6 @@
 package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
@@ -29,15 +28,22 @@ import java.util.Optional;
 public final class DateType
         extends AbstractIntType
 {
+    public static final String NAME = "date";
     public static final DateType DATE = new DateType();
 
     private DateType()
     {
-        super(new TypeSignature(StandardTypes.DATE));
+        super(new TypeSignature(NAME));
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

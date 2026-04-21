@@ -60,6 +60,60 @@ public class TestStatisticRange
     }
 
     @Test
+    public void testLowDensityOverlapWithSparseLeftRange()
+    {
+        StatisticRange sparseRange = range(1, 4, NaN);
+        StatisticRange filterRange = range(1, 3662098119.0, 14);
+
+        assertOverlap(sparseRange, filterRange, 1);
+    }
+
+    @Test
+    public void testLowDensityOverlapWithSparseRightRange()
+    {
+        StatisticRange sparseRange = range(1, 3662098119.0, 14);
+        StatisticRange filterRange = range(1, 4, NaN);
+
+        assertOverlap(sparseRange, filterRange, 1);
+    }
+
+    @Test
+    public void testDensityThresholdBoundary()
+    {
+        StatisticRange boundaryRange = range(0, 10000, 10);
+        StatisticRange smallFilter = range(0, 100, 5);
+
+        assertOverlap(boundaryRange, smallFilter, 0.01);
+    }
+
+    @Test
+    public void testHighDensityOverlap()
+    {
+        StatisticRange denseRange = range(0, 100, 50);
+        StatisticRange filterRange = range(20, 30, 5);
+
+        assertOverlap(denseRange, filterRange, 0.1);
+    }
+
+    @Test
+    public void testVeryLowDensity()
+    {
+        StatisticRange verySparse = range(0, 1e9, 10);
+        StatisticRange filterRange = range(100, 200, 5);
+
+        assertOverlap(verySparse, filterRange, 0.5);
+    }
+
+    @Test
+    public void testDensityWithZeroDistinctValues()
+    {
+        StatisticRange zeroDistinct = range(0, 1000, 0);
+        StatisticRange filterRange = range(100, 200, 5);
+
+        assertOverlap(zeroDistinct, filterRange, 0);
+    }
+
+    @Test
     public void testIntersect()
     {
         StatisticRange zeroToTen = range(0, 10, 10);

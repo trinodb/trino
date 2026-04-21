@@ -14,15 +14,14 @@
 package io.trino.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Used on workers.
@@ -50,12 +49,6 @@ public class NoOpTransactionManager
 
     @Override
     public List<TransactionInfo> getAllTransactionInfos()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
     {
         throw new UnsupportedOperationException();
     }
@@ -92,6 +85,12 @@ public class NoOpTransactionManager
 
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<CatalogInfo> getOptionalCatalogInfo(TransactionId requiredTransactionId, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -152,12 +151,6 @@ public class NoOpTransactionManager
 
     @Override
     public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void blockCommit(TransactionId transactionId, String reason)
     {
         throw new UnsupportedOperationException();
     }

@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -29,6 +28,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -42,6 +42,7 @@ import java.util.stream.Collector;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -121,7 +122,7 @@ public final class TupleDomain<T>
         return Optional.of(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableSingleValue())
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
+                .collect(toLinkedMap(Entry::getKey, entry -> new NullableValue(entry.getValue().getType(), entry.getValue().getNullableSingleValue()))));
     }
 
     /**
@@ -138,7 +139,7 @@ public final class TupleDomain<T>
                 .entrySet().stream()
                 .filter(entry -> entry.getValue().isNullableDiscreteSet())
                 .collect(toLinkedMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             Domain.DiscreteSet discreteValues = entry.getValue().getNullableDiscreteSet();
                             List<NullableValue> nullableValues = new ArrayList<>();
@@ -160,7 +161,7 @@ public final class TupleDomain<T>
     {
         return TupleDomain.withColumnDomains(fixedValues.entrySet().stream()
                 .collect(toLinkedMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             Type type = entry.getValue().getType();
                             Object value = entry.getValue().getValue();
@@ -199,7 +200,7 @@ public final class TupleDomain<T>
     {
         return domains.entrySet().stream()
                 .filter(entry -> !entry.getValue().isAll())
-                .collect(toLinkedMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toLinkedMap(Entry::getKey, Entry::getValue));
     }
 
     /**
@@ -287,7 +288,7 @@ public final class TupleDomain<T>
 
         Map<T, Domain> intersected = new LinkedHashMap<>(candidates.get(0).getDomains().get());
         for (int i = 1; i < candidates.size(); i++) {
-            for (Map.Entry<? extends T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
+            for (Entry<? extends T, Domain> entry : candidates.get(i).getDomains().get().entrySet()) {
                 Domain intersectionDomain = intersected.get(entry.getKey());
                 if (intersectionDomain == null) {
                     intersected.put(entry.getKey(), entry.getValue());
@@ -419,7 +420,7 @@ public final class TupleDomain<T>
 
         for (TupleDomain<T> domain : tupleDomains) {
             if (!domain.isNone()) {
-                for (Map.Entry<T, Domain> entry : domain.getDomains().get().entrySet()) {
+                for (Entry<T, Domain> entry : domain.getDomains().get().entrySet()) {
                     if (commonColumns.contains(entry.getKey())) {
                         List<Domain> domainForColumn = domainsByColumn.computeIfAbsent(entry.getKey(), _ -> new ArrayList<>());
                         domainForColumn.add(entry.getValue());
@@ -430,10 +431,98 @@ public final class TupleDomain<T>
 
         // finally, do the column-wise union
         Map<T, Domain> result = new LinkedHashMap<>(domainsByColumn.size());
-        for (Map.Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
+        for (Entry<T, List<Domain>> entry : domainsByColumn.entrySet()) {
             result.put(entry.getKey(), Domain.union(entry.getValue()));
         }
         return withColumnDomains(result);
+    }
+
+    /**
+     * Returns the strict union of the given TupleDomains if it can be computed exactly,
+     * or {@code Optional.empty()} if the column-wise union would be a proper superset
+     * of the strict union.
+     * <p>
+     * In most cases, {@link #columnWiseUnion} is only a superset of the actual strict union
+     * (see {@link #columnWiseUnion(List)} for examples). However, there are a few cases where
+     * the column-wise union is actually equivalent to the strict union:
+     * <ul>
+     * <li>If one TupleDomain is a superset of the others
+     *     (e.g. TupleDomain {@code (a > 0, b > 0 && b < 10)} vs TupleDomain {@code (a > 5, b = 5)})
+     * <li>If all TupleDomains consist of the same exact single column
+     *     (e.g. one TupleDomain {@code (a > 0)}, another TupleDomain {@code (a < 10)})
+     *     and NaN is not implicitly added by the union
+     * </ul>
+     */
+    public static <T> Optional<TupleDomain<T>> strictUnion(List<TupleDomain<T>> domains)
+    {
+        if (domains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // Filter out NONE domains as they are no-ops for the purpose of OR
+        List<TupleDomain<T>> nonNoneDomains = domains.stream()
+                .filter(domain -> !domain.isNone())
+                .collect(toList());
+
+        if (nonNoneDomains.isEmpty()) {
+            return Optional.of(none());
+        }
+
+        // If one TupleDomain is a superset of all others, it is the exact union
+        if (maximal(nonNoneDomains).isPresent()) {
+            return Optional.of(columnWiseUnion(nonNoneDomains));
+        }
+
+        // The column-wise union is equivalent to the strict union if all TupleDomains
+        // consist of the same exact single column
+        boolean allSingleMatchingColumn = nonNoneDomains.stream()
+                .allMatch(domain -> domain.getDomains().isPresent() && domain.getDomains().get().size() == 1)
+                && nonNoneDomains.stream()
+                        .map(domain -> domain.getDomains().get().keySet())
+                        .distinct()
+                        .count() == 1;
+
+        if (!allSingleMatchingColumn) {
+            // columnWiseUnion would be a superset of the strict union
+            return Optional.empty();
+        }
+
+        TupleDomain<T> columnUnionedTupleDomain = columnWiseUnion(nonNoneDomains);
+
+        // Floating point types such as REAL and DOUBLE require special handling because they include NaN value.
+        // Domains covering the value set partially might union up to a domain covering the whole value set.
+        // While the component domains didn't include NaN, the resulting domain could be further translated
+        // to predicate "TRUE" or "a IS NOT NULL", which is satisfied by NaN.
+        // So during domain union, NaN might be implicitly added.
+        // Example: Let 'a' be a column of type DOUBLE.
+        //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
+        //          Unioned TupleDomain => "is not null" /true for NaN/
+        Map<T, Domain> singleColumnDomains = nonNoneDomains.get(0).getDomains().get();
+        if (singleColumnDomains.size() != 1) {
+            throw new IllegalStateException("Expected single column domain, got " + singleColumnDomains.size());
+        }
+        Type type = singleColumnDomains.values().iterator().next().getType();
+        if (typeHasNaN(type)) {
+            // A Domain of a floating point type contains NaN in the following cases:
+            // 1. When it contains all the values of the type and null.
+            //    In such case the domain is 'all', and if it is the only domain
+            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
+            // 2. When it contains all the values of the type and doesn't contain null.
+            //    In such case no normalization on the level of TupleDomain takes place,
+            //    and the check for NaN is done by inspecting the Domain's valueSet.
+            //    NaN is included when the valueSet is 'all'.
+            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
+                    (columnUnionedTupleDomain.getDomains().isPresent() &&
+                            columnUnionedTupleDomain.getDomains().get().values().iterator().next().getValues().isAll());
+            boolean implicitlyAddedNaN = nonNoneDomains.stream().noneMatch(TupleDomain::isAll) &&
+                    unionedDomainContainsNaN;
+            // Guard against wrong results: do not report an exact union if NaN was implicitly added
+            if (implicitlyAddedNaN) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(columnUnionedTupleDomain);
     }
 
     /**
@@ -454,7 +543,7 @@ public final class TupleDomain<T>
         Map<T, Domain> thisDomains = this.domains.orElseThrow();
         Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
 
-        for (Map.Entry<T, Domain> entry : otherDomains.entrySet()) {
+        for (Entry<T, Domain> entry : otherDomains.entrySet()) {
             Domain commonColumnDomain = thisDomains.get(entry.getKey());
             if (commonColumnDomain != null) {
                 if (!commonColumnDomain.overlaps(entry.getValue())) {
@@ -480,7 +569,7 @@ public final class TupleDomain<T>
         }
         Map<T, Domain> thisDomains = domains.orElseThrow();
         Map<T, Domain> otherDomains = other.getDomains().orElseThrow();
-        for (Map.Entry<T, Domain> entry : thisDomains.entrySet()) {
+        for (Entry<T, Domain> entry : thisDomains.entrySet()) {
             Domain otherDomain = otherDomains.get(entry.getKey());
             if (otherDomain == null || !entry.getValue().contains(otherDomain)) {
                 return false;
@@ -511,11 +600,6 @@ public final class TupleDomain<T>
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
-    }
-
-    public String toString(ConnectorSession session)
-    {
         if (isAll()) {
             return "ALL";
         }
@@ -523,7 +607,7 @@ public final class TupleDomain<T>
             return "NONE";
         }
         return domains.orElseThrow().entrySet().stream()
-                .collect(toLinkedMap(Map.Entry::getKey, entry -> entry.getValue().toString(session)))
+                .collect(toLinkedMap(Entry::getKey, entry -> entry.getValue().toString()))
                 .toString();
     }
 
@@ -549,7 +633,7 @@ public final class TupleDomain<T>
 
         Map<T, Domain> domains = this.domains.orElseThrow();
         HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
-        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
+        for (Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
             requireNonNull(key, () -> format("mapping function %s returned null for %s", function, entry.getKey()));
 
@@ -581,7 +665,7 @@ public final class TupleDomain<T>
 
         return withColumnDomains(domains.get().entrySet().stream()
                 .collect(toLinkedMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             Domain newDomain = transformation.apply(entry.getKey(), entry.getValue());
                             return requireNonNull(newDomain, "newDomain is null");
@@ -595,7 +679,7 @@ public final class TupleDomain<T>
         }
         Map<T, Domain> domains = this.domains.orElseThrow();
         return bindings -> {
-            for (Map.Entry<T, NullableValue> entry : bindings.entrySet()) {
+            for (Entry<T, NullableValue> entry : bindings.entrySet()) {
                 Domain domain = domains.get(entry.getKey());
                 if (domain != null && !domain.includesNullableValue(entry.getValue().getValue())) {
                     return false;

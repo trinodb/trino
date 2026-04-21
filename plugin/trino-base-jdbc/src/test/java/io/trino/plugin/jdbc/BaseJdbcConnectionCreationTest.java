@@ -121,7 +121,7 @@ public abstract class BaseJdbcConnectionCreationTest
                         return;
                     }
                     closed = true;
-                    verify(connectionCreations.remove(connection) != null, "Connection was not created with ConnectionCountingConnectionFactory: " + connection);
+                    verify(connectionCreations.remove(connection) != null, "Connection was not created with ConnectionCountingConnectionFactory: %s", connection);
                     super.close();
                 }
             };

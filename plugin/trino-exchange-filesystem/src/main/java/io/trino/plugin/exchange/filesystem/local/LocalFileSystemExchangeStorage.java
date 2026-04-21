@@ -30,7 +30,6 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
 import io.trino.plugin.exchange.filesystem.MetricsBuilder;
 import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,7 +38,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
@@ -55,6 +53,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileSystemExchangeStorage
@@ -66,7 +65,7 @@ public class LocalFileSystemExchangeStorage
     public void createDirectories(URI dir)
             throws IOException
     {
-        Files.createDirectories(Paths.get(dir.getPath()));
+        Files.createDirectories(Path.of(dir.getPath()));
     }
 
     @Override
@@ -85,7 +84,7 @@ public class LocalFileSystemExchangeStorage
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         try {
-            createFile(Paths.get(file.getPath()));
+            createFile(Path.of(file.getPath()));
         }
         catch (IOException | RuntimeException e) {
             return immediateFailedFuture(e);
@@ -98,7 +97,7 @@ public class LocalFileSystemExchangeStorage
     {
         for (URI dir : directories) {
             try {
-                MoreFiles.deleteRecursively(Paths.get(dir.getPath()), ALLOW_INSECURE);
+                MoreFiles.deleteRecursively(Path.of(dir.getPath()), ALLOW_INSECURE);
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
@@ -112,7 +111,7 @@ public class LocalFileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
         try {
-            try (Stream<Path> paths = Files.walk(Paths.get(dir.getPath()))) {
+            try (Stream<Path> paths = Files.walk(Path.of(dir.getPath()))) {
                 for (Path file : paths.filter(Files::isRegularFile).collect(toImmutableList())) {
                     builder.add(new FileStatus(file.toUri().toString(), Files.size(file)));
                 }
@@ -215,9 +214,9 @@ public class LocalFileSystemExchangeStorage
         }
 
         private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
-                throws FileNotFoundException
+                throws IOException
         {
-            return new InputStreamSliceInput(new FileInputStream(Paths.get(sourceFile.getFileUri()).toFile()), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(newInputStream(Path.of(sourceFile.getFileUri())), BUFFER_SIZE_IN_BYTES);
         }
     }
 
@@ -232,7 +231,7 @@ public class LocalFileSystemExchangeStorage
         public LocalExchangeStorageWriter(URI file)
         {
             try {
-                this.outputStream = new FileOutputStream(Paths.get(file.getPath()).toFile());
+                this.outputStream = new FileOutputStream(Path.of(file.getPath()).toFile());
             }
             catch (FileNotFoundException e) {
                 throw new UncheckedIOException(e);

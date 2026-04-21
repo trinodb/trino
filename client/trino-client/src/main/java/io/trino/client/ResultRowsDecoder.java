@@ -13,29 +13,22 @@
  */
 package io.trino.client;
 
-import com.google.common.collect.Iterables;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
-import io.trino.client.spooling.InlineSegment;
-import io.trino.client.spooling.Segment;
 import io.trino.client.spooling.SegmentLoader;
-import io.trino.client.spooling.SpooledSegment;
+import io.trino.client.spooling.SegmentsIterator;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
-import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
+import static io.trino.client.CloseableIterator.closeable;
 import static io.trino.client.ResultRows.NULL_ROWS;
-import static io.trino.client.ResultRows.fromIterableRows;
+import static io.trino.client.ResultRows.wrapIterator;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -72,7 +65,7 @@ public class ResultRowsDecoder
 
     public ResultRows toRows(QueryResults results)
     {
-        if (results == null || results.getData() == null) {
+        if (results == null || results.getData() == null || results.getData().isNull()) {
             return NULL_ROWS;
         }
 
@@ -88,56 +81,27 @@ public class ResultRowsDecoder
         verify(columns != null && !columns.isEmpty(), "Columns must be set when decoding data");
         if (data instanceof TypedQueryData) {
             TypedQueryData rawData = (TypedQueryData) data;
-            if (rawData.isNull()) {
-                return NULL_ROWS; // for backward compatibility instead of null
-            }
             // RawQueryData is always typed
-            return () -> rawData.getIterable().iterator();
+            return wrapIterator(closeable(rawData.getIterable().iterator()), rawData.getRowsCount());
         }
 
         if (data instanceof JsonQueryData) {
             JsonQueryData jsonData = (JsonQueryData) data;
-            if (jsonData.isNull()) {
-                return NULL_ROWS;
-            }
-            return () -> JsonResultRows.forJsonParser(jsonData.getJsonParser(), columns).iterator();
-        }
-
-        if (data instanceof EncodedQueryData) {
-            EncodedQueryData encodedData = (EncodedQueryData) data;
-            setEncoding(columns, encodedData.getEncoding());
-            return concat(transform(encodedData.getSegments(), this::segmentToRows));
-        }
-
-        throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
-    }
-
-    private ResultRows segmentToRows(Segment segment)
-    {
-        if (segment instanceof InlineSegment) {
-            InlineSegment inlineSegment = (InlineSegment) segment;
             try {
-                return decoder.decode(new ByteArrayInputStream(inlineSegment.getData()), inlineSegment.getMetadata());
+                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns), jsonData.getRowsCount());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
 
-        if (segment instanceof SpooledSegment) {
-            SpooledSegment spooledSegment = (SpooledSegment) segment;
-
-            try {
-                // The returned rows are lazy which means that decoder is responsible for closing input stream
-                InputStream stream = loader.load(spooledSegment);
-                return decoder.decode(stream, spooledSegment.getMetadata());
-            }
-            catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+        if (data instanceof EncodedQueryData) {
+            EncodedQueryData encodedData = (EncodedQueryData) data;
+            setEncoding(columns, encodedData.getEncoding());
+            return wrapIterator(new SegmentsIterator(loader, decoder, encodedData.getSegments()), encodedData.getRowsCount());
         }
 
-        throw new UnsupportedOperationException("Unsupported segment type: " + segment.getClass().getName());
+        throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
     }
 
     public Optional<String> getEncoding()
@@ -151,11 +115,5 @@ public class ResultRowsDecoder
             throws Exception
     {
         loader.close();
-    }
-
-    @SuppressModernizer
-    private static ResultRows concat(Iterable<ResultRows> resultRows)
-    {
-        return fromIterableRows(Iterables.concat(filter(resultRows, rows -> !rows.isNull())));
     }
 }

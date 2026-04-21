@@ -2,7 +2,7 @@
 
 ## General
 
-* Add experimental support for [](/udf/python). ({issue}`24378`)
+* Add support for [](/udf/python). ({issue}`24378`)
 * Add cluster overview to the [](/admin/preview-web-interface). ({issue}`23600`)
 * Add new node states `DRAINING` and `DRAINED` to make it possible to reactivate
   a draining worker node. ({issue}`24444 `)

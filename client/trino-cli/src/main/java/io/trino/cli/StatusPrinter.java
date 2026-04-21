@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,7 +27,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.Duration.nanosSince;
@@ -62,9 +60,9 @@ public class StatusPrinter
     private final PrintStream out;
     private final ConsolePrinter console;
     private final boolean checkInput;
+    private final boolean decimalDataSize;
 
     private boolean debug;
-    private boolean decimalDataSize;
 
     public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize)
     {
@@ -216,7 +214,7 @@ Spilled: 20GB
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
-            out.println(format("Parallelism: %.1f", parallelism));
+            out.printf("Parallelism: %.1f%n", parallelism);
 
             // Peak Memory: 1.97GB
             reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
@@ -375,7 +373,7 @@ Spilled: 20GB
                     "DONE");
             reprintLine(stagesHeader);
 
-            printStageTree(stats.getRootStage(), "", new AtomicInteger());
+            printStageTree(stats.getRootStage(), "");
         }
         else {
             // Query 31 [S] i[2.7M 67.3MB 62.7MBps] o[35 6.1KB 1KBps] splits[252/16/380]
@@ -399,7 +397,7 @@ Spilled: 20GB
         warningsPrinter.print(results.getWarnings(), true, false);
     }
 
-    private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
+    private void printStageTree(StageStats stage, String indent)
     {
         Duration elapsedTime = nanosSince(start);
 
@@ -410,9 +408,9 @@ Spilled: 20GB
         //   4....R     26M    627M   673T     627M    627M   627M   627M
         //     5..F     29T    627M   673M     627M    627M   627M   627M
 
-        String id = String.valueOf(stageNumberCounter.getAndIncrement());
+        String id = stage.getStageId();
         String name = indent + id;
-        name += Strings.repeat(".", max(0, 10 - name.length()));
+        name += ".".repeat(max(0, 10 - name.length()));
 
         String bytesPerSecond;
         String rowsPerSecond;
@@ -441,7 +439,7 @@ Spilled: 20GB
         reprintLine(stageSummary);
 
         for (StageStats subStage : stage.getSubStages()) {
-            printStageTree(subStage, indent + "  ", stageNumberCounter);
+            printStageTree(subStage, indent + "  ");
         }
     }
 

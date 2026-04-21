@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -52,7 +49,7 @@ public class TopNMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         TopNNode topNNode = (TopNNode) node;
@@ -61,7 +58,7 @@ public class TopNMatcher
             return NO_MATCH;
         }
 
-        if (!orderingSchemeMatches(orderBy, topNNode.getOrderingScheme(), symbolAliases)) {
+        if (!orderingSchemeMatches(orderBy, topNNode.getOrderingScheme(), context.symbolAliases())) {
             return NO_MATCH;
         }
 

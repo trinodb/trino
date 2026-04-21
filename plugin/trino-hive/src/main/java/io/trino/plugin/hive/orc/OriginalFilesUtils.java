@@ -53,10 +53,10 @@ public final class OriginalFilesUtils
     {
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
-            if (originalFileInfo.getName().compareTo(splitPath.fileName()) < 0) {
-                Location path = splitPath.sibling(originalFileInfo.getName());
+            if (originalFileInfo.name().compareTo(splitPath.fileName()) < 0) {
+                Location path = splitPath.sibling(originalFileInfo.name());
                 TrinoInputFile inputFile = fileSystemFactory.create(identity)
-                        .newInputFile(path, originalFileInfo.getFileSize());
+                        .newInputFile(path, originalFileInfo.fileSize());
                 rowCount += getRowsInFile(inputFile, options, stats);
             }
         }

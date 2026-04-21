@@ -47,7 +47,9 @@ public final class ClickHouseQueryRunner
     public static Builder builder(TestingClickHouseServer server)
     {
         return new Builder()
-                .addConnectorProperty("connection-url", server.getJdbcUrl());
+                .addConnectorProperty("connection-url", server.getJdbcUrl())
+                .addConnectorProperty("connection-user", server.getUsername())
+                .addConnectorProperty("connection-password", server.getPassword());
     }
 
     public static final class Builder
@@ -101,7 +103,7 @@ public final class ClickHouseQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new TestingClickHouseServer())

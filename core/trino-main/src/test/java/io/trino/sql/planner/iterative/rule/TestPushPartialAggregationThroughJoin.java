@@ -144,8 +144,6 @@ public class TestPushPartialAggregationThroughJoin
                                         ImmutableList.of(),
                                         Optional.of(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "LEFT_NON_EQUI"), new Reference(BIGINT, "RIGHT_NON_EQUI"))),
                                         Optional.empty(),
-                                        Optional.empty(),
-                                        Optional.empty(),
                                         ImmutableMap.of()))
                         .addAggregation(p.symbol("AVG", DOUBLE), aggregation("avg", ImmutableList.of(new Reference(BIGINT, "LEFT_AGGR"))), ImmutableList.of(DOUBLE))
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"))

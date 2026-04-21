@@ -18,7 +18,6 @@ import com.google.inject.Inject;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.ElasticsearchNode;
 import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
@@ -53,12 +52,10 @@ public class NodesSystemTable
     private final Node currentNode;
 
     @Inject
-    public NodesSystemTable(NodeManager nodeManager, ElasticsearchClient client)
+    public NodesSystemTable(Node currentNode, ElasticsearchClient client)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
-
         this.client = requireNonNull(client, "client is null");
-        currentNode = nodeManager.getCurrentNode();
+        this.currentNode = requireNonNull(currentNode, "currentNode is null");
     }
 
     @Override

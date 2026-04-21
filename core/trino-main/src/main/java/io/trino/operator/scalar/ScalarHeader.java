@@ -40,8 +40,9 @@ public class ScalarHeader
     private final Optional<String> description;
     private final boolean hidden;
     private final boolean deterministic;
+    private final boolean neverFails;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic)
+    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
@@ -51,6 +52,7 @@ public class ScalarHeader
         this.description = requireNonNull(description, "description is null");
         this.hidden = hidden;
         this.deterministic = deterministic;
+        this.neverFails = neverFails;
     }
 
     public ScalarHeader(OperatorType operatorType, Optional<String> description)
@@ -61,6 +63,7 @@ public class ScalarHeader
         this.aliases = ImmutableSet.of();
         this.hidden = true;
         this.deterministic = true;
+        this.neverFails = false;
     }
 
     public static List<ScalarHeader> fromAnnotatedElement(AnnotatedElement annotated)
@@ -73,7 +76,7 @@ public class ScalarHeader
 
         if (scalarFunction != null) {
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic()));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails()));
         }
 
         if (scalarOperator != null) {
@@ -130,5 +133,10 @@ public class ScalarHeader
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    public boolean neverFails()
+    {
+        return neverFails;
     }
 }

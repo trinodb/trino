@@ -271,13 +271,9 @@ public class TestDeprecatedFunctionWarning
     @Deprecated
     @WindowFunctionSignature(name = "deprecated_window", returnType = "bigint")
     public static class TestDeprecatedWindow
-            extends RankFunction
-    {
-    }
+            extends RankFunction {}
 
     @WindowFunctionSignature(name = "non_deprecated_window", returnType = "bigint")
     public static class TestNonDeprecatedWindow
-            extends RankFunction
-    {
-    }
+            extends RankFunction {}
 }

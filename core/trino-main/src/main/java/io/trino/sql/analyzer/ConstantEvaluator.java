@@ -21,29 +21,32 @@ import io.trino.security.AccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.TranslationMap;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 import io.trino.type.TypeCoercion;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class ConstantEvaluator
+public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
 
     public static Object evaluateConstant(
             Expression expression,
             Type expectedType,
+            Map<NodeRef<Parameter>, Expression> parameters,
             PlannerContext plannerContext,
             Session session,
             AccessControl accessControl)
     {
-        Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
+        Analysis analysis = new Analysis(null, parameters, QueryType.OTHERS);
         Scope scope = Scope.create();
         ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
                 session,
@@ -69,6 +72,6 @@ public class ConstantEvaluator
             rewritten = new Cast(rewritten, expectedType);
         }
 
-        return new IrExpressionEvaluator(plannerContext).evaluate(rewritten, session, ImmutableMap.of());
+        return plannerContext.getExpressionEvaluator().evaluate(rewritten, session, ImmutableMap.of());
     }
 }

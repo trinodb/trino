@@ -28,10 +28,10 @@ public class PrometheusTimestampDeserializer
         extends JsonDeserializer<Instant>
 {
     @Override
-    public Instant deserialize(JsonParser jsonParser, DeserializationContext context)
+    public Instant deserialize(JsonParser parser, DeserializationContext context)
             throws IOException
     {
-        String timestamp = jsonParser.getText().trim();
+        String timestamp = context.readValue(parser, String.class).trim();
         try {
             return decimalEpochTimestampToSQLTimestamp(timestamp);
         }

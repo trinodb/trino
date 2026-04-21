@@ -14,7 +14,6 @@
 package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 import java.util.stream.LongStream;
@@ -23,15 +22,22 @@ import java.util.stream.Stream;
 public final class BigintType
         extends AbstractLongType
 {
+    public static final String NAME = "bigint";
     public static final BigintType BIGINT = new BigintType();
 
     private BigintType()
     {
-        super(new TypeSignature(StandardTypes.BIGINT));
+        super(new TypeSignature(NAME));
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

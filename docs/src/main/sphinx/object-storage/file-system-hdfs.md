@@ -43,9 +43,6 @@ Use the following properties to configure general aspects of HDFS support:
     tables. Value must either be `skip` or an octal number, with a leading 0. If
     set to `skip`, permissions of newly created directories are not set by
     Trino. Defaults to `0777`.
-* - `hive.fs.new-file-inherit-ownership`
-  - Flag to determine if new files inherit the ownership information from the
-    directory. Defaults to `false`.
 * - `hive.dfs.verify-checksum`
   - Flag to determine if file checksums must be verified. Defaults to `false`.
 * - `hive.dfs.ipc-ping-interval`
@@ -112,8 +109,8 @@ authentication. The following properties are available:
     by `hive.hdfs.trino.principal`. This file must be readable by the operating
     system user running Trino.
 * - `hive.hdfs.trino.credential-cache.location`
-  - The location of the credential-cachewiuth the credentials for the principal
-    to use to access HDFS. Altenative to `hive.hdfs.trino.keytab`.
+  - The location of the credential-cache with the credentials for the principal
+    to use to access HDFS. Alternative to `hive.hdfs.trino.keytab`.
 :::
 
 The default security configuration does not use authentication when connecting

@@ -19,13 +19,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -60,6 +61,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -115,6 +117,7 @@ public class TestSqlStage
 
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStage stage = createSqlStage(
+                dummyMetadata(),
                 stageId,
                 createExchangePlanFragment(),
                 ImmutableMap.of(),
@@ -125,7 +128,8 @@ public class TestSqlStage
                 executor,
                 noopTracer(),
                 Span.getInvalid(),
-                new SplitSchedulerStats());
+                new SplitSchedulerStats(),
+                (_, _) -> OptionalInt.empty());
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
@@ -153,6 +157,7 @@ public class TestSqlStage
                             i,
                             0,
                             Optional.empty(),
+                            OptionalInt.empty(),
                             PipelinedOutputBuffers.createInitial(ARBITRARY),
                             initialSplits,
                             ImmutableSet.of(),
@@ -187,12 +192,12 @@ public class TestSqlStage
         StageInfo stageInfo = stage.getStageInfo();
         // stage should not report final info because all tasks have a running driver, but
         // all tasks should be cancelling
-        for (TaskInfo info : stageInfo.getTasks()) {
+        for (TaskInfo info : stageInfo.tasks()) {
             // Tasks can race with the stage finish operation and be cancelled fully before
             // starting any splits running. These can report either cancelling or fully cancelled
             // depending on the timing of TaskInfo being created
-            TaskState taskState = info.taskStatus().getState();
-            int runningSplits = info.taskStatus().getRunningPartitionedDrivers();
+            TaskState taskState = info.taskStatus().state();
+            int runningSplits = info.taskStatus().runningPartitionedDrivers();
             if (runningSplits == 0) {
                 assertThat(taskState == TaskState.CANCELING || taskState == TaskState.CANCELED)
                         .describedAs("unexpected task state: " + taskState)
@@ -216,12 +221,12 @@ public class TestSqlStage
         // finishing all running splits on the task should trigger termination complete
         createdTasks.forEach(task -> {
             task.clearSplits();
-            assertThat(task.getTaskStatus().getState()).isEqualTo(TaskState.CANCELED);
+            assertThat(task.getTaskStatus().state()).isEqualTo(TaskState.CANCELED);
         });
 
         // once the final stage info is available, verify that it is complete
         stageInfo = finalStageInfo.get(1, MINUTES);
-        assertThat(stageInfo.getTasks()).isNotEmpty();
+        assertThat(stageInfo.tasks()).isNotEmpty();
         assertThat(stageInfo.isFinalStageInfo()).isTrue();
         assertThat(stage.getStageInfo()).isSameAs(stageInfo);
     }
@@ -241,9 +246,10 @@ public class TestSqlStage
                 planNode,
                 ImmutableSet.copyOf(planNode.getOutputSymbols()),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

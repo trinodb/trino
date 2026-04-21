@@ -16,8 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -35,12 +33,15 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
+import io.trino.type.NumberOperators;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
@@ -61,7 +62,9 @@ import static io.trino.spi.type.Int128Math.negate;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.rescaleTruncate;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.TrinoNumber.BigDecimalValue;
+import static io.trino.spi.type.TrinoNumber.Infinity;
+import static io.trino.spi.type.TrinoNumber.NotANumber;
 import static io.trino.type.DecimalOperators.modulusScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
@@ -70,6 +73,9 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class MathFunctions
 {
@@ -135,14 +141,26 @@ public final class MathFunctions
     }
 
     @Description("Absolute value")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double abs(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.abs(num);
     }
 
-    @ScalarFunction("abs")
+    @Description("Absolute value")
+    @ScalarFunction(value = "abs", neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber abs(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> num;
+            case Infinity(boolean _) -> TrinoNumber.from(new Infinity(false));
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.abs());
+        };
+    }
+
+    @ScalarFunction(value = "abs", neverFails = true)
     @Description("Absolute value")
     public static final class Abs
     {
@@ -167,15 +185,15 @@ public final class MathFunctions
     }
 
     @Description("Absolute value")
-    @ScalarFunction("abs")
+    @ScalarFunction(value = "abs", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long absFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long absReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits(Math.abs(intBitsToFloat((int) num)));
     }
 
     @Description("Arc cosine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double acos(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -183,7 +201,7 @@ public final class MathFunctions
     }
 
     @Description("Arc sine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double asin(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -191,7 +209,7 @@ public final class MathFunctions
     }
 
     @Description("Arc tangent")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double atan(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -199,7 +217,7 @@ public final class MathFunctions
     }
 
     @Description("Arc tangent of given fraction")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double atan2(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
@@ -207,7 +225,7 @@ public final class MathFunctions
     }
 
     @Description("Cube root")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double cbrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -215,7 +233,7 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long ceilingTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
@@ -223,7 +241,7 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long ceilingSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
@@ -231,7 +249,7 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long ceilingInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -239,7 +257,7 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(alias = "ceil")
+    @ScalarFunction(alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long ceiling(@SqlType(StandardTypes.BIGINT) long num)
     {
@@ -247,7 +265,7 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(alias = "ceil")
+    @ScalarFunction(alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double ceiling(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -255,14 +273,25 @@ public final class MathFunctions
     }
 
     @Description("Round up to nearest integer")
-    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long ceilingFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long ceilingReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
     }
 
-    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @Description("Round up to nearest integer")
+    @ScalarFunction(alias = "ceil", neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber ceiling(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(_) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.CEILING));
+        };
+    }
+
+    @ScalarFunction(value = "ceiling", alias = "ceil", neverFails = true)
     @Description("Round up to nearest integer")
     public static final class Ceiling
     {
@@ -311,7 +340,7 @@ public final class MathFunctions
     }
 
     @Description("Round to integer by dropping digits after decimal point")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double truncate(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -319,7 +348,7 @@ public final class MathFunctions
     }
 
     @Description("Round to integer by dropping digits after decimal point")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long truncate(@SqlType(StandardTypes.REAL) long num)
     {
@@ -327,8 +356,19 @@ public final class MathFunctions
         return floatToRawIntBits((float) (Math.signum(numInFloat) * Math.floor(Math.abs(numInFloat))));
     }
 
+    @Description("Round to integer by dropping digits after decimal point")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber truncate(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(boolean _) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.DOWN));
+        };
+    }
+
     @Description("Cosine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double cos(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -336,7 +376,7 @@ public final class MathFunctions
     }
 
     @Description("Hyperbolic cosine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double cosh(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -344,7 +384,7 @@ public final class MathFunctions
     }
 
     @Description("Converts an angle in radians to degrees")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double degrees(@SqlType(StandardTypes.DOUBLE) double radians)
     {
@@ -352,7 +392,7 @@ public final class MathFunctions
     }
 
     @Description("Euler's number")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double e()
     {
@@ -360,7 +400,7 @@ public final class MathFunctions
     }
 
     @Description("Euler's number raised to the given power")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double exp(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -368,7 +408,7 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction("floor")
+    @ScalarFunction(value = "floor", neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long floorTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
@@ -376,7 +416,7 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction("floor")
+    @ScalarFunction(value = "floor", neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long floorSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
@@ -384,7 +424,7 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction("floor")
+    @ScalarFunction(value = "floor", neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long floorInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -392,7 +432,7 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long floor(@SqlType(StandardTypes.BIGINT) long num)
     {
@@ -400,14 +440,25 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double floor(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.floor(num);
     }
 
-    @ScalarFunction("floor")
+    @Description("Round down to nearest integer")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber floor(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(boolean _) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(0, RoundingMode.FLOOR));
+        };
+    }
+
+    @ScalarFunction(value = "floor", neverFails = true)
     @Description("Round down to nearest integer")
     public static final class Floor
     {
@@ -456,15 +507,15 @@ public final class MathFunctions
     }
 
     @Description("Round down to nearest integer")
-    @ScalarFunction("floor")
+    @ScalarFunction(value = "floor", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long floorFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long floorReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) floor(intBitsToFloat((int) num)));
     }
 
     @Description("Natural logarithm")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double ln(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -472,7 +523,7 @@ public final class MathFunctions
     }
 
     @Description("Logarithm to given base")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double log(@SqlType(StandardTypes.DOUBLE) double base, @SqlType(StandardTypes.DOUBLE) double number)
     {
@@ -480,7 +531,7 @@ public final class MathFunctions
     }
 
     @Description("Logarithm to base 2")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double log2(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -488,7 +539,7 @@ public final class MathFunctions
     }
 
     @Description("Logarithm to base 10")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double log10(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -496,7 +547,7 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction("mod")
+    @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long modTinyint(@SqlType(StandardTypes.TINYINT) long num1, @SqlType(StandardTypes.TINYINT) long num2)
     {
@@ -504,7 +555,7 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction("mod")
+    @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long modSmallint(@SqlType(StandardTypes.SMALLINT) long num1, @SqlType(StandardTypes.SMALLINT) long num2)
     {
@@ -512,7 +563,7 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction("mod")
+    @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long modInteger(@SqlType(StandardTypes.INTEGER) long num1, @SqlType(StandardTypes.INTEGER) long num2)
     {
@@ -520,7 +571,7 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long mod(@SqlType(StandardTypes.BIGINT) long num1, @SqlType(StandardTypes.BIGINT) long num2)
     {
@@ -528,28 +579,31 @@ public final class MathFunctions
     }
 
     @Description("Remainder of given quotient")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double mod(@SqlType(StandardTypes.DOUBLE) double num1, @SqlType(StandardTypes.DOUBLE) double num2)
     {
         return num1 % num2;
     }
 
-    private static SqlScalarFunction decimalModFunction()
-    {
-        return modulusScalarFunction();
-    }
-
     @Description("Remainder of given quotient")
-    @ScalarFunction("mod")
+    @ScalarFunction(value = "mod", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long modFloat(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
+    public static long modReal(@SqlType(StandardTypes.REAL) long num1, @SqlType(StandardTypes.REAL) long num2)
     {
         return floatToRawIntBits(intBitsToFloat((int) num1) % intBitsToFloat((int) num2));
     }
 
+    @Description("Remainder of given quotient")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber mod(@SqlType(StandardTypes.NUMBER) TrinoNumber num1, @SqlType(StandardTypes.NUMBER) TrinoNumber num2)
+    {
+        return NumberOperators.modulus(num1, num2);
+    }
+
     @Description("The constant Pi")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double pi()
     {
@@ -557,7 +611,7 @@ public final class MathFunctions
     }
 
     @Description("Value raised to the power of exponent")
-    @ScalarFunction(alias = "pow")
+    @ScalarFunction(alias = "pow", neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double power(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.DOUBLE) double exponent)
     {
@@ -565,7 +619,7 @@ public final class MathFunctions
     }
 
     @Description("Converts an angle in degrees to radians")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double radians(@SqlType(StandardTypes.DOUBLE) double degrees)
     {
@@ -573,7 +627,7 @@ public final class MathFunctions
     }
 
     @Description("A pseudo-random value")
-    @ScalarFunction(alias = "rand", deterministic = false)
+    @ScalarFunction(alias = "rand", deterministic = false, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double random()
     {
@@ -730,7 +784,7 @@ public final class MathFunctions
     }
 
     @Description("Round to nearest integer")
-    @ScalarFunction("round")
+    @ScalarFunction(value = "round", neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
@@ -738,7 +792,7 @@ public final class MathFunctions
     }
 
     @Description("Round to nearest integer")
-    @ScalarFunction("round")
+    @ScalarFunction(value = "round", neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
@@ -746,7 +800,7 @@ public final class MathFunctions
     }
 
     @Description("Round to nearest integer")
-    @ScalarFunction("round")
+    @ScalarFunction(value = "round", neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
@@ -754,7 +808,7 @@ public final class MathFunctions
     }
 
     @Description("Round to nearest integer")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long round(@SqlType(StandardTypes.BIGINT) long num)
     {
@@ -767,12 +821,10 @@ public final class MathFunctions
     public static long roundTinyint(@SqlType(StandardTypes.TINYINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return SignedBytes.checkedCast(rounded);
+        if (!isLongToByteExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded, e);
-        }
+        return (byte) rounded;
     }
 
     @Description("Round to nearest integer")
@@ -781,12 +833,10 @@ public final class MathFunctions
     public static long roundSmallint(@SqlType(StandardTypes.SMALLINT) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return Shorts.checkedCast(rounded);
+        if (!isLongToShortExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded, e);
-        }
+        return (short) rounded;
     }
 
     @Description("Round to nearest integer")
@@ -795,12 +845,10 @@ public final class MathFunctions
     public static long roundInteger(@SqlType(StandardTypes.INTEGER) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         long rounded = roundLong(num, decimals);
-        try {
-            return toIntExact(rounded);
+        if (!isLongToIntExact(rounded)) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded);
         }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded, e);
-        }
+        return (int) rounded;
     }
 
     @Description("Round to nearest integer")
@@ -827,7 +875,7 @@ public final class MathFunctions
     }
 
     @Description("Round to nearest integer")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -835,7 +883,7 @@ public final class MathFunctions
     }
 
     @Description("Round to given number of decimal places")
-    @ScalarFunction("round")
+    @ScalarFunction(value = "round", neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long roundReal(@SqlType(StandardTypes.REAL) long num)
     {
@@ -843,7 +891,7 @@ public final class MathFunctions
     }
 
     @Description("Round to given number of decimal places")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
@@ -869,7 +917,7 @@ public final class MathFunctions
     }
 
     @Description("Round to given number of decimal places")
-    @ScalarFunction("round")
+    @ScalarFunction(value = "round", neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long roundReal(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
@@ -899,7 +947,26 @@ public final class MathFunctions
         return floatToRawIntBits(resultAsFloat);
     }
 
-    @ScalarFunction("round")
+    @Description("Round to nearest integer")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber round(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return round(num, 0);
+    }
+
+    @Description("Round to given number of decimal places")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber round(@SqlType(StandardTypes.NUMBER) TrinoNumber num, @SqlType(StandardTypes.INTEGER) long decimals)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber(), Infinity(_) -> num;
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(value.setScale(toIntExact(decimals), RoundingMode.HALF_UP));
+        };
+    }
+
+    @ScalarFunction(value = "round", neverFails = true)
     @Description("Round to nearest integer")
     public static final class Round
     {
@@ -955,6 +1022,8 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     public static final class RoundN
     {
+        private RoundN() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
@@ -1020,10 +1089,12 @@ public final class MathFunctions
         }
     }
 
-    @ScalarFunction("truncate")
+    @ScalarFunction(value = "truncate", neverFails = true)
     @Description("Round to integer by dropping digits after decimal point")
     public static final class Truncate
     {
+        private Truncate() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
@@ -1061,7 +1132,7 @@ public final class MathFunctions
         }
     }
 
-    @ScalarFunction("truncate")
+    @ScalarFunction(value = "truncate", neverFails = true)
     @Description("Round to integer by dropping given number of digits after decimal point")
     public static final class TruncateN
     {
@@ -1107,7 +1178,7 @@ public final class MathFunctions
     }
 
     @Description("Signum")
-    @ScalarFunction("sign")
+    @ScalarFunction(value = "sign", neverFails = true)
     public static final class Sign
     {
         private Sign() {}
@@ -1116,7 +1187,7 @@ public final class MathFunctions
         @SqlType("decimal(1,0)")
         public static long signDecimalShort(@SqlType("decimal(p, s)") long num)
         {
-            return (long) Math.signum(num);
+            return Long.signum(num);
         }
 
         @LiteralParameters({"p", "s"})
@@ -1133,39 +1204,39 @@ public final class MathFunctions
         }
     }
 
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BIGINT)
     public static long sign(@SqlType(StandardTypes.BIGINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
-    @ScalarFunction("sign")
+    @ScalarFunction(value = "sign", neverFails = true)
     @SqlType(StandardTypes.INTEGER)
     public static long signInteger(@SqlType(StandardTypes.INTEGER) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
-    @ScalarFunction("sign")
+    @ScalarFunction(value = "sign", neverFails = true)
     @SqlType(StandardTypes.SMALLINT)
     public static long signSmallint(@SqlType(StandardTypes.SMALLINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
-    @ScalarFunction("sign")
+    @ScalarFunction(value = "sign", neverFails = true)
     @SqlType(StandardTypes.TINYINT)
     public static long signTinyint(@SqlType(StandardTypes.TINYINT) long num)
     {
-        return (long) Math.signum(num);
+        return Long.signum(num);
     }
 
     @Description("Signum")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double sign(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1173,15 +1244,27 @@ public final class MathFunctions
     }
 
     @Description("Signum")
-    @ScalarFunction("sign")
+    @ScalarFunction(value = "sign", neverFails = true)
     @SqlType(StandardTypes.REAL)
-    public static long signFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long signReal(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits(Math.signum(intBitsToFloat((int) num)));
     }
 
+    @Description("Signum")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.NUMBER)
+    public static TrinoNumber sign(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> num;
+            case Infinity(boolean negative) -> TrinoNumber.from(negative ? BigDecimal.ONE.negate() : BigDecimal.ONE);
+            case BigDecimalValue(BigDecimal value) -> TrinoNumber.from(BigDecimal.valueOf(value.signum()));
+        };
+    }
+
     @Description("Sine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double sin(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1189,7 +1272,7 @@ public final class MathFunctions
     }
 
     @Description("Hyperbolic sine")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double sinh(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1197,7 +1280,7 @@ public final class MathFunctions
     }
 
     @Description("Square root")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double sqrt(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1205,7 +1288,7 @@ public final class MathFunctions
     }
 
     @Description("Tangent")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double tan(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1213,15 +1296,22 @@ public final class MathFunctions
     }
 
     @Description("Hyperbolic tangent")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double tanh(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.tanh(num);
     }
 
+    @ScalarFunction(value = "is_nan", neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaN(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return false;
+    }
+
     @Description("Test if value is not-a-number")
-    @ScalarFunction("is_nan")
+    @ScalarFunction(value = "is_nan", neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isNaN(@SqlType(StandardTypes.DOUBLE) double num)
     {
@@ -1229,7 +1319,7 @@ public final class MathFunctions
     }
 
     @Description("Test if value is not-a-number")
-    @ScalarFunction("is_nan")
+    @ScalarFunction(value = "is_nan", neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isNaNReal(@SqlType(StandardTypes.REAL) long value)
     {
@@ -1237,24 +1327,142 @@ public final class MathFunctions
         return Float.isNaN(floatValue);
     }
 
+    @ScalarFunction(value = "is_nan", neverFails = true, hidden = true)
+    public static final class IsNan
+    {
+        private IsNan() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNaNShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return false;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isNaNLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return false;
+        }
+    }
+
+    @Description("Test if value is not-a-number")
+    @ScalarFunction(value = "is_nan", neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaN(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> true;
+            case Infinity(boolean _) -> false;
+            case BigDecimalValue(BigDecimal _) -> false;
+        };
+    }
+
+    @ScalarFunction(value = "is_finite", neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFiniteBigint(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return true;
+    }
+
     @Description("Test if value is finite")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFinite(@SqlType(StandardTypes.REAL) long num)
+    {
+        return Float.isFinite(intBitsToFloat((int) num));
+    }
+
+    @Description("Test if value is finite")
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isFinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Doubles.isFinite(num);
     }
 
+    @ScalarFunction(value = "is_finite", neverFails = true, hidden = true)
+    public static final class IsFinite
+    {
+        private IsFinite() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isFiniteShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return true;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isFiniteLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return true;
+        }
+    }
+
+    @Description("Test if value is finite")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isFinite(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> false;
+            case Infinity(boolean _) -> false;
+            case BigDecimalValue(BigDecimal _) -> true;
+        };
+    }
+
+    @ScalarFunction(neverFails = true, hidden = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isInfinite(@SqlType(StandardTypes.BIGINT) long num)
+    {
+        return false;
+    }
+
     @Description("Test if value is infinite")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isInfinite(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isInfinite(num);
     }
 
+    @ScalarFunction(value = "is_infinite", neverFails = true, hidden = true)
+    public static final class IsInfinite
+    {
+        private IsInfinite() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isInfiniteShortDecimal(@SqlType("decimal(p, s)") long num)
+        {
+            return false;
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isInfiniteLongDecimal(@SqlType("decimal(p, s)") Int128 num)
+        {
+            return false;
+        }
+    }
+
+    @Description("Test if value is infinite")
+    @ScalarFunction(neverFails = true)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isInfinite(@SqlType(StandardTypes.NUMBER) TrinoNumber num)
+    {
+        return switch (num.toBigDecimal()) {
+            case NotANumber() -> false;
+            case Infinity(boolean _) -> true;
+            case BigDecimalValue(BigDecimal _) -> false;
+        };
+    }
+
     @Description("Constant representing not-a-number")
-    @ScalarFunction("nan")
+    @ScalarFunction(value = "nan", neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double nan()
     {
@@ -1262,7 +1470,7 @@ public final class MathFunctions
     }
 
     @Description("Infinity")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double infinity()
     {
@@ -1377,7 +1585,7 @@ public final class MathFunctions
     }
 
     @Description("Cosine similarity between the given sparse vectors")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
     public static Double cosineSimilarity(
@@ -1404,6 +1612,30 @@ public final class MathFunctions
         return dotProduct / (normLeftMap * normRightMap);
     }
 
+    @Description("Calculates the cosine distance between the give sparse vectors")
+    @ScalarFunction(neverFails = true)
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double cosineDistance(
+            @OperatorDependency(
+                    operator = IDENTICAL,
+                    argumentTypes = {"varchar", "varchar"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "varchar",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+            @SqlType("map(varchar,double)") SqlMap leftMap,
+            @SqlType("map(varchar,double)") SqlMap rightMap)
+    {
+        Double cosineSimilarity = cosineSimilarity(varcharIdentical, varcharHashCode, leftMap, rightMap);
+        if (cosineSimilarity == null) {
+            return null;
+        }
+
+        return 1.0 - cosineSimilarity;
+    }
+
     private static double mapDotProduct(BlockPositionIsIdentical varcharIdentical, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
     {
         int leftRawOffset = leftMap.getRawOffset();
@@ -1413,7 +1645,7 @@ public final class MathFunctions
         Block rightRawKeyBlock = rightMap.getRawKeyBlock();
         Block rightRawValueBlock = rightMap.getRawValueBlock();
 
-        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharIdentical, varcharHashCode, rightMap.getSize());
+        BlockSet rightMapKeys = new BlockSet(varcharIdentical, varcharHashCode, rightMap.getSize());
 
         for (int i = 0; i < rightMap.getSize(); i++) {
             rightMapKeys.add(rightRawKeyBlock, rightRawOffset + i);

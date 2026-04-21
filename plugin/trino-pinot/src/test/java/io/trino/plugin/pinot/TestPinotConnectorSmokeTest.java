@@ -39,9 +39,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.pinot.common.utils.TarGzCompressionUtils;
-import org.apache.pinot.segment.local.recordtransformer.CompositeTransformer;
-import org.apache.pinot.segment.local.recordtransformer.RecordTransformer;
+import org.apache.pinot.common.utils.TarCompressionUtils;
 import org.apache.pinot.segment.local.segment.creator.RecordReaderSegmentCreationDataSource;
 import org.apache.pinot.segment.local.segment.creator.TransformPipeline;
 import org.apache.pinot.segment.local.segment.creator.impl.SegmentIndexCreationDriverImpl;
@@ -53,7 +51,6 @@ import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
-import org.apache.pinot.spi.recordenricher.RecordEnricherPipeline;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +59,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -452,7 +448,7 @@ public class TestPinotConnectorSmokeTest
                         .build()))
                 .build();
 
-        Path temporaryDirectory = Paths.get("/tmp/segments-" + randomUUID());
+        Path temporaryDirectory = Path.of("/tmp/segments-" + randomUUID());
         try {
             Files.createDirectory(temporaryDirectory);
             ImmutableList.Builder<GenericRow> offlineRowsBuilder = ImmutableList.builder();
@@ -616,7 +612,7 @@ public class TestPinotConnectorSmokeTest
             String tableName = TableNameBuilder.extractRawTableName(tableConfig.getTableName());
             String timeColumnName = tableConfig.getValidationConfig().getTimeColumnName();
             String segmentTempLocation = String.join(File.separator, outputDirectory, tableName, "segments");
-            Files.createDirectories(Paths.get(outputDirectory));
+            Files.createDirectories(Path.of(outputDirectory));
             SegmentGeneratorConfig segmentGeneratorConfig = new SegmentGeneratorConfig(tableConfig, pinotSchema);
             segmentGeneratorConfig.setTableName(tableName);
             segmentGeneratorConfig.setOutDir(segmentTempLocation);
@@ -636,24 +632,13 @@ public class TestPinotConnectorSmokeTest
             }
             segmentGeneratorConfig.setSequenceId(sequenceId);
             SegmentCreationDataSource dataSource = new RecordReaderSegmentCreationDataSource(recordReader);
-            RecordTransformer recordTransformer = genericRow -> {
-                GenericRow record = null;
-                try {
-                    record = CompositeTransformer.getDefaultTransformer(tableConfig, pinotSchema).transform(genericRow);
-                }
-                catch (Exception e) {
-                    // ignored
-                    record = null;
-                }
-                return record;
-            };
             SegmentIndexCreationDriverImpl driver = new SegmentIndexCreationDriverImpl();
-            driver.init(segmentGeneratorConfig, dataSource, new RecordEnricherPipeline(), new TransformPipeline(recordTransformer, null));
+            driver.init(segmentGeneratorConfig, dataSource, new TransformPipeline(tableConfig, pinotSchema));
             driver.build();
             File segmentOutputDirectory = driver.getOutputDirectory();
             File tgzPath = new File(String.join(File.separator, outputDirectory, segmentOutputDirectory.getName() + ".tar.gz"));
-            TarGzCompressionUtils.createTarGzFile(segmentOutputDirectory, tgzPath);
-            return Paths.get(tgzPath.getAbsolutePath());
+            TarCompressionUtils.createCompressedTarFile(segmentOutputDirectory, tgzPath);
+            return Path.of(tgzPath.getAbsolutePath());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -2436,7 +2421,7 @@ public class TestPinotConnectorSmokeTest
                 "  WHERE string_col in ('string_0', 'array_null')\""))
                 .matches("VALUES (3), (1)");
 
-        assertThat(query("SELECT \"cast(floor(arrayaverage(long_array_col)),'long')\" FROM " +
+        assertThat(query("SELECT \"cast(floor(arrayaverage(long_array_col)),'BIGINT')\" FROM " +
                 "\"SELECT cast(floor(arrayaverage(long_array_col)) as long)" +
                 "  FROM " + ALL_TYPES_TABLE +
                 "  WHERE double_array_col is not null and double_col != -17.33\""))
@@ -2489,7 +2474,7 @@ public class TestPinotConnectorSmokeTest
 
         // Test without aliases to verify fieldName is correctly handled
         assertThat(query("SELECT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
-                " \"cast(floor(divide(created_at_seconds,'3600')),'long')\" FROM " +
+                " \"cast(floor(divide(created_at_seconds,'3600')),'BIGINT')\" FROM " +
                 "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
@@ -2533,7 +2518,7 @@ public class TestPinotConnectorSmokeTest
     public void testPassthroughQueriesWithPushdowns()
     {
         assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','hours')\"," +
-                "  \"cast(floor(divide(created_at_seconds,'3600')),'long')\" FROM " +
+                "  \"cast(floor(divide(created_at_seconds,'3600')),'BIGINT')\" FROM " +
                 "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'HOURS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) AS long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))
@@ -2541,7 +2526,7 @@ public class TestPinotConnectorSmokeTest
 
         assertThat(query("SELECT DISTINCT \"timeconvert(created_at_seconds,'seconds','milliseconds')\"," +
                 "  \"cast(floor(divide(created_at_seco" +
-                "nds,'3600')),'long')\" FROM " +
+                "nds,'3600')),'BIGINT')\" FROM " +
                 "\"SELECT timeconvert(created_at_seconds, 'SECONDS', 'MILLISECONDS')," +
                 "  CAST(FLOOR(created_at_seconds / 3600) as long)" +
                 "  FROM " + DATE_TIME_FIELDS_TABLE + "\""))

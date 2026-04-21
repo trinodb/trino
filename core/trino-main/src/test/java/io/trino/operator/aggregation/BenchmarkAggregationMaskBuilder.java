@@ -219,7 +219,7 @@ public class BenchmarkAggregationMaskBuilder
         return allBlocksBuilderCompiled.buildAggregationMask(arguments, Optional.empty());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Throwable
     {
         BenchmarkAggregationMaskBuilder bench = new BenchmarkAggregationMaskBuilder();

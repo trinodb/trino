@@ -20,7 +20,7 @@ export interface ApiResponse<T> {
 }
 
 export class ClientApi {
-    axiosInstance: AxiosInstance = axios.create();
+    axiosInstance: AxiosInstance = axios.create()
 
     paramsToQueryString = (params: Record<string, string>): string => {
         let queryString = ''
@@ -32,13 +32,13 @@ export class ClientApi {
 
     fetchData = async <T, P = undefined>(url: string, method: 'GET' | 'POST', params?: P): Promise<ApiResponse<T>> => {
         try {
-            let response: AxiosResponse<T>;
+            let response: AxiosResponse<T>
             if (method === 'GET') {
                 response = await this.axiosInstance.get(url)
             } else if (method === 'POST') {
                 response = await this.axiosInstance.post(url, params)
             } else {
-                throw new Error(`Unsupported HTTP method: ${method}`);
+                throw new Error(`Unsupported HTTP method: ${method}`)
             }
             return {
                 status: response.status,
@@ -53,17 +53,17 @@ export class ClientApi {
                     message: axiosError.message,
                 }
             }
-            throw error;
+            throw error
         }
     }
 
     get = async <T>(url: string, params: Record<string, string> = {}): Promise<ApiResponse<T>> => {
-        return this.fetchData(url + this.paramsToQueryString(params), 'GET');
+        return this.fetchData(url + this.paramsToQueryString(params), 'GET')
     }
 
-    post = async<T>(url: string, body: Record<string, string> = {}): Promise<ApiResponse<T>> => {
-        return this.fetchData(url, 'POST', body);
+    post = async <T>(url: string, body: Record<string, string> = {}): Promise<ApiResponse<T>> => {
+        return this.fetchData(url, 'POST', body)
     }
 }
 
-export const api = new ClientApi();
+export const api = new ClientApi()

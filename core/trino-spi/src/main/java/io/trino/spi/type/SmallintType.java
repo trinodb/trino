@@ -21,11 +21,11 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.ShortArrayBlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
@@ -52,6 +52,7 @@ public final class SmallintType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "smallint";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(SmallintType.class, lookup(), long.class);
     private static final VarHandle SHORT_HANDLE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -59,7 +60,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(StandardTypes.SMALLINT), long.class, ShortArrayBlock.class);
+        super(new TypeSignature(NAME), long.class, ShortArrayBlock.class);
     }
 
     @Override
@@ -90,6 +91,12 @@ public final class SmallintType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;
@@ -108,7 +115,7 @@ public final class SmallintType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -149,17 +156,6 @@ public final class SmallintType
     public Optional<Stream<?>> getDiscreteValues(Range range)
     {
         return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((ShortArrayBlockBuilder) blockBuilder).writeShort(getShort(block, position));
-        }
     }
 
     @Override
@@ -229,7 +225,8 @@ public final class SmallintType
     private static long readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return (short) SHORT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }

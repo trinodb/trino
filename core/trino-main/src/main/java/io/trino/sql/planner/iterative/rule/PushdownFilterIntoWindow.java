@@ -111,8 +111,7 @@ public class PushdownFilterIntoWindow
                 rankingType.get(),
                 rankingSymbol,
                 upperBound.getAsInt(),
-                false,
-                Optional.empty());
+                false);
 
         if (!allRowNumberValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
             return Result.ofPlanNode(new FilterNode(node.getId(), newSource, node.getPredicate()));

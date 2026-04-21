@@ -18,8 +18,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.execution.buffer.CompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
 import io.trino.spiller.GenericSpillerFactory;
@@ -40,13 +38,13 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -61,8 +59,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde();
-    private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
+    private static final Path SPILL_PATH = Path.of(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
     public void write(BenchmarkData data)
@@ -114,9 +111,10 @@ public class BenchmarkBinaryFileSpiller
         {
             singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
                     MoreExecutors.newDirectExecutorService(),
-                    BLOCK_ENCODING_SERDE,
+                    TESTING_BLOCK_ENCODING_SERDE,
                     spillerStats,
                     ImmutableList.of(SPILL_PATH),
+                    1,
                     1.0,
                     compressionCodec,
                     encryptionEnabled);

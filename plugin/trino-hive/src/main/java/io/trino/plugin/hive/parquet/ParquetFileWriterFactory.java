@@ -29,9 +29,9 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -136,7 +136,7 @@ public class ParquetFileWriterFactory
                 validationInputFactory = Optional.of(() -> {
                     try {
                         TrinoInputFile inputFile = fileSystem.newInputFile(location);
-                        return new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), readStats);
+                        return new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), readStats);
                     }
                     catch (IOException e) {
                         throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

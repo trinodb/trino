@@ -20,18 +20,14 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
-import io.trino.spi.NodeManager;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -39,7 +35,6 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -74,24 +69,19 @@ public class HudiConnectorFactory
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
                     new JsonModule(),
                     new HudiModule(),
-                    new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
+                    new HiveMetastoreModule(Optional.empty(), false),
+                    new FileSystemModule(catalogName, context, false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
-                    binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+                    new ConnectorContextModule(catalogName, context));
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 

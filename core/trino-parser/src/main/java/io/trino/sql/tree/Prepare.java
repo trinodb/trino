@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,14 +30,6 @@ public class Prepare
     public Prepare(NodeLocation location, Identifier name, Statement statement)
     {
         super(location);
-        this.name = requireNonNull(name, "name is null");
-        this.statement = requireNonNull(statement, "statement is null");
-    }
-
-    @Deprecated
-    public Prepare(Identifier name, Statement statement)
-    {
-        super(Optional.empty());
         this.name = requireNonNull(name, "name is null");
         this.statement = requireNonNull(statement, "statement is null");
     }

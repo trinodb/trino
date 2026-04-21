@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -86,8 +87,6 @@ class TestIncrementalRefreshVisitor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -105,7 +104,7 @@ class TestIncrementalRefreshVisitor
                 tableScanNode,
                 Map.of(),
                 List.of(),
-                new io.trino.sql.tree.NullLiteral());
+                new NullLiteral());
         PlanNode root = withFilterAndProject(applyNode);
 
         RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(root);

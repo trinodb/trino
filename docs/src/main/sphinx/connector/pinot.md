@@ -26,7 +26,7 @@ pinot.controller-urls=host1:8098,host2:8098
 ```
 
 Replace `host1:8098,host2:8098` with a comma-separated list of Pinot controller nodes.
-This can be the ip or the FDQN, the url scheme (`http://`) is optional.
+This can be the ip or the FQDN, the url scheme (`http://`) is optional.
 
 ## Configuration properties
 
@@ -36,7 +36,7 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 |--------------------------------------------------------|----------| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pinot.controller-urls`                                | Yes      | A comma separated list of controller hosts. If Pinot is deployed via [Kubernetes](https://kubernetes.io/) this needs to point to the controller service endpoint. The Pinot broker and server must be accessible via DNS as Pinot returns hostnames and not IP addresses. |
 | `pinot.broker-url`                                     | No       | A host and port of broker. If broker URL exposed by Pinot controller API is not accessible, this property can be used to specify the broker endpoint. Enabling this property will disable broker discovery. |
-| `pinot.connection-timeout`                             | No       | Pinot connection timeout, default is `15s`.                                                                                                                                                                                                                               |
+| `pinot.connection-timeout`                             | No       | Pinot connection timeout, default is `1m`.                                                                                                                                                                                                                               |
 | `pinot.metadata-expiry`                                | No       | Pinot metadata expiration time, default is `2m`.                                                                                                                                                                                                                          |
 | `pinot.controller.authentication.type`                 | No       | Pinot authentication method for controller requests. Allowed values are `NONE` and `PASSWORD` - defaults to `NONE` which is no authentication.                                                                                                                            |
 | `pinot.controller.authentication.user`                 | No       | Controller username for basic authentication method.                                                                                                                                                                                                                      |
@@ -44,8 +44,8 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 | `pinot.broker.authentication.type`                     | No       | Pinot authentication method for broker requests. Allowed values are `NONE` and `PASSWORD` - defaults to `NONE` which is no authentication.                                                                                                                                |
 | `pinot.broker.authentication.user`                     | No       | Broker username for basic authentication method.                                                                                                                                                                                                                          |
 | `pinot.broker.authentication.password`                 | No       | Broker password for basic authentication method.                                                                                                                                                                                                                          |
-| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `2,147,483,647`.                                                                                                                     |
-| `pinot.prefer-broker-queries`                          | No       | Pinot query plan prefers to query Pinot broker, default is `true`.                                                                                                                                                                                                        |
+| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `2,147,483,646`.                                                                                                                     |
+| `pinot.prefer-broker-queries`                          | No       | Pinot query plan prefers to query Pinot broker, default is `false`.                                                                                                                                                                                                        |
 | `pinot.forbid-segment-queries`                         | No       | Forbid parallel querying and force all querying to happen via the broker, default is `false`.                                                                                                                                                                             |
 | `pinot.segments-per-split`                             | No       | The number of segments processed in a split. Setting this higher reduces the number of requests made to Pinot. This is useful for smaller Pinot clusters, default is `1`.                                                                                                 |
 | `pinot.fetch-retry-count`                              | No       | Retry count for retriable Pinot data fetch calls, default is `2`.                                                                                                                                                                                                         |
@@ -226,7 +226,7 @@ Aggregate function pushdown is enabled by default, but can be disabled with the
 catalog property `pinot.aggregation-pushdown.enabled` or the catalog session
 property `aggregation_pushdown_enabled`.
 
-A `count(distint)` pushdown may cause Pinot to run a full table scan with
+A `count(distinct)` pushdown may cause Pinot to run a full table scan with
 significant performance impact. If you encounter this problem, you can disable
 it with the catalog property `pinot.count-distinct-pushdown.enabled` or the
 catalog session property `count_distinct_pushdown_enabled`.

@@ -20,14 +20,9 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 public class TypeNotFoundException
         extends TrinoException
 {
-    public TypeNotFoundException(TypeSignature type)
+    public TypeNotFoundException(String type)
     {
         this(type, null);
-    }
-
-    public TypeNotFoundException(TypeSignature type, Throwable cause)
-    {
-        this(type.toString(), cause);
     }
 
     public TypeNotFoundException(String type, Throwable cause)

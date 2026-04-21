@@ -1,0 +1,278 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nI are happy. What you doing?\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyflaUYlb4NA8YRDckhuCKeRDoGg\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096269,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"I am happy. What are you doing?\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 29,\n    \"completion_tokens\": 10,\n    \"total_tokens\": 39,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31ca63931cf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "387" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=54kCUlsTS0B.W0RneQ6wocYiGbCzUUy5f9u4_RpA4tU-1739096270-1.0.1.1-DPdQ4Wl_e_e1CmJiOOypsa_TbbmP.S2vdSQ8MqoGHQ0phh9a8VDHCnRQh9OZ.raEDeKl5ZmXg7Ydj3oLh1Yu2Q; path=/; expires=Sun, 09-Feb-25 10:47:50 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=bEUpLv2dSq_0jVU1HUJ.lbX2kUK88WrugKWuM3pIZgo-1739096270217-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9957" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199960" ],
+          "X-Ratelimit-Reset-Requests" : [ "6m10.559s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "12ms" ],
+          "X-Request-Id" : [ "req_2bdc1069d75bf763af17f48d96ffd410" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThe sky ain't blue.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-Ayyfn0ipCTPrD9WraRwKiG38CXXqx\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096271,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"The sky isn't blue.\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 26,\n    \"completion_tokens\": 6,\n    \"total_tokens\": 32,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_bd83329f63\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31cadac0dcf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:51 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "317" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=3tHMYa595gG8Se4T_1kil0RcX.lZH6ncL4u.qstfUHg-1739096271-1.0.1.1-4yH5_yOLHQqa0xN3.JEFBSRogBXFkmtDMlnkwWyMjERYXWDEmgZV5FlW9qsAeF2bCFq.ORMZjWrhICAq32QVVw; path=/; expires=Sun, 09-Feb-25 10:47:51 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=CbncLsjkvRSDDlD0N4sX8yLGwQnuKNGH8aKge6BMxu8-1739096271346-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9955" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199962" ],
+          "X-Ratelimit-Reset-Requests" : [ "6m26.632s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "11ms" ],
+          "X-Request-Id" : [ "req_847311b02336a6b2a4e007be6a3aa8d9" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nThis sentence have some mistake\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyfoRz3IWvYTpbwmeBg37ENBtIUx\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096272,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"This sentence has some mistakes.\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 27,\n    \"completion_tokens\": 7,\n    \"total_tokens\": 34,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31cb56f1acf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:52 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "260" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=Zw4WoEZphHOclCI41ncs_P_j47nc5iWKsjNRi312WCY-1739096272-1.0.1.1-4LJlV3tSdgKo9b5kUtdo_eH2RHUMNpdqv_.b4j99Ua1Lqni8yEIDy4JxCpWK39NZFBvLg0yhXyRHt2S217Fmug; path=/; expires=Sun, 09-Feb-25 10:47:52 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=bOU8ksh_xSiBzTifRMR2BDqqveI6yau7.IQCi6KLI9U-1739096272534-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9953" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199958" ],
+          "X-Ratelimit-Reset-Requests" : [ "6m42.67s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "12ms" ],
+          "X-Request-Id" : [ "req_7b02761690ccf5affc911ce815297537" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nShe dont know what to did.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-Ayyfpl4Nv6W6gqgoh15IWSfmMQIvj\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096273,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"She doesn't know what to do.\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 28,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 36,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31cbc09c8cf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:53 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "245" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=TUQRLEBhcRx.b3dNhu0JGuXEKSs7MfrJwNmtko8nh7s-1739096273-1.0.1.1-3.m5N8gjpV9WhICCXztw3FM7mDq0N0lR.haom3d_Pn.5XmFtut3vZamS4EMrx3R1RjA8CDuzMWqIBEn.U7aEdw; path=/; expires=Sun, 09-Feb-25 10:47:53 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=mmO6LwChmAtWFBNgVIlsdmQcJGacSXx89S.hoJqMUsM-1739096273570-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9951" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199960" ],
+          "X-Ratelimit-Reset-Requests" : [ "6m58.89s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "12ms" ],
+          "X-Request-Id" : [ "req_c6e1ef4d2170d6899f4f11fdd8498040" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Fix the grammar in the text below.\\nOutput only the text.\\n=====\\nHe go to school every days.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyfqR8yINzqPsKWDV7i0QQo7XLB7\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096274,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"He goes to school every day.\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 28,\n    \"completion_tokens\": 8,\n    \"total_tokens\": 36,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f31cc40c95cf7e-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:17:54 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "264" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=opF5Zn6.6HFyYsXAcbMMcbdWiIYaETD0xMnHCCtXeWE-1739096274-1.0.1.1-ka23.53.Wc1R_tr0tf6jCPRQtwdmdNgUqGOH87UfO4i_M_9JdKwky0uNYobkZB3y9wWfuRQAkNgpdAdnkFd4ww; path=/; expires=Sun, 09-Feb-25 10:47:54 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=ZC7Xbwq2cTtvprIy8Ie.UIK4or4v7Bv6xVMz.NCBWe8-1739096274887-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9949" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199960" ],
+          "X-Ratelimit-Reset-Requests" : [ "7m14.887s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "12ms" ],
+          "X-Request-Id" : [ "req_f27d37c23997d91964cd73e7c1795f5e" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:17:55-08:00"
+  }
+}

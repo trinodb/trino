@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -27,6 +28,7 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static java.util.Objects.requireNonNull;
@@ -37,11 +39,13 @@ public class MongoPageSourceProvider
     private static final int MONGO_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     private final MongoSession mongoSession;
+    private final String implicitPrefix;
 
     @Inject
-    public MongoPageSourceProvider(MongoSession mongoSession)
+    public MongoPageSourceProvider(MongoSession mongoSession, MongoClientConfig config)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.implicitPrefix = config.getImplicitRowFieldPrefix();
     }
 
     @Override
@@ -50,6 +54,7 @@ public class MongoPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -65,12 +70,9 @@ public class MongoPageSourceProvider
                 .transformKeys(MongoColumnHandle.class::cast)
                 .filter((mongoColumnHandle, domain) -> isPushdownSupportedType(mongoColumnHandle.type()));
 
-        MongoTableHandle newTableHandle;
+        MongoTableHandle newTableHandle = tableHandle;
 
-        if (dynamicFilter == DynamicFilter.EMPTY || tableHandle.limit().isPresent()) {
-            newTableHandle = tableHandle;
-        }
-        else {
+        if (!dynamicPredicate.isAll() && tableHandle.limit().isEmpty()) {
             TupleDomain<ColumnHandle> newDomain = tableHandle
                     .constraint()
                     .intersect(dynamicPredicate)
@@ -83,6 +85,6 @@ public class MongoPageSourceProvider
             return new EmptyPageSource();
         }
 
-        return new MongoPageSource(mongoSession, newTableHandle, handles.build());
+        return new MongoPageSource(mongoSession, newTableHandle, handles.build(), implicitPrefix);
     }
 }

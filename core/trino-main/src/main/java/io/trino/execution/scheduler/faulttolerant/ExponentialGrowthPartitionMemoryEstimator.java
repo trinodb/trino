@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -28,9 +29,9 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -110,7 +111,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
         {
             Map<String, Optional<MemoryInfo>> workerMemoryInfos = workerMemoryInfoSupplier.get();
             long maxNodePoolSizeBytes = -1;
-            for (Map.Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
+            for (Entry<String, Optional<MemoryInfo>> entry : workerMemoryInfos.entrySet()) {
                 if (entry.getValue().isEmpty()) {
                     continue;
                 }
@@ -228,7 +229,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
 
     private String memoryUsageDistributionInfo()
     {
-        double[] quantiles = new double[] {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
+        double[] quantiles = {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
         double[] values;
         synchronized (this) {
             values = memoryUsageDistribution.valuesAt(quantiles);

@@ -13,12 +13,10 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -26,14 +24,6 @@ public class ShowStats
         extends Statement
 {
     private final Relation relation;
-
-    @VisibleForTesting
-    @Deprecated
-    public ShowStats(Relation relation)
-    {
-        super(Optional.empty());
-        this.relation = relation;
-    }
 
     public ShowStats(NodeLocation location, Relation relation)
     {

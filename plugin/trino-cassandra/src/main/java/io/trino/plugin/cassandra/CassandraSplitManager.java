@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -131,8 +132,7 @@ public class CassandraSplitManager
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                 cassandraTypeManager,
                 session.getTable(tableHandle.getSchemaTableName()).clusteringKeyColumns(),
-                partitionResult.unenforcedConstraint(),
-                session.getCassandraVersion());
+                partitionResult.unenforcedConstraint());
         return clusteringPredicatesExtractor.getClusteringKeyPredicates();
     }
 
@@ -145,8 +145,8 @@ public class CassandraSplitManager
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName, sessionSplitsPerNode);
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
-            String condition = buildTokenCondition(tokenExpression, tokenSplit.getTokenRange());
-            List<HostAddress> addresses = new HostAddressFactory().hostAddressNamesToHostAddressList(tokenSplit.getHosts());
+            String condition = buildTokenCondition(tokenExpression, tokenSplit.tokenRange());
+            List<HostAddress> addresses = new HostAddressFactory().hostAddressNamesToHostAddressList(tokenSplit.hosts());
             CassandraSplit split = new CassandraSplit(partitionId, condition, addresses);
             builder.add(split);
         }
@@ -219,7 +219,7 @@ public class CassandraSplitManager
             }
         }
         if (singlePartitionKeyColumn) {
-            for (Map.Entry<Set<String>, Set<String>> entry : hostsToPartitionKeys.entrySet()) {
+            for (Entry<Set<String>, Set<String>> entry : hostsToPartitionKeys.entrySet()) {
                 StringBuilder sb = new StringBuilder(partitionSizeForBatchSelect);
                 int size = 0;
                 for (String value : entry.getValue()) {

@@ -79,8 +79,6 @@ public class TestPruneJoinColumns
                                     ImmutableList.of(),
                                     ImmutableList.of(leftValue),
                                     ImmutableList.of(rightValue),
-                                    Optional.empty(),
-                                    Optional.empty(),
                                     Optional.empty()));
                 })
                 .matches(
@@ -112,8 +110,6 @@ public class TestPruneJoinColumns
                         ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
                         leftOutputs,
                         rightOutputs,
-                        Optional.empty(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 }

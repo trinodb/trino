@@ -38,9 +38,9 @@ import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 
@@ -119,10 +119,9 @@ public final class DeltaLakeQueryRunner
         public Builder addS3Properties(Minio minio, String bucketName)
         {
             addDeltaProperties(ImmutableMap.<String, String>builder()
-                    .put("fs.hadoop.enabled", "false")
-                    .put("fs.native-s3.enabled", "true")
-                    .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                    .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("fs.s3.enabled", "true")
+                    .put("s3.aws-access-key", MINIO_ROOT_USER)
+                    .put("s3.aws-secret-key", MINIO_ROOT_PASSWORD)
                     .put("s3.region", MINIO_REGION)
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")
@@ -162,7 +161,8 @@ public final class DeltaLakeQueryRunner
                     deltaProperties.put("hive.metastore", "file");
                 }
 
-                if (!deltaProperties.containsKey("fs.hadoop.enabled")) {
+                if (deltaProperties.keySet().stream().noneMatch(key ->
+                        key.matches("fs\\.(azure|gcs|s3|local|hadoop)\\.enabled"))) {
                     deltaProperties.put("fs.hadoop.enabled", "true");
                 }
                 queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, deltaProperties);
@@ -189,7 +189,7 @@ public final class DeltaLakeQueryRunner
     {
         private DefaultDeltaLakeQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             File metastoreDir = createTempDirectory("delta_query_runner").toFile();
@@ -212,7 +212,7 @@ public final class DeltaLakeQueryRunner
     {
         private DeltaLakeExternalQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
@@ -231,7 +231,7 @@ public final class DeltaLakeQueryRunner
     {
         private DeltaLakeSparkQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";
@@ -254,7 +254,7 @@ public final class DeltaLakeQueryRunner
     {
         private S3DeltaLakeQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";

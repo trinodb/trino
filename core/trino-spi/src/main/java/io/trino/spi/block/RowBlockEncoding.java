@@ -17,17 +17,36 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.List;
 import java.util.Optional;
+
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 
 public class RowBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "ROW";
 
+    private final boolean vectorizeNullBitPacking;
+
+    public RowBlockEncoding(boolean vectorizeNullBitPacking)
+    {
+        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+    }
+
     @Override
     public String getName()
     {
         return NAME;
+    }
+
+    @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return RowBlock.class;
     }
 
     @Override
@@ -37,13 +56,18 @@ public class RowBlockEncoding
 
         sliceOutput.appendInt(rowBlock.getPositionCount());
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        sliceOutput.appendInt(rawFieldBlocks.length);
-        for (Block rawFieldBlock : rawFieldBlocks) {
-            blockEncodingSerde.writeBlock(sliceOutput, rawFieldBlock);
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        sliceOutput.appendInt(fieldBlocks.size());
+        for (Block fieldBlock : fieldBlocks) {
+            blockEncodingSerde.writeBlock(sliceOutput, fieldBlock);
         }
 
-        EncoderUtil.encodeNullsAsBits(sliceOutput, block);
+        if (vectorizeNullBitPacking) {
+            encodeNullsAsBitsVectorized(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
+        }
+        else {
+            encodeNullsAsBitsScalar(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
+        }
     }
 
     @Override
@@ -57,7 +81,13 @@ public class RowBlockEncoding
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        Optional<boolean[]> rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        Optional<boolean[]> rowIsNull;
+        if (vectorizeNullBitPacking) {
+            rowIsNull = decodeNullBitsVectorized(sliceInput, positionCount);
+        }
+        else {
+            rowIsNull = decodeNullBitsScalar(sliceInput, positionCount);
+        }
         return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
 }

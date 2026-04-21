@@ -272,4 +272,10 @@ public class ReadOnlyAccessControl
     {
         return functionNames;
     }
+
+    @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        // allow
+    }
 }

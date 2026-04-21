@@ -20,6 +20,7 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.TaskId;
 import io.trino.execution.warnings.WarningCollector;
@@ -29,7 +30,6 @@ import io.trino.security.ViewAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -234,7 +234,7 @@ public class LanguageFunctionManager
 
     public static boolean isInlineFunction(CatalogSchemaFunctionName functionName)
     {
-        return functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(QUERY_LOCAL_SCHEMA);
+        return functionName.catalogName().equals(GlobalSystemConnector.NAME) && functionName.schemaName().equals(QUERY_LOCAL_SCHEMA);
     }
 
     public static boolean isTrinoSqlLanguageFunction(FunctionId functionId)
@@ -372,7 +372,7 @@ public class LanguageFunctionManager
             }
 
             IrRoutine routine = data.irRoutine().orElseThrow();
-            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
+            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(routine);
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
@@ -430,7 +430,7 @@ public class LanguageFunctionManager
                 Set<String> names = implementations.stream()
                         .map(function -> function.getFunctionMetadata().getCanonicalName())
                         .collect(toImmutableSet());
-                if (!names.isEmpty() && !names.equals(Set.of(name.getFunctionName()))) {
+                if (!names.isEmpty() && !names.equals(Set.of(name.functionName()))) {
                     throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Catalog %s returned functions named %s when listing functions named %s".formatted(catalogHandle.getCatalogName(), names, name));
                 }
 
@@ -503,7 +503,7 @@ public class LanguageFunctionManager
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
                 if (!engineFunction) {
-                    new SqlRoutineCompiler(functionManager).compile(routine);
+                    new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(routine);
                 }
             }
 

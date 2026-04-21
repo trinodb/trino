@@ -40,7 +40,7 @@ public class LegacyHiveViewReader
     }
 
     @Override
-    public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
+    public ConnectorViewDefinition decodeViewData(Optional<String> viewData, Table table, CatalogName catalogName)
     {
         String viewText = table.getViewExpandedText()
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view expanded text: " + table.getSchemaTableName()));

@@ -236,7 +236,7 @@ export class ClusterHUD extends React.Component {
                                     data-placement="right"
                                     title="Moving average of input rows processed per second"
                                 >
-                                    Rows/sec
+                                    rows/s
                                 </span>
                             </div>
                         </div>
@@ -308,7 +308,7 @@ export class ClusterHUD extends React.Component {
                                     data-placement="right"
                                     title="Moving average of input bytes processed per second"
                                 >
-                                    Bytes/sec
+                                    bytes/s
                                 </span>
                             </div>
                         </div>

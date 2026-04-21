@@ -27,6 +27,8 @@ import java.io.File;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.airlift.units.Duration.succinctDuration;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class LdapClientConfig
 {
@@ -37,8 +39,8 @@ public class LdapClientConfig
     private File trustStorePath;
     private String truststorePassword;
     private boolean ignoreReferrals;
-    private Optional<Duration> ldapConnectionTimeout = Optional.empty();
-    private Optional<Duration> ldapReadTimeout = Optional.empty();
+    private Duration ldapConnectionTimeout = succinctDuration(1, MINUTES);
+    private Duration ldapReadTimeout = succinctDuration(1, MINUTES);
 
     @NotNull
     @Pattern(regexp = "^ldaps?://.*", message = "Invalid LDAP server URL. Expected ldap:// or ldaps://")
@@ -142,7 +144,8 @@ public class LdapClientConfig
         return this;
     }
 
-    public Optional<Duration> getLdapConnectionTimeout()
+    @NotNull
+    public Duration getLdapConnectionTimeout()
     {
         return ldapConnectionTimeout;
     }
@@ -151,11 +154,12 @@ public class LdapClientConfig
     @ConfigDescription("Timeout for establishing a connection")
     public LdapClientConfig setLdapConnectionTimeout(Duration ldapConnectionTimeout)
     {
-        this.ldapConnectionTimeout = Optional.ofNullable(ldapConnectionTimeout);
+        this.ldapConnectionTimeout = ldapConnectionTimeout;
         return this;
     }
 
-    public Optional<Duration> getLdapReadTimeout()
+    @NotNull
+    public Duration getLdapReadTimeout()
     {
         return ldapReadTimeout;
     }
@@ -164,7 +168,7 @@ public class LdapClientConfig
     @ConfigDescription("Timeout for reading data from LDAP")
     public LdapClientConfig setLdapReadTimeout(Duration ldapReadTimeout)
     {
-        this.ldapReadTimeout = Optional.ofNullable(ldapReadTimeout);
+        this.ldapReadTimeout = ldapReadTimeout;
         return this;
     }
 }

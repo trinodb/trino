@@ -188,6 +188,7 @@ final class HiveBucketingV2
                     case TIMESTAMPLOCALTZ:
                     case INTERVAL_YEAR_MONTH:
                     case INTERVAL_DAY_TIME:
+                    case VARIANT:
                         // TODO
                         break;
                     case VOID:

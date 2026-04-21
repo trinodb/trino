@@ -13,8 +13,12 @@
  */
 package io.trino.filesystem;
 
+import java.util.regex.Pattern;
+
 public final class Locations
 {
+    private static final Pattern S3_TABLES = Pattern.compile("s3://(?!.*/).*--table-s3");
+
     private Locations() {}
 
     /**
@@ -36,5 +40,10 @@ public final class Locations
     {
         return leftLocation.equals(rightLocation) ||
                 leftLocation.removeOneTrailingSlash().equals(rightLocation.removeOneTrailingSlash());
+    }
+
+    public static boolean isS3Tables(String location)
+    {
+        return S3_TABLES.matcher(location).matches();
     }
 }

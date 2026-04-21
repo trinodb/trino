@@ -44,9 +44,9 @@ public class TestHeaderAuthenticatorManager
         Files.write(config2, ImmutableList.of("header-authenticator.name=type2"));
         String trustedHeaderOne = "x-forwarded-client-cert";
         String trustedHeaderTwo = "forwarded-client-cert";
-        ImmutableMap<String, List<String>> validRequestOne = ImmutableMap.of(trustedHeaderOne, ImmutableList.of("foo", "bar"));
-        ImmutableMap<String, List<String>> validRequestTwo = ImmutableMap.of(trustedHeaderTwo, ImmutableList.of("cat", "dog"));
-        ImmutableMap<String, List<String>> invalidRequestOne = ImmutableMap.of("try-hard-authn", ImmutableList.of("foo", "bar"));
+        Map<String, List<String>> validRequestOne = ImmutableMap.of(trustedHeaderOne, ImmutableList.of("foo", "bar"));
+        Map<String, List<String>> validRequestTwo = ImmutableMap.of(trustedHeaderTwo, ImmutableList.of("cat", "dog"));
+        Map<String, List<String>> invalidRequestOne = ImmutableMap.of("try-hard-authn", ImmutableList.of("foo", "bar"));
 
         HeaderAuthenticatorManager manager = new HeaderAuthenticatorManager(
                 new HeaderAuthenticatorConfig()

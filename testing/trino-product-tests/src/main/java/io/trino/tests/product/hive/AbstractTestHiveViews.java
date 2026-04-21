@@ -81,7 +81,7 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
         onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
-        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('presto','hive') FROM nation WHERE n_nationkey = 1");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('trino','hive') FROM nation WHERE n_nationkey = 1");
 
         // literal array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
@@ -761,7 +761,7 @@ public abstract class AbstractTestHiveViews
 
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
-        // Ensure Hive and Presto view compatibility by comparing the results
+        // Ensure Hive and Trino view compatibility by comparing the results
         assertion.accept(assertThat(onHive().executeQuery(query)));
         assertion.accept(assertThat(onTrino().executeQuery(query)));
     }

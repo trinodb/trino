@@ -29,8 +29,6 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionScopeCachingDirectoryListerFactory
 {
-    //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
-    // to deal more efficiently with cache invalidation scenarios for partitioned tables.
     private final Optional<Cache<TransactionDirectoryListingCacheKey, FetchingValueHolder>> cache;
     private final AtomicLong nextTransactionId = new AtomicLong();
 

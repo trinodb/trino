@@ -19,6 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -26,6 +27,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -38,6 +40,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +48,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 
 public interface JdbcClient
 {
@@ -114,6 +119,8 @@ public interface JdbcClient
 
     Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
             throws SQLException;
+
+    void execute(ConnectorSession session, String query);
 
     default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
@@ -184,7 +191,7 @@ public interface JdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
-    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
+    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position);
 
     void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
@@ -203,7 +210,7 @@ public interface JdbcClient
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
+    JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector);
 
     void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
@@ -211,9 +218,26 @@ public interface JdbcClient
 
     void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
+    default JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            Consumer<Runnable> rollbackActionCollector,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    default void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+    }
+
     void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
-    void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
+    void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName);
+
+    void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle);
 
     boolean supportsRetries();
 

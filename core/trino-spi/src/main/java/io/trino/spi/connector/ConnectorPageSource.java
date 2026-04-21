@@ -13,7 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
@@ -54,9 +53,12 @@ public interface ConnectorPageSource
     boolean isFinished();
 
     /**
-     * Gets the next page of data.  This method is allowed to return null.
+     * Gets the next page of data. This method is allowed to return null.
      */
-    Page getNextPage();
+    default SourcePage getNextSourcePage()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Get the total memory that needs to be reserved in the memory pool.

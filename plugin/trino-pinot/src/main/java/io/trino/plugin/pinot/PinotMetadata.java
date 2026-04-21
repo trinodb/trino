@@ -64,12 +64,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -117,11 +117,10 @@ public class PinotMetadata
             PinotTypeConverter typeConverter)
     {
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
-        long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
         this.pinotTableSchemaCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                        .refreshAfterWrite(pinotConfig.getMetadataCacheExpiry().toJavaTime()),
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
@@ -309,7 +308,7 @@ public class PinotMetadata
 
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 Type columnType = ((PinotColumnHandle) entry.getKey()).getDataType();
                 if (columnType instanceof ArrayType) {
                     // Pinot does not support array literals

@@ -15,17 +15,17 @@ package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.security.SystemAccessControl;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestOpaAccessControlFactory
+final class TestOpaAccessControlFactory
 {
     @Test
-    public void testCreatesSimpleAuthorizerIfNoBatchUriProvided()
+    void testCreatesSimpleAuthorizerIfNoBatchUriProvided()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
         SystemAccessControl opaAuthorizer = factory.create(ImmutableMap.of("opa.policy.uri", "foo"), new TestingSystemAccessControlContext());
@@ -35,7 +35,7 @@ public class TestOpaAccessControlFactory
     }
 
     @Test
-    public void testCreatesBatchAuthorizerIfBatchUriProvided()
+    void testCreatesBatchAuthorizerIfBatchUriProvided()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
         SystemAccessControl opaAuthorizer = factory.create(
@@ -50,7 +50,7 @@ public class TestOpaAccessControlFactory
     }
 
     @Test
-    public void testBasePolicyUriCannotBeUnset()
+    void testBasePolicyUriCannotBeUnset()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
 
@@ -58,7 +58,7 @@ public class TestOpaAccessControlFactory
     }
 
     @Test
-    public void testConfigMayNotBeNull()
+    void testConfigMayNotBeNull()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
 
@@ -66,7 +66,7 @@ public class TestOpaAccessControlFactory
     }
 
     @Test
-    public void testSupportsAirliftHttpConfigs()
+    void testSupportsAirliftHttpConfigs()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
         SystemAccessControl opaAuthorizer = factory.create(

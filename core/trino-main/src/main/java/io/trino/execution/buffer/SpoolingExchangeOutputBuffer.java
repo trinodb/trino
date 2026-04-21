@@ -26,6 +26,7 @@ import io.trino.spi.metrics.Metrics;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -45,15 +46,13 @@ public class SpoolingExchangeOutputBuffer
     private volatile SpoolingOutputBuffers outputBuffers;
     // This field is not final to allow releasing the memory retained by the ExchangeSink instance.
     // It is modified (assigned to null) when the OutputBuffer is destroyed (either finished or aborted).
-    // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
-    // However since the abort can be triggered at any moment of time this variable has to be accessed in a safe way (avoiding "check-then-use").
-    private ExchangeSink exchangeSink;
+    private volatile ExchangeSink exchangeSink;
     private Optional<Metrics> finalSinkMetrics;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
     private final AtomicLong peakMemoryUsage = new AtomicLong();
-    private final AtomicLong totalPagesAdded = new AtomicLong();
-    private final AtomicLong totalRowsAdded = new AtomicLong();
+    private final LongAdder totalPagesAdded = new LongAdder();
+    private final LongAdder totalRowsAdded = new LongAdder();
 
     private final SpoolingOutputStats outputStats;
 
@@ -75,6 +74,12 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
+    public boolean usesExternalStorage()
+    {
+        return true;
+    }
+
+    @Override
     public OutputBufferInfo getInfo()
     {
         BufferState state = stateMachine.getState();
@@ -85,9 +90,9 @@ public class SpoolingExchangeOutputBuffer
                 false,
                 state.canAddPages(),
                 memoryContext == null ? 0 : memoryContext.getBytes(),
-                totalPagesAdded.get(),
-                totalRowsAdded.get(),
-                totalPagesAdded.get(),
+                totalPagesAdded.sum(),
+                totalRowsAdded.sum(),
+                totalPagesAdded.sum(),
                 Optional.empty(),
                 Optional.empty(),
                 outputStats.getFinalSnapshot(),
@@ -201,8 +206,8 @@ public class SpoolingExchangeOutputBuffer
             addedPositions += getSerializedPagePositionCount(page);
             sink.add(partition, page);
         }
-        totalPagesAdded.addAndGet(pages.size());
-        totalRowsAdded.addAndGet(addedPositions);
+        totalPagesAdded.add(pages.size());
+        totalRowsAdded.add(addedPositions);
         outputStats.updateRowCount(addedPositions);
         outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
         updateMemoryUsage(sink.getMemoryUsage());

@@ -13,8 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Experimental;
-
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,7 +46,6 @@ public class ConnectorTableMetadata
         this(table, columns, properties, comment, List.of());
     }
 
-    @Experimental(eta = "2023-03-31")
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment, List<String> checkConstraints)
     {
         requireNonNull(table, "table is null");
@@ -90,7 +87,6 @@ public class ConnectorTableMetadata
      *
      * @return List of string representation of a Trino SQL scalar expression that can refer to table columns by name and produces a result coercible to boolean
      */
-    @Experimental(eta = "2023-03-31")
     public List<String> getCheckConstraints()
     {
         return checkConstraints;

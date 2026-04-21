@@ -16,9 +16,6 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.DescriptorArgument;
@@ -35,6 +32,7 @@ import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -78,7 +76,7 @@ public class TableFunctionMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -91,7 +89,7 @@ public class TableFunctionMatcher
         if (arguments.size() != tableFunctionNode.getArguments().size()) {
             return NO_MATCH;
         }
-        for (Map.Entry<String, ArgumentValue> entry : arguments.entrySet()) {
+        for (Entry<String, ArgumentValue> entry : arguments.entrySet()) {
             String name = entry.getKey();
             Argument actual = tableFunctionNode.getArguments().get(name);
             if (actual == null) {
@@ -123,13 +121,13 @@ public class TableFunctionMatcher
                     return NO_MATCH;
                 }
                 boolean specificationMatches = expectedTableArgument.specification()
-                        .map(specification -> specification.getExpectedValue(symbolAliases))
+                        .map(specification -> specification.getExpectedValue(context.symbolAliases()))
                         .equals(argumentProperties.specification());
                 if (!specificationMatches) {
                     return NO_MATCH;
                 }
                 Set<Reference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
-                        .map(symbolAliases::get)
+                        .map(context.symbolAliases()::get)
                         .collect(toImmutableSet());
                 Set<Reference> actualPassThrough = argumentProperties.passThroughSpecification().columns().stream()
                         .map(PassThroughColumn::symbol)
@@ -155,7 +153,7 @@ public class TableFunctionMatcher
         }
 
         return match(SymbolAliases.builder()
-                .putAll(symbolAliases)
+                .putAll(context.symbolAliases())
                 .putAll(properOutputsMapping.buildOrThrow())
                 .build());
     }
@@ -229,8 +227,7 @@ public class TableFunctionMatcher
     }
 
     public sealed interface ArgumentValue
-            permits DescriptorArgumentValue, ScalarArgumentValue, TableArgumentValue
-    {}
+            permits DescriptorArgumentValue, ScalarArgumentValue, TableArgumentValue {}
 
     public record DescriptorArgumentValue(Optional<Descriptor> descriptor)
             implements ArgumentValue
@@ -252,8 +249,7 @@ public class TableFunctionMatcher
     }
 
     public record ScalarArgumentValue(Object value)
-            implements ArgumentValue
-    {}
+            implements ArgumentValue {}
 
     public record TableArgumentValue(
             int sourceIndex,

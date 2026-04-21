@@ -104,9 +104,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_select_from_partitioned_where WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_select_from_partitioned_where WHERE regionkey IN (2, 3)";
             // populate cache and verify test scaffolding (sanity check that getting counts works)
@@ -130,9 +130,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_flush_table WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_flush_table WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_flush_table WHERE regionkey IN (2, 3)";
             // populate cache
@@ -167,9 +167,9 @@ public class TestCachedHiveGlueMetastore
         try {
             assertUpdate(
                     """
-                            CREATE TABLE test_flush_partition WITH (partitioned_by = ARRAY['regionkey']) AS
-                            SELECT nationkey, name, regionkey FROM tpch.tiny.nation
-                            """,
+                    CREATE TABLE test_flush_partition WITH (partitioned_by = ARRAY['regionkey']) AS
+                    SELECT nationkey, name, regionkey FROM tpch.tiny.nation
+                    """,
                     25);
             String select = "SELECT * FROM test_flush_partition WHERE regionkey IN (2, 3)";
             // populate cache
@@ -187,7 +187,7 @@ public class TestCachedHiveGlueMetastore
             assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
             // flush cache
             assertQuerySucceeds("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_partition', partition_columns => ARRAY['regionkey'], partition_values => ARRAY['2'])");
-            assertQueryFails(select, "Partition no longer exists: regionkey=2");
+            assertQueryFails(select, "Partition regionkey=2 no longer exists for %s.test_flush_partition".formatted(testSchema));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_select_from_partitioned_where");

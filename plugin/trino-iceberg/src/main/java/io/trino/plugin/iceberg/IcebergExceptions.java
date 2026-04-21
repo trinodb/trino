@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.exceptions.ValidationException;
 
 import java.io.FileNotFoundException;
@@ -30,8 +31,7 @@ public final class IcebergExceptions
     private static boolean isNotFoundException(Throwable failure)
     {
         return getCausalChain(failure).stream().anyMatch(e ->
-                e instanceof org.apache.iceberg.exceptions.NotFoundException
-                        || e instanceof FileNotFoundException);
+                e instanceof NotFoundException || e instanceof FileNotFoundException);
     }
 
     public static boolean isFatalException(Throwable failure)

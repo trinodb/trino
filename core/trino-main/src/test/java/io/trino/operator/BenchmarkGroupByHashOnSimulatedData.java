@@ -79,7 +79,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
 
-    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
 
     @Benchmark
     @OperationsPerInvocation(DEFAULT_POSITIONS)
@@ -87,7 +87,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
                 data.getTypes(),
-                false,
+                data.getCacheHashValue(),
                 EXPECTED_GROUP_COUNT,
                 false,
                 hashStrategyCompiler,
@@ -104,7 +104,9 @@ public class BenchmarkGroupByHashOnSimulatedData
                 pageBuilder.reset();
             }
         }
-        pages.add(pageBuilder.build());
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
         return ImmutableList.of(pages, results); // all the things that might get erased by the compiler
     }
 
@@ -230,6 +232,8 @@ public class BenchmarkGroupByHashOnSimulatedData
         @Param({"0", ".1", ".5", ".9"})
         private double nullChance;
 
+        private boolean cacheHashValue;
+
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
@@ -254,6 +258,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     .map(channel -> channel.columnType.type)
                     .collect(toImmutableList());
             pages = createPages(query);
+            cacheHashValue = GroupByHash.shouldCacheHashValue(false, types);
         }
 
         private List<Page> createPages(AggregationDefinition definition)
@@ -293,6 +298,11 @@ public class BenchmarkGroupByHashOnSimulatedData
         public WorkType getWorkType()
         {
             return workType;
+        }
+
+        public boolean getCacheHashValue()
+        {
+            return cacheHashValue;
         }
     }
 
@@ -550,7 +560,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     }
                     else {
                         int position = r.nextInt(distinctValuesCountInColumn);
-                        columnType.getType().appendTo(allValues, position, block);
+                        block.append(allValues.getUnderlyingValueBlock(), allValues.getUnderlyingValuePosition(position));
                     }
                 }
                 blocks[i] = block.build();
@@ -602,7 +612,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkGroupByHashOnSimulatedData.class)

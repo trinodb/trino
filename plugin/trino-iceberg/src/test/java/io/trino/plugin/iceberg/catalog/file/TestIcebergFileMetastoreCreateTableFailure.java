@@ -18,11 +18,11 @@ import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -85,7 +85,7 @@ public class TestIcebergFileMetastoreCreateTableFailure
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-        queryRunner.installPlugin(new TestingIcebergPlugin(Path.of(dataDirectory.toString()), Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Path.of(dataDirectory.toString()), () -> Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA_NAME);
 

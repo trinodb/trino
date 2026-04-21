@@ -14,6 +14,7 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.http.rest.PagedIterable;
 import com.azure.core.util.ClientOptions;
 import com.azure.core.util.TracingOptions;
@@ -60,6 +61,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -80,6 +82,8 @@ public class AzureFileSystem
         implements TrinoFileSystem
 {
     private final HttpClient httpClient;
+    private final HttpPipelinePolicy concurrencyPolicy;
+    private final ExecutorService uploadExecutor;
     private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
     private final String endpoint;
@@ -87,18 +91,24 @@ public class AzureFileSystem
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
     private final long maxSingleUploadSizeBytes;
+    private final boolean multipartWriteEnabled;
 
     public AzureFileSystem(
             HttpClient httpClient,
+            HttpPipelinePolicy concurrencyPolicy,
+            ExecutorService uploadExecutor,
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
             String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
-            DataSize maxSingleUploadSize)
+            DataSize maxSingleUploadSize,
+            boolean multipartWriteEnabled)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.concurrencyPolicy = requireNonNull(concurrencyPolicy, "concurrencyPolicy is null");
+        this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
@@ -107,6 +117,7 @@ public class AzureFileSystem
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSizeBytes = maxSingleUploadSize.toBytes();
+        this.multipartWriteEnabled = multipartWriteEnabled;
     }
 
     @Override
@@ -162,7 +173,7 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.empty());
-        return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+        return new AzureOutputFile(azureLocation, client, uploadExecutor, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes, multipartWriteEnabled);
     }
 
     @Override
@@ -170,7 +181,7 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.of(key));
-        return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+        return new AzureOutputFile(azureLocation, client, uploadExecutor, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes, multipartWriteEnabled);
     }
 
     @Override
@@ -621,6 +632,7 @@ public class AzureFileSystem
 
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
+                .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
 
@@ -637,6 +649,7 @@ public class AzureFileSystem
 
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
+                .addPolicy(concurrencyPolicy)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));

@@ -16,7 +16,6 @@ package io.trino.spi.function;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.Experimental;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +29,6 @@ import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class FunctionMetadata
 {
     // Copied from OperatorNameUtil
@@ -43,6 +41,7 @@ public class FunctionMetadata
     private final FunctionNullability functionNullability;
     private final boolean hidden;
     private final boolean deterministic;
+    private final boolean neverFails;
     private final String description;
     private final FunctionKind kind;
     private final boolean deprecated;
@@ -55,6 +54,7 @@ public class FunctionMetadata
             FunctionNullability functionNullability,
             boolean hidden,
             boolean deterministic,
+            boolean neverFails,
             String description,
             FunctionKind kind,
             boolean deprecated)
@@ -73,6 +73,7 @@ public class FunctionMetadata
 
         this.hidden = hidden;
         this.deterministic = deterministic;
+        this.neverFails = neverFails;
         this.description = requireNonNull(description, "description is null");
         this.kind = requireNonNull(kind, "kind is null");
         this.deprecated = deprecated;
@@ -132,6 +133,15 @@ public class FunctionMetadata
         return deterministic;
     }
 
+    /**
+     * Whether function never fails for any possible combination of input parameters.
+     */
+    @JsonProperty
+    public boolean isNeverFails()
+    {
+        return neverFails;
+    }
+
     @JsonProperty
     public String getDescription()
     {
@@ -160,6 +170,7 @@ public class FunctionMetadata
             @JsonProperty FunctionNullability functionNullability,
             @JsonProperty boolean hidden,
             @JsonProperty boolean deterministic,
+            @JsonProperty boolean neverFails,
             @JsonProperty String description,
             @JsonProperty FunctionKind kind,
             @JsonProperty boolean deprecated)
@@ -172,6 +183,7 @@ public class FunctionMetadata
                 functionNullability,
                 hidden,
                 deterministic,
+                neverFails,
                 description,
                 kind,
                 deprecated);
@@ -224,6 +236,7 @@ public class FunctionMetadata
         private List<Boolean> argumentNullability;
         private boolean hidden;
         private boolean deterministic = true;
+        private boolean neverFails;
         private String description;
         private FunctionId functionId;
         private boolean deprecated;
@@ -291,6 +304,12 @@ public class FunctionMetadata
             return this;
         }
 
+        public Builder neverFails()
+        {
+            this.neverFails = true;
+            return this;
+        }
+
         public Builder noDescription()
         {
             this.description = "";
@@ -336,6 +355,7 @@ public class FunctionMetadata
                     new FunctionNullability(nullable, argumentNullability),
                     hidden,
                     deterministic,
+                    neverFails,
                     description,
                     kind,
                     deprecated);

@@ -29,7 +29,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class PrivilegeUtilities
+public final class PrivilegeUtilities
 {
     private PrivilegeUtilities() {}
 
@@ -69,7 +69,7 @@ public class PrivilegeUtilities
     private static Privilege parsePrivilege(Node statement, String privilegeString)
     {
         for (Privilege privilege : Privilege.values()) {
-            if (privilege.name().equalsIgnoreCase(privilegeString)) {
+            if (privilege.toString().equalsIgnoreCase(privilegeString)) {
                 return privilege;
             }
         }

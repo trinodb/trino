@@ -18,9 +18,11 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.io.SerializedString;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.HiveFormatUtils;
+import io.trino.hive.formats.HiveFormatsErrorCode;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
@@ -80,7 +82,7 @@ public class JsonSerializer
     @Override
     public List<? extends Type> getTypes()
     {
-        return type.getTypeParameters();
+        return type.getFieldTypes();
     }
 
     @Override
@@ -115,15 +117,31 @@ public class JsonSerializer
         }
         else if (type instanceof DecimalType decimalType) {
             return (generator, block, position) -> {
-                SqlDecimal value = (SqlDecimal) decimalType.getObjectValue(null, block, position);
+                SqlDecimal value = (SqlDecimal) decimalType.getObjectValue(block, position);
                 generator.writeNumber(value.toBigDecimal().toString());
             };
         }
         else if (REAL.equals(type)) {
-            return (generator, block, position) -> generator.writeNumber(REAL.getFloat(block, position));
+            return (generator, block, position) -> {
+                float value = REAL.getFloat(block, position);
+                if (Float.isFinite(value)) {
+                    generator.writeNumber(value);
+                }
+                else {
+                    throw new TrinoException(HiveFormatsErrorCode.HIVE_UNSERIALIZABLE_JSON_VALUE, "Invalid value to Insert Real: " + value);
+                }
+            };
         }
         else if (DOUBLE.equals(type)) {
-            return (generator, block, position) -> generator.writeNumber(DOUBLE.getDouble(block, position));
+            return (generator, block, position) -> {
+                Double value = DOUBLE.getDouble(block, position);
+                if (Double.isFinite(value)) {
+                    generator.writeNumber(value);
+                }
+                else {
+                    throw new TrinoException(HiveFormatsErrorCode.HIVE_UNSERIALIZABLE_JSON_VALUE, "Invalid value to Insert: " + value);
+                }
+            };
         }
         else if (DATE.equals(type)) {
             return (generator, block, position) -> generator.writeString(HiveFormatUtils.formatHiveDate(block, position));
@@ -187,7 +205,7 @@ public class JsonSerializer
             return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType decimalType) {
-            return (block, position) -> decimalType.getObjectValue(null, block, position).toString();
+            return (block, position) -> decimalType.getObjectValue(block, position).toString();
         }
         else if (REAL.equals(type)) {
             return (block, position) -> String.valueOf(REAL.getFloat(block, position));

@@ -84,7 +84,7 @@ public class TestTrinoDriverUri
         // property in url multiple times
         assertInvalid("jdbc:trino://localhost:8080/blackhole?password=a&password=b", "Connection property password is in the URL multiple times");
 
-        // property not well formed, missing '='
+        // property not well-formed, missing '='
         assertInvalid("jdbc:trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments
@@ -477,6 +477,18 @@ public class TestTrinoDriverUri
 
         TrinoDriverUri secureUri = createDriverUri("jdbc:trino://localhost?SSL=true");
         assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
+    }
+
+    @Test
+    public void testAValidateConnection()
+            throws SQLException
+    {
+        TrinoDriverUri uri = createDriverUri("jdbc:trino://localhost:8080");
+        assertThat(uri.isValidateConnection()).isFalse();
+        uri = createDriverUri("jdbc:trino://localhost:8080?validateConnection=true");
+        assertThat(uri.isValidateConnection()).isTrue();
+        uri = createDriverUri("jdbc:trino://localhost:8080?validateConnection=false");
+        assertThat(uri.isValidateConnection()).isFalse();
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)

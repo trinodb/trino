@@ -13,6 +13,7 @@
  */
 package io.trino.spooling.filesystem;
 
+import com.google.common.hash.HashFunction;
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.Location;
 
@@ -20,13 +21,20 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.hash.Hashing.farmHashFingerprint64;
+import static io.azam.ulidj.ULID.ULID_LENGTH;
+import static java.util.Locale.ENGLISH;
+
 public class SimpleFileSystemLayout
         implements FileSystemLayout
 {
+    // Node identifier is hashed to avoid both long file names and leaking information about the node
+    private static final HashFunction HASH = farmHashFingerprint64();
+
     @Override
     public Location location(Location rootLocation, FileSystemSpooledSegmentHandle segmentHandle)
     {
-        return rootLocation.appendPath(segmentHandle.identifier() + "." + segmentHandle.encoding());
+        return rootLocation.appendPath(segmentHandle.identifier() + hashNodeIdentifier(segmentHandle.nodeIdentifier()) + '.' + segmentHandle.encoding());
     }
 
     @Override
@@ -39,15 +47,19 @@ public class SimpleFileSystemLayout
     public Optional<Instant> getExpiration(Location location)
     {
         String filename = location.fileName();
-        int index = filename.indexOf(".");
-        if (index == -1) {
-            return Optional.empty(); // Not a segment
+        if (filename.length() < ULID_LENGTH) {
+            return Optional.empty(); // Definitely not a segment
         }
 
-        String uuid = filename.substring(0, index);
+        String uuid = filename.substring(0, ULID_LENGTH);
         if (!ULID.isValid(uuid)) {
             return Optional.empty();
         }
         return Optional.of(Instant.ofEpochMilli(ULID.getTimestamp(uuid)));
+    }
+
+    private static String hashNodeIdentifier(String nodeIdentifier)
+    {
+        return HASH.hashUnencodedChars(nodeIdentifier).toString().toUpperCase(ENGLISH);
     }
 }

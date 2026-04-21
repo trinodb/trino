@@ -98,7 +98,6 @@ import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -177,7 +176,7 @@ public class PredicatePushDown
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
-            optimizer = newOptimizer(plannerContext);
+            optimizer = plannerContext.getExpressionOptimizer();
             this.allowUnsafePushdown = SystemSessionProperties.isUnsafePushdownAllowed(session);
         }
 
@@ -296,7 +295,7 @@ public class PredicatePushDown
                     .collect(Collectors.partitioningBy(expression -> isInliningCandidate(expression, node)));
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
-                    .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
+                    .map(entry -> inlineSymbols(node.getAssignments().assignments(), entry))
                     .map(conjunct -> canonicalizeExpression(conjunct, plannerContext)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, plannerContext, conjunct))
                     .collect(Collectors.toList());
@@ -575,8 +574,6 @@ public class PredicatePushDown
                         rightSource.getOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         newJoinFilter,
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         dynamicFilters,
@@ -1023,8 +1020,8 @@ public class PredicatePushDown
                     .filter(conjunct -> !isInferenceCandidate(conjunct))
                     .toList();
 
-            ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
-            ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+            Set<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
+            Set<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
             EqualityInference allInference = new EqualityInference(
                     ImmutableList.<Expression>builder()
@@ -1180,8 +1177,6 @@ public class PredicatePushDown
                             node.getRightOutputSymbols(),
                             node.isMaySkipOutputDuplicates(),
                             node.getFilter(),
-                            node.getLeftHashSymbol(),
-                            node.getRightHashSymbol(),
                             node.getDistributionType(),
                             node.isSpillable(),
                             node.getDynamicFilters(),
@@ -1197,8 +1192,6 @@ public class PredicatePushDown
                         node.getRightOutputSymbols(),
                         node.isMaySkipOutputDuplicates(),
                         node.getFilter(),
-                        node.getLeftHashSymbol(),
-                        node.getRightHashSymbol(),
                         node.getDistributionType(),
                         node.isSpillable(),
                         node.getDynamicFilters(),
@@ -1219,8 +1212,6 @@ public class PredicatePushDown
                     node.getRightOutputSymbols(),
                     node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
-                    node.getLeftHashSymbol(),
-                    node.getRightHashSymbol(),
                     node.getDistributionType(),
                     node.isSpillable(),
                     node.getDynamicFilters(),
@@ -1332,7 +1323,7 @@ public class PredicatePushDown
             PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
-            ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
+            Set<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
             EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
             EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);
@@ -1362,8 +1353,6 @@ public class PredicatePushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
                         node.getDistributionType(),
                         Optional.empty());
             }
@@ -1462,8 +1451,6 @@ public class PredicatePushDown
                         node.getSourceJoinSymbol(),
                         node.getFilteringSourceJoinSymbol(),
                         node.getSemiJoinOutput(),
-                        node.getSourceHashSymbol(),
-                        node.getFilteringSourceHashSymbol(),
                         node.getDistributionType(),
                         dynamicFilterId);
             }

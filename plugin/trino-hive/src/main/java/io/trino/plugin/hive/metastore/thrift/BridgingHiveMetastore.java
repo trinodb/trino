@@ -29,12 +29,13 @@ import io.trino.metastore.HiveType;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.Partitions;
 import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -46,6 +47,7 @@ import io.trino.spi.security.RoleGrant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -55,7 +57,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchemaFields;
@@ -153,6 +154,12 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
+    {
+        return delegate.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         try {
@@ -240,9 +247,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
-        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
+        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges), environmentContext);
     }
 
     @Override
@@ -263,7 +270,7 @@ public class BridgingHiveMetastore
 
         Map<String, String> parameters = table.getParameters().entrySet().stream()
                 .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
         comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
         table.setParameters(parameters);
@@ -285,7 +292,7 @@ public class BridgingHiveMetastore
                 .setOwner(Optional.of(principal.getName()))
                 .build();
 
-        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable));
+        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable), ImmutableMap.of());
     }
 
     @Override
@@ -353,7 +360,12 @@ public class BridgingHiveMetastore
 
     private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table)
     {
-        delegate.alterTable(databaseName, tableName, table);
+        delegate.alterTable(databaseName, tableName, table, ImmutableMap.of());
+    }
+
+    private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table, Map<String, String> context)
+    {
+        delegate.alterTable(databaseName, tableName, table, context);
     }
 
     @Override
@@ -381,12 +393,12 @@ public class BridgingHiveMetastore
         }
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(Collectors.toMap(identity(), Partition::toPartitionValues));
+                .collect(Collectors.toMap(identity(), Partitions::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), partitionNames).stream()
                 .map(partition -> fromMetastoreApiPartition(table, partition))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
-        for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
+        for (Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
             Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
             resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
         }

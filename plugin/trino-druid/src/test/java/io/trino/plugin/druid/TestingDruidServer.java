@@ -15,7 +15,7 @@ package io.trino.plugin.druid;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
@@ -34,7 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -79,7 +79,7 @@ public class TestingDruidServer
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
             hostWorkingDirectory = Files.createDirectory(
-                    Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
+                    Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
                     .toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
@@ -189,7 +189,7 @@ public class TestingDruidServer
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(() -> MoreFiles.deleteRecursively(Paths.get(hostWorkingDirectory), ALLOW_INSECURE));
+            closer.register(() -> MoreFiles.deleteRecursively(Path.of(hostWorkingDirectory), ALLOW_INSECURE));
             closer.register(broker::stop);
             closer.register(historical::stop);
             closer.register(middleManager::stop);
@@ -260,7 +260,7 @@ public class TestingDruidServer
 
     private String getReplacedIndexTask(String targetDataSource, Optional<String> fileName, String indexTask)
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
         try {
             JsonNode jsonNode = mapper.readTree(indexTask);
             // get the nested node and modify it
@@ -292,7 +292,7 @@ public class TestingDruidServer
                     .get();
             Request datasourceAvailabilityRequest = requestBuilder.build();
             try (Response response = httpClient.newCall(datasourceAvailabilityRequest).execute()) {
-                ObjectMapper mapper = new ObjectMapper();
+                JsonMapper mapper = new JsonMapper();
                 datasourceAvailabilityDetails = mapper.readValue(response.body().string(), Map.class);
                 datasourceNotLoaded = datasourceAvailabilityDetails.get(datasource) == null || Double.compare(datasourceAvailabilityDetails.get(datasource), 100.0) < 0;
                 if (datasourceNotLoaded) {

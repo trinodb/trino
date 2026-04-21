@@ -33,7 +33,7 @@ final class SplitGenerators
 {
     private SplitGenerators() {}
 
-    public static void main(String[] args)
+    static void main()
     {
         Histogram<Long> bins = fromContinuous(ImmutableList.of(
                 MILLISECONDS.toNanos(0),

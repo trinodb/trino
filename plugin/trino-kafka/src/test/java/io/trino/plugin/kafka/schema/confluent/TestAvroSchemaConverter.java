@@ -18,9 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecordBuilder;
@@ -31,10 +29,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.DUMMY_FIELD_NAME;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.FAIL;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.MARK;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.DUMMY_FIELD_NAME;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.FAIL;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.MARK;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -42,14 +40,13 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAvroSchemaConverter
 {
     private static final String RECORD_NAME = "test";
-
-    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
 
     @Test
     public void testConvertSchema()
@@ -78,7 +75,7 @@ public class TestAvroSchemaConverter
                 .endRecord()
                 .noDefault()
                 .endRecord();
-        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(new TestingTypeManager(), IGNORE);
+        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE);
         List<Type> types = avroSchemaConverter.convertAvroSchema(schema);
         List<Type> expected = ImmutableList.<Type>builder()
                 .add(BOOLEAN)
@@ -151,7 +148,7 @@ public class TestAvroSchemaConverter
                                 .buildOrThrow())
                         .build())
                 .endRecord();
-        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(new TestingTypeManager(), IGNORE);
+        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE);
         List<Type> types = avroSchemaConverter.convertAvroSchema(schema);
         List<Type> expected = ImmutableList.<Type>builder()
                 .add(BOOLEAN)
@@ -204,7 +201,7 @@ public class TestAvroSchemaConverter
                 .endRecord()
                 .noDefault()
                 .endRecord();
-        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(new TestingTypeManager(), IGNORE);
+        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE);
         List<Type> types = avroSchemaConverter.convertAvroSchema(schema);
         List<Type> expected = ImmutableList.<Type>builder()
                 .add(BOOLEAN)
@@ -233,21 +230,21 @@ public class TestAvroSchemaConverter
     @Test
     public void testUnsupportedUnionType()
     {
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), IGNORE)
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE)
                 .convertAvroSchema(SchemaBuilder.record(RECORD_NAME).fields()
                         .name("union_col").type().unionOf().nullType().and().floatType().and().longType().endUnion().noDefault()
                         .endRecord()))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageStartingWith("Incompatible UNION type:");
 
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), IGNORE)
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE)
                 .convertAvroSchema(SchemaBuilder.record(RECORD_NAME).fields()
                         .name("union_col").type().unionOf().nullType().and().fixed("fixed").size(5).and().stringType().endUnion().noDefault()
                         .endRecord()))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageStartingWith("Incompatible UNION type:");
 
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), IGNORE)
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE)
                 .convertAvroSchema(SchemaBuilder.record(RECORD_NAME).fields()
                         .name("union_col").type().unionOf().nullType().and().booleanType().and().intType().endUnion().noDefault()
                         .endRecord()))
@@ -259,7 +256,7 @@ public class TestAvroSchemaConverter
     public void testSimpleSchema()
     {
         Schema schema = Schema.create(Schema.Type.LONG);
-        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(new TestingTypeManager(), IGNORE);
+        AvroSchemaConverter avroSchemaConverter = new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE);
         List<Type> types = avroSchemaConverter.convertAvroSchema(schema);
         assertThat(getOnlyElement(types)).isEqualTo(BIGINT);
     }
@@ -280,9 +277,9 @@ public class TestAvroSchemaConverter
 
         List<Type> typesForIgnoreStrategy = ImmutableList.of(INTEGER);
 
-        assertThat(new AvroSchemaConverter(new TestingTypeManager(), IGNORE).convertAvroSchema(schema)).isEqualTo(typesForIgnoreStrategy);
+        assertThat(new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE).convertAvroSchema(schema)).isEqualTo(typesForIgnoreStrategy);
 
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), FAIL).convertAvroSchema(schema))
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, FAIL).convertAvroSchema(schema))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Struct type has no valid fields for schema: '%s'", SchemaBuilder.record("nested_record").fields().endRecord());
 
@@ -293,7 +290,7 @@ public class TestAvroSchemaConverter
                 .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
                 .build();
 
-        assertThat(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema)).isEqualTo(typesForAddDummyStrategy);
+        assertThat(new AvroSchemaConverter(TESTING_TYPE_MANAGER, MARK).convertAvroSchema(schema)).isEqualTo(typesForAddDummyStrategy);
     }
 
     @Test
@@ -309,11 +306,11 @@ public class TestAvroSchemaConverter
                 .name("my_map").type().map().values().type("nested_record").noDefault()
                 .endRecord();
 
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), IGNORE).convertAvroSchema(schema))
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, IGNORE).convertAvroSchema(schema))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Schema has no valid fields: '%s'", schema);
 
-        assertThatThrownBy(() -> new AvroSchemaConverter(new TestingTypeManager(), FAIL).convertAvroSchema(schema))
+        assertThatThrownBy(() -> new AvroSchemaConverter(TESTING_TYPE_MANAGER, FAIL).convertAvroSchema(schema))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Struct type has no valid fields for schema: '%s'", SchemaBuilder.record("nested_record").fields().endRecord());
 
@@ -323,12 +320,12 @@ public class TestAvroSchemaConverter
                 .add(createType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BOOLEAN)))))
                 .build();
 
-        assertThat(new AvroSchemaConverter(new TestingTypeManager(), MARK).convertAvroSchema(schema)).isEqualTo(typesForAddDummyStrategy);
+        assertThat(new AvroSchemaConverter(TESTING_TYPE_MANAGER, MARK).convertAvroSchema(schema)).isEqualTo(typesForAddDummyStrategy);
     }
 
     private static Type createType(Type valueType)
     {
         Type keyType = VARCHAR;
-        return new MapType(keyType, valueType, TYPE_MANAGER.getTypeOperators());
+        return new MapType(keyType, valueType, TESTING_TYPE_MANAGER.getTypeOperators());
     }
 }

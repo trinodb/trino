@@ -1,0 +1,66 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.openai.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"gpt-4o-mini\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31 and the meeting is on 2022-12-30\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\n  \"id\": \"chatcmpl-AyyoTjGUaZaveV1JOhoE6qTDfRg5N\",\n  \"object\": \"chat.completion\",\n  \"created\": 1739096809,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"date\\\":\\\"2022-12-31\\\"}\",\n        \"refusal\": null\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 87,\n    \"completion_tokens\": 11,\n    \"total_tokens\": 98,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_72ed7ab54c\"\n}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Access-Control-Expose-Headers" : [ "X-Request-ID" ],
+          "Alt-Svc" : [ "h3=\":443\"; ma=86400" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "90f329d46c6dfb48-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:26:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Openai-Organization" : [ "trino-j5yehe" ],
+          "Openai-Processing-Ms" : [ "316" ],
+          "Openai-Version" : [ "2020-10-01" ],
+          "Server" : [ "cloudflare" ],
+          "Set-Cookie" : [ "__cf_bm=PUNmKGhotPNEpGI9_iE8ygFlq1p0Pw.OUcH5JJqf8jI-1739096810-1.0.1.1-RooyopaSXuASNlxHmbnmmBrHBCZtMOoFOqL.ATPnijt6mfSQp_oZHT9YQ3l5KTXooTiiNMFKdsDzWFON.vqUxQ; path=/; expires=Sun, 09-Feb-25 10:56:50 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None", "_cfuvid=u2sjCYkRpAJYWEHv3xrV9.jASkR8QfqFLT1lH.akpco-1739096810034-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None" ],
+          "Strict-Transport-Security" : [ "max-age=31536000; includeSubDomains; preload" ],
+          "X-Content-Type-Options" : [ "nosniff" ],
+          "X-Ratelimit-Limit-Requests" : [ "10000" ],
+          "X-Ratelimit-Limit-Tokens" : [ "200000" ],
+          "X-Ratelimit-Remaining-Requests" : [ "9919" ],
+          "X-Ratelimit-Remaining-Tokens" : [ "199905" ],
+          "X-Ratelimit-Reset-Requests" : [ "11m34.667s" ],
+          "X-Ratelimit-Reset-Tokens" : [ "28ms" ],
+          "X-Request-Id" : [ "req_e22ee591e6241609978c11e8f80a1d16" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:26:50-08:00"
+  }
+}

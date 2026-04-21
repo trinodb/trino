@@ -44,10 +44,11 @@ public final class SliceSerialization
             extends JsonDeserializer<Slice>
     {
         @Override
-        public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
+        public Slice deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            return Slices.wrappedBuffer(jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS));
+            byte[] decoded = Base64Variants.MIME_NO_LINEFEEDS.decode(context.readValue(parser, String.class));
+            return Slices.wrappedBuffer(decoded);
         }
     }
 }

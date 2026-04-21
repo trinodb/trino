@@ -22,18 +22,18 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -55,7 +55,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private File warehouseLocation;
+    private Path warehouseLocation;
     private JdbcCatalog backend;
 
     public TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest()
@@ -76,8 +76,8 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.newTemporaryFolder();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
+        warehouseLocation = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
 
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
@@ -94,7 +94,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         .setCatalog(ICEBERG_CATALOG)
                         .setSchema(nestedSchema)
                         .build())
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .build();
 
         Map<String, String> nestedNamespaceDisabled = ImmutableMap.<String, String>builder()
@@ -177,7 +177,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = '.*/" + schemaName + "/region.*'\n") +
+                        "   location = '.*/" + schemaName + "/region.*'\n" +
                         "\\)");
     }
 
@@ -232,7 +232,10 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
-                .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .hasNoCause();
     }
 
     @Test
@@ -272,7 +275,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         backend.dropTable(toIdentifier(tableName), false);
     }
@@ -293,7 +296,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     @Override
     protected boolean locationExists(String location)
     {
-        return java.nio.file.Files.exists(Path.of(location));
+        return Files.exists(Path.of(location));
     }
 
     private TableIdentifier toIdentifier(String tableName)

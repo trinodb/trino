@@ -30,11 +30,10 @@ import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
-import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
-public class DateAdd
+public final class DateAdd
 {
     private DateAdd() {}
 
@@ -50,7 +49,7 @@ public class DateAdd
             long epochMillis = scaleEpochMicrosToMillis(timestamp);
             int microsOfMilli = getMicrosOfMilli(timestamp);
 
-            epochMillis = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, toIntExact(value));
+            epochMillis = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, value);
 
             if (precision <= 3) {
                 epochMillis = round(epochMillis, (int) (3 - precision));

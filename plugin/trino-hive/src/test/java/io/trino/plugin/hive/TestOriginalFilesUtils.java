@@ -23,8 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.io.Resources.getResource;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 

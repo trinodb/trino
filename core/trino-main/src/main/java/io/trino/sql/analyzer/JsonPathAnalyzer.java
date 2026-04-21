@@ -104,7 +104,7 @@ public class JsonPathAnalyzer
     public JsonPathAnalysis analyzeJsonPath(StringLiteral path, Map<String, Type> parameterTypes)
     {
         Location pathStart = extractLocation(path)
-                .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()))
+                .map(location -> new Location(location.lineNumber(), location.columnNumber()))
                 .orElseThrow(() -> new IllegalStateException("missing NodeLocation in path"));
         PathNode root = PathParser.withRelativeErrorLocation(pathStart).parseJsonPath(path.getValue());
         new Visitor(parameterTypes, path).process(root);
@@ -292,7 +292,7 @@ public class JsonPathAnalyzer
             Type predicateType = process(node.getPredicate());
 
             requireNonNull(predicateType, "missing type of predicate expression");
-            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: " + predicateType.getDisplayName());
+            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: %s", predicateType.getDisplayName());
 
             if (sourceType != null) {
                 types.put(PathNodeRef.of(node), sourceType);
@@ -435,11 +435,11 @@ public class JsonPathAnalyzer
         {
             Type leftType = process(node.getLeft());
             requireNonNull(leftType, "missing type of predicate expression");
-            checkState(leftType.equals(BOOLEAN), "invalid type of predicate expression: " + leftType.getDisplayName());
+            checkState(leftType.equals(BOOLEAN), "invalid type of predicate expression: %s", leftType.getDisplayName());
 
             Type rightType = process(node.getRight());
             requireNonNull(rightType, "missing type of predicate expression");
-            checkState(rightType.equals(BOOLEAN), "invalid type of predicate expression: " + rightType.getDisplayName());
+            checkState(rightType.equals(BOOLEAN), "invalid type of predicate expression: %s", rightType.getDisplayName());
 
             types.put(PathNodeRef.of(node), BOOLEAN);
             return BOOLEAN;
@@ -450,11 +450,11 @@ public class JsonPathAnalyzer
         {
             Type leftType = process(node.getLeft());
             requireNonNull(leftType, "missing type of predicate expression");
-            checkState(leftType.equals(BOOLEAN), "invalid type of predicate expression: " + leftType.getDisplayName());
+            checkState(leftType.equals(BOOLEAN), "invalid type of predicate expression: %s", leftType.getDisplayName());
 
             Type rightType = process(node.getRight());
             requireNonNull(rightType, "missing type of predicate expression");
-            checkState(rightType.equals(BOOLEAN), "invalid type of predicate expression: " + rightType.getDisplayName());
+            checkState(rightType.equals(BOOLEAN), "invalid type of predicate expression: %s", rightType.getDisplayName());
 
             types.put(PathNodeRef.of(node), BOOLEAN);
             return BOOLEAN;
@@ -483,7 +483,7 @@ public class JsonPathAnalyzer
         {
             Type predicateType = process(node.getPredicate());
             requireNonNull(predicateType, "missing type of predicate expression");
-            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: " + predicateType.getDisplayName());
+            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: %s", predicateType.getDisplayName());
 
             types.put(PathNodeRef.of(node), BOOLEAN);
             return BOOLEAN;
@@ -503,7 +503,7 @@ public class JsonPathAnalyzer
         {
             Type predicateType = process(node.getPredicate());
             requireNonNull(predicateType, "missing type of predicate expression");
-            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: " + predicateType.getDisplayName());
+            checkState(predicateType.equals(BOOLEAN), "invalid type of predicate expression: %s", predicateType.getDisplayName());
 
             types.put(PathNodeRef.of(node), BOOLEAN);
             return BOOLEAN;

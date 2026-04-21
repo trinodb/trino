@@ -5,16 +5,17 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-test-jdbc-compatibility-old-driver</artifactId>
+    <name>${project.artifactId}</name>
     <description>Trino - Old JDBC driver compatibility tests</description>
 
     <properties>
         <!-- Version needs to be hardcoded for the release plugin to work. It will be updated by the release plugin. -->
-        <dep.presto-jdbc-under-test>469-SNAPSHOT</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>481-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>
@@ -84,7 +85,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.18.1</version>
             <scope>test</scope>
         </dependency>
 

@@ -15,27 +15,23 @@ package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.hdfs.s3.HiveS3Config;
-import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.metastore.Database;
+import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -50,7 +46,10 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.type.TestingTypeManager;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -61,22 +60,28 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
+import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -92,6 +97,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;
     private TrinoFileSystem fileSystem;
+    private CachingHiveMetastore metastore;
     protected String bucketName;
 
     HiveMinioDataLake hiveMinioDataLake()
@@ -116,29 +122,38 @@ public class TestTrinoHiveCatalogWithHiveMetastore
     }
 
     @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
+                .metastoreClient(dataLake.getHiveMetastoreEndpoint())
+                .build(closer::register);
+        thriftMetastore.createDatabase(toMetastoreApiDatabase(Database.builder()
+                .setDatabaseName(namespace)
+                .setOwnerName(Optional.of("test"))
+                .setOwnerType(Optional.of(PrincipalType.USER))
+                .setParameters(properties)
+                .build()));
+    }
+
+    @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(
-                new DynamicHdfsConfiguration(
-                        new HdfsConfigurationInitializer(
-                                new HdfsConfig(),
-                                Set.of(new TrinoS3ConfigurationInitializer(new HiveS3Config()
-                                        .setS3Endpoint(dataLake.getMinio().getMinioAddress())
-                                        .setS3SslEnabled(false)
-                                        .setS3AwsAccessKey(MINIO_ACCESS_KEY)
-                                        .setS3AwsSecretKey(MINIO_SECRET_KEY)
-                                        .setS3PathStyleAccess(true)))),
-                        ImmutableSet.of()),
-                new HdfsConfig(),
-                new NoHdfsAuthentication()),
-                new TrinoHdfsFileSystemStats());
+        TrinoFileSystemFactory fileSystemFactory = new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setEndpoint(dataLake.getMinio().getMinioAddress())
+                        .setAwsAccessKey(MINIO_ROOT_USER)
+                        .setAwsSecretKey(MINIO_ROOT_PASSWORD)
+                        .setRegion(MINIO_REGION)
+                        .setPathStyleAccess(true),
+                new S3FileSystemStats());
         ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
                         .setReadTimeout(new Duration(1, MINUTES)))
                 .metastoreClient(dataLake.getHiveMetastoreEndpoint())
                 .build(closer::register);
-        CachingHiveMetastore metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
+        metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
         fileSystem = fileSystemFactory.create(SESSION);
 
         return new TrinoHiveCatalog(
@@ -146,22 +161,27 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 metastore,
                 new TrinoViewHiveMetastore(metastore, false, "trino-version", "Test"),
                 fileSystemFactory,
-                new TestingTypeManager(),
-                new HiveMetastoreTableOperationsProvider(fileSystemFactory, new ThriftMetastoreFactory()
-                {
-                    @Override
-                    public boolean isImpersonationEnabled()
-                    {
-                        verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
-                        return false;
-                    }
+                FILE_IO_FACTORY,
+                TESTING_TYPE_MANAGER,
+                new HiveMetastoreTableOperationsProvider(
+                        fileSystemFactory,
+                        FILE_IO_FACTORY,
+                        new ThriftMetastoreFactory()
+                        {
+                            @Override
+                            public boolean isImpersonationEnabled()
+                            {
+                                verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
+                                return false;
+                            }
 
-                    @Override
-                    public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
-                    {
-                        return thriftMetastore;
-                    }
-                }),
+                            @Override
+                            public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
+                            {
+                                return thriftMetastore;
+                            }
+                        },
+                        new IcebergHiveCatalogConfig()),
                 useUniqueTableLocations,
                 false,
                 false,
@@ -195,6 +215,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
+                            Optional.empty(),
                             ImmutableList.of()),
                     ImmutableMap.of(FILE_FORMAT_PROPERTY, PARQUET, FORMAT_VERSION_PROPERTY, 1),
                     false,
@@ -217,13 +238,13 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 storageTableName = storageTable.get().getSchemaTableName().getTableName();
             }
             Location dataLocation = Location.of(getNamespaceLocation(namespace) + "/" + storageTableName);
-            assertThat(fileSystem.newInputFile(dataLocation).exists())
+            assertThat(fileSystem.directoryExists(dataLocation).orElseThrow())
                     .describedAs("The directory corresponding to the table data for materialized view must exist")
                     .isTrue();
             catalog.dropMaterializedView(SESSION, new SchemaTableName(namespace, materializedViewName));
-            assertThat(fileSystem.newInputFile(dataLocation).exists())
+            assertThat(fileSystem.directoryExists(dataLocation))
                     .describedAs("The materialized view drop should also delete the data files associated with it")
-                    .isFalse();
+                    .isEmpty();
         }
         finally {
             try {
@@ -233,6 +254,49 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Override
+    protected Optional<SchemaTableName> createExternalIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
+            throws Exception
+    {
+        // simulate iceberg table created by spark with lowercase table type
+        return createTableWithTableType(catalog, namespace, closer, "lowercase_type", Optional.of(ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH)));
+    }
+
+    @Override
+    protected Optional<SchemaTableName> createExternalNonIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
+            throws Exception
+    {
+        return createTableWithTableType(catalog, namespace, closer, "non_iceberg_table", Optional.empty());
+    }
+
+    private Optional<SchemaTableName> createTableWithTableType(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer, String tableName, Optional<String> tableType)
+            throws Exception
+    {
+        SchemaTableName lowerCaseTableTypeTable = new SchemaTableName(namespace, tableName);
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        lowerCaseTableTypeTable,
+                        new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.of(arbitraryTableLocation(catalog, SESSION, lowerCaseTableTypeTable)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        Table metastoreTable = metastore.getTable(namespace, tableName).get();
+
+        metastore.replaceTable(
+                namespace,
+                tableName,
+                Table.builder(metastoreTable)
+                        .setParameter(TABLE_TYPE_PROP, tableType)
+                        .build(),
+                NO_PRIVILEGES,
+                ImmutableMap.of());
+        closer.register(() -> metastore.dropTable(namespace, tableName, true));
+        return Optional.of(lowerCaseTableTypeTable);
     }
 
     @Override

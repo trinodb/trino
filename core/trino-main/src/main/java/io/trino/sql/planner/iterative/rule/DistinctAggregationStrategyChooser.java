@@ -217,9 +217,9 @@ public class DistinctAggregationStrategyChooser
         double subqueriesTotalDataSize = additionalColumnsDataSize * subqueryCount + distinctInputDataSize;
 
         return isNaN(subqueriesTotalDataSize) ||
-               isNaN(singleTableScanDataSize) ||
-               // we would read more than 50% more data
-               subqueriesTotalDataSize / singleTableScanDataSize > 1.5;
+                isNaN(singleTableScanDataSize) ||
+                // we would read more than 50% more data
+                subqueriesTotalDataSize / singleTableScanDataSize > 1.5;
     }
 
     private static boolean isSelective(FilterNode filterNode, StatsProvider statsProvider)

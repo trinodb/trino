@@ -16,9 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -31,7 +29,7 @@ import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
@@ -48,19 +46,17 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -69,7 +65,6 @@ public class HivePageSink
         implements ConnectorPageSink, ConnectorMergeSink
 {
     private static final Logger LOG = Logger.get(HivePageSink.class);
-    private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final HiveWriterFactory writerFactory;
 
@@ -83,7 +78,6 @@ public class HivePageSink
     private final HiveWriterPagePartitioner pagePartitioner;
 
     private final int maxOpenWriters;
-    private final ListeningExecutorService writeVerificationExecutor;
 
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
@@ -93,7 +87,6 @@ public class HivePageSink
     private final long idleWriterMinFileSize;
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Slice> partitionUpdates = new ArrayList<>();
-    private final List<Callable<Object>> verificationTasks = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
     private final boolean isMergeSink;
@@ -109,7 +102,6 @@ public class HivePageSink
             Optional<BucketInfo> bucketInfo,
             PageIndexerFactory pageIndexerFactory,
             int maxOpenWriters,
-            ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
     {
@@ -121,7 +113,6 @@ public class HivePageSink
 
         this.isTransactional = acidTransaction.isTransactional();
         this.maxOpenWriters = maxOpenWriters;
-        this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         this.isMergeSink = acidTransaction.isMerge();
@@ -212,7 +203,7 @@ public class HivePageSink
                 .filter(Objects::nonNull)
                 .mapToLong(HiveWriter::getWrittenBytes)
                 .sum();
-        return Futures.immediateFuture(result);
+        return immediateFuture(result);
     }
 
     private ListenableFuture<Collection<Slice>> doInsertSinkFinish()
@@ -222,22 +213,7 @@ public class HivePageSink
         }
         writers.clear();
 
-        List<Slice> result = ImmutableList.copyOf(partitionUpdates);
-
-        if (verificationTasks.isEmpty()) {
-            return Futures.immediateFuture(result);
-        }
-
-        try {
-            List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
-                    .map(future -> (ListenableFuture<?>) future)
-                    .collect(toList());
-            return Futures.transform(Futures.allAsList(futures), input -> result, directExecutor());
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
+        return immediateFuture(ImmutableList.copyOf(partitionUpdates));
     }
 
     @Override
@@ -270,12 +246,7 @@ public class HivePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        int writeOffset = 0;
-        while (writeOffset < page.getPositionCount()) {
-            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
-            writeOffset += chunk.getPositionCount();
-            writePage(chunk);
-        }
+        writePage(page);
         return NOT_BLOCKED;
     }
 
@@ -443,13 +414,10 @@ public class HivePageSink
             return null;
         }
 
-        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(null, page.getPositionCount());
         Page bucketColumnsPage = extractColumns(page, bucketColumns);
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
-            INTEGER.writeInt(bucketColumnBuilder, bucket);
-        }
-        return bucketColumnBuilder.build();
+        int[] buckets = new int[page.getPositionCount()];
+        bucketFunction.getBuckets(bucketColumnsPage, 0, page.getPositionCount(), buckets);
+        return new IntArrayBlock(buckets.length, Optional.empty(), buckets);
     }
 
     private static Page extractColumns(Page page, int[] columns)

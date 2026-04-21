@@ -5,17 +5,18 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>481-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-bigquery</artifactId>
     <packaging>trino-plugin</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - BigQuery connector</description>
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
+        <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencyManagement>
@@ -186,6 +187,7 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -221,6 +223,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
         </dependency>
 
         <dependency>
@@ -298,7 +305,6 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.14</version>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>
@@ -315,12 +321,12 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20240303</version>
+            <version>20251224</version>
         </dependency>
 
         <dependency>
-            <groupId>org.threeten</groupId>
-            <artifactId>threetenbp</artifactId>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <dependency>
@@ -343,6 +349,18 @@
 
         <dependency>
             <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api-incubator</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-context</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -350,12 +368,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -372,6 +384,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
@@ -380,12 +404,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-trace</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -424,13 +442,6 @@
                     <artifactId>commons-codec</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -536,8 +547,11 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
+                                <exclude>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
+                                <exclude>**/TestBigQueryParentProjectId.java</exclude>
+                                <exclude>**/TestBigQueryWithBothProjectIdsSet.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -558,30 +572,11 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Separate profile for TestBigQueryCaseInsensitiveMapping until we can fully isolate it -->
-        <profile>
-            <id>cloud-tests-case-insensitive-mapping</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
+                                <include>**/TestBigQueryParentProjectId.java</include>
+                                <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
                                 <include>**/TestBigQueryCaseInsensitiveMappingWithCache.java</include>
-                                <!-- Also included here to make sure the case-insesitive project also gets cleaned up -->
-                                <include>**/TestBigQueryInstanceCleaner.java</include>
+                                <include>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>

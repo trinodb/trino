@@ -21,12 +21,10 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
-import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.proxy.ProxyResponseHandler.ProxyResponse;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.DELETE;
@@ -42,7 +40,16 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.Headers;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -60,22 +67,20 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.google.common.hash.Hashing.hmacSha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.COOKIE;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.http.client.Request.Builder.prepareDelete;
-import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static jakarta.ws.rs.core.Response.Status.BAD_GATEWAY;
 import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
+import static jakarta.ws.rs.core.Response.Status.NO_CONTENT;
+import static jakarta.ws.rs.core.Response.Status.OK;
 import static jakarta.ws.rs.core.Response.noContent;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -96,13 +101,15 @@ public class ProxyResource
     private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%s"));
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
     private final JsonWebTokenHandler jwtHandler;
     private final URI remoteUri;
     private final HashFunction hmac;
 
+    private static final com.google.common.net.MediaType JSON = com.google.common.net.MediaType.create("application", "json");
+
     @Inject
-    public ProxyResource(@ForProxy HttpClient httpClient, JsonWebTokenHandler jwtHandler, ProxyConfig config)
+    public ProxyResource(@ForProxy OkHttpClient httpClient, JsonWebTokenHandler jwtHandler, ProxyConfig config)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.jwtHandler = requireNonNull(jwtHandler, "jwtHandler is null");
@@ -123,8 +130,9 @@ public class ProxyResource
             @Context HttpServletRequest servletRequest,
             @Suspended AsyncResponse asyncResponse)
     {
-        Request.Builder request = prepareGet()
-                .setUri(uriBuilderFrom(remoteUri).replacePath("/v1/info").build());
+        Request.Builder request = new Request.Builder()
+                .get()
+                .url(UriBuilder.fromUri(remoteUri).replacePath("/v1/info").build().toString());
 
         performRequest(servletRequest, asyncResponse, request, response ->
                 responseWithHeaders(Response.ok(response.getBody()), response));
@@ -139,9 +147,9 @@ public class ProxyResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        Request.Builder request = preparePost()
-                .setUri(uriBuilderFrom(remoteUri).replacePath("/v1/statement").build())
-                .setBodyGenerator(createStaticBodyGenerator(statement, UTF_8));
+        Request.Builder request = new Request.Builder()
+                .post(RequestBody.create(statement, MediaType.parse("application/json")))
+                .url(UriBuilder.fromUri(remoteUri).replacePath("/v1/statement").build().toString());
 
         performRequest(servletRequest, asyncResponse, request, response -> buildResponse(uriInfo, response));
     }
@@ -160,7 +168,9 @@ public class ProxyResource
             throw badRequest(FORBIDDEN, "Failed to validate HMAC of URI");
         }
 
-        Request.Builder request = prepareGet().setUri(URI.create(uri));
+        Request.Builder request = new Request.Builder()
+                .get()
+                .url(uri);
 
         performRequest(servletRequest, asyncResponse, request, response -> buildResponse(uriInfo, response));
     }
@@ -178,7 +188,9 @@ public class ProxyResource
             throw badRequest(FORBIDDEN, "Failed to validate HMAC of URI");
         }
 
-        Request.Builder request = prepareDelete().setUri(URI.create(uri));
+        Request.Builder request = new Request.Builder()
+                .delete()
+                .url(uri);
 
         performRequest(servletRequest, asyncResponse, request, response -> responseWithHeaders(noContent(), response));
     }
@@ -204,10 +216,7 @@ public class ProxyResource
             }
         }
 
-        Request request = requestBuilder
-                .setPreserveAuthorizationOnRedirect(true)
-                .build();
-
+        Request request = requestBuilder.build();
         ListenableFuture<Response> future = executeHttp(request)
                 .transform(responseBuilder::apply, executor)
                 .catching(ProxyException.class, e -> handleProxyException(request, e), directExecutor());
@@ -243,7 +252,54 @@ public class ProxyResource
 
     private FluentFuture<ProxyResponse> executeHttp(Request request)
     {
-        return FluentFuture.from(httpClient.executeAsync(request, new ProxyResponseHandler()));
+        SettableFuture<ProxyResponse> future = SettableFuture.create();
+
+        // Enqueue the call and resolve the future
+        httpClient.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e)
+            {
+                future.setException(e); // Set the exception if the request fails
+            }
+
+            @Override
+            public void onResponse(Call call, okhttp3.Response response)
+            {
+                if (response.code() == NO_CONTENT.getStatusCode()) {
+                    future.set(new ProxyResponse(response.headers(), new byte[0]));
+                    return;
+                }
+
+                if (response.code() != OK.getStatusCode()) {
+                    try (ResponseBody body = response.body()) {
+                        future.setException(new ProxyException(format("Bad status code from remote Trino server: %s: %s", response.code(), body.string())));
+                        return;
+                    }
+                    catch (IOException e) {
+                        future.setException(e);
+                        return;
+                    }
+                }
+
+                String contentType = response.header(CONTENT_TYPE);
+                if (contentType == null) {
+                    throw new ProxyException("No Content-Type set in response from remote Trino server");
+                }
+                if (!com.google.common.net.MediaType.parse(contentType).is(JSON)) {
+                    throw new ProxyException("Bad Content-Type from remote Trino server:" + contentType);
+                }
+
+                try (ResponseBody body = response.body()) {
+                    future.set(new ProxyResponse(response.headers(), body.bytes()));
+                    return;
+                }
+                catch (IOException e) {
+                    throw new ProxyException("Failed reading response from remote Trino server", e);
+                }
+            }
+        });
+
+        return FluentFuture.from(future);
     }
 
     private void setupBearerToken(HttpServletRequest servletRequest, Request.Builder requestBuilder)
@@ -264,7 +320,7 @@ public class ProxyResource
 
     private static <T> T handleProxyException(Request request, ProxyException e)
     {
-        log.warn(e, "Proxy request failed: %s %s", request.getMethod(), request.getUri());
+        log.warn(e, "Proxy request failed: %s %s", request.method(), request.url());
         throw badRequest(BAD_GATEWAY, e.getMessage());
     }
 
@@ -284,10 +340,9 @@ public class ProxyResource
 
     private static Response responseWithHeaders(ResponseBuilder builder, ProxyResponse response)
     {
-        response.getHeaders().forEach((headerName, value) -> {
-            String name = headerName.toString();
+        response.getHeaders().names().forEach(name -> {
             if (isTrinoHeader(name) || name.equalsIgnoreCase(SET_COOKIE)) {
-                builder.header(name, value);
+                builder.header(name, response.getHeaders().get(name));
             }
         });
         return builder.build();
@@ -363,6 +418,28 @@ public class ProxyResource
         }
         catch (IOException | IllegalArgumentException e) {
             throw new RuntimeException("Failed to load shared secret file: " + file, e);
+        }
+    }
+
+    public static class ProxyResponse
+    {
+        private final Headers headers;
+        private final byte[] body;
+
+        ProxyResponse(Headers headers, byte[] body)
+        {
+            this.headers = requireNonNull(headers, "headers is null");
+            this.body = requireNonNull(body, "body is null");
+        }
+
+        public Headers getHeaders()
+        {
+            return headers;
+        }
+
+        public byte[] getBody()
+        {
+            return body;
         }
     }
 }

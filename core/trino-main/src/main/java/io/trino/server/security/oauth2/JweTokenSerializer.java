@@ -112,7 +112,7 @@ public class JweTokenSerializer
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Map<String, Object> claims = client.getClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Claims are missing"));
+        Map<String, Object> claims = client.getAccessTokenClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Access Token claims are missing"));
         if (!claims.containsKey(principalField)) {
             throw new IllegalArgumentException(format("%s field is missing", principalField));
         }

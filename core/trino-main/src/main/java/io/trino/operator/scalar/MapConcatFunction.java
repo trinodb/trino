@@ -55,7 +55,6 @@ public final class MapConcatFunction
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapConcatFunction.class,
             "mapConcat",
-            MapType.class,
             BlockPositionIsIdentical.class,
             BlockPositionHashCode.class,
             Object.class,
@@ -94,7 +93,7 @@ public final class MapConcatFunction
                 SqlMap.class,
                 SqlMap.class,
                 boundSignature.getArity(),
-                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keysIdenticalOperator, keyHashCode),
+                MethodHandles.insertArguments(METHOD_HANDLE, 0, keysIdenticalOperator, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
         return new ChoicesSpecializedSqlScalarFunction(
@@ -112,7 +111,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static SqlMap mapConcat(MapType mapType, BlockPositionIsIdentical keysIdenticalOperator, BlockPositionHashCode keyHashCode, Object state, SqlMap[] maps)
+    public static SqlMap mapConcat(BlockPositionIsIdentical keysIdenticalOperator, BlockPositionHashCode keyHashCode, Object state, SqlMap[] maps)
     {
         int maxEntries = 0;
         int lastMapIndex = maps.length - 1;
@@ -133,9 +132,7 @@ public final class MapConcatFunction
 
         BufferedMapValueBuilder mapValueBuilder = (BufferedMapValueBuilder) state;
 
-        Type keyType = mapType.getKeyType();
-        Type valueType = mapType.getValueType();
-        BlockSet set = new BlockSet(keyType, keysIdenticalOperator, keyHashCode, maxEntries);
+        BlockSet set = new BlockSet(keysIdenticalOperator, keyHashCode, maxEntries);
         return mapValueBuilder.build(maxEntries, (keyBuilder, valueBuilder) -> {
             // the last map
             SqlMap map = maps[last];
@@ -144,7 +141,7 @@ public final class MapConcatFunction
             Block rawValueBlock = map.getRawValueBlock();
             for (int i = 0; i < map.getSize(); i++) {
                 set.add(rawKeyBlock, rawOffset + i);
-                writeEntry(keyType, valueType, keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
+                writeEntry(keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
             }
 
             // the map between the last and the first
@@ -155,7 +152,7 @@ public final class MapConcatFunction
                 rawValueBlock = map.getRawValueBlock();
                 for (int i = 0; i < map.getSize(); i++) {
                     if (set.add(rawKeyBlock, rawOffset + i)) {
-                        writeEntry(keyType, valueType, keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
+                        writeEntry(keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
                     }
                 }
             }
@@ -167,15 +164,15 @@ public final class MapConcatFunction
             rawValueBlock = map.getRawValueBlock();
             for (int i = 0; i < map.getSize(); i++) {
                 if (!set.contains(rawKeyBlock, rawOffset + i)) {
-                    writeEntry(keyType, valueType, keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
+                    writeEntry(keyBuilder, valueBuilder, rawKeyBlock, rawValueBlock, rawOffset + i);
                 }
             }
         });
     }
 
-    private static void writeEntry(Type keyType, Type valueType, BlockBuilder keyBuilder, BlockBuilder valueBuilder, Block rawKeyBlock, Block rawValueBlock, int rawIndex)
+    private static void writeEntry(BlockBuilder keyBuilder, BlockBuilder valueBuilder, Block rawKeyBlock, Block rawValueBlock, int rawIndex)
     {
-        keyType.appendTo(rawKeyBlock, rawIndex, keyBuilder);
-        valueType.appendTo(rawValueBlock, rawIndex, valueBuilder);
+        keyBuilder.append(rawKeyBlock.getUnderlyingValueBlock(), rawKeyBlock.getUnderlyingValuePosition(rawIndex));
+        valueBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(rawIndex));
     }
 }

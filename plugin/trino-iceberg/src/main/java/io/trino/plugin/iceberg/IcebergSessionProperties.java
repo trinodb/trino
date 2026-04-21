@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -49,7 +48,6 @@ import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MA
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_SIZE;
 import static io.trino.plugin.hive.parquet.ParquetWriterConfig.PARQUET_WRITER_MIN_PAGE_VALUE_COUNT;
 import static io.trino.plugin.iceberg.IcebergConfig.COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION;
-import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_DESCRIPTION;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
@@ -65,7 +63,6 @@ public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String SPLIT_SIZE = "experimental_split_size";
-    private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -95,7 +92,6 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
-    public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
@@ -110,6 +106,7 @@ public final class IcebergSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
     public static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -129,12 +126,6 @@ public final class IcebergSessionProperties
                         // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
                         null,
                         true))
-                .add(enumProperty(
-                        COMPRESSION_CODEC,
-                        "Compression codec to use when writing files",
-                        HiveCompressionCodec.class,
-                        icebergConfig.getCompressionCodec(),
-                        false))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
                         "Use file size stored in Iceberg metadata",
@@ -310,11 +301,6 @@ public final class IcebergSessionProperties
                         icebergConfig.isTableStatisticsEnabled(),
                         false))
                 .add(booleanProperty(
-                        EXTENDED_STATISTICS_ENABLED,
-                        EXTENDED_STATISTICS_DESCRIPTION,
-                        icebergConfig.isExtendedStatisticsEnabled(),
-                        false))
-                .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a row type",
                         icebergConfig.isProjectionPushdownEnabled(),
@@ -397,6 +383,18 @@ public final class IcebergSessionProperties
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: use physical bucketing information to optimize queries",
                         icebergConfig.isBucketExecutionEnabled(),
+                        false))
+                .add(integerProperty(
+                        MAX_PARTITIONS_PER_WRITER,
+                        "Maximum number of partitions per writer",
+                        icebergConfig.getMaxPartitionsPerWriter(),
+                        value -> {
+                            if (value < 1 || value > icebergConfig.getMaxPartitionsPerWriter()) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 1 and %s", MAX_PARTITIONS_PER_WRITER, icebergConfig.getMaxPartitionsPerWriter()));
+                            }
+                        },
                         false))
                 .build();
     }
@@ -499,11 +497,6 @@ public final class IcebergSessionProperties
         return Optional.ofNullable(session.getProperty(SPLIT_SIZE, DataSize.class));
     }
 
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
-    {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
-    }
-
     public static boolean isUseFileSizeFromMetadata(ConnectorSession session)
     {
         return session.getProperty(USE_FILE_SIZE_FROM_METADATA, Boolean.class);
@@ -567,11 +560,6 @@ public final class IcebergSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
-    }
-
-    public static boolean isExtendedStatisticsEnabled(ConnectorSession session)
-    {
-        return session.getProperty(EXTENDED_STATISTICS_ENABLED, Boolean.class);
     }
 
     public static boolean isCollectExtendedStatisticsOnWrite(ConnectorSession session)
@@ -645,5 +633,10 @@ public final class IcebergSessionProperties
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static int maxPartitionsPerWriter(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
     }
 }

@@ -62,13 +62,21 @@ public final class DeletionVectors
     public static RoaringBitmapArray readDeletionVectors(TrinoFileSystem fileSystem, Location location, DeletionVectorEntry deletionVector)
             throws IOException
     {
-        if (deletionVector.storageType().equals(UUID_MARKER)) {
-            TrinoInputFile inputFile = fileSystem.newInputFile(location.appendPath(toFileName(deletionVector.pathOrInlineDv())));
-            ByteBuffer buffer = readDeletionVector(inputFile, deletionVector.offset().orElseThrow(), deletionVector.sizeInBytes());
-            return deserializeDeletionVectors(buffer);
-        }
-        if (deletionVector.storageType().equals(INLINE_MARKER) || deletionVector.storageType().equals(PATH_MARKER)) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported storage type for deletion vector: " + deletionVector.storageType());
+        switch (deletionVector.storageType()) {
+            case UUID_MARKER -> {
+                TrinoInputFile inputFile = fileSystem.newInputFile(location.appendPath(toFileName(deletionVector.pathOrInlineDv())));
+                ByteBuffer buffer = readDeletionVector(inputFile, deletionVector.offset().orElseThrow(), deletionVector.sizeInBytes());
+                return deserializeDeletionVectors(buffer);
+            }
+            case PATH_MARKER -> {
+                TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(deletionVector.pathOrInlineDv()));
+                if (!inputFile.exists()) {
+                    throw new IllegalArgumentException("Unable to find 'p' type deletion vector by path: " + deletionVector.pathOrInlineDv());
+                }
+                ByteBuffer buffer = readDeletionVector(inputFile, deletionVector.offset().orElseThrow(), deletionVector.sizeInBytes());
+                return deserializeDeletionVectors(buffer);
+            }
+            case INLINE_MARKER -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage type for deletion vector: " + deletionVector.storageType());
         }
         throw new IllegalArgumentException("Unexpected storage type: " + deletionVector.storageType());
     }

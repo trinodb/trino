@@ -16,8 +16,8 @@ package io.trino.cost;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
 
 import java.util.Set;
@@ -42,7 +42,7 @@ public class TaskCountEstimator
         boolean schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         requireNonNull(nodeManager, "nodeManager is null");
         this.numberOfNodes = () -> {
-            Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
+            Set<InternalNode> activeNodes = nodeManager.getAllNodes().activeNodes();
             int count;
             if (schedulerIncludeCoordinator) {
                 count = activeNodes.size();

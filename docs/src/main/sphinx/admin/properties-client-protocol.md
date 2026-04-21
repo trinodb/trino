@@ -12,6 +12,7 @@ The following properties are related to the [](protocol-spooling).
 
 - **Type:** [](prop-type-boolean)
 - **Default value:** `true`
+- **Session property:** `spooling_enabled`
 
 Enable the support for the client [](protocol-spooling). The protocol is used if
 client drivers and applications request usage, otherwise the direct protocol is
@@ -22,7 +23,11 @@ used automatically.
 - **Type:** [](prop-type-string)
 
 A required 256 bit, base64-encoded secret key used to secure spooled metadata
-exchanged with the client.
+exchanged with the client. Create a suitable value with the following command:
+
+```shell
+openssl rand -base64 32
+```
 
 ### `protocol.spooling.retrieval-mode`
 
@@ -70,8 +75,8 @@ segments.
 ### `protocol.spooling.encoding.compression.threshold`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** `8KB`
-- **Minimum value:** `1KB`
+- **Default value:** `8kB`
+- **Minimum value:** `1kB`
 - **Maximum value:** `4MB`
 
 Threshold for enabling compression with larger segments.
@@ -79,14 +84,20 @@ Threshold for enabling compression with larger segments.
 ### `protocol.spooling.initial-segment-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 8MB
+- **Default value:** `8MB`
+- **Minimum value:** `1kB`
+- **Maximum value:** `128MB`
+- **Session property:** `spooling_initial_segment_size`
 
 Initial size of the spooled segments.
 
-### `protocol.spooling.maximum-segment-size`
+### `protocol.spooling.max-segment-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 16MB
+- **Default value:** `16MB`
+- **Minimum value:** `1kB`
+- **Maximum value:** `128MB`
+- **Session property:** `spooling_max_segment_size`
 
 Maximum size for each spooled segment.
 
@@ -94,6 +105,7 @@ Maximum size for each spooled segment.
 
 - **Type:** [](prop-type-boolean)
 - **Default value:** `true`
+- **Session property:** `spooling_inlining_enabled`
 
 Allow spooled protocol to inline initial rows to decrease time to return the
 first row.
@@ -101,14 +113,20 @@ first row.
 ### `protocol.spooling.inlining.max-rows`
 
 - **Type:** [](prop-type-integer)
-- **Default value:** 1000
+- **Default value:** `1000`
+- **Minimum value:** `1`
+- **Maximum value:** `1000000`
+- **Session property:** `spooling_inlining_max_rows`
 
 Maximum number of rows to inline per worker.
 
 ### `protocol.spooling.inlining.max-size`
 
 - **Type:** [](prop-type-data-size)
-- **Default value:** 128kB
+- **Default value:** `128kB`
+- **Minimum value:** `1kB`
+- **Maximum value:** `1MB`
+- **Session property:** `spooling_inlining_max_size`
 
 Maximum size of rows to inline per worker.
 
@@ -147,18 +165,28 @@ The object storage location to use for spooling segments. Must be accessible by
 the coordinator and all workers. With the `protocol.spooling.retrieval-mode`
 retrieval modes `STORAGE` and `COORDINATOR_STORAGE_REDIRECT` the location must
 also be accessible by all clients. Valid location values vary by object storage
-type, and typically follow a pattern of `scheme://bucketName/path/`.
+type, and follow these patterns:
 
 Examples:
 
-* `s3://my-spooling-bucket/my-segments/`
+* **S3:** `s3://my-spooling-bucket/my-segments/`
+* **Azure Storage:** `abfss://my-spooling-container@account.dfs.core.windows.net/my-segments/`
+* **Google Cloud Storage:** `gs://my-spooling-bucket/my-segments/`
+
+:::{note}
+For Azure Storage, use the ABFS format with hierarchical namespace enabled. 
+The legacy WASB format (`wasbs://` or `wasb://`) is also supported but deprecated.
+:::
 
 :::{caution}
-When using the same object storage for spooling from multiple Trino clusters,
-you must use separate locations for each cluster. For example:
+The specified object storage location must not be used for spooling for another
+Trino cluster or any object storage catalog. When using the same object storage
+for multiple services, you must use separate locations for each one. For
+example:
 
-* `s3://my-spooling-bucket/my-segments/cluster1`
-* `s3://my-spooling-bucket/my-segments/cluster2`
+* `s3://my-spooling-bucket/my-segments/cluster1-spooling/`
+* `s3://my-spooling-bucket/my-segments/cluster2-spooling/`
+* `s3://my-spooling-bucket/my-segments/iceberg-catalog/`
 :::
 
 ### `fs.segment.ttl`
@@ -209,7 +237,7 @@ Interval to prune expired segments.
 
 ### `fs.segment.pruning.batch-size`
 
-- **Type:** integer
+- **Type:** [](prop-type-integer)
 - **Default value:** `250`
 
 Number of expired segments to prune as a single batch operation.
@@ -238,4 +266,3 @@ size limits.
 Prepared statement compression is not applied if the size gain is less than the
 configured value. Smaller statements do not benefit from compression, and are
 left uncompressed.
-

@@ -39,6 +39,11 @@ public final class StandardFunctions
      * $nullif is a function accepting two arguments. Returns null if both values are the same, otherwise returns the first value.
      */
     public static final FunctionName NULLIF_FUNCTION_NAME = new FunctionName("$nullif");
+    /**
+     * $coalesce is a vararg function accepting at least two arguments of the same type.
+     * Returns the first non-null value, or null if all values are null.
+     */
+    public static final FunctionName COALESCE_FUNCTION_NAME = new FunctionName("$coalesce");
 
     /**
      * $cast function result type is determined by the {@link Call#getType()}
@@ -52,6 +57,9 @@ public final class StandardFunctions
     public static final FunctionName LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$less_than_or_equal");
     public static final FunctionName GREATER_THAN_OPERATOR_FUNCTION_NAME = new FunctionName("$greater_than");
     public static final FunctionName GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME = new FunctionName("$greater_than_or_equal");
+    /**
+     * $identical function is equivalent to the SQL operator "IS NOT DISTINCT FROM".
+     */
     public static final FunctionName IDENTICAL_OPERATOR_FUNCTION_NAME = new FunctionName("$identical");
 
     /**

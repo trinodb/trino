@@ -34,6 +34,7 @@ import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 
 public class SingleStoreClientModule
         implements Module
@@ -45,7 +46,7 @@ public class SingleStoreClientModule
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         configBinder(binder).bindConfig(SingleStoreJdbcConfig.class);
         configBinder(binder).bindConfig(SingleStoreConfig.class);
-        binder.install(new DecimalModule());
+        binder.install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 

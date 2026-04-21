@@ -16,19 +16,14 @@ package io.trino.tests.product.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -38,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeSystemTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTablePropertiesCaseSensitivity()
     {
         String tableName = "test_dl_table_properties_case_sensitivity_" + randomNameSuffix();
@@ -79,7 +73,7 @@ public class TestDeltaLakeSystemTableCompatibility
         List<Row> expectedRows = ImmutableList.of(
                 row("delta.columnMapping.mode", "id"),
                 row("delta.feature.columnMapping", "supported"),
-                row("delta.minReaderVersion", "3"),
+                row("delta.minReaderVersion", "2"), // https://github.com/delta-io/delta/issues/4024 Delta Lake 3.3.0 ignores minReaderVersion
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
@@ -106,15 +100,15 @@ public class TestDeltaLakeSystemTableCompatibility
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
 
         List<Row> expectedBeforeDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":11,\"max\":19,\"null_count\":0}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1398L, "{\"b\":{\"min\":11,\"max\":19,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
 
         List<Row> expectedAfterFirstDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 932L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":13,\"max\":13,\"null_count\":0}}"));
 
         List<Row> expectedAfterSecondDelete = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 898L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 2L, 932L, "{\"b\":{\"min\":11,\"max\":17,\"null_count\":0}}"));
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2')");
@@ -142,9 +136,9 @@ public class TestDeltaLakeSystemTableCompatibility
                 "TBLPROPERTIES ('delta.dataSkippingNumIndexedCols' = 0)");
 
         List<Row> expected = ImmutableList.of(
-                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1347L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
-                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 449L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
-                row("{\"a\":1,\"c\":\"varchar_3\"}", 1L, 413L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"));
+                row("{\"a\":1,\"c\":\"varchar_1\"}", 3L, 1398L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_2\"}", 1L, 466L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"),
+                row("{\"a\":1,\"c\":\"varchar_3\"}", 1L, 429L, "{\"b\":{\"min\":null,\"max\":null,\"null_count\":null}}"));
 
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11, 'varchar_1'), (1, 19, 'varchar_1'), (1, 17, 'varchar_1'), (1, 13, 'varchar_2'), (1, NULL, 'varchar_3')");

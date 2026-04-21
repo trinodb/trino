@@ -17,7 +17,7 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.util.FinalizerService;
 
 import java.util.Set;
@@ -97,13 +97,13 @@ public class NodeTaskMap
         {
             if (remoteTasks.add(task)) {
                 // Check if task state is already done before adding the listener
-                if (task.getTaskStatus().getState().isDone()) {
+                if (task.getTaskStatus().state().isDone()) {
                     remoteTasks.remove(task);
                     return;
                 }
 
                 task.addStateChangeListener(taskStatus -> {
-                    if (taskStatus.getState().isDone()) {
+                    if (taskStatus.state().isDone()) {
                         remoteTasks.remove(task);
                     }
                 });

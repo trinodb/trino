@@ -102,7 +102,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         RowNumberNode rowNumber = captures.get(ROW_NUMBER);
 
         Symbol rowNumberSymbol = rowNumber.getRowNumberSymbol();
-        if (!project.getAssignments().getSymbols().contains(rowNumberSymbol)) {
+        if (!project.getAssignments().outputs().contains(rowNumberSymbol)) {
             return Result.empty();
         }
 
@@ -126,8 +126,7 @@ public class PushPredicateThroughProjectIntoRowNumber
                     rowNumber.getPartitionBy(),
                     rowNumber.isOrderSensitive(),
                     rowNumber.getRowNumberSymbol(),
-                    Optional.of(upperBound.getAsInt()),
-                    rowNumber.getHashSymbol());
+                    Optional.of(upperBound.getAsInt()));
             project = (ProjectNode) project.replaceChildren(ImmutableList.of(rowNumber));
             updatedMaxRowCountPerPartition = true;
         }

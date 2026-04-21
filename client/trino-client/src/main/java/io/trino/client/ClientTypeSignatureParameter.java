@@ -19,12 +19,13 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.errorprone.annotations.Immutable;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -101,12 +102,31 @@ public class ClientTypeSignatureParameter
 
     public ClientTypeSignature getTypeSignature()
     {
-        return getValue(ParameterKind.TYPE, ClientTypeSignature.class);
+        switch (kind) {
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getTypeSignature();
+            case TYPE:
+                return (ClientTypeSignature) value;
+            default:
+                throw new IllegalArgumentException(format("Parameter kind is [%s]", kind));
+        }
     }
 
     public Long getLongLiteral()
     {
         return getValue(ParameterKind.LONG, Long.class);
+    }
+
+    public Optional<String> getName()
+    {
+        switch (kind) {
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getName();
+            case TYPE:
+                return Optional.empty();
+            default:
+                throw new IllegalArgumentException(format("Parameter kind is [%s]", kind));
+        }
     }
 
     public NamedClientTypeSignature getNamedTypeSignature()
@@ -145,13 +165,13 @@ public class ClientTypeSignatureParameter
     public static class ClientTypeSignatureParameterDeserializer
             extends JsonDeserializer<ClientTypeSignatureParameter>
     {
-        private static final ObjectMapper MAPPER = JsonCodec.OBJECT_MAPPER_SUPPLIER.get();
+        private static final JsonMapper MAPPER = TrinoJsonCodec.JSON_MAPPER_SUPPLIER.get();
 
         @Override
-        public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)
+        public ClientTypeSignatureParameter deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException
         {
-            JsonNode node = jp.getCodec().readTree(jp);
+            JsonNode node = context.readTree(parser);
             ParameterKind kind = MAPPER.readValue(MAPPER.treeAsTokens(node.get("kind")), ParameterKind.class);
             JsonParser jsonValue = MAPPER.treeAsTokens(node.get("value"));
             Object value;

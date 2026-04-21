@@ -17,16 +17,17 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestOpaConfig
+final class TestOpaConfig
 {
     @Test
-    public void testDefaults()
+    void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(OpaConfig.class)
                 .setOpaUri(null)
@@ -36,11 +37,12 @@ public class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(null)
                 .setLogRequests(false)
                 .setLogResponses(false)
-                .setAllowPermissionManagementOperations(false));
+                .setAllowPermissionManagementOperations(false)
+                .setAdditionalContextFile(null));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("opa.policy.uri", "https://opa.example.com")
@@ -51,6 +53,7 @@ public class TestOpaConfig
                 .put("opa.log-requests", "true")
                 .put("opa.log-responses", "true")
                 .put("opa.allow-permission-management-operations", "true")
+                .put("opa.context-file", "src/test/resources/additional-context.properties")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
@@ -61,7 +64,8 @@ public class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
                 .setLogRequests(true)
                 .setLogResponses(true)
-                .setAllowPermissionManagementOperations(true);
+                .setAllowPermissionManagementOperations(true)
+                .setAdditionalContextFile(Path.of("src/test/resources/additional-context.properties"));
 
         assertFullMapping(properties, expected);
     }

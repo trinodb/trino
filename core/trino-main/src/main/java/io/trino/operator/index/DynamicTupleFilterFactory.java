@@ -25,12 +25,14 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.relational.Expressions;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
@@ -38,6 +40,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicTupleFilterFactory
@@ -82,8 +85,16 @@ public class DynamicTupleFilterFactory
                 .collect(toImmutableList());
 
         this.outputTypes = ImmutableList.copyOf(outputTypes);
+        Map<Symbol, Integer> projectionLayout = IntStream.range(0, outputTypes.size())
+                .boxed()
+                .collect(toImmutableMap(
+                        field -> new Symbol(outputTypes.get(field), "$field_" + field),
+                        field -> field));
         this.outputProjections = IntStream.range(0, outputTypes.size())
-                .mapToObj(field -> pageFunctionCompiler.compileProjection(Expressions.field(field, outputTypes.get(field)), Optional.empty()))
+                .mapToObj(field -> {
+                    Reference ref = new Reference(outputTypes.get(field), "$field_" + field);
+                    return pageFunctionCompiler.compileProjection(ref, projectionLayout, Optional.empty());
+                })
                 .collect(toImmutableList());
     }
 

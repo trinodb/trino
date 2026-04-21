@@ -109,7 +109,7 @@ public final class MongoQueryRunner
         return MongoClients.create(server.getConnectionString());
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new MongoServer())

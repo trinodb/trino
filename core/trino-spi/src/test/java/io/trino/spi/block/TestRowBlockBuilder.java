@@ -24,8 +24,9 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestRowBlockBuilder
+final class TestRowBlockBuilder
         extends AbstractTestBlockBuilder<TestRowBlockBuilder.TestRow>
 {
     @Test
@@ -39,6 +40,62 @@ public class TestRowBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
+    }
+
+    @Test
+    void buildEntry()
+    {
+        List<TestRow> values = getTestValues();
+        assertThat(values)
+                .hasSize(5)
+                .doesNotHaveDuplicates()
+                .doesNotContainNull()
+                .doesNotContain(getUnusedTestValue());
+
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        for (TestRow row : values) {
+            blockBuilder.buildEntry(fieldBuilders -> {
+                if (row.name() == null) {
+                    fieldBuilders.getFirst().appendNull();
+                }
+                else {
+                    VARCHAR.writeString(fieldBuilders.getFirst(), row.name());
+                }
+                INTEGER.writeLong(fieldBuilders.get(1), row.number());
+                BOOLEAN.writeBoolean(fieldBuilders.get(2), row.flag());
+            });
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        for (TestRow row : values) {
+            RowEntryBuilder rowEntryBuilder = blockBuilder.buildEntry();
+            if (row.name() == null) {
+                rowEntryBuilder.getFieldBuilder(0).appendNull();
+            }
+            else {
+                VARCHAR.writeString(rowEntryBuilder.getFieldBuilder(0), row.name());
+            }
+            INTEGER.writeLong(rowEntryBuilder.getFieldBuilder(1), row.number());
+            BOOLEAN.writeBoolean(rowEntryBuilder.getFieldBuilder(2), row.flag());
+            rowEntryBuilder.build();
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        blockBuilder.buildEntry();
+        assertThatThrownBy(blockBuilder::buildEntry).isInstanceOf(IllegalStateException.class);
+
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        RowEntryBuilder incompleteEntryBuilder = blockBuilder.buildEntry();
+        assertThatThrownBy(incompleteEntryBuilder::build).isInstanceOf(IllegalStateException.class);
+
+        blockBuilder = new RowBlockBuilder(List.of(BOOLEAN), null, 1);
+        RowEntryBuilder multipleEntryBuilder = blockBuilder.buildEntry();
+        BOOLEAN.writeBoolean(multipleEntryBuilder.getFieldBuilder(0), true);
+        multipleEntryBuilder.build();
+        assertThatThrownBy(() -> multipleEntryBuilder.getFieldBuilder(0)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(multipleEntryBuilder::build).isInstanceOf(IllegalStateException.class);
     }
 
     private static BlockBuilder blockBuilder()
@@ -120,7 +177,7 @@ public class TestRowBlockBuilder
             else {
                 SqlRow sqlRow = block.getRow(i);
                 actualValues.add(new TestRow(
-                        (String) VARCHAR.getObjectValue(null, sqlRow.getUnderlyingFieldBlock(0), sqlRow.getUnderlyingFieldPosition(0)),
+                        (String) VARCHAR.getObjectValue(sqlRow.getUnderlyingFieldBlock(0), sqlRow.getUnderlyingFieldPosition(0)),
                         INTEGER.getInt(sqlRow.getUnderlyingFieldBlock(1), sqlRow.getUnderlyingFieldPosition(1)),
                         BOOLEAN.getBoolean(sqlRow.getUnderlyingFieldBlock(2), sqlRow.getUnderlyingFieldPosition(2))));
             }

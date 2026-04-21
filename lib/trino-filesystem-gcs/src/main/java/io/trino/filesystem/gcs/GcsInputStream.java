@@ -15,7 +15,6 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
-import com.google.common.primitives.Ints;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
 
@@ -63,9 +62,10 @@ public class GcsInputStream
     public int available()
             throws IOException
     {
+        // Not needed per contract, but complies with AbstractTestTrinoFileSystem expectations easier.
+        // It's easer to just check "is open?" in available() than refactor that test.
         ensureOpen();
-        repositionStream();
-        return Ints.saturatedCast(fileSize - currentPosition);
+        return super.available();
     }
 
     @Override

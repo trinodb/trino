@@ -22,7 +22,10 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.util.PowerOfTwo;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -45,6 +48,7 @@ import static java.math.BigDecimal.TWO;
         "task.operator-pre-allocated-memory",
         "task.shard.max-threads",
         "task.verbose-stats",
+        "task.statistics-cpu-timer-enabled",
 })
 public class TaskManagerConfig
 {
@@ -53,7 +57,6 @@ public class TaskManagerConfig
     private boolean threadPerDriverSchedulerEnabled = true;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
-    private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = DataSize.of(128, Unit.MEGABYTE);
@@ -72,7 +75,7 @@ public class TaskManagerConfig
     private int pagePartitioningBufferPoolSize = 8;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
-    private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration infoMaxAge = new Duration(5, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
@@ -84,6 +87,7 @@ public class TaskManagerConfig
     private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
 
     private boolean scaleWritersEnabled = true;
+    private double scaleWritersMaxWriterMemoryPercentage = 70.0;
     private int minWriterCount = 1;
     // Set the value of default max writer count to the number of processors * 2 and cap it to 64. It should be
     // above 1, otherwise it can create a plan with a single gather exchange node on the coordinator due to a single
@@ -188,18 +192,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
     {
         this.taskCpuTimerEnabled = taskCpuTimerEnabled;
-        return this;
-    }
-
-    public boolean isStatisticsCpuTimerEnabled()
-    {
-        return statisticsCpuTimerEnabled;
-    }
-
-    @Config("task.statistics-cpu-timer-enabled")
-    public TaskManagerConfig setStatisticsCpuTimerEnabled(boolean statisticsCpuTimerEnabled)
-    {
-        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         return this;
     }
 
@@ -456,6 +448,21 @@ public class TaskManagerConfig
         return this;
     }
 
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getScaleWritersMaxWriterMemoryPercentage()
+    {
+        return scaleWritersMaxWriterMemoryPercentage;
+    }
+
+    @Config("task.scale-writers.max-writer-memory-percentage")
+    @ConfigDescription("Maximum percentage of memory per node that can be used by task scale writers before stopping writer scaling")
+    public TaskManagerConfig setScaleWritersMaxWriterMemoryPercentage(double scaleWritersMaxWriterMemoryPercentage)
+    {
+        this.scaleWritersMaxWriterMemoryPercentage = scaleWritersMaxWriterMemoryPercentage;
+        return this;
+    }
+
     @Deprecated
     @LegacyConfig(value = "task.scale-writers.max-writer-count", replacedBy = "task.max-writer-count")
     @ConfigDescription("Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set")
@@ -525,9 +532,9 @@ public class TaskManagerConfig
     }
 
     @Config("task.http-response-threads")
-    public TaskManagerConfig setHttpResponseThreads(int httpResponseThreads)
+    public TaskManagerConfig setHttpResponseThreads(String httpResponseThreads)
     {
-        this.httpResponseThreads = httpResponseThreads;
+        this.httpResponseThreads = ThreadCountParser.DEFAULT.parse(httpResponseThreads);
         return this;
     }
 
@@ -538,9 +545,9 @@ public class TaskManagerConfig
     }
 
     @Config("task.http-timeout-threads")
-    public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
+    public TaskManagerConfig setHttpTimeoutThreads(String httpTimeoutThreads)
     {
-        this.httpTimeoutThreads = httpTimeoutThreads;
+        this.httpTimeoutThreads = ThreadCountParser.DEFAULT.parse(httpTimeoutThreads);
         return this;
     }
 
@@ -552,9 +559,9 @@ public class TaskManagerConfig
 
     @Config("task.task-notification-threads")
     @ConfigDescription("Number of threads used for internal task event notifications")
-    public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
+    public TaskManagerConfig setTaskNotificationThreads(String taskNotificationThreads)
     {
-        this.taskNotificationThreads = taskNotificationThreads;
+        this.taskNotificationThreads = ThreadCountParser.DEFAULT.parse(taskNotificationThreads);
         return this;
     }
 
@@ -566,9 +573,9 @@ public class TaskManagerConfig
 
     @Config("task.task-yield-threads")
     @ConfigDescription("Number of threads used for setting yield signals")
-    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    public TaskManagerConfig setTaskYieldThreads(String taskYieldThreads)
     {
-        this.taskYieldThreads = taskYieldThreads;
+        this.taskYieldThreads = ThreadCountParser.DEFAULT.parse(taskYieldThreads);
         return this;
     }
 
@@ -580,9 +587,9 @@ public class TaskManagerConfig
 
     @Config("task.driver-timeout-threads")
     @ConfigDescription("Number of threads used for timing out blocked drivers if the timeout is set")
-    public TaskManagerConfig setDriverTimeoutThreads(int driverTimeoutThreads)
+    public TaskManagerConfig setDriverTimeoutThreads(String driverTimeoutThreads)
     {
-        this.driverTimeoutThreads = driverTimeoutThreads;
+        this.driverTimeoutThreads = ThreadCountParser.DEFAULT.parse(driverTimeoutThreads);
         return this;
     }
 

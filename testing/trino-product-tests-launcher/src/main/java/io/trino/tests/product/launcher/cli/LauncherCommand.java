@@ -47,6 +47,7 @@ public abstract class LauncherCommand
             throws Exception
     {
         Bootstrap app = new Bootstrap(
+                "launcher",
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule(outputStream))
                         .addAll(getCommandModules())

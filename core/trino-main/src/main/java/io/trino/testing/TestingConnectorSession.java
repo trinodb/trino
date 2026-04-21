@@ -119,7 +119,7 @@ public class TestingConnectorSession
     {
         PropertyMetadata<?> metadata = properties.get(name);
         if (metadata == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property '%s' does not exist".formatted(name));
         }
         Object value = propertyValues.get(name);
         if (value == null) {

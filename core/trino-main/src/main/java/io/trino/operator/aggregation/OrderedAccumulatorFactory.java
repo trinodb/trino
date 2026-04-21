@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
+import io.trino.operator.PagesIndexOrdering;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -31,6 +33,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Long.max;
@@ -107,9 +110,9 @@ public class OrderedAccumulatorFactory
     {
         private final Accumulator accumulator;
         private final int[] argumentChannels;
-        private final List<Integer> orderByChannels;
-        private final List<SortOrder> orderings;
-        private final PagesIndex pagesIndex;
+        private final PagesIndexOrdering pagesIndexOrdering;
+        @Nullable
+        private PagesIndex pagesIndex; // null after evaluateFinal() is called
 
         private OrderedAccumulator(
                 Accumulator accumulator,
@@ -121,15 +124,20 @@ public class OrderedAccumulatorFactory
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.argumentChannels = Ints.toArray(argumentChannels);
-            this.orderByChannels = ImmutableList.copyOf(requireNonNull(orderByChannels, "orderByChannels is null"));
-            this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
             this.pagesIndex = pagesIndexFactory.newPagesIndex(aggregationSourceTypes, 10_000);
+            requireNonNull(orderByChannels, "orderByChannels is null");
+            requireNonNull(orderings, "orderings is null");
+            this.pagesIndexOrdering = pagesIndex.createPagesIndexComparator(orderByChannels, orderings);
         }
 
         @Override
         public long getEstimatedSize()
         {
-            return pagesIndex.getEstimatedSize().toBytes() + accumulator.getEstimatedSize();
+            long estimatedSize = accumulator.getEstimatedSize();
+            if (pagesIndex != null) {
+                estimatedSize += pagesIndex.getEstimatedSize().toBytes();
+            }
+            return estimatedSize;
         }
 
         @Override
@@ -141,6 +149,7 @@ public class OrderedAccumulatorFactory
         @Override
         public void addInput(Page page, AggregationMask mask)
         {
+            checkState(pagesIndex != null, "evaluateFinal() already called");
             pagesIndex.addPage(mask.filterPage(page));
         }
 
@@ -159,13 +168,16 @@ public class OrderedAccumulatorFactory
         @Override
         public void evaluateFinal(BlockBuilder blockBuilder)
         {
-            pagesIndex.sort(orderByChannels, orderings);
+            checkState(pagesIndex != null, "evaluateFinal() already called");
+            pagesIndex.sort(pagesIndexOrdering);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(arguments -> {
                 mask.reset(arguments.getPositionCount());
                 accumulator.addInput(arguments.getColumns(argumentChannels), mask);
             });
+            // release pagesIndex memory after transferring its contents into the accumulator
+            pagesIndex = null;
             accumulator.evaluateFinal(blockBuilder);
         }
     }
@@ -175,9 +187,9 @@ public class OrderedAccumulatorFactory
     {
         private final GroupedAccumulator accumulator;
         private final int[] argumentChannels;
-        private final List<Integer> orderByChannels;
-        private final List<SortOrder> orderings;
-        private final PagesIndex pagesIndex;
+        private final PagesIndexOrdering pagesIndexOrdering;
+        @Nullable
+        private PagesIndex pagesIndex; // null after prepareFinal() is called
         private long groupCount;
 
         private OrderingGroupedAccumulator(
@@ -191,19 +203,24 @@ public class OrderedAccumulatorFactory
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.argumentChannels = Ints.toArray(argumentChannels);
             requireNonNull(aggregationSourceTypes, "aggregationSourceTypes is null");
-            this.orderByChannels = ImmutableList.copyOf(requireNonNull(orderByChannels, "orderByChannels is null"));
-            this.orderings = ImmutableList.copyOf(requireNonNull(orderings, "orderings is null"));
             List<Type> pageIndexTypes = new ArrayList<>(aggregationSourceTypes);
             // Add group id column
             pageIndexTypes.add(INTEGER);
             this.pagesIndex = pagesIndexFactory.newPagesIndex(pageIndexTypes, 10_000);
+            requireNonNull(orderByChannels, "orderByChannels is null");
+            requireNonNull(orderings, "orderings is null");
+            this.pagesIndexOrdering = pagesIndex.createPagesIndexComparator(orderByChannels, orderings);
             this.groupCount = 0;
         }
 
         @Override
         public long getEstimatedSize()
         {
-            return pagesIndex.getEstimatedSize().toBytes() + accumulator.getEstimatedSize();
+            long estimatedSize = accumulator.getEstimatedSize();
+            if (pagesIndex != null) {
+                estimatedSize += pagesIndex.getEstimatedSize().toBytes();
+            }
+            return estimatedSize;
         }
 
         @Override
@@ -216,6 +233,7 @@ public class OrderedAccumulatorFactory
         @Override
         public void addInput(int[] groupIds, Page page, AggregationMask mask)
         {
+            checkState(pagesIndex != null, "prepareFinal() already called");
             if (mask.isSelectNone()) {
                 return;
             }
@@ -248,7 +266,8 @@ public class OrderedAccumulatorFactory
         @Override
         public void prepareFinal()
         {
-            pagesIndex.sort(orderByChannels, orderings);
+            checkState(pagesIndex != null, "prepareFinal() already called");
+            pagesIndex.sort(pagesIndexOrdering);
             Iterator<Page> pagesIterator = pagesIndex.getSortedPages();
             AggregationMask mask = AggregationMask.createSelectAll(0);
             pagesIterator.forEachRemaining(page -> {
@@ -258,6 +277,8 @@ public class OrderedAccumulatorFactory
                         page.getColumns(argumentChannels),
                         mask);
             });
+            // release pagesIndex memory after transferring its contents into the accumulator
+            pagesIndex = null;
         }
 
         private static int[] extractGroupIds(Page page)

@@ -13,13 +13,14 @@
  */
 package io.trino.spi.connector;
 
-import java.util.List;
+import io.trino.spi.expression.ConnectorExpression;
+
 import java.util.Map;
 import java.util.Optional;
 
 /**
  * Represents estimated statistics for join node and left and right table
- * passed to {@link ConnectorMetadata#applyJoin(ConnectorSession, JoinType, ConnectorTableHandle, ConnectorTableHandle, List, Map, Map, JoinStatistics)}
+ * passed to {@link ConnectorMetadata#applyJoin(ConnectorSession, JoinType, ConnectorTableHandle, ConnectorTableHandle, ConnectorExpression, Map, Map, JoinStatistics)}
  */
 public interface JoinStatistics
 {

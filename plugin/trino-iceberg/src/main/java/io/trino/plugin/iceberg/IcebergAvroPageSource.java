@@ -18,12 +18,14 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.avro.AvroIterable;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.data.avro.DataReader;
+import org.apache.iceberg.data.avro.PlannedDataReader;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.NameMapping;
@@ -31,29 +33,34 @@ import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.serializeToTrinoBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 
 public class IcebergAvroPageSource
         implements ConnectorPageSource
 {
+    private static final Set<String> ROW_LINEAGE_COLUMN_NAMES = Set.of(
+            ROW_ID.name(),
+            LAST_UPDATED_SEQUENCE_NUMBER.name());
+
     private final CloseableIterator<Record> recordIterator;
 
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final Map<String, org.apache.iceberg.types.Type> icebergTypes;
-    /**
-     * Indicates whether the column at each index should be populated with the
-     * indices of its rows
-     */
-    private final List<Boolean> rowIndexLocations;
+    private final boolean appendRowNumberColumn;
     private final PageBuilder pageBuilder;
     private final AggregatedMemoryContext memoryUsage;
 
@@ -69,34 +76,43 @@ public class IcebergAvroPageSource
             Optional<NameMapping> nameMapping,
             List<String> columnNames,
             List<Type> columnTypes,
-            List<Boolean> rowIndexLocations,
+            boolean appendRowNumberColumn,
+            OptionalLong fileFirstRowId,
+            long dataSequenceNumber,
             AggregatedMemoryContext memoryUsage)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-        this.rowIndexLocations = ImmutableList.copyOf(requireNonNull(rowIndexLocations, "rowIndexLocations is null"));
+        this.appendRowNumberColumn = appendRowNumberColumn;
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         checkArgument(
-                columnNames.size() == rowIndexLocations.size() && columnNames.size() == columnTypes.size(),
-                "names, rowIndexLocations, and types must correspond one-to-one-to-one");
+                columnNames.size() == columnTypes.size(),
+                "names and types must correspond one-to-one-to-one");
 
+        // Build idToConstant map for row lineage columns so PlannedDataReader can properly
+        // skip these fields when they exist in the file but are not being projected
+        Map<Integer, Object> idToConstant = new HashMap<>();
+        if (fileFirstRowId.isPresent()) {
+            idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.getAsLong());
+            idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber);
+        }
+
+        // Metadata row-lineage columns are not part of table schema JSON, but can be physically present in v3 files.
+        Schema schemaForProjection = columnNames.stream().anyMatch(ROW_LINEAGE_COLUMN_NAMES::contains)
+                ? MetadataColumns.schemaWithRowLineage(fileSchema)
+                : fileSchema;
         // The column orders in the generated schema might be different from the original order
-        Schema readSchema = fileSchema.select(columnNames);
+        Schema readSchema = schemaForProjection.select(columnNames);
         Avro.ReadBuilder builder = Avro.read(file)
                 .project(readSchema)
-                .createReaderFunc(DataReader::create)
+                .createReaderFunc(_ -> PlannedDataReader.create(readSchema, idToConstant))
                 .split(start, length);
         nameMapping.ifPresent(builder::withNameMapping);
         AvroIterable<Record> avroReader = builder.build();
         icebergTypes = readSchema.columns().stream()
                 .collect(toImmutableMap(Types.NestedField::name, Types.NestedField::type));
-        pageBuilder = new PageBuilder(columnTypes);
+        pageBuilder = new PageBuilder(appendRowNumberColumn ? ImmutableList.<Type>builder().addAll(columnTypes).add(BIGINT).build() : columnTypes);
         recordIterator = avroReader.iterator();
-    }
-
-    private boolean isIndexColumn(int column)
-    {
-        return rowIndexLocations.get(column);
     }
 
     @Override
@@ -118,7 +134,7 @@ public class IcebergAvroPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (!recordIterator.hasNext()) {
             return null;
@@ -131,13 +147,11 @@ public class IcebergAvroPageSource
             pageBuilder.declarePosition();
             Record record = recordIterator.next();
             for (int channel = 0; channel < columnTypes.size(); channel++) {
-                if (isIndexColumn(channel)) {
-                    BIGINT.writeLong(pageBuilder.getBlockBuilder(channel), rowId);
-                }
-                else {
-                    String name = columnNames.get(channel);
-                    serializeToTrinoBlock(columnTypes.get(channel), icebergTypes.get(name), pageBuilder.getBlockBuilder(channel), record.getField(name));
-                }
+                String name = columnNames.get(channel);
+                serializeToTrinoBlock(columnTypes.get(channel), icebergTypes.get(name), pageBuilder.getBlockBuilder(channel), record.getField(name));
+            }
+            if (appendRowNumberColumn) {
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(columnTypes.size()), rowId);
             }
             rowId++;
         }
@@ -146,7 +160,7 @@ public class IcebergAvroPageSource
         readBytes += page.getSizeInBytes();
         readTimeNanos += System.nanoTime() - start;
 
-        return page;
+        return SourcePage.create(page);
     }
 
     @Override

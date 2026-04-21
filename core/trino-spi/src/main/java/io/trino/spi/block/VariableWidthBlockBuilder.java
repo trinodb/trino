@@ -33,7 +33,7 @@ public class VariableWidthBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+    static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final BlockBuilderStatus blockBuilderStatus;
@@ -244,12 +244,15 @@ public class VariableWidthBlockBuilder
         boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawArrayBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
+                boolean isNull = rawValueIsNull[rawArrayBase + offset + i];
+                hasNullValue |= isNull;
+                hasNonNullValue |= !isNull;
+                if (hasNullValue & hasNonNullValue) {
+                    System.arraycopy(rawValueIsNull, rawArrayBase + offset + i, valueIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullValue = true;
+                    valueIsNull[positionCount + i] = isNull;
                 }
             }
         }

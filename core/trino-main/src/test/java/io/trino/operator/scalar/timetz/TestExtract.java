@@ -148,7 +148,7 @@ public class TestExtract
     {
         assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIME '12:34:56+08:35')")::evaluate)
                 .hasErrorCode(SYNTAX_ERROR)
-                .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
+                .hasMessageStartingWith("line 1:12: Invalid EXTRACT field MILLISECOND, valid fields are: ");
 
         assertThat(assertions.expression("millisecond(TIME '12:34:56+08:35')")).matches("BIGINT '0'");
         assertThat(assertions.expression("millisecond(TIME '12:34:56.1+08:35')")).matches("BIGINT '100'");

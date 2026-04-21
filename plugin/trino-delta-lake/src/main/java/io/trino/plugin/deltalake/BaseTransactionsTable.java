@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -29,7 +28,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -42,32 +40,29 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
 import static java.util.Objects.requireNonNull;
 
 public abstract class BaseTransactionsTable
         implements SystemTable
 {
-    private final SchemaTableName tableName;
-    private final String tableLocation;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaMetastoreTable table;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
 
     public BaseTransactionsTable(
-            SchemaTableName tableName,
-            String tableLocation,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaMetastoreTable table,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             ConnectorTableMetadata tableMetadata)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
+        this.table = requireNonNull(table, "table is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -88,16 +83,16 @@ public abstract class BaseTransactionsTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
         long snapshotVersion;
         try {
             // Verify the transaction log is readable
-            SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
-            transactionLogAccess.getMetadataEntry(session, tableSnapshot);
+            transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
         }
         catch (IOException e) {
-            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
+            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
         }
 
         int versionColumnIndex = IntStream.range(0, tableMetadata.getColumns().size())
@@ -140,52 +135,20 @@ public abstract class BaseTransactionsTable
             endVersionInclusive = Optional.of(snapshotVersion);
         }
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         try {
-            List<Transaction> transactions = loadNewTailBackward(fileSystem, tableLocation, startVersionExclusive, endVersionInclusive.get()).reversed();
-            return new FixedPageSource(buildPages(session, pagesBuilder, transactions));
+            checkArgument(endVersionInclusive.isPresent(), "endVersionInclusive must be present");
+            List<Transaction> transactions = loadNewTail(fileSystem, table.location(), startVersionExclusive, endVersionInclusive, DataSize.ofBytes(0)).getTransactions();
+            return new FixedPageSource(buildPages(session, pagesBuilder, transactions, fileSystem));
         }
         catch (TrinoException e) {
             throw e;
         }
         catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + tableLocation, e);
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + table.location(), e);
         }
     }
 
-    // Load a section of the Transaction Log JSON entries. Optionally from a given end version (inclusive) through an start version (exclusive)
-    private static List<Transaction> loadNewTailBackward(
-            TrinoFileSystem fileSystem,
-            String tableLocation,
-            Optional<Long> startVersion,
-            long endVersion)
-            throws IOException
-    {
-        ImmutableList.Builder<Transaction> transactionsBuilder = ImmutableList.builder();
-        String transactionLogDir = getTransactionLogDir(tableLocation);
-
-        long version = endVersion;
-        long entryNumber = version;
-        boolean endOfHead = false;
-
-        while (!endOfHead) {
-            Optional<List<DeltaLakeTransactionLogEntry>> results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
-            if (results.isPresent()) {
-                transactionsBuilder.add(new Transaction(version, results.get()));
-                version = entryNumber;
-                entryNumber--;
-            }
-            else {
-                // When there is a gap in the transaction log version, indicate the end of the current head
-                endOfHead = true;
-            }
-            if ((startVersion.isPresent() && version == startVersion.get() + 1) || entryNumber < 0) {
-                endOfHead = true;
-            }
-        }
-        return transactionsBuilder.build();
-    }
-
-    protected abstract List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions);
+    protected abstract List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
+            throws IOException;
 }

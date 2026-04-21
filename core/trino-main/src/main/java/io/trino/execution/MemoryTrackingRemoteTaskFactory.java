@@ -20,12 +20,14 @@ import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -51,6 +53,7 @@ public class MemoryTrackingRemoteTaskFactory
             InternalNode node,
             boolean speculative,
             PlanFragment fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -65,6 +68,7 @@ public class MemoryTrackingRemoteTaskFactory
                 node,
                 speculative,
                 fragment,
+                tableCredentials,
                 initialSplits,
                 outputBuffers,
                 partitionedSplitCountTracker,
@@ -91,8 +95,8 @@ public class MemoryTrackingRemoteTaskFactory
         @Override
         public synchronized void stateChanged(TaskStatus newStatus)
         {
-            long currentUserMemory = newStatus.getMemoryReservation().toBytes();
-            long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
+            long currentUserMemory = newStatus.memoryReservation().toBytes();
+            long currentRevocableMemory = newStatus.revocableMemoryReservation().toBytes();
             long currentTotalMemory = currentUserMemory + currentRevocableMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;

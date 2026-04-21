@@ -26,6 +26,7 @@ import io.trino.hive.formats.encodings.text.TextEncodingOptions;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;

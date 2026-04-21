@@ -25,9 +25,9 @@ import java.util.Collection;
 import java.util.Iterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
-import static com.google.common.io.ByteStreams.readFully;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -69,7 +69,8 @@ public final class ChunkedInputStream
         // requested length crosses the slice boundary
         byte[] bytes = new byte[length];
         try {
-            readFully(this, bytes, 0, bytes.length);
+            int read = this.readNBytes(bytes, 0, bytes.length);
+            verify(read == length, "expected to read %s bytes but got %s", length, read);
         }
         catch (IOException e) {
             throw new RuntimeException("Failed to read " + length + " bytes", e);
@@ -81,7 +82,7 @@ public final class ChunkedInputStream
     public int read(byte[] b, int off, int len)
             throws IOException
     {
-        checkPositionIndexes(off, off + len, b.length);
+        checkFromToIndex(off, off + len, b.length);
         if (len == 0) {
             return 0;
         }

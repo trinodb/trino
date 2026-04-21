@@ -20,7 +20,6 @@ import io.trino.hdfs.authentication.HdfsAuthenticationConfig.HdfsAuthenticationT
 
 import java.util.function.Predicate;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.hdfs.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static io.trino.hdfs.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
 import static io.trino.hdfs.authentication.AuthenticationModules.noHdfsAuthenticationModule;
@@ -32,26 +31,33 @@ public class HdfsAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
+        HdfsAuthenticationConfig authenticationConfig = buildConfigObject(HdfsAuthenticationConfig.class);
         bindAuthenticationModule(
+                authenticationConfig,
                 config -> noHdfsAuth(config) && !config.isHdfsImpersonationEnabled(),
                 noHdfsAuthenticationModule());
 
         bindAuthenticationModule(
+                authenticationConfig,
                 config -> noHdfsAuth(config) && config.isHdfsImpersonationEnabled(),
                 simpleImpersonatingHdfsAuthenticationModule());
 
         bindAuthenticationModule(
+                authenticationConfig,
                 config -> kerberosHdfsAuth(config) && !config.isHdfsImpersonationEnabled(),
                 kerberosHdfsAuthenticationModule());
 
         bindAuthenticationModule(
+                authenticationConfig,
                 config -> kerberosHdfsAuth(config) && config.isHdfsImpersonationEnabled(),
                 kerberosImpersonatingHdfsAuthenticationModule());
     }
 
-    private void bindAuthenticationModule(Predicate<HdfsAuthenticationConfig> predicate, Module module)
+    private void bindAuthenticationModule(HdfsAuthenticationConfig config, Predicate<HdfsAuthenticationConfig> predicate, Module module)
     {
-        install(conditionalModule(HdfsAuthenticationConfig.class, predicate, module));
+        if (predicate.test(config)) {
+            install(module);
+        }
     }
 
     private static boolean noHdfsAuth(HdfsAuthenticationConfig config)

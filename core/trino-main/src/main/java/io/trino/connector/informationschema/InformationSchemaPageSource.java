@@ -27,6 +27,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
@@ -50,7 +51,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
@@ -61,7 +61,6 @@ import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -168,7 +167,7 @@ public class InformationSchemaPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             return null;
@@ -187,7 +186,7 @@ public class InformationSchemaPageSource
         memoryUsageBytes -= page.getRetainedSizeInBytes();
         Page outputPage = projection.apply(page);
         completedBytes += outputPage.getSizeInBytes();
-        return outputPage;
+        return SourcePage.create(outputPage);
     }
 
     @Override
@@ -254,12 +253,12 @@ public class InformationSchemaPageSource
                         tableName.getTableName(),
                         column.getName(),
                         ordinalPosition,
-                        null,
+                        column.getDefaultValue().orElse(null),
                         column.isNullable() ? "YES" : "NO",
-                        getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.getComment());
+                        column.getType().getDisplayName(),
+                        column.getComment().orElse(null),
+                        column.getExtraInfo().orElse(null),
+                        column.getComment().orElse(null));
                 ordinalPosition++;
                 if (isLimitExhausted()) {
                     return;

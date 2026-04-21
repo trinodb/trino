@@ -1,0 +1,121 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"email\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nYou can message me at jsmith@example.com\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_01BgM14jyvHcYKxSJGfQyVpq\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"You can message me at [MASKED]\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":72,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":12}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:33Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:33Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "46" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:37Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:33Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122aef45e896464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:33 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_01WJqCw3gyePZ2k7vhwcDhVH" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/messages"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "api.anthropic.com"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "https"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"phone\\\", \\\"address\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nContact me at 555-1234 or visit us at 123 Main St.\\n\"\n  } ]\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"msg_017f4cDn1sxz8UR7YRyKtJ5s\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3-5-sonnet-20241022\",\"content\":[{\"type\":\"text\",\"text\":\"Contact me at [MASKED] or visit us at [MASKED].\"}],\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":83,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"output_tokens\":18}}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Anthropic-Organization-Id" : [ "de9ab9c7-6487-4225-9150-1978ef9b0ff4" ],
+          "Anthropic-Ratelimit-Input-Tokens-Limit" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Remaining" : [ "40000" ],
+          "Anthropic-Ratelimit-Input-Tokens-Reset" : [ "2025-02-15T04:51:34Z" ],
+          "Anthropic-Ratelimit-Output-Tokens-Limit" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Remaining" : [ "8000" ],
+          "Anthropic-Ratelimit-Output-Tokens-Reset" : [ "2025-02-15T04:51:34Z" ],
+          "Anthropic-Ratelimit-Requests-Limit" : [ "50" ],
+          "Anthropic-Ratelimit-Requests-Remaining" : [ "45" ],
+          "Anthropic-Ratelimit-Requests-Reset" : [ "2025-02-15T04:51:38Z" ],
+          "Anthropic-Ratelimit-Tokens-Limit" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Remaining" : [ "48000" ],
+          "Anthropic-Ratelimit-Tokens-Reset" : [ "2025-02-15T04:51:34Z" ],
+          "Cf-Cache-Status" : [ "DYNAMIC" ],
+          "Cf-Ray" : [ "9122aef9aae86464-SJC" ],
+          "Connection" : [ "keep-alive" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Sat, 15 Feb 2025 04:51:34 GMT" ],
+          "Hoverfly" : [ "Was-Here" ],
+          "Request-Id" : [ "req_017MpPTpW5jseaDEfDaMhKvu" ],
+          "Server" : [ "cloudflare" ],
+          "Via" : [ "1.1 google" ],
+          "X-Robots-Tag" : [ "none" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T20:51:34-08:00"
+  }
+}

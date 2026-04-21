@@ -24,6 +24,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailure;
 import io.trino.execution.SqlTaskManager;
@@ -35,7 +36,6 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.spi.connector.CatalogHandle;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -91,6 +91,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Manages tasks on this worker node
  */
 @Path("/v1/task")
+@ResourceSecurity(INTERNAL_ONLY)
 public class TaskResource
 {
     private static final Logger log = Logger.get(TaskResource.class);
@@ -127,7 +128,6 @@ public class TaskResource
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -139,7 +139,6 @@ public class TaskResource
         return allTaskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -166,6 +165,7 @@ public class TaskResource
                 taskId,
                 taskUpdateRequest.stageSpan(),
                 taskUpdateRequest.fragment(),
+                taskUpdateRequest.tableCredentials(),
                 taskUpdateRequest.splitAssignments(),
                 taskUpdateRequest.outputIds(),
                 taskUpdateRequest.dynamicFilterDomains(),
@@ -178,7 +178,6 @@ public class TaskResource
         asyncResponse.resume(Response.ok().entity(taskInfo).build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -228,7 +227,6 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -273,7 +271,6 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/dynamicfilters")
     @Produces(MediaType.APPLICATION_JSON)
@@ -295,7 +292,6 @@ public class TaskResource
         asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -320,7 +316,6 @@ public class TaskResource
         return taskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}/fail")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -334,7 +329,6 @@ public class TaskResource
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)
@@ -375,7 +369,6 @@ public class TaskResource
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
     public Response acknowledgeResults(
@@ -390,7 +383,6 @@ public class TaskResource
         return Response.ok().build();
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     public void destroyTaskResults(
@@ -409,7 +401,6 @@ public class TaskResource
         asyncResponse.resume(Response.noContent().build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("pruneCatalogs")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -443,9 +434,9 @@ public class TaskResource
 
         Optional<InjectedFailure> injectedFailure = failureInjector.getInjectedFailure(
                 traceToken.get(),
-                taskId.getStageId().getId(),
-                taskId.getPartitionId(),
-                taskId.getAttemptId());
+                taskId.stageId().id(),
+                taskId.partitionId(),
+                taskId.attemptId());
 
         if (injectedFailure.isEmpty()) {
             return false;
@@ -546,13 +537,13 @@ public class TaskResource
         // This response may have been created as the result of a timeout, so refresh the task heartbeat
         taskWithResults.recordHeartbeat();
 
-        List<Slice> serializedPages = result.getSerializedPages();
+        List<Slice> serializedPages = result.serializedPages();
 
         Response.ResponseBuilder response = Response.status(serializedPages.isEmpty() ? Status.NO_CONTENT : Status.OK)
-                .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                .header(TRINO_PAGE_TOKEN, result.getToken())
-                .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
-                .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                .header(TRINO_TASK_INSTANCE_ID, result.taskInstanceId())
+                .header(TRINO_PAGE_TOKEN, result.token())
+                .header(TRINO_PAGE_NEXT_TOKEN, result.nextToken())
+                .header(TRINO_BUFFER_COMPLETE, result.bufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
                 .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing());
 

@@ -27,12 +27,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -66,7 +66,7 @@ public class TransactionsSystemTable
                 .column("create_time", TIMESTAMP_TZ_MILLIS)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", createUnboundedVarcharType())
-                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
+                .column("catalogs", typeManager.getParameterizedType(ARRAY, ImmutableList.of(TypeParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))
                 .build();
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
@@ -116,9 +116,8 @@ public class TransactionsSystemTable
         return builder.build();
     }
 
-    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(Instant instant)
     {
-        // dateTime.getZone() is the server zone, should be of no interest to the user
-        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
+        return packDateTimeWithZone(instant.toEpochMilli(), UTC_KEY);
     }
 }

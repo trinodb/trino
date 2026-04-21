@@ -29,15 +29,6 @@ public final class Insert
     private final Query query;
     private final Optional<List<Identifier>> columns;
 
-    @Deprecated
-    public Insert(Table table, Optional<List<Identifier>> columns, Query query)
-    {
-        super(Optional.empty());
-        this.table = requireNonNull(table, "table is null");
-        this.columns = requireNonNull(columns, "columns is null");
-        this.query = requireNonNull(query, "query is null");
-    }
-
     public Insert(NodeLocation location, Table table, Optional<List<Identifier>> columns, Query query)
     {
         super(location);

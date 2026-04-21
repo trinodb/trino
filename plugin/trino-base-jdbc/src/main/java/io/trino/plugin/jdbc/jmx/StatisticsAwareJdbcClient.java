@@ -18,6 +18,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
@@ -33,6 +34,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -40,6 +42,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -54,6 +57,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +65,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -217,6 +222,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, String query)
+    {
+        stats.getExecute().wrap(() -> delegate().execute(session, query));
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
@@ -294,9 +305,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column));
+        stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column, position));
     }
 
     @Override
@@ -342,9 +353,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata));
+        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata, rollbackActionCollector));
     }
 
     @Override
@@ -366,15 +377,38 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            Consumer<Runnable> rollbackActionCollector,
+            RetryMode retryMode)
+    {
+        return stats.getBeginMergeTable().wrap(() -> delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode));
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        stats.getFinishMergeTable().wrap(() -> delegate().finishMerge(session, handle, pageSinkIds));
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         stats.getDropTable().wrap(() -> delegate().dropTable(session, jdbcTableHandle));
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
-        stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
+        stats.getRollbackDestinationTableCreation().wrap(() -> delegate().rollbackDestinationTableCreation(session, remoteTableName));
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        stats.getRollbackTemporaryTableCreation().wrap(() -> delegate().rollbackTemporaryTableCreation(session, handle));
     }
 
     @Override
@@ -393,7 +427,7 @@ public final class StatisticsAwareJdbcClient
     public Connection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session));
+        return stats.getGetConnection().wrap(() -> delegate().getConnection(session));
     }
 
     @Override

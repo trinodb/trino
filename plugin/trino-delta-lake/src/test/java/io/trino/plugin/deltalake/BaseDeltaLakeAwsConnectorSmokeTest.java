@@ -39,12 +39,10 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
         return hiveMinioDataLake.getHiveHadoop();  // closed by superclass
     }
 
-    @Override
     @AfterAll
-    public void cleanUp()
+    final void tearDown()
     {
         hiveMinioDataLake = null; // closed by closeAfterClass
-        super.cleanUp();
     }
 
     @Override

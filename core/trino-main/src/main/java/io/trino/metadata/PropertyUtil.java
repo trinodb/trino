@@ -156,11 +156,11 @@ public final class PropertyUtil
         Object sqlObjectValue;
         try {
             Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-            Object value = evaluateConstant(rewritten, propertyType, plannerContext, session, accessControl);
+            Object value = evaluateConstant(rewritten, propertyType, parameters, plannerContext, session, accessControl);
 
             // convert to object value type of SQL type
             Block block = writeNativeValue(propertyType, value);
-            sqlObjectValue = propertyType.getObjectValue(session.toConnectorSession(), block, 0);
+            sqlObjectValue = propertyType.getObjectValue(block, 0);
         }
         catch (TrinoException e) {
             String message = "Invalid value for %s '%s': Cannot convert [%s] to %s".formatted(propertyTypeDescription, propertyName, expression, propertyType);

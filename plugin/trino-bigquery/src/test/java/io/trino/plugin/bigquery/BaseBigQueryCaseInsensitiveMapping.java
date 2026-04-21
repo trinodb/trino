@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,9 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
-    private final BigQuerySqlExecutor bigQuerySqlExecutor = new BigQuerySqlExecutor();
+    public static final String BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY = requiredNonEmptySystemProperty("testing.bigquery-case-insensitive.credentials-key");
+
+    private final BigQuerySqlExecutor bigQuerySqlExecutor = new BigQuerySqlExecutor(BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY);
 
     @Test
     public void testNonLowerCaseSchemaName()
@@ -205,10 +208,14 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "Test_Create_Case_Sensitive_" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH));
-        assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName.toLowerCase(ENGLISH)), format("VALUES '%s'", schemaName.toLowerCase(ENGLISH)));
-        assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        String schemaName = ("Test_Create_Case_Sensitive_" + randomNameSuffix()).toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName), format("VALUES '%s'", schemaName));
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test

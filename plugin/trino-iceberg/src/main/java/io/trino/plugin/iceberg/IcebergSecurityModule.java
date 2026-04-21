@@ -14,12 +14,15 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.AllowAllSecurityModule;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class IcebergSecurityModule
         extends AbstractConfigurationAwareModule
@@ -29,11 +32,16 @@ public class IcebergSecurityModule
     {
         install(new ConnectorAccessControlModule());
         install(switch (buildConfigObject(IcebergSecurityConfig.class).getSecuritySystem()) {
-            case ALLOW_ALL -> new AllowAllSecurityModule();
-            case READ_ONLY -> new ReadOnlySecurityModule();
-            case FILE -> new FileBasedAccessControlModule();
+            case ALLOW_ALL -> combine(new AllowAllSecurityModule(), usingSystemSecurity(false));
+            case READ_ONLY -> combine(new ReadOnlySecurityModule(), usingSystemSecurity(false));
+            case FILE -> combine(new FileBasedAccessControlModule(), usingSystemSecurity(false));
             // do not bind a ConnectorAccessControl so the engine will use system security with system roles
-            case SYSTEM -> EMPTY_MODULE;
+            case SYSTEM -> usingSystemSecurity(true);
         });
+    }
+
+    private static Module usingSystemSecurity(boolean system)
+    {
+        return binder -> binder.bind(boolean.class).annotatedWith(UsingSystemSecurity.class).toInstance(system);
     }
 }

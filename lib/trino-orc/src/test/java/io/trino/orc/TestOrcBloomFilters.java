@@ -43,6 +43,7 @@ import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -168,40 +169,40 @@ public class TestOrcBloomFilters
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             Object o = testValue.getKey();
-            if (o instanceof Long) {
+            if (o instanceof Long longValue) {
                 if (testValue.getValue() instanceof RealType) {
-                    bloomFilter.addDouble(intBitsToFloat(((Number) o).intValue()));
+                    bloomFilter.addDouble(intBitsToFloat(longValue.intValue()));
                 }
                 else {
-                    bloomFilter.addLong((Long) o);
+                    bloomFilter.addLong(longValue);
                 }
             }
-            else if (o instanceof Integer) {
-                bloomFilter.addLong((Integer) o);
+            else if (o instanceof Integer value) {
+                bloomFilter.addLong(value);
             }
-            else if (o instanceof String) {
-                bloomFilter.add(((String) o).getBytes(UTF_8));
+            else if (o instanceof String string) {
+                bloomFilter.add(string.getBytes(UTF_8));
             }
             else if (o instanceof BigDecimal) {
                 bloomFilter.add(o.toString().getBytes(UTF_8));
             }
-            else if (o instanceof Slice) {
-                bloomFilter.add(((Slice) o).getBytes());
+            else if (o instanceof Slice slice) {
+                bloomFilter.add(slice.getBytes());
             }
-            else if (o instanceof Timestamp) {
-                bloomFilter.addLong(((Timestamp) o).getTime());
+            else if (o instanceof Timestamp timestamp) {
+                bloomFilter.addLong(timestamp.getTime());
             }
-            else if (o instanceof Double) {
-                bloomFilter.addDouble((Double) o);
+            else if (o instanceof Double value) {
+                bloomFilter.addDouble(value);
             }
             else {
                 fail("Unsupported type " + o.getClass());
             }
         }
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertThat(matched)
                     .describedAs("type " + testValue.getClass())
@@ -214,7 +215,7 @@ public class TestOrcBloomFilters
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
-        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+        for (Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertThat(matched)
                     .describedAs("type " + testValue.getKey().getClass())

@@ -14,7 +14,7 @@
 package io.trino.client.spooling;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.DoNotCall;
 
@@ -22,10 +22,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNullElse;
 
 public final class DataAttributes
 {
@@ -33,7 +33,7 @@ public final class DataAttributes
 
     DataAttributes(Map<String, Object> attributes)
     {
-        this.attributes = ImmutableMap.copyOf(firstNonNull(attributes, ImmutableMap.of()));
+        this.attributes = ImmutableMap.copyOf(requireNonNullElse(attributes, ImmutableMap.of()));
     }
 
     public static DataAttributes empty()
@@ -53,7 +53,7 @@ public final class DataAttributes
                 .map(value -> attribute.decode(clazz, value));
     }
 
-    @JsonProperty("attributes")
+    @JsonValue
     public Map<String, Object> toMap()
     {
         return attributes;
@@ -88,8 +88,11 @@ public final class DataAttributes
 
     @JsonCreator
     @DoNotCall
-    public static DataAttributes fromMap(@JsonProperty("attributes") Map<String, Object> attributes)
+    public static DataAttributes fromMap(Map<String, Object> attributes)
     {
+        if (attributes == null) {
+            return DataAttributes.builder().build();
+        }
         Builder builder = DataAttributes.builder();
         attributes.forEach(builder::set); // Fixes the types after the deserialization
         return builder.build();

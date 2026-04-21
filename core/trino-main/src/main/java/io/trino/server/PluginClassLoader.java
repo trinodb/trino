@@ -99,7 +99,15 @@ public class PluginClassLoader
 
             // If this is an SPI class, only check SPI class loader
             if (isSpiClass(name)) {
-                return resolveClass(spiClassLoader.loadClass(name), resolve);
+                try {
+                    return resolveClass(spiClassLoader.loadClass(name), resolve);
+                }
+                catch (ClassNotFoundException e) {
+                    if (hasClassLocally(name, resolve)) {
+                        throw new ClassNotFoundException("SPI class '%s' was not found in the SPI classloader, but was found in the '%s' plugin classloader. Dependency providing this class should be added to the trino-spi provided scope.".formatted(name, pluginName), e);
+                    }
+                    throw new ClassNotFoundException("SPI class '%s' was not found in the SPI classloader. This is probably a bug in the dependencies.".formatted(name), e);
+                }
             }
 
             // Look for class locally
@@ -113,6 +121,17 @@ public class PluginClassLoader
             resolveClass(clazz);
         }
         return clazz;
+    }
+
+    private boolean hasClassLocally(String name, boolean resolve)
+    {
+        try {
+            super.loadClass(name, resolve);
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 
     @Override

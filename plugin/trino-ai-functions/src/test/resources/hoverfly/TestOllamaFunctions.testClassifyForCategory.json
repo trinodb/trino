@@ -1,0 +1,118 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new dress\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-20\",\"object\":\"chat.completion\",\"created\":1739563577,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"clothing\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":66,\"completion_tokens\":5,\"total_tokens\":71}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "293" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:17 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new chair\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-291\",\"object\":\"chat.completion\",\"created\":1739563592,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"furniture\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":66,\"completion_tokens\":4,\"total_tokens\":70}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "295" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:32 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"clothing\\\", \\\"shoes\\\", \\\"accessories\\\", \\\"furniture\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nBuy a new bag\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-432\",\"object\":\"chat.completion\",\"created\":1739563610,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\\"accessories\\\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":66,\"completion_tokens\":5,\"total_tokens\":71}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "297" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:06:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T12:06:56-08:00"
+  }
+}

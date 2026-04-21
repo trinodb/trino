@@ -5,7 +5,7 @@
 ```text
 REVOKE [ GRANT OPTION FOR ]
 ( privilege [, ...] | ALL PRIVILEGES )
-ON ( table_name | TABLE table_name | SCHEMA schema_name )
+ON [ BRANCH branch_name IN ] ( table_name | TABLE table_name | SCHEMA schema_name )
 FROM ( user | USER user | ROLE role )
 ```
 
@@ -50,6 +50,13 @@ Revoke all privileges on the table `test` from user `alice`:
 
 ```
 REVOKE ALL PRIVILEGES ON test FROM alice;
+```
+
+Revoke `INSERT` privilege on the `audit` branch of the `orders` table from user
+`alice`:
+
+```sql
+REVOKE INSERT ON BRANCH audit IN orders FROM alice;
 ```
 
 ## Limitations

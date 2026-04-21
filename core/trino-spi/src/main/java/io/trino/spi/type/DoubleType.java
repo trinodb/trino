@@ -20,11 +20,11 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
@@ -52,6 +52,7 @@ public final class DoubleType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "double";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(DoubleType.class, lookup(), double.class);
     private static final VarHandle DOUBLE_HANDLE = MethodHandles.byteArrayViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -59,13 +60,19 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(new TypeSignature(StandardTypes.DOUBLE), double.class, LongArrayBlock.class);
+        super(new TypeSignature(NAME), double.class, LongArrayBlock.class);
     }
 
     @Override
     public int getFixedSize()
     {
         return Double.BYTES;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
@@ -87,25 +94,12 @@ public final class DoubleType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
         return getDouble(block, position);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            LongArrayBlock valueBlock = (LongArrayBlock) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            ((LongArrayBlockBuilder) blockBuilder).writeLong(valueBlock.getLong(valuePosition));
-        }
     }
 
     @Override
@@ -178,7 +172,8 @@ public final class DoubleType
     private static double readFlat(
             @FlatFixed byte[] fixedSizeSlice,
             @FlatFixedOffset int fixedSizeOffset,
-            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         return (double) DOUBLE_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
     }
@@ -186,10 +181,10 @@ public final class DoubleType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             double value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         DOUBLE_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }

@@ -17,18 +17,33 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
-import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 
 public class ArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "ARRAY";
 
+    private final boolean vectorizeNullBitPacking;
+
+    public ArrayBlockEncoding(boolean vectorizeNullBitPacking)
+    {
+        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+    }
+
     @Override
     public String getName()
     {
         return NAME;
+    }
+
+    @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return ArrayBlock.class;
     }
 
     @Override
@@ -50,7 +65,13 @@ public class ArrayBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - valuesStartOffset);
         }
-        encodeNullsAsBits(sliceOutput, arrayBlock);
+
+        if (vectorizeNullBitPacking) {
+            encodeNullsAsBitsVectorized(sliceOutput, arrayBlock.getRawValueIsNull(), offsetBase, positionCount);
+        }
+        else {
+            encodeNullsAsBitsScalar(sliceOutput, arrayBlock.getRawValueIsNull(), offsetBase, positionCount);
+        }
     }
 
     @Override
@@ -61,7 +82,13 @@ public class ArrayBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        boolean[] valueIsNull;
+        if (vectorizeNullBitPacking) {
+            valueIsNull = decodeNullBitsVectorized(sliceInput, positionCount).orElse(null);
+        }
+        else {
+            valueIsNull = decodeNullBitsScalar(sliceInput, positionCount).orElse(null);
+        }
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 }

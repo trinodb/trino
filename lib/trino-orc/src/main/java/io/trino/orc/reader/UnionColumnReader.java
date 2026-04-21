@@ -16,7 +16,6 @@ package io.trino.orc.reader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader.FieldMapperFactory;
@@ -28,8 +27,6 @@ import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
-import io.trino.spi.block.LazyBlock;
-import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
@@ -63,7 +60,6 @@ public class UnionColumnReader
     private static final int INSTANCE_SIZE = instanceSize(UnionColumnReader.class);
 
     private final OrcColumn column;
-    private final OrcBlockFactory blockFactory;
 
     private final RowType type;
     private final List<ColumnReader> fieldReaders;
@@ -80,25 +76,23 @@ public class UnionColumnReader
 
     private boolean rowGroupOpen;
 
-    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    UnionColumnReader(RowType type, OrcColumn column, AggregatedMemoryContext memoryContext, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(column, type, RowType.class::isInstance);
-        this.type = (RowType) type;
+        this.type = type;
 
         this.column = requireNonNull(column, "column is null");
-        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
 
         ImmutableList.Builder<ColumnReader> fieldReadersBuilder = ImmutableList.builder();
         List<OrcColumn> fields = column.getNestedColumns();
         for (int i = 0; i < fields.size(); i++) {
             fieldReadersBuilder.add(createColumnReader(
-                    type.getTypeParameters().get(i + 1),
+                    type.getFields().get(i + 1).getType(),
                     fields.get(i),
                     fullyProjectedLayout(),
                     memoryContext,
-                    blockFactory,
                     fieldMapperFactory));
         }
         fieldReaders = fieldReadersBuilder.build();
@@ -150,7 +144,7 @@ public class UnionColumnReader
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
             }
             else {
-                List<Type> typeParameters = type.getTypeParameters();
+                List<Type> typeParameters = type.getFieldTypes();
                 blocks = new Block[typeParameters.size() + 1];
                 blocks[0] = TINYINT.createFixedSizeBlockBuilder(0).build();
                 for (int i = 0; i < typeParameters.size(); i++) {
@@ -262,13 +256,11 @@ public class UnionColumnReader
         }
 
         for (int i = 0; i < fieldReaders.size(); i++) {
-            Type fieldType = type.getTypeParameters().get(i + 1);
+            Type fieldType = type.getFields().get(i + 1).getType();
             if (nonNullValueCount[i] > 0) {
                 ColumnReader reader = fieldReaders.get(i);
                 reader.prepareNextRead(nonNullValueCount[i]);
-                LazyBlockLoader lazyBlockLoader = blockFactory.createLazyBlockLoader(reader::readBlock, true);
-                boolean[] fieldIsNull = valueIsNull[i];
-                blocks[i] = new LazyBlock(positionCount, () -> toNotNullSupressedBlock(positionCount, fieldIsNull, lazyBlockLoader.load()));
+                blocks[i] = toNotNullSupressedBlock(positionCount, valueIsNull[i], reader.readBlock());
             }
             else {
                 blocks[i + 1] = RunLengthEncodedBlock.create(

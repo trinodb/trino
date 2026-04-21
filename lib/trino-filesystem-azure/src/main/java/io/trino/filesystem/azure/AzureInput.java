@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.OptionalLong;
 
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
+import static java.lang.Math.max;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +87,7 @@ class AzureInput
                 length = OptionalLong.of(blobClient.getProperties().getBlobSize());
             }
             BlobInputStreamOptions options = new BlobInputStreamOptions()
-                    .setRange(new BlobRange(length.orElseThrow() - bufferLength))
+                    .setRange(new BlobRange(max(length.orElseThrow() - bufferLength, 0)))
                     .setBlockSize(bufferLength);
             try (BlobInputStream blobInputStream = blobClient.openInputStream(options)) {
                 return blobInputStream.readNBytes(buffer, bufferOffset, bufferLength);

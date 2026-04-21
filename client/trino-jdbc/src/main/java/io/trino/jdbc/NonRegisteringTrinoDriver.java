@@ -29,6 +29,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import static io.trino.client.UserAgentBuilder.createUserAgent;
 import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
@@ -37,7 +38,8 @@ import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 public class NonRegisteringTrinoDriver
         implements Driver, Closeable
 {
-    private static final String USER_AGENT = DRIVER_NAME + "/" + DRIVER_VERSION;
+    private static final String USER_AGENT = createUserAgent(DRIVER_NAME, DRIVER_VERSION);
+
     private final Dispatcher dispatcher;
     private final ConnectionPool pool;
 

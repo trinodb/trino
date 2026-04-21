@@ -21,10 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SpooledSegment
         extends Segment
@@ -37,18 +38,13 @@ public final class SpooledSegment
     public SpooledSegment(
             @JsonProperty("uri") URI dataUri,
             @JsonProperty("ackUri") URI ackUri,
-            @JsonProperty("metadata") Map<String, Object> metadata,
+            @JsonProperty("metadata") DataAttributes metadata,
             @JsonProperty("headers") Map<String, List<String>> headers)
-    {
-        this(dataUri, ackUri, new DataAttributes(metadata), headers);
-    }
-
-    SpooledSegment(URI dataUri, URI ackUri, DataAttributes metadata, Map<String, List<String>> headers)
     {
         super(metadata);
         this.dataUri = requireNonNull(dataUri, "dataUri is null");
         this.ackUri = requireNonNull(ackUri, "ackUri is null");
-        this.headers = firstNonNull(headers, ImmutableMap.of());
+        this.headers = requireNonNullElse(headers, ImmutableMap.of());
     }
 
     @JsonProperty("uri")
@@ -74,5 +70,24 @@ public final class SpooledSegment
     public String toString()
     {
         return format("SpooledSegment{offset=%d, rows=%d, size=%d, headers=%s}", getOffset(), getRowsCount(), getSegmentSize(), headers.keySet());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SpooledSegment that = (SpooledSegment) o;
+        return Objects.equals(dataUri, that.dataUri)
+                && Objects.equals(ackUri, that.ackUri)
+                && Objects.equals(headers, that.headers)
+                && Objects.equals(getMetadata(), that.getMetadata());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(dataUri, ackUri, headers, getMetadata());
     }
 }

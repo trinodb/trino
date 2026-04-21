@@ -27,6 +27,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +54,8 @@ public class TrimmedBasicQueryInfo
     private final Optional<ErrorCode> errorCode;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+    private final Optional<Set<String>> clientTags;
+    private final Optional<String> traceToken;
 
     public TrimmedBasicQueryInfo(BasicQueryInfo queryInfo)
     {
@@ -79,6 +82,8 @@ public class TrimmedBasicQueryInfo
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
         this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
+        this.clientTags = Optional.ofNullable(queryInfo.getSession().getClientTags());
+        this.traceToken = requireNonNull(queryInfo.getSession().getTraceToken(), "traceToken is null");
     }
 
     @JsonProperty
@@ -181,6 +186,18 @@ public class TrimmedBasicQueryInfo
     public RetryPolicy getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    @JsonProperty
+    public Optional<Set<String>> getClientTags()
+    {
+        return clientTags;
+    }
+
+    @JsonProperty
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @Override

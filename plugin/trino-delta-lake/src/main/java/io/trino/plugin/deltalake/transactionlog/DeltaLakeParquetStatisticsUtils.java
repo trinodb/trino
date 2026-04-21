@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -153,7 +154,7 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
                 for (int i = 0; i < values.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
@@ -171,7 +172,7 @@ public final class DeltaLakeParquetStatisticsUtils
     public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)
     {
         Map<String, Object> jsonValues = new HashMap<>();
-        for (Map.Entry<String, Object> value : values.entrySet()) {
+        for (Entry<String, Object> value : values.entrySet()) {
             Type type = columnTypeMapping.get(value.getKey());
             if (type instanceof ArrayType || type instanceof MapType) {
                 continue;
@@ -252,18 +253,18 @@ public final class DeltaLakeParquetStatisticsUtils
     private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
     {
         Map<String, Optional<Object>> allStats = stats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
+                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty() && typeForColumn.containsKey(entry.getKey()))
+                .collect(toImmutableMap(Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
 
         return allStats.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().get()));
     }
 
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)
     {
         ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(values.size());
-        for (Map.Entry<String, Object> entry : values.entrySet()) {
+        for (Entry<String, Object> entry : values.entrySet()) {
             Type type = columnTypeMapping.get(entry.getKey());
             requireNonNull(type, "type is null");
             Object value = entry.getValue();
@@ -275,7 +276,7 @@ public final class DeltaLakeParquetStatisticsUtils
         return nullCounts.buildOrThrow();
     }
 
-    private static ImmutableMap<String, Object> toNullCount(RowType rowType, SqlRow row)
+    private static Map<String, Object> toNullCount(RowType rowType, SqlRow row)
     {
         List<RowType.Field> fields = rowType.getFields();
         ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(fields.size());
@@ -324,12 +325,12 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            if (statistics instanceof LongStatistics) {
-                Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMin());
+            if (statistics instanceof LongStatistics longStatistics) {
+                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMin());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            if (statistics instanceof BinaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMin());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMin());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
             }
@@ -359,16 +360,16 @@ public final class DeltaLakeParquetStatisticsUtils
             int scale = ((LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) logicalType).getScale();
 
             BigDecimal min;
-            if (statistics instanceof IntStatistics) {
-                min = BigDecimal.valueOf(((IntStatistics) statistics).getMin()).movePointLeft(scale);
+            if (statistics instanceof IntStatistics intStatistics) {
+                min = BigDecimal.valueOf(intStatistics.getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            if (statistics instanceof LongStatistics) {
-                min = BigDecimal.valueOf(((LongStatistics) statistics).getMin()).movePointLeft(scale);
+            if (statistics instanceof LongStatistics longStatistics) {
+                min = BigDecimal.valueOf(longStatistics.getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            if (statistics instanceof BinaryStatistics) {
-                BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMin().getBytes());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                BigInteger base = new BigInteger(binaryStatistics.genericGetMin().getBytes());
                 min = new BigDecimal(base, scale);
                 return Optional.of(min.toPlainString());
             }
@@ -427,12 +428,12 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            if (statistics instanceof LongStatistics) {
-                Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMax());
+            if (statistics instanceof LongStatistics longStatistics) {
+                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMax());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            if (statistics instanceof BinaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMax());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMax());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
                 ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
@@ -465,16 +466,16 @@ public final class DeltaLakeParquetStatisticsUtils
             int scale = ((LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) logicalType).getScale();
 
             BigDecimal max;
-            if (statistics instanceof IntStatistics) {
-                max = BigDecimal.valueOf(((IntStatistics) statistics).getMax()).movePointLeft(scale);
+            if (statistics instanceof IntStatistics intStatistics) {
+                max = BigDecimal.valueOf(intStatistics.getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            if (statistics instanceof LongStatistics) {
-                max = BigDecimal.valueOf(((LongStatistics) statistics).getMax()).movePointLeft(scale);
+            if (statistics instanceof LongStatistics longStatistics) {
+                max = BigDecimal.valueOf(longStatistics.getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            if (statistics instanceof BinaryStatistics) {
-                BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMax().getBytes());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                BigInteger base = new BigInteger(binaryStatistics.genericGetMax().getBytes());
                 max = new BigDecimal(base, scale);
                 return Optional.of(max.toPlainString());
             }

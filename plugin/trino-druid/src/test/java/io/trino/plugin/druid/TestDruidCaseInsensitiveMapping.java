@@ -27,8 +27,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
-import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchDataFromSourceToTarget;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_REGION;

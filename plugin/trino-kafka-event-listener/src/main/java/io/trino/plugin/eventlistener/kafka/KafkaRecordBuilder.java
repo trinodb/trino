@@ -19,14 +19,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.eventlistener.kafka.metadata.MetadataProvider;
 import io.trino.plugin.eventlistener.kafka.model.QueryCompletedEventWrapper;
 import io.trino.plugin.eventlistener.kafka.model.QueryCreatedEventWrapper;
-import io.trino.plugin.eventlistener.kafka.model.SplitCompletedEventWrapper;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.Set;
@@ -38,19 +36,18 @@ public class KafkaRecordBuilder
     private final ObjectWriter writer;
     private final String startedTopic;
     private final String completedTopic;
-    private final String splitCompletedTopic;
     private final MetadataProvider metadataProvider;
 
     @JsonFilter("property-name-filter")
     static class PropertyFilterMixIn {}
 
-    public KafkaRecordBuilder(String startedTopic, String completedTopic, String splitCompletedTopic, Set<String> excludedFields, MetadataProvider metadataProvider)
+    public KafkaRecordBuilder(String startedTopic, String completedTopic, Set<String> excludedFields, MetadataProvider metadataProvider)
     {
         this.startedTopic = startedTopic;
         this.completedTopic = completedTopic;
-        this.splitCompletedTopic = splitCompletedTopic;
         FilterProvider filter = new SimpleFilterProvider().addFilter("property-name-filter", serializeAllExcept(excludedFields));
-        this.writer = new ObjectMapperProvider().get()
+        this.writer = new JsonMapperProvider()
+                .get()
                 .addMixIn(Object.class, PropertyFilterMixIn.class)
                 .writer(filter);
         this.metadataProvider = metadataProvider;
@@ -66,12 +63,6 @@ public class KafkaRecordBuilder
     {
         QueryCompletedEventWrapper queryCompletedEvent = new QueryCompletedEventWrapper(event, metadataProvider.getMetadata());
         return new ProducerRecord<>(completedTopic, writeJson(queryCompletedEvent));
-    }
-
-    public ProducerRecord<String, String> buildSplitCompletedRecord(SplitCompletedEvent event)
-    {
-        SplitCompletedEventWrapper splitCompletedEvent = new SplitCompletedEventWrapper(event, metadataProvider.getMetadata());
-        return new ProducerRecord<>(splitCompletedTopic, writeJson(splitCompletedEvent));
     }
 
     private String writeJson(Object payload)

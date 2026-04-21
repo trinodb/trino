@@ -20,8 +20,8 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
@@ -36,8 +36,10 @@ import io.trino.execution.warnings.WarningCollectorFactory;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -59,6 +61,7 @@ public class LocalDispatchQueryFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final SessionPropertyResolver sessionPropertyResolver;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
@@ -66,10 +69,11 @@ public class LocalDispatchQueryFactory
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
+    private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final ListeningExecutorService executor;
     private final int maxStateMachineThreadsPerQuery;
     private final int queryReportedRuleStatsLimit;
-    private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
+    private final boolean externalExchangeEncryptionEnabled;
     private final NodeVersion version;
 
     @Inject
@@ -77,12 +81,14 @@ public class LocalDispatchQueryFactory
             QueryManager queryManager,
             QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
+            SessionPropertyResolver sessionPropertyResolver,
             AccessControl accessControl,
             Metadata metadata,
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
+            ExchangeMetricsCollector exchangeMetricsCollector,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
             FeaturesConfig featuresConfig,
@@ -92,15 +98,17 @@ public class LocalDispatchQueryFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sessionPropertyResolver = requireNonNull(sessionPropertyResolver, "sessionPropertyInterpreter is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
+        this.exchangeMetricsCollector = requireNonNull(exchangeMetricsCollector, "exchangeMetricsCollector is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = dispatchExecutor.getExecutor();
         this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
         this.queryReportedRuleStatsLimit = queryManagerConfig.getQueryReportedRuleStatsLimit();
-        this.faultTolerantExecutionExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFaultTolerantExecutionExchangeEncryptionEnabled();
+        this.externalExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isExternalExchangeEncryptionEnabled();
         this.version = requireNonNull(version, "version is null");
     }
 
@@ -130,8 +138,10 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector,
                 planOptimizersStatsCollector,
+                exchangeMetricsCollector,
                 getQueryType(preparedQuery.getStatement()),
-                faultTolerantExecutionExchangeEncryptionEnabled,
+                externalExchangeEncryptionEnabled,
+                Optional.of(sessionPropertyResolver.getSessionPropertiesApplier(preparedQuery)),
                 version);
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below

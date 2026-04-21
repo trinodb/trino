@@ -80,6 +80,7 @@ public class TestAdaptivePlanner
                 "SELECT n.name FROM supplier AS s JOIN nation AS n on s.nationkey = n.nationkey",
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -151,6 +152,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -224,6 +226,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -260,6 +263,7 @@ public class TestAdaptivePlanner
                 "SELECT n.name FROM supplier AS s JOIN nation AS n on s.nationkey = n.nationkey",
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -328,6 +332,7 @@ public class TestAdaptivePlanner
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),
@@ -356,26 +361,27 @@ public class TestAdaptivePlanner
 
         assertAdaptivePlan(
                     """
-                    SELECT
-                        sum(sales),
-                        sum(another_sales),
-                        sum(acctbal)
-                    FROM (
-                    SELECT
-                        CAST(0 AS DECIMAL(7,2)) "sales",
-                        CAST(0 AS DECIMAL(7,2)) "another_sales",
-                        cast("acctbal" as DECIMAL(7,2)) "acctbal"
-                    FROM customer
-                    UNION ALL
-                    SELECT
-                        cast("acctbal" as DECIMAL(7,2)) "sales",
-                        CAST(0 AS DECIMAL(7,2)) "another_sales",
-                        CAST(0 AS DECIMAL(7,2)) "acctbal"
-                    FROM customer
-                    ) test_table
-                """,
+                        SELECT
+                            sum(sales),
+                            sum(another_sales),
+                            sum(acctbal)
+                        FROM (
+                        SELECT
+                            CAST(0 AS DECIMAL(7,2)) "sales",
+                            CAST(0 AS DECIMAL(7,2)) "another_sales",
+                            cast("acctbal" as DECIMAL(7,2)) "acctbal"
+                        FROM customer
+                        UNION ALL
+                        SELECT
+                            cast("acctbal" as DECIMAL(7,2)) "sales",
+                            CAST(0 AS DECIMAL(7,2)) "another_sales",
+                            CAST(0 AS DECIMAL(7,2)) "acctbal"
+                        FROM customer
+                        ) test_table
+                    """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
+                        "TestJoinOrderSwitch",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),

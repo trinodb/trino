@@ -31,6 +31,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class RollbackToSnapshotProcedure
         implements Provider<Procedure>
 {

@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -116,7 +117,6 @@ public class AddIntermediateAggregations
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
-                    aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
@@ -129,8 +129,8 @@ public class AddIntermediateAggregations
      */
     private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
     {
-        if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL) {
-            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
+        if (node instanceof AggregationNode aggregationNode && aggregationNode.getStep() == AggregationNode.Step.PARTIAL) {
+            return Optional.of(addGatheringIntermediate(aggregationNode, idAllocator));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {
@@ -170,7 +170,7 @@ public class AddIntermediateAggregations
     private static Map<Symbol, AggregationNode.Aggregation> outputsAsInputs(Map<Symbol, AggregationNode.Aggregation> assignments)
     {
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
             checkState(aggregation.getOrderingScheme().isEmpty(), "Intermediate aggregation does not support ORDER BY");
@@ -198,7 +198,7 @@ public class AddIntermediateAggregations
     private static Map<Symbol, AggregationNode.Aggregation> inputsAsOutputs(Map<Symbol, AggregationNode.Aggregation> assignments)
     {
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
             builder.put(input, entry.getValue());

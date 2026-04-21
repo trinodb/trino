@@ -46,7 +46,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
@@ -420,7 +419,7 @@ public class RcFileReader
                 columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
             }
             else {
-                skipFully(input, compressedDataSize);
+                input.skipNBytes(compressedDataSize);
             }
         }
 

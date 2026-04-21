@@ -25,8 +25,8 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,6 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -59,7 +60,7 @@ public class DriverContext
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    private final DateTime createdTime = DateTime.now();
+    private final Instant createdTime = Instant.now();
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
@@ -70,8 +71,8 @@ public class DriverContext
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Instant> executionEndTime = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> blockedTimeout = new AtomicReference<>(Optional.empty());
 
     private final MemoryTrackingContext driverMemoryContext;
@@ -111,6 +112,11 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType)
     {
+        return addOperatorContext(operatorId, planNodeId, Optional.empty(), operatorType);
+    }
+
+    public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, Optional<PlanNodeId> sourceId, String operatorType)
+    {
         checkArgument(operatorId >= 0, "operatorId is negative");
 
         for (OperatorContext operatorContext : operatorContexts) {
@@ -120,6 +126,7 @@ public class DriverContext
         OperatorContext operatorContext = new OperatorContext(
                 operatorId,
                 planNodeId,
+                sourceId,
                 operatorType,
                 this,
                 notificationExecutor,
@@ -147,7 +154,7 @@ public class DriverContext
     {
         // Must update startNanos first so that the value is valid once executionStartTime is not null
         if (executionStartTime.get() == null && startNanos.compareAndSet(0, System.nanoTime())) {
-            executionStartTime.set(DateTime.now());
+            executionStartTime.set(Instant.now());
             pipelineContext.start();
         }
     }
@@ -179,7 +186,7 @@ public class DriverContext
         }
         // Must update endNanos first, so that the value is valid after executionEndTime is not null
         endNanos.set(System.nanoTime());
-        executionEndTime.set(DateTime.now());
+        executionEndTime.set(Instant.now());
 
         pipelineContext.driverFinished(this);
     }
@@ -320,11 +327,11 @@ public class DriverContext
         }
 
         // startNanos is always valid once executionStartTime is not null
-        DateTime executionStartTime = this.executionStartTime.get();
+        Instant executionStartTime = this.executionStartTime.get();
         Duration queuedTime = new Duration(nanosBetween(createNanos, executionStartTime == null ? System.nanoTime() : startNanos.get()), NANOSECONDS);
 
         // endNanos is always valid once executionStartTime is not null
-        DateTime executionEndTime = this.executionEndTime.get();
+        Instant executionEndTime = this.executionEndTime.get();
         Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTime == null ? System.nanoTime() : endNanos.get()), NANOSECONDS);
 
         List<OperatorStats> operators = getOperatorStats();
@@ -337,8 +344,6 @@ public class DriverContext
         DataSize internalNetworkInputDataSize;
         long internalNetworkInputPositions;
 
-        DataSize rawInputDataSize;
-        long rawInputPositions;
         Duration rawInputReadTime;
 
         DataSize processedInputDataSize;
@@ -355,8 +360,6 @@ public class DriverContext
             internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
             internalNetworkInputPositions = inputOperator.getInternalNetworkInputPositions();
 
-            rawInputDataSize = inputOperator.getRawInputDataSize();
-            rawInputPositions = inputOperator.getInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
 
             processedInputDataSize = inputOperator.getInputDataSize();
@@ -373,29 +376,29 @@ public class DriverContext
         else {
             physicalInputDataSize = DataSize.ofBytes(0);
             physicalInputPositions = 0;
-            physicalInputReadTime = new Duration(0, MILLISECONDS);
+            physicalInputReadTime = succinctDuration(0, MILLISECONDS);
 
             internalNetworkInputDataSize = DataSize.ofBytes(0);
             internalNetworkInputPositions = 0;
 
-            rawInputDataSize = DataSize.ofBytes(0);
-            rawInputPositions = 0;
-            rawInputReadTime = new Duration(0, MILLISECONDS);
+            rawInputReadTime = succinctDuration(0, MILLISECONDS);
 
             processedInputDataSize = DataSize.ofBytes(0);
             processedInputPositions = 0;
 
-            inputBlockedTime = new Duration(0, MILLISECONDS);
+            inputBlockedTime = succinctDuration(0, MILLISECONDS);
 
             outputDataSize = DataSize.ofBytes(0);
             outputPositions = 0;
 
-            outputBlockedTime = new Duration(0, MILLISECONDS);
+            outputBlockedTime = succinctDuration(0, MILLISECONDS);
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
+        long spilledDataSize = 0;
         long physicalWrittenDataSize = 0;
         for (OperatorStats operator : operators) {
+            spilledDataSize += operator.getSpilledDataSize().toBytes();
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
@@ -410,6 +413,7 @@ public class DriverContext
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(driverMemoryContext.getUserMemory()),
                 succinctBytes(driverMemoryContext.getRevocableMemory()),
+                succinctBytes(spilledDataSize),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -420,8 +424,6 @@ public class DriverContext
                 physicalInputReadTime,
                 internalNetworkInputDataSize.succinct(),
                 internalNetworkInputPositions,
-                rawInputDataSize.succinct(),
-                rawInputPositions,
                 rawInputReadTime,
                 processedInputDataSize.succinct(),
                 processedInputPositions,

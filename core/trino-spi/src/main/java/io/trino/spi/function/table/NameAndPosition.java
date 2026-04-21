@@ -13,8 +13,6 @@
  */
 package io.trino.spi.function.table;
 
-import io.trino.spi.Experimental;
-
 import java.util.Objects;
 
 import static io.trino.spi.function.table.Preconditions.checkArgument;
@@ -29,7 +27,6 @@ import static io.trino.spi.function.table.Preconditions.checkNotNullOrEmpty;
  * The Table Function is supposed to refer to input data using `NameAndPosition`,
  * and the engine should provide the requested column.
  */
-@Experimental(eta = "2022-10-31")
 public class NameAndPosition
 {
     private final String name;

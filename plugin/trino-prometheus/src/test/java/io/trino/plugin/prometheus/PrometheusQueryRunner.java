@@ -87,7 +87,7 @@ public final class PrometheusQueryRunner
         return new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new PrometheusServer())

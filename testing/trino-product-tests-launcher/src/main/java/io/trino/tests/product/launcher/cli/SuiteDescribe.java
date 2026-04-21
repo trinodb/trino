@@ -38,7 +38,7 @@ import picocli.CommandLine.Mixin;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -250,7 +250,7 @@ public class SuiteDescribe
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = describeOptions.testJar;
-            testRunOptions.reportsDir = Paths.get(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            testRunOptions.reportsDir = Path.of(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
             testRunOptions.logsDirBase = Optional.empty();
             return testRunOptions;

@@ -13,43 +13,36 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.Type;
-import io.trino.sql.relational.RowExpression;
+import io.trino.spi.connector.SourcePage;
+import io.trino.sql.gen.PageProjectionWork;
+import io.trino.sql.ir.Expression;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class GeneratedPageProjection
         implements PageProjection
 {
-    private final RowExpression projection;
+    private final Expression projection;
     private final boolean isDeterministic;
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
 
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(RowExpression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
+    public GeneratedPageProjection(Expression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.type().createBlockBuilder(null, 1);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return projection.type();
     }
 
     @Override
@@ -65,14 +58,14 @@ public class GeneratedPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
         try {
-            return (Work<Block>) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
+            return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
         }
-        catch (Throwable e) {
-            throw new RuntimeException(e);
+        catch (Throwable throwable) {
+            throw propagate(throwable);
         }
     }
 
@@ -82,5 +75,14 @@ public class GeneratedPageProjection
         return toStringHelper(this)
                 .add("projection", projection)
                 .toString();
+    }
+
+    private static RuntimeException propagate(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }

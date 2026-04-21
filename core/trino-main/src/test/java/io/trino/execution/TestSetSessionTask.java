@@ -15,16 +15,18 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -43,6 +45,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -206,10 +209,12 @@ public class TestSetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
-        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(new NodeLocation(1, 1), qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(new SessionPropertyEvaluator(plannerContext, accessControl, sessionPropertyManager, new SqlEnvironmentConfig()), accessControl).execute(new SetSession(new NodeLocation(1, 1), qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertThat(sessionProperties).isEqualTo(ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

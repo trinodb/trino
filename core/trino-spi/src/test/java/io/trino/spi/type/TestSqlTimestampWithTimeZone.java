@@ -20,7 +20,7 @@ import java.time.ZonedDateTime;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSqlTimestampWithTimeZone
+final class TestSqlTimestampWithTimeZone
 {
     @Test
     public void testToZonedDateTime()

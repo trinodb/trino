@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -45,6 +46,7 @@ public class BigQueryPageSourceProvider
     private final int maxReadRowsRetries;
     private final boolean arrowSerializationEnabled;
     private final ExecutorService executor;
+    private final Optional<BigQueryArrowBufferAllocator> arrowBufferAllocator;
 
     @Inject
     public BigQueryPageSourceProvider(
@@ -52,6 +54,7 @@ public class BigQueryPageSourceProvider
             BigQueryReadClientFactory bigQueryReadClientFactory,
             BigQueryTypeManager typeManager,
             BigQueryConfig config,
+            Optional<BigQueryArrowBufferAllocator> arrowBufferAllocator,
             @ForBigQueryPageSource ExecutorService executor)
     {
         this.bigQueryClientFactory = requireNonNull(bigQueryClientFactory, "bigQueryClientFactory is null");
@@ -60,6 +63,7 @@ public class BigQueryPageSourceProvider
         this.maxReadRowsRetries = config.getMaxReadRowsRetries();
         this.arrowSerializationEnabled = config.isArrowSerializationEnabled();
         this.executor = requireNonNull(executor, "executor is null");
+        this.arrowBufferAllocator = requireNonNull(arrowBufferAllocator, "arrowBufferAllocator is null");
     }
 
     @Override
@@ -68,6 +72,7 @@ public class BigQueryPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -111,6 +116,7 @@ public class BigQueryPageSourceProvider
                     typeManager,
                     bigQueryReadClientFactory.create(session),
                     executor,
+                    arrowBufferAllocator.orElseThrow(() -> new IllegalStateException("ArrowBufferAllocator was not bound")),
                     maxReadRowsRetries,
                     split,
                     columnHandles);

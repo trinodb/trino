@@ -16,7 +16,6 @@ package io.trino.cli;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.cli.ClientOptions.PropertyMapping;
@@ -42,9 +41,9 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -148,7 +147,7 @@ public class Console
         if (!hasQuery && !isRealTerminal()) {
             try {
                 if (System.in.available() > 0) {
-                    query = new String(ByteStreams.toByteArray(System.in), terminalEncoding()) + ";";
+                    query = new String(System.in.readAllBytes(), terminalEncoding()) + ";";
 
                     if (query.length() > 1) {
                         hasQuery = true;
@@ -176,7 +175,9 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 uri,
                 session,
-                clientOptions.debug)) {
+                clientOptions.debug,
+                clientOptions.maxQueuedRows,
+                clientOptions.maxBufferedRows)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
@@ -399,6 +400,13 @@ public class Console
                 builder = builder.roles(ImmutableMap.of());
             }
 
+            // update session originalRoles
+            if (!query.getSetOriginalRoles().isEmpty()) {
+                Set<ClientSelectedRole> originalRoles = new HashSet<>(session.getOriginalRoles());
+                originalRoles.addAll(query.getSetOriginalRoles());
+                builder = builder.originalRoles(originalRoles);
+            }
+
             if (query.isResetAuthorizationUser()) {
                 builder = builder.authorizationUser(Optional.empty());
                 builder = builder.roles(ImmutableMap.of());
@@ -447,6 +455,6 @@ public class Console
         if (isNullOrEmpty(path)) {
             return Optional.empty();
         }
-        return Optional.of(Paths.get(path));
+        return Optional.of(Path.of(path));
     }
 }

@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -224,10 +225,11 @@ public class PlanFragmenter
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),
-                        outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition(),
+                        outputPartitioningScheme.getBucketCount(),
                         outputPartitioningScheme.getPartitionCount()),
+                OptionalInt.empty(),
                 fragment.getStatsAndCosts(),
                 fragment.getActiveCatalogs(),
                 fragment.getLanguageFunctions(),
@@ -295,6 +297,7 @@ public class PlanFragmenter
                     properties.getPartitionCount(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
+                    OptionalInt.empty(),
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
                     languageFunctions,
@@ -411,10 +414,16 @@ public class PlanFragmenter
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
-            // An empty values node is compatible with any distribution, so
-            // don't attempt to overwrite one's already been chosen
-            if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
+            if (node.getRowCount() != 0) {
+                // A non-empty values node requires single distribution
                 context.get().setSingleNodeDistribution();
+            }
+            else {
+                // An empty values node is compatible with any distribution, so
+                // do not overwrite a distribution if there is one already chosen,
+                // and delay setting the distribution in case the fragment contains
+                // another node with specific distribution requirements
+                context.get().setContainsEmptyValues();
             }
             return context.defaultRewrite(node, context.get());
         }
@@ -591,7 +600,8 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
-        private Optional<Integer> partitionCount = Optional.empty();
+        private boolean containsEmptyValues;
+        private OptionalInt partitionCount = OptionalInt.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -628,13 +638,16 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(
                 PartitioningHandle distribution,
-                Optional<Integer> partitionCount,
+                OptionalInt partitionCount,
                 Metadata metadata,
                 Session session)
         {
+            if (partitionCount.isPresent()) {
+                this.partitionCount = partitionCount;
+            }
+
             if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -655,7 +668,6 @@ public class PlanFragmenter
 
             if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
                 this.partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -680,10 +692,9 @@ public class PlanFragmenter
         {
             ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
             ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
-            if ((currentHandle instanceof SystemPartitioningHandle) &&
-                    (distributionHandle instanceof SystemPartitioningHandle)) {
-                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
-                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            if ((currentHandle instanceof SystemPartitioningHandle currentPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle distributionPartitioningHandle)) {
+                return currentPartitioningHandle.getPartitioning() == distributionPartitioningHandle.getPartitioning();
             }
             return false;
         }
@@ -758,6 +769,11 @@ public class PlanFragmenter
             return this;
         }
 
+        public void setContainsEmptyValues()
+        {
+            this.containsEmptyValues = true;
+        }
+
         public PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
@@ -765,10 +781,12 @@ public class PlanFragmenter
 
         public PartitioningHandle getPartitioningHandle()
         {
-            return partitioningHandle.get();
+            checkState(partitioningHandle.isPresent() || containsEmptyValues, "PartitioningHandle is not set for a fragment that does not contain empty values");
+
+            return partitioningHandle.orElse(SINGLE_DISTRIBUTION);
         }
 
-        public Optional<Integer> getPartitionCount()
+        public OptionalInt getPartitionCount()
         {
             return partitionCount;
         }

@@ -61,7 +61,7 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
     public String toString()
     {
         return "%s(%s)".formatted(
-                isBuiltinFunctionName(function.name()) ? function.name().getFunctionName() : function.name(),
+                isBuiltinFunctionName(function.name()) ? function.name().functionName() : function.name(),
                 arguments.stream()
                         .map(Expression::toString)
                         .collect(Collectors.joining(", ")));

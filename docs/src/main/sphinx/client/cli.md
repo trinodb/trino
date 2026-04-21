@@ -12,7 +12,7 @@ the coordinator on the cluster.
 
 The Trino CLI has the following requirements:
 
-* Java version 8 or higher available on the path. Java 22 or higher is
+* Java version 11 or higher available on the path. Java 22 or higher is
   recommended for improved decompression performance.
 * Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
 * Network access to the configured object storage, if the
@@ -25,7 +25,7 @@ Versions before 350 are not supported.
 (cli-installation)=
 ## Installation
 
-Download {maven_download}`cli`, rename it to `trino`, make it executable with
+Download {download_gh}`cli`, rename it to `trino`, make it executable with
 `chmod +x`, and run it to show the version of the CLI:
 
 ```text
@@ -34,7 +34,7 @@ Download {maven_download}`cli`, rename it to `trino`, make it executable with
 
 Run the CLI with `--help` or `-h` to see all available options.
 
-Windows users, and users unable to execute the preceeding steps, can use the
+Windows users, and users unable to execute the preceding steps, can use the
 equivalent `java` command with the `-jar` option to run the CLI, and show
 the version:
 
@@ -152,7 +152,7 @@ mode:
     [](cli-troubleshooting). Displays more information about query
     processing statistics.
 * - `--decimal-data-size`
-  - Show data size and rate in base 10 (KB, MB, etc.) rather than the default 
+  - Show data size and rate in base 10 (kB, MB, etc.) rather than the default
     base 2 (KiB, MiB, etc.).
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.
@@ -163,6 +163,9 @@ mode:
     EMACS editors. Defaults to `EMACS`.
 * - `--extra-credential`
   - Extra credentials (property can be used multiple times; format is key=value)
+* - `--extra-header`
+  - HTTP header to add to the authenticated HTTP requests
+    (property can be used multiple times; format is key=value).
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -269,7 +272,7 @@ certificate usage:
 * - `--use-system-keystore`
   - Use a client certificate obtained from the system keystore of the operating
     system. Windows and macOS are supported. For other operating systems, the
-    default Java keystore is used. The keystore type can be overriden using
+    default Java keystore is used. The keystore type can be overridden using
     `--keystore-type`.
 * - `--truststore-password`
   - The password for the truststore. This must match the password you specified
@@ -300,7 +303,7 @@ Username and password authentication is typically configured in a cluster using
 the `PASSWORD` {doc}`authentication type </security/authentication-types>`,
 for example with {doc}`/security/ldap` or {doc}`/security/password-file`.
 
-The following code example connects to the server, establishes your user name,
+The following code example connects to the server, establishes your username,
 and prompts the CLI for your password:
 
 ```text
@@ -468,7 +471,7 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 press {kbd}`Enter`.
 
 By default, you can locate the Trino history file in `~/.trino_history`.
-Use the `--history-file` option or the `` `TRINO_HISTORY_FILE `` environment variable
+Use the `--history-file` option or the `TRINO_HISTORY_FILE` environment variable
 to change the default.
 
 ### Auto suggestion

@@ -60,7 +60,11 @@ public class CsvDeserializer
         checkArgument(separatorChar != '\0', "Separator cannot be the null character (ASCII 0)");
         checkArgument(separatorChar != quoteChar, "Separator and quote character cannot be the same");
         checkArgument(separatorChar != escapeChar, "Separator and escape character cannot be the same");
-        checkArgument(quoteChar != escapeChar, "Quote and escape character cannot be the same");
+
+        // Quote and escape character can be the same when both are the null character (quoting and escaping are disabled)
+        if (quoteChar != '\0' || escapeChar != '\0') {
+            checkArgument(quoteChar != escapeChar, "Quote and escape character cannot be the same");
+        }
         this.separatorChar = separatorChar;
         this.quoteChar = quoteChar;
         this.escapeChar = escapeChar;

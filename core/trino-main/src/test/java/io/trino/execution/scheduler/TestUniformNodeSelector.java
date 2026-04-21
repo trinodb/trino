@@ -22,21 +22,21 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.testing.TestingTicker;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.NodeVersion;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingSplit;
 import io.trino.util.FinalizerService;
+import org.assertj.guava.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,6 +56,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -72,7 +73,7 @@ public class TestUniformNodeSelector
     private final Set<Split> splits = new LinkedHashSet<>();
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
-    private InMemoryNodeManager nodeManager;
+    private TestingInternalNodeManager nodeManager;
     private NodeSchedulerConfig nodeSchedulerConfig;
     private NodeScheduler nodeScheduler;
     private NodeSelector nodeSelector;
@@ -87,7 +88,7 @@ public class TestUniformNodeSelector
         session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
-        nodeManager = new InMemoryNodeManager();
+        nodeManager = TestingInternalNodeManager.createDefault();
         nodeManager.addNodes(node1);
         nodeManager.addNodes(node2);
 
@@ -98,9 +99,9 @@ public class TestUniformNodeSelector
                 .setIncludeCoordinator(false);
 
         // contents of taskMap indicate the node-task map for the current stage
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap));
         taskMap = new HashMap<>();
-        nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE));
+        nodeSelector = nodeScheduler.createNodeSelector(session);
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
@@ -128,10 +129,10 @@ public class TestUniformNodeSelector
         UniformNodeSelector.QueueSizeAdjuster queueSizeAdjuster = new UniformNodeSelector.QueueSizeAdjuster(10, 100, ticker);
 
         nodeSelector = new UniformNodeSelector(
-                nodeManager,
+                CURRENT_NODE,
                 nodeTaskMap,
                 false,
-                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                () -> createNodeMap(),
                 10,
                 100,
                 10,
@@ -300,10 +301,10 @@ public class TestUniformNodeSelector
     {
         // Node selector without nodeMap memoization, so removing nodes takes effect immediately:
         nodeSelector = new UniformNodeSelector(
-                nodeManager,
+                CURRENT_NODE,
                 nodeTaskMap,
                 false,
-                () -> createNodeMap(TEST_CATALOG_HANDLE),
+                () -> createNodeMap(),
                 10,
                 2000,
                 1000,
@@ -321,7 +322,7 @@ public class TestUniformNodeSelector
         Multimap<InternalNode, Split> assignmentsNode1Alive = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         ArrayListMultimap<InternalNode, Split> expected = ArrayListMultimap.create();
         expected.putAll(node1, splits);
-        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
+        Assertions.assertThat(assignmentsNode1Alive).hasSameEntriesAs(expected);
 
         nodeManager.removeNode(node1);
         // Now the flexible split can fail over to node2, while the rigid split cannot.
@@ -330,12 +331,12 @@ public class TestUniformNodeSelector
                 nodeSelector.computeAssignments(ImmutableSet.of(flexibleSplit), ImmutableList.copyOf(taskMap.values())).getAssignments();
         expected = ArrayListMultimap.create();
         expected.put(node2, flexibleSplit);
-        org.assertj.guava.api.Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
+        Assertions.assertThat(assignmentsNode1Dead).hasSameEntriesAs(expected);
     }
 
-    private NodeMap createNodeMap(CatalogHandle catalogHandle)
+    private NodeMap createNodeMap()
     {
-        Set<InternalNode> nodes = nodeManager.getActiveCatalogNodes(catalogHandle);
+        Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)

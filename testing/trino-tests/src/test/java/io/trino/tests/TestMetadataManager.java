@@ -26,6 +26,7 @@ import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -36,17 +37,29 @@ import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -62,6 +75,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD) // metadataManager.getActiveQueryIds() is shared mutable state that affects the test outcome
 public class TestMetadataManager
 {
+    private final AtomicBoolean failMetadataCall = new AtomicBoolean();
     private QueryRunner queryRunner;
     private MetadataManager metadataManager;
 
@@ -78,6 +92,12 @@ public class TestMetadataManager
                 SchemaTableName viewTableName = new SchemaTableName("UPPER_CASE_SCHEMA", "test_view");
 
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                        .withMetadataWrapper(connectorMetadata -> {
+                            if (failMetadataCall.get()) {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, new IllegalStateException("Failed to get connector metadata"));
+                            }
+                            return connectorMetadata;
+                        })
                         .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.equals(viewTableName)) {
@@ -143,11 +163,11 @@ public class TestMetadataManager
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
-                queryId,
-                Span.getInvalid(),
-                Slug.createNew(),
-                SessionContext.fromSession(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                        queryId,
+                        Span.getInvalid(),
+                        Slug.createNew(),
+                        SessionContext.fromSession(TEST_SESSION),
+                        "SELECT * FROM lineitem")
                 .get();
 
         // wait until query starts running
@@ -210,6 +230,86 @@ public class TestMetadataManager
         // TODO (https://github.com/trinodb/trino/issues/17) this should return 100 rows
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.columns WHERE table_schem = 'UPPER_CASE_TABLE' AND table_name = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
+    }
+
+    @Test
+    public void testDropCatalogFailure()
+    {
+        try {
+            queryRunner.execute("CREATE CATALOG drop_mock_catalog USING mock");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).contains("drop_mock_catalog");
+            failMetadataCall.set(true);
+            queryRunner.execute("DROP CATALOG drop_mock_catalog");
+            assertThat(queryRunner.execute("SHOW CATALOGS").getOnlyColumnAsSet()).doesNotContain("drop_mock_catalog");
+        }
+        finally {
+            failMetadataCall.set(false);
+        }
+    }
+
+    // Probabilistic partial regression test for https://github.com/trinodb/trino/issues/28017
+    @RepeatedTest(4)
+    public void testMetadataWithDynamicCatalogs()
+            throws Exception
+    {
+        List<String> preCreatedCatalogs = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            String catalogName = "pre_created_catalog_" + i;
+            queryRunner.execute("CREATE CATALOG " + catalogName + " USING tpch");
+            preCreatedCatalogs.add(catalogName);
+        }
+
+        try (ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("testMetadataWithDynamicCatalogs-%d"))) {
+            CompletionService<Void> completionService = new ExecutorCompletionService<>(executor);
+            int metadataQueryCount = 2;
+            CyclicBarrier barrier = new CyclicBarrier(metadataQueryCount + 2);
+            AtomicBoolean metadataQueryDone = new AtomicBoolean(false);
+
+            // metadata query
+            List<Future<?>> metadataQueries = new ArrayList<>();
+            for (int i = 0; i < metadataQueryCount; i++) {
+                metadataQueries.add(completionService.submit(() -> {
+                    barrier.await(10, SECONDS);
+                    queryRunner.execute("TABLE system.jdbc.columns");
+                    return null;
+                }));
+            }
+
+            // Dropper
+            Future<?> dropper = completionService.submit(() -> {
+                barrier.await(10, SECONDS);
+                for (String catalogName : preCreatedCatalogs) {
+                    queryRunner.execute("DROP CATALOG " + catalogName);
+                }
+                return null;
+            });
+
+            // Temporary catalogs
+            Future<?> temporaryCatalogs = completionService.submit(() -> {
+                barrier.await(10, SECONDS);
+                long sequence = 0;
+                while (!metadataQueryDone.get()) {
+                    String catalogName = "temp_catalog_" + ++sequence;
+                    queryRunner.execute("CREATE CATALOG " + catalogName + " USING tpch");
+                    queryRunner.execute("DROP CATALOG " + catalogName);
+                }
+                return null;
+            });
+
+            try {
+                // Fail fast on first failure, if any
+                completionService.take().get();
+                for (Future<?> metadataQuery : metadataQueries) {
+                    metadataQuery.get();
+                }
+            }
+            finally {
+                metadataQueryDone.set(true);
+            }
+
+            dropper.get();
+            temporaryCatalogs.get();
+        }
     }
 
     private static ConnectorViewDefinition getConnectorViewDefinition()

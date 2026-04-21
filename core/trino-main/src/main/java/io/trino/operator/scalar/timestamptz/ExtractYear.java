@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Year of the given timestamp")
 @ScalarFunction("year")
-public class ExtractYear
+public final class ExtractYear
 {
     private ExtractYear() {}
 

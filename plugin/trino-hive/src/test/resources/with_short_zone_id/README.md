@@ -9,7 +9,7 @@ import static java.lang.String.format;
 
 public class Main
 {
-    public static void main(String[] args)
+    static void main()
     {
         // Make sure to set default timezone using short timezone id
         TimeZone.setDefault(TimeZone.getTimeZone("EST"));

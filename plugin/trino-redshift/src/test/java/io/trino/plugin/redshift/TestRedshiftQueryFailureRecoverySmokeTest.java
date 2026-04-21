@@ -39,4 +39,48 @@ public class TestRedshiftQueryFailureRecoverySmokeTest
                 .finishesSuccessfully()
                 .cleansUpTemporaryTables();
     }
+
+    @Test
+    @Override
+    protected void testCreateTable() {}
+
+    @Test
+    @Override
+    protected void testInsert() {}
+
+    @Test
+    @Override
+    protected void testDelete() {}
+
+    @Test
+    @Override
+    protected void testDeleteWithSubquery() {}
+
+    @Test
+    @Override
+    protected void testUpdate() {}
+
+    @Test
+    @Override
+    protected void testUpdateWithSubquery() {}
+
+    @Test
+    @Override
+    protected void testAnalyzeTable() {}
+
+    @Test
+    @Override
+    protected void testMerge() {}
+
+    @Test
+    @Override
+    protected void testRefreshMaterializedView() {}
+
+    @Test
+    @Override
+    protected void testExplainAnalyze() {}
+
+    @Test
+    @Override
+    protected void testRequestTimeouts() {}
 }

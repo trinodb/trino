@@ -18,7 +18,7 @@ import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.AdaptiveBlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.schema.PrimitiveType;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -63,21 +63,21 @@ public abstract class AbstractColumnWriterBenchmark
     {
         NONE {
             @Override
-            Optional<BloomFilter> getBloomFilter()
+            Optional<BloomFilter> getBloomFilter(ColumnDescriptor columnDescriptor)
             {
                 return Optional.empty();
             }
         },
         DEFAULT_BLOOM_FILTER {
             @Override
-            Optional<BloomFilter> getBloomFilter()
+            Optional<BloomFilter> getBloomFilter(ColumnDescriptor columnDescriptor)
             {
-                return Optional.of(new BlockSplitBloomFilter(1048576, 1048576));
+                return Optional.of(new AdaptiveBlockSplitBloomFilter(1048576, 5, 0.05, columnDescriptor));
             }
         },
         /**/;
 
-        abstract Optional<BloomFilter> getBloomFilter();
+        abstract Optional<BloomFilter> getBloomFilter(ColumnDescriptor columnDescriptor);
     }
 
     // Parquet pages are usually about 1MB
@@ -96,7 +96,7 @@ public abstract class AbstractColumnWriterBenchmark
     {
         TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(1024 * 1024, maxDictionaryPageSize);
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"test"}, getParquetType(), 0, 0);
-        return getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilterType.getBloomFilter()), getTrinoType(), columnDescriptor.getPrimitiveType(), Optional.empty());
+        return getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilterType.getBloomFilter(columnDescriptor)), getTrinoType(), columnDescriptor.getPrimitiveType(), Optional.empty());
     }
 
     @Setup

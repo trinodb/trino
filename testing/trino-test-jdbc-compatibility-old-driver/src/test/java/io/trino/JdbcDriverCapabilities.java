@@ -22,8 +22,6 @@ public final class JdbcDriverCapabilities
 {
     private JdbcDriverCapabilities() {}
 
-    public static final int VERSION_HEAD = 0;
-
     public static Optional<Integer> testedVersion()
     {
         return Optional.ofNullable(System.getenv("TRINO_JDBC_VERSION_UNDER_TEST")).map(Integer::valueOf);
@@ -49,38 +47,5 @@ public final class JdbcDriverCapabilities
         catch (SQLException _) {
             return Optional.empty();
         }
-    }
-
-    public static boolean supportsSessionPropertiesViaConnectionUri()
-    {
-        return driverVersion() == VERSION_HEAD || driverVersion() >= 330;
-    }
-
-    public static boolean supportsParametricTimestamp()
-    {
-        return driverVersion() == VERSION_HEAD || driverVersion() >= 335;
-    }
-
-    public static boolean supportsParametricTimestampWithTimeZone()
-    {
-        return driverVersion() == VERSION_HEAD || driverVersion() >= 337;
-    }
-
-    public static boolean correctlyReportsTimestampWithTimeZone()
-    {
-        return driverVersion() == VERSION_HEAD || driverVersion() >= 348;
-    }
-
-    public static boolean supportsTimestampObjectRepresentationInCollections()
-    {
-        return driverVersion() == VERSION_HEAD || driverVersion() >= 348;
-    }
-
-    public static boolean hasBrokenParametricTimestampWithTimeZoneSupport()
-    {
-        // Since 335 JDBC client reports ClientCapabilities.PARAMETRIC_DATETIME which is used server side to determine whether
-        // timestamp with time zone can be returned with given precision instead of default one (3).
-        // JDBC client 335 and 336 are broken in regard to handling timestamp with time zone correctly.
-        return driverVersion() == 335 || driverVersion() == 336;
     }
 }

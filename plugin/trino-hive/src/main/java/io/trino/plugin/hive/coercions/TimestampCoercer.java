@@ -23,6 +23,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.VarcharType;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
@@ -43,7 +44,6 @@ import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -61,7 +61,7 @@ public final class TimestampCoercer
             .withChronology(IsoChronology.INSTANCE);
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
-    private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
+    private static final long START_OF_MODERN_ERA_SECONDS = LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
     private TimestampCoercer() {}
 
@@ -122,7 +122,7 @@ public final class TimestampCoercer
         public VarcharToShortTimestampCoercer(VarcharType fromType, TimestampType toType)
         {
             super(fromType, toType);
-            checkArgument(toType.isShort(), format("TIMESTAMP precision must be in range [0, %s]: %s", MAX_PRECISION, toType.getPrecision()));
+            checkArgument(toType.isShort(), "TIMESTAMP precision must be in range [0, %s]: %s", MAX_PRECISION, toType.getPrecision());
         }
 
         @Override
@@ -153,7 +153,7 @@ public final class TimestampCoercer
         public VarcharToLongTimestampCoercer(VarcharType fromType, TimestampType toType)
         {
             super(fromType, toType);
-            checkArgument(!toType.isShort(), format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
+            checkArgument(!toType.isShort(), "Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION);
         }
 
         @Override

@@ -68,6 +68,12 @@ public final class SimpleLocalMemoryContext
     }
 
     @Override
+    public synchronized ListenableFuture<Void> addBytes(long delta)
+    {
+        return setBytes(usedBytes + delta);
+    }
+
+    @Override
     public synchronized boolean trySetBytes(long bytes)
     {
         checkState(!closed, "SimpleLocalMemoryContext is already closed");

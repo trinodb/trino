@@ -14,14 +14,15 @@
 package io.trino.client.spooling.encoding;
 
 import com.google.common.io.ByteStreams;
+import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
-import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttribute;
 import io.trino.client.spooling.DataAttributes;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -41,7 +42,7 @@ public abstract class CompressedQueryDataDecoder
             throws IOException;
 
     @Override
-    public ResultRows decode(InputStream stream, DataAttributes metadata)
+    public CloseableIterator<List<Object>> decode(InputStream stream, DataAttributes metadata)
             throws IOException
     {
         Optional<Integer> expectedDecompressedSize = metadata.getOptional(DataAttribute.UNCOMPRESSED_SIZE, Integer.class);

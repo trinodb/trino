@@ -19,29 +19,27 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.XxHash64;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSelector;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
-import io.trino.operator.BucketPartitionFunction;
-import io.trino.operator.PartitionFunction;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
-import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.split.EmptySplit;
+import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToIntFunction;
@@ -51,7 +49,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
 import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -64,84 +61,18 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final TypeOperators typeOperators;
     private final CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider;
 
     @Inject
     public NodePartitioningManager(
             NodeScheduler nodeScheduler,
-            TypeOperators typeOperators,
             CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
     }
 
-    public PartitionFunction getPartitionFunction(
-            Session session,
-            PartitioningScheme partitioningScheme,
-            List<Type> partitionChannelTypes)
-    {
-        int[] bucketToPartition = partitioningScheme.getBucketToPartition()
-                .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before a partition function can be created"));
-
-        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
-                    partitionChannelTypes,
-                    partitioningScheme.getHashColumn().isPresent(),
-                    bucketToPartition,
-                    typeOperators);
-        }
-
-        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    (scheme, types) -> getPartitionFunction(session, scheme, types, bucketToPartition),
-                    partitionChannelTypes,
-                    bucketToPartition);
-        }
-
-        return getPartitionFunction(session, partitioningScheme, partitionChannelTypes, bucketToPartition);
-    }
-
-    public PartitionFunction getPartitionFunction(Session session, PartitioningScheme partitioningScheme, List<Type> partitionChannelTypes, int[] bucketToPartition)
-    {
-        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
-
-        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle handle) {
-            return handle.getPartitionFunction(
-                    partitionChannelTypes,
-                    partitioningScheme.getHashColumn().isPresent(),
-                    bucketToPartition,
-                    typeOperators);
-        }
-
-        BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);
-        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
-    }
-
-    public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
-    {
-        CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
-
-        BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
-                partitioningHandle.getTransactionHandle().orElseThrow(),
-                session.toConnectorSession(),
-                partitioningHandle.getConnectorHandle(),
-                partitionChannelTypes,
-                bucketCount);
-        checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioningHandle);
-        return bucketFunction;
-    }
-
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
-    {
-        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), Optional.empty());
-    }
-
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), partitionCount);
     }
@@ -155,7 +86,7 @@ public class NodePartitioningManager
             PartitioningHandle partitioningHandle,
             Map<Integer, List<InternalNode>> bucketToNodeCache,
             AtomicReference<List<InternalNode>> systemPartitioningCache,
-            Optional<Integer> partitionCount)
+            int partitionCount)
     {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
@@ -187,10 +118,10 @@ public class NodePartitioningManager
                 verify(bucketToNode.size() == connectorBucketNodeMap.getBucketCount(), "Fixed mapping size does not match bucket count");
             }
             else {
-                CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
+                List<InternalNode> allNodes = getAllNodes(session);
                 bucketToNode = bucketToNodeCache.computeIfAbsent(
                         connectorBucketNodeMap.getBucketCount(),
-                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), getAllNodes(session, catalogHandle), bucketCount));
+                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), allNodes.subList(0, Math.min(allNodes.size(), partitionCount)), bucketCount));
             }
         }
 
@@ -212,14 +143,18 @@ public class NodePartitioningManager
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
-        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle, bucketToNode.size()));
+        boolean hasFixedMapping = optionalMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false);
+        return new NodePartitionMap(
+                partitionToNode,
+                new BucketToPartition(bucketToPartition, hasFixedMapping),
+                getSplitToBucket(session, partitioningHandle, bucketToNode.size()));
     }
 
-    private List<InternalNode> systemBucketToNode(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache, Optional<Integer> partitionCount)
+    private List<InternalNode> systemBucketToNode(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache, int partitionCount)
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.empty());
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 
         List<InternalNode> nodes = switch (partitioning) {
             case COORDINATOR_ONLY -> ImmutableList.of(nodeSelector.selectCurrentNode());
@@ -227,7 +162,7 @@ public class NodePartitioningManager
             case FIXED -> {
                 List<InternalNode> value = nodesCache.get();
                 if (value == null) {
-                    value = nodeSelector.selectRandomNodes(partitionCount.orElse(getMaxHashPartitionCount(session)));
+                    value = nodeSelector.selectRandomNodes(partitionCount);
                     nodesCache.set(value);
                 }
                 yield value;
@@ -238,10 +173,32 @@ public class NodePartitioningManager
         return nodes;
     }
 
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    public OptionalInt getBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
+            return OptionalInt.empty();
+        }
+
+        ConnectorPartitioningHandle connectorHandle = partitioningHandle.getConnectorHandle();
+        if (connectorHandle instanceof MergePartitioningHandle mergeHandle) {
+            OptionalInt mergeBucketCount = mergeHandle.getBucketCount(handle -> getBucketCount(session, handle));
+            if (mergeBucketCount.isPresent()) {
+                return mergeBucketCount;
+            }
+            return OptionalInt.of(getDefaultBucketCount(session));
+        }
+
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        if (bucketNodeMap.isPresent()) {
+            return OptionalInt.of(bucketNodeMap.get().getBucketCount());
+        }
+        return OptionalInt.of(getDefaultBucketCount(session));
+    }
+
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session));
         ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle, bucketCount);
 
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
@@ -249,7 +206,8 @@ public class NodePartitioningManager
         }
 
         long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
-        List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
+        List<InternalNode> nodes = getAllNodes(session);
+        nodes = nodes.subList(0, Math.min(nodes.size(), partitionCount));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
 
@@ -259,7 +217,7 @@ public class NodePartitioningManager
      *
      * @return The default bucket count to use when the connector doesn't provide a number.
      */
-    private int getDefaultBucketCount(Session session, PartitioningHandle partitioningHandle)
+    public int getDefaultBucketCount(Session session)
     {
         // The default bucket count is used by both remote and local exchanges to assign buckets to nodes and drivers. The goal is to have enough
         // buckets to evenly distribute them across tasks or drivers. If number of buckets is too low, then some tasks or drivers will be idle.
@@ -271,7 +229,7 @@ public class NodePartitioningManager
         int remoteBucketCount;
         if (getRetryPolicy(session) != RetryPolicy.TASK) {
             // Pipeline schedulers typically create as many tasks as there are nodes.
-            remoteBucketCount = getNodeCount(session, partitioningHandle) * 3;
+            remoteBucketCount = getNodeCount(session) * 3;
         }
         else {
             // The FTE scheduler usually creates as many tasks as there are partitions.
@@ -286,14 +244,14 @@ public class NodePartitioningManager
         return max(remoteBucketCount, localBucketCount);
     }
 
-    public int getNodeCount(Session session, PartitioningHandle partitioningHandle)
+    public int getNodeCount(Session session)
     {
-        return getAllNodes(session, requiredCatalogHandle(partitioningHandle)).size();
+        return getAllNodes(session).size();
     }
 
-    private List<InternalNode> getAllNodes(Session session, CatalogHandle catalogHandle)
+    private List<InternalNode> getAllNodes(Session session)
     {
-        return nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes();
+        return nodeScheduler.createNodeSelector(session).allNodes();
     }
 
     private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)

@@ -30,6 +30,7 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -118,6 +119,16 @@ public class TestUuidOperators
                 .binding("a", "UUID 'd3074e99-de12-4b8c-a2a1-b7faf79faba6'"))
                 .hasType(VARCHAR)
                 .isEqualTo("d3074e99-de12-4b8c-a2a1-b7faf79faba6");
+
+        assertThat(assertions.expression("cast(a AS VARCHAR(36))")
+                .binding("a", "UUID 'd3074e99-de12-4b8c-a2a1-b7faf79faba6'"))
+                .hasType(createVarcharType(36))
+                .isEqualTo("d3074e99-de12-4b8c-a2a1-b7faf79faba6");
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(a AS VARCHAR(35))")
+                .binding("a", "UUID 'd3074e99-de12-4b8c-a2a1-b7faf79faba6'")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast 'd3074e99-de12-4b8c-a2a1-b7faf79faba6' to varchar(35)");
     }
 
     @Test

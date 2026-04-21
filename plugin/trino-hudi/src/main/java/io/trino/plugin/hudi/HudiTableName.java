@@ -13,21 +13,19 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.spi.TrinoException;
-
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
+import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.hudi.TableType.DATA;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public record HudiTableName(String tableName, TableType tableType)
 {
-    private static final Pattern TABLE_PATTERN = Pattern.compile("" +
-            "(?<table>[^$@]+)" +
-            "(?:\\$(?<type>[^@]+))?");
+    private static final Pattern TABLE_PATTERN = Pattern.compile(
+            "(?<table>[^$@]+)(?:\\$(?<type>(?i:timeline)))?");
 
     public HudiTableName(String tableName, TableType tableType)
     {
@@ -46,26 +44,22 @@ public record HudiTableName(String tableName, TableType tableType)
         return tableNameWithType();
     }
 
-    public static HudiTableName from(String name)
+    public static Optional<HudiTableName> from(String name)
     {
         Matcher match = TABLE_PATTERN.matcher(name);
         if (!match.matches()) {
-            throw new TrinoException(NOT_SUPPORTED, "Invalid Hudi table name: " + name);
+            return Optional.empty();
         }
 
         String table = match.group("table");
         String typeString = match.group("type");
 
-        TableType type = TableType.DATA;
+        TableType type = DATA;
         if (typeString != null) {
-            try {
-                type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
-            }
-            catch (IllegalArgumentException e) {
-                throw new TrinoException(NOT_SUPPORTED, format("Invalid Hudi table name (unknown type '%s'): %s", typeString, name));
-            }
+            type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+            verify(type != DATA, "parsedType is unexpectedly DATA");
         }
 
-        return new HudiTableName(table, type);
+        return Optional.of(new HudiTableName(table, type));
     }
 }

@@ -13,15 +13,12 @@
  */
 package io.trino.spi.function;
 
-import io.trino.spi.Experimental;
-
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class ScalarFunctionImplementation
 {
     private final MethodHandle methodHandle;

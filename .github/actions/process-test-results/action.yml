@@ -17,7 +17,7 @@ runs:
   using: composite
   steps:
   - name: Upload test results
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v7
     if: format('{0}', inputs.has-failed-tests) == 'true'
     with:
       name: results ${{ inputs.artifact-name }}
@@ -29,7 +29,7 @@ runs:
         logs/*
       retention-days: 5
   - name: Upload test report
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v7
     # Always upload the test report for the upload-test-results.yml workflow,
     # but only the single XML file to keep the artifact small
     with:
@@ -41,7 +41,7 @@ runs:
         testing/trino-product-tests/target/reports/**/testng-results.xml
       retention-days: 5
   - name: Upload heap dump
-    uses: actions/upload-artifact@v4
+    uses: actions/upload-artifact@v7
     if: format('{0}', inputs.upload-heap-dump) == 'true'
     with:
       name: heap dump ${{ inputs.artifact-name }}
@@ -58,7 +58,7 @@ runs:
       # don't create or update checks, only annotate current job
       skip_publishing: true
   - name: Process Product Test reports
-    uses: starburstdata/action-testng-report@f245422953fb97ec5075d07782a1b596124b7cc4
+    uses: starburstdata/action-testng-report@d139fdb2941218d327f5ce0ad8fd85b65d9f9ce3
     if: format('{0}', inputs.has-failed-tests) == 'true'
     with:
       # this workflow should never fail, as it is not a quality gateway

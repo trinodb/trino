@@ -16,10 +16,11 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
-import io.trino.client.NodeVersion;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
@@ -78,7 +79,7 @@ public class TestGlobalFunctionCatalog
             if (operatorType == CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
             }
-            if (!function.getSignature().getTypeVariableConstraints().isEmpty()) {
+            if (function.getSignature().isGeneric()) {
                 continue;
             }
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
@@ -176,7 +177,14 @@ public class TestGlobalFunctionCatalog
                         functionSignature("decimal(p,s)", "double"),
                         functionSignature("double", "decimal(p,s)"))
                 .forParameters(BIGINT, BIGINT)
-                .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+                .failsWithMessage(
+                        """
+                        Could not choose a best candidate operator. Explicit type casts must be added.
+                        Actual types: (bigint, bigint)
+                        Candidates are:
+                        \t * (decimal(19,0),double):boolean
+                        \t * (double,decimal(19,0)):boolean
+                        """);
     }
 
     @Test
@@ -219,9 +227,9 @@ public class TestGlobalFunctionCatalog
                                 ImmutableList.of("T1", "T2", "T3"),
                                 "boolean",
                                 ImmutableList.of(
-                                        TypeVariableConstraint.builder("T1").variadicBound("row").build(),
-                                        TypeVariableConstraint.builder("T2").variadicBound("row").build(),
-                                        TypeVariableConstraint.builder("T3").variadicBound("row").build())))
+                                        TypeVariableConstraint.builder("T1").rowType().build(),
+                                        TypeVariableConstraint.builder("T2").rowType().build(),
+                                        TypeVariableConstraint.builder("T3").rowType().build())))
                 .forParameters(UnknownType.UNKNOWN, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
@@ -266,7 +274,14 @@ public class TestGlobalFunctionCatalog
                         functionSignature(ImmutableList.of("JoniRegExp"), "JoniRegExp"),
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters(UnknownType.UNKNOWN)
-                .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+                .failsWithMessage(
+                        """
+                        Could not choose a best candidate operator. Explicit type casts must be added.
+                        Actual types: (unknown)
+                        Candidates are:
+                        \t * (joniregexp):joniregexp
+                        \t * (integer):integer
+                        """);
     }
 
     private static List<FunctionMetadata> listOperators(TestingFunctionResolution functionResolution)
@@ -292,7 +307,7 @@ public class TestGlobalFunctionCatalog
 
     private static Signature.Builder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
-        ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
+        Set<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
                 .map(signature -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
@@ -334,11 +349,11 @@ public class TestGlobalFunctionCatalog
             return this;
         }
 
-        public ResolveFunctionAssertion failsWithMessage(String... messages)
+        public ResolveFunctionAssertion failsWithMessage(String message)
         {
             assertThatThrownBy(this::resolveSignature)
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessageContainingAll(messages);
+                    .hasMessage(message);
             return this;
         }
 

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -1421,6 +1422,11 @@ public class TestTime
         assertThat(assertions.expression("CAST(TIME '12:34:56.1234567890' AS VARCHAR)")).isEqualTo("12:34:56.1234567890");
         assertThat(assertions.expression("CAST(TIME '12:34:56.12345678901' AS VARCHAR)")).isEqualTo("12:34:56.12345678901");
         assertThat(assertions.expression("CAST(TIME '12:34:56.123456789012' AS VARCHAR)")).isEqualTo("12:34:56.123456789012");
+
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789012' AS VARCHAR(21))")).isEqualTo("12:34:56.123456789012");
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(TIME '12:34:56.123456789012' AS VARCHAR(20))")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '12:34:56.123456789012' to varchar(20)");
     }
 
     @Test

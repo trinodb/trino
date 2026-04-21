@@ -19,7 +19,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -28,11 +28,11 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
@@ -118,10 +118,7 @@ public class MemoryPagesStore
             }
             // Append missing columns with null values. This situation happens when a new column is added without additional insert.
             for (int j = page.getChannelCount(); j < columnIndexes.length; j++) {
-                Type type = columnTypes.get(j);
-                BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
-                IntStream.range(0, page.getPositionCount()).forEach(_ -> builder.appendNull());
-                page = page.appendColumn(builder.build());
+                page = page.appendColumn(RunLengthEncodedBlock.create(columnTypes.get(j), null, page.getPositionCount()));
             }
             partitionedPages.add(page.getColumns(columnIndexes));
         }
@@ -136,7 +133,10 @@ public class MemoryPagesStore
 
     public synchronized void purge(long tableId)
     {
-        tables.remove(tableId);
+        TableData tableData = tables.remove(tableId);
+        if (tableData != null) {
+            currentBytes = currentBytes - tableData.getPages().stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+        }
     }
 
     public synchronized void cleanUp(Set<Long> activeTableIds)
@@ -155,8 +155,8 @@ public class MemoryPagesStore
         }
         long latestTableId = Collections.max(activeTableIds);
 
-        for (Iterator<Map.Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
-            Map.Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();
+        for (Iterator<Entry<Long, TableData>> tableDataIterator = tables.entrySet().iterator(); tableDataIterator.hasNext(); ) {
+            Entry<Long, TableData> tablePagesEntry = tableDataIterator.next();
             Long tableId = tablePagesEntry.getKey();
             if (tableId < latestTableId && !activeTableIds.contains(tableId)) {
                 for (Page removedPage : tablePagesEntry.getValue().getPages()) {

@@ -17,7 +17,7 @@ import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 
 public sealed interface AzureAuth
-        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth
+        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth, AzureAuthSasToken
 {
     void setAuth(String storageAccount, BlobContainerClientBuilder builder);
 

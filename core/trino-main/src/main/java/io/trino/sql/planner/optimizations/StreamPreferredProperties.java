@@ -31,7 +31,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.preferStreamingOperators;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -82,7 +81,7 @@ public class StreamPreferredProperties
 
     public static StreamPreferredProperties defaultParallelism(Session session)
     {
-        if (getTaskConcurrency(session) > 1 && !preferStreamingOperators(session)) {
+        if (getTaskConcurrency(session) > 1) {
             return new StreamPreferredProperties(Optional.of(MULTIPLE), Optional.empty(), false);
         }
         return any();
@@ -159,7 +158,7 @@ public class StreamPreferredProperties
 
     public StreamPreferredProperties withDefaultParallelism(Session session)
     {
-        if (getTaskConcurrency(session) > 1 && !preferStreamingOperators(session)) {
+        if (getTaskConcurrency(session) > 1) {
             return withParallelism();
         }
         return this;
@@ -268,7 +267,7 @@ public class StreamPreferredProperties
             return this;
         }
 
-        ImmutableSet<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
+        Set<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
         if (exactColumnOrder) {
             if (availableSymbols.containsAll(partitioningColumns.get())) {
                 return this;

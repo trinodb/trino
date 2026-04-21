@@ -13,12 +13,9 @@
  */
 package io.trino.spi.function;
 
-import io.trino.spi.Experimental;
-
 import java.util.List;
 import java.util.function.Supplier;
 
-@Experimental(eta = "2022-10-31")
 public interface WindowFunctionSupplier
 {
     WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders);

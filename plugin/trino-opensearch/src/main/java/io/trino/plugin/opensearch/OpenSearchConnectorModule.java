@@ -21,11 +21,11 @@ import io.trino.plugin.opensearch.client.OpenSearchClient;
 import io.trino.plugin.opensearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
+import java.util.Optional;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class OpenSearchConnectorModule
@@ -51,18 +51,12 @@ public class OpenSearchConnectorModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(OpenSearchSessionProperties.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(
-                OpenSearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(OpenSearchConfig.Security.AWS))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
-
-        install(conditionalModule(
-                OpenSearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(OpenSearchConfig.Security.PASSWORD))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
+        Optional<OpenSearchConfig.Security> security = buildConfigObject(OpenSearchConfig.class).getSecurity();
+        if (security.isPresent()) {
+            switch (security.orElseThrow()) {
+                case AWS -> configBinder(binder).bindConfig(AwsSecurityConfig.class);
+                case PASSWORD -> configBinder(binder).bindConfig(PasswordConfig.class);
+            }
+        }
     }
 }

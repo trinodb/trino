@@ -23,11 +23,12 @@ import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.OptionalLong;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @Immutable
 public class QueryResults
@@ -43,7 +44,7 @@ public class QueryResults
     private final QueryError error;
     private final List<Warning> warnings;
     private final String updateType;
-    private final Long updateCount;
+    private final OptionalLong updateCount;
 
     @JsonCreator
     public QueryResults(
@@ -57,7 +58,7 @@ public class QueryResults
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<Warning> warnings,
             @JsonProperty("updateType") String updateType,
-            @JsonProperty("updateCount") Long updateCount)
+            @JsonProperty("updateCount") OptionalLong updateCount)
     {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
@@ -68,9 +69,9 @@ public class QueryResults
         checkArgument(!hasData(data) || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
-        this.warnings = ImmutableList.copyOf(firstNonNull(warnings, ImmutableList.of()));
+        this.warnings = ImmutableList.copyOf(requireNonNullElse(warnings, ImmutableList.of()));
         this.updateType = updateType;
-        this.updateCount = updateCount;
+        this.updateCount = requireNonNull(updateCount, "updateCount is null");
     }
 
     @JsonProperty
@@ -156,10 +157,9 @@ public class QueryResults
         return updateType;
     }
 
-    @Nullable
     @JsonProperty
     @Override
-    public Long getUpdateCount()
+    public OptionalLong getUpdateCount()
     {
         return updateCount;
     }

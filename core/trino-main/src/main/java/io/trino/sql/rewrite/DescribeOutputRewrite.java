@@ -29,7 +29,10 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutput.Target.InlineQuery;
+import io.trino.sql.tree.DescribeOutput.Target.PreparedStatement;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -45,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -57,7 +59,6 @@ import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public final class DescribeOutputRewrite
@@ -87,7 +88,7 @@ public final class DescribeOutputRewrite
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
-        private static final Query EMPTY_OUTPUT = createDesctibeOutputQuery(
+        private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
                 new Row[] {row(
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
@@ -117,7 +118,7 @@ public final class DescribeOutputRewrite
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
-            this.analyzerFactory = analyzerFactory;
+            this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -127,8 +128,7 @@ public final class DescribeOutputRewrite
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
-            String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString);
+            Statement statement = getStatement(node);
 
             Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
@@ -138,10 +138,18 @@ public final class DescribeOutputRewrite
             if (rows.length == 0) {
                 return EMPTY_OUTPUT;
             }
-            return createDesctibeOutputQuery(rows, limit);
+            return createDescribeOutputQuery(rows, limit);
         }
 
-        private static Query createDesctibeOutputQuery(Row[] rows, Optional<Node> limit)
+        private Statement getStatement(DescribeOutput node)
+        {
+            return switch (node.getTarget()) {
+                case PreparedStatement(Identifier name) -> parser.createStatement(session.getPreparedStatement(name.getValue()));
+                case InlineQuery(Query query) -> query;
+            };
+        }
+
+        private static Query createDescribeOutputQuery(Row[] rows, Optional<Node> limit)
         {
             return simpleQuery(
                     selectList(
@@ -187,7 +195,7 @@ public final class DescribeOutputRewrite
                     new StringLiteral(originTable.map(QualifiedObjectName::catalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::schemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::objectName).orElse("")),
-                    new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
+                    new StringLiteral(field.getType().getDisplayName()),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }

@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
+import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.IOException;
@@ -24,7 +25,7 @@ import java.util.EnumSet;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.exists;
@@ -56,10 +57,11 @@ public final class TestingGlueHiveMetastore
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(
                 glueClient,
-                new GlueContext(glueConfig),
                 GlueCache.NOOP,
+                new GlueMetastoreStats(),
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
+                new CatalogName("test"),
                 EnumSet.allOf(TableKind.class));
     }
 }

@@ -19,11 +19,14 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -40,21 +43,25 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class GenericPartitioningSpiller
         implements PartitioningSpiller
 {
+    private static final Logger log = Logger.get(GenericPartitioningSpiller.class);
+
     private final List<Type> types;
     private final PartitionFunction partitionFunction;
     private final Closer closer = Closer.create();
     private final SingleStreamSpillerFactory spillerFactory;
     private final SpillContext spillContext;
     private final AggregatedMemoryContext memoryContext;
+    private final String operatorName;
 
     private final List<PageBuilder> pageBuilders;
     private final List<Optional<SingleStreamSpiller>> spillers;
@@ -67,7 +74,8 @@ public class GenericPartitioningSpiller
             PartitionFunction partitionFunction,
             SpillContext spillContext,
             AggregatedMemoryContext memoryContext,
-            SingleStreamSpillerFactory spillerFactory)
+            SingleStreamSpillerFactory spillerFactory,
+            String operatorName)
     {
         requireNonNull(spillContext, "spillContext is null");
 
@@ -79,6 +87,7 @@ public class GenericPartitioningSpiller
         requireNonNull(memoryContext, "memoryContext is null");
         closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
+        this.operatorName = requireNonNull(operatorName, "operatorName is null");
         int partitionCount = partitionFunction.partitionCount();
 
         ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
@@ -96,6 +105,12 @@ public class GenericPartitioningSpiller
         readingStarted = true;
         getFutureValue(flush(partition));
         spilledPartitions.remove(partition);
+
+        log.debug(
+                "Unspilling partition %d for operator %s",
+                partition,
+                operatorName);
+
         return getSpiller(partition).getSpilledPages();
     }
 
@@ -114,7 +129,7 @@ public class GenericPartitioningSpiller
 
         checkState(!readingStarted, "reading already started");
         IntArrayList unspilledPositions = partitionPage(page, spillPartitionMask);
-        ListenableFuture<Void> future = flushFullBuilders();
+        ListenableFuture<DataSize> future = flushFullBuilders();
 
         return new PartitioningSpillResult(future, page.getPositions(unspilledPositions.elements(), 0, unspilledPositions.size()));
     }
@@ -135,29 +150,29 @@ public class GenericPartitioningSpiller
             PageBuilder pageBuilder = pageBuilders.get(partition);
             pageBuilder.declarePosition();
             for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
-                type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                Block block = page.getBlock(channel);
+                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
         }
 
         return unspilledPositions;
     }
 
-    private ListenableFuture<Void> flushFullBuilders()
+    private ListenableFuture<DataSize> flushFullBuilders()
     {
         return flush(PageBuilder::isFull);
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> flush()
+    ListenableFuture<DataSize> flush()
     {
         return flush(pageBuilder -> true);
     }
 
-    private synchronized ListenableFuture<Void> flush(Predicate<PageBuilder> flushCondition)
+    private synchronized ListenableFuture<DataSize> flush(Predicate<PageBuilder> flushCondition)
     {
         requireNonNull(flushCondition, "flushCondition is null");
-        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
+        ImmutableList.Builder<ListenableFuture<DataSize>> futures = ImmutableList.builder();
 
         for (int partition = 0; partition < spillers.size(); partition++) {
             PageBuilder pageBuilder = pageBuilders.get(partition);
@@ -166,22 +181,34 @@ public class GenericPartitioningSpiller
             }
         }
 
-        return asVoid(Futures.allAsList(futures.build()));
+        return Futures.transform(Futures.allAsList(futures.build()),
+                result -> {
+                    long totalBytes = 0;
+                    for (DataSize size : result) {
+                        totalBytes += size.toBytes();
+                    }
+                    return DataSize.ofBytes(totalBytes);
+                }, directExecutor());
     }
 
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
-    }
-
-    private synchronized ListenableFuture<Void> flush(int partition)
+    private synchronized ListenableFuture<DataSize> flush(int partition)
     {
         PageBuilder pageBuilder = pageBuilders.get(partition);
         if (pageBuilder.isEmpty()) {
-            return immediateVoidFuture();
+            return immediateFuture(DataSize.ofBytes(0));
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
+
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "Spilling partition %d for operator %s, sizeInBytes %s, retainedSizeInBytes %s",
+                    partition,
+                    operatorName,
+                    succinctBytes(page.getSizeInBytes()),
+                    succinctBytes(page.getRetainedSizeInBytes()));
+        }
+
         return getSpiller(partition).spill(page);
     }
 

@@ -27,7 +27,7 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
 
 @Description("Minute of the hour of the given time")
 @ScalarFunction("minute")
-public class ExtractMinute
+public final class ExtractMinute
 {
     private ExtractMinute() {}
 

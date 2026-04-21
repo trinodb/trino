@@ -31,6 +31,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -45,6 +46,7 @@ import java.time.LocalTime;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -81,12 +83,13 @@ public final class FormatFunction
     public static final FormatFunction FORMAT_FUNCTION = new FormatFunction();
     private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, SqlRow.class);
     private static final CatalogSchemaFunctionName JSON_FORMAT_NAME = builtinFunctionName("json_format");
+    private static final Pattern JAVA_UTIL_EXCEPTION_PATTERN = Pattern.compile("^java\\.util\\.(\\w+)Exception");
 
     private FormatFunction()
     {
         super(FunctionMetadata.scalarBuilder(NAME)
                 .signature(Signature.builder()
-                        .variadicTypeParameter("T", "row")
+                        .rowTypeParameter("T")
                         .argumentType(VARCHAR.getTypeSignature())
                         .argumentType(new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
@@ -100,7 +103,7 @@ public final class FormatFunction
     public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        boundSignature.getArgumentTypes().get(1).getTypeParameters()
+        ((RowType) boundSignature.getArgumentTypes().get(1)).getFieldTypes()
                 .forEach(type -> addDependencies(builder, type));
         return builder.build();
     }
@@ -135,9 +138,9 @@ public final class FormatFunction
     @Override
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type rowType = boundSignature.getArgumentType(1);
+        RowType rowType = (RowType) boundSignature.getArgumentType(1);
 
-        List<BiFunction<Block, Integer, Object>> converters = rowType.getTypeParameters().stream()
+        List<BiFunction<Block, Integer, Object>> converters = rowType.getFieldTypes().stream()
                 .map(type -> converter(functionDependencies, type))
                 .collect(toImmutableList());
 
@@ -166,7 +169,7 @@ public final class FormatFunction
             return utf8Slice(format(session.getLocale(), format, args));
         }
         catch (IllegalFormatException e) {
-            String message = e.toString().replaceFirst("^java\\.util\\.(\\w+)Exception", "$1");
+            String message = JAVA_UTIL_EXCEPTION_PATTERN.matcher(e.toString()).replaceFirst("$1");
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
         }
     }

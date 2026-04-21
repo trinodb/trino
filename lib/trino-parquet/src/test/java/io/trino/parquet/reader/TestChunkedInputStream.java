@@ -14,15 +14,16 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
@@ -38,7 +39,8 @@ public class TestChunkedInputStream
         assertThatThrownBy(() -> input(ImmutableList.of())).isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test(dataProvider = "chunks")
+    @ParameterizedTest
+    @MethodSource("chunks")
     public void testInput(List<byte[]> chunks)
             throws IOException
     {
@@ -67,7 +69,7 @@ public class TestChunkedInputStream
 
         // rad more than total length
         ChunkedInputStream input = input(slices);
-        int bytesRead = ByteStreams.read(input, buffer, 0, buffer.length);
+        int bytesRead = input.readNBytes(buffer, 0, buffer.length);
         assertThat(bytesRead).isEqualTo(expectedBytes.length > 0 ? expectedBytes.length : -1);
 
         // read after input is done returns -1
@@ -90,7 +92,8 @@ public class TestChunkedInputStream
         }
     }
 
-    @Test(dataProvider = "chunks")
+    @ParameterizedTest
+    @MethodSource("chunks")
     public void testClose(List<byte[]> chunks)
             throws IOException
     {
@@ -123,14 +126,12 @@ public class TestChunkedInputStream
         }
     }
 
-    @DataProvider
-    public Object[][] chunks()
+    public static Stream<List<byte[]>> chunks()
     {
-        return new Object[][] {
-                {ImmutableList.of(new byte[] {1, 2, 3})},
-                {ImmutableList.of(new byte[] {1, 2, 3}, new byte[] {1, 2})},
-                {ImmutableList.of(new byte[] {1, 2, 3}, new byte[] {1}, new byte[] {1, 2})},
-        };
+        return Stream.of(
+                ImmutableList.of(new byte[] {1, 2, 3}),
+                ImmutableList.of(new byte[] {1, 2, 3}, new byte[] {1, 2}),
+                ImmutableList.of(new byte[] {1, 2, 3}, new byte[] {1}, new byte[] {1, 2}));
     }
 
     private static byte[] readAll(ChunkedInputStream input)

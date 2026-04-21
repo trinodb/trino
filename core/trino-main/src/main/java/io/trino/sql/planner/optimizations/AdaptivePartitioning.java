@@ -26,11 +26,13 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableExecuteNode;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,6 +45,7 @@ import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.Ou
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -65,6 +68,14 @@ public class AdaptivePartitioning
     {
         // Skip if runtime adaptive partitioning is not enabled
         if (!isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(context.session())) {
+            return new Result(plan, ImmutableSet.of());
+        }
+
+        if (searchFrom(plan)
+                .where(node -> node instanceof TableExecuteNode)
+                .findFirst()
+                .isPresent()) {
+            // TableExecute is not supported
             return new Result(plan, ImmutableSet.of());
         }
 
@@ -168,7 +179,7 @@ public class AdaptivePartitioning
             // for FTE it only makes sense to set partition count for hash partitioned fragments
             if (node.getScope() == REMOTE
                     && node.getPartitioningScheme().getPartitioning().getHandle() == FIXED_HASH_DISTRIBUTION) {
-                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+                partitioningScheme = partitioningScheme.withPartitionCount(OptionalInt.of(partitionCount));
                 changedPlanIds.add(node.getId());
             }
 
@@ -200,7 +211,7 @@ public class AdaptivePartitioning
             }
 
             PartitioningScheme newPartitioningSchema = sourcePartitioningScheme.get()
-                    .withPartitionCount(Optional.of(partitionCount))
+                    .withPartitionCount(OptionalInt.of(partitionCount))
                     .withPartitioningHandle(FIXED_HASH_DISTRIBUTION);
 
             PlanNodeId nodeId = idAllocator.getNextId();

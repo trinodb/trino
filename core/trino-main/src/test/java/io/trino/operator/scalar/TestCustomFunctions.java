@@ -83,4 +83,18 @@ public class TestCustomFunctions
         assertThat(assertions.function("identity.function", "\"identity&function\"(123)"))
                 .isEqualTo(123L);
     }
+
+    @Test
+    public void testConnectorSessionBinding()
+    {
+        assertThat(assertions.function("connector_session_varchar", "'hello'"))
+                .isEqualTo("hello user");
+    }
+
+    @Test
+    public void testComplexConnectorSessionBinding()
+    {
+        assertThat(assertions.function("connector_session_row", "row('goodbye')"))
+                .isEqualTo("goodbye user");
+    }
 }

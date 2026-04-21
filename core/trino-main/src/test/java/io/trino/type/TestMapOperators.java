@@ -402,6 +402,14 @@ public class TestMapOperators
                 .binding("a", "JSON 'null'"))
                 .isNull(mapType(BIGINT, BIGINT));
 
+        assertThat(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
+                .binding("a", "'null'"))
+                .isNull(mapType(BIGINT, BIGINT));
+
+        assertTrinoExceptionThrownBy(assertions.expression("cast(json_parse(a) as MAP(BIGINT, BIGINT))")
+                .binding("a", "'null 123 some invalid JSON content'")::evaluate)
+                .hasMessage("Cannot cast to map(bigint, bigint). Unexpected trailing token: 123\nnull 123 some invalid JSON content");
+
         assertThat(assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{}'"))
                 .hasType(mapType(BIGINT, BIGINT))
@@ -683,7 +691,7 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, INTEGER))")
                 .binding("a", "JSON '{\"a\": 1234567890123.456}'").evaluate())
-                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1.234567890123456E12}")
+                .hasMessage("Cannot cast to map(varchar, integer). Out of range for integer: 1.234567890123456E12\n{\"a\":1234567890123.456}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")

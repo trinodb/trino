@@ -1,5 +1,33 @@
 # Release notes
 
+(releases-2026)=
+## 2026
+
+```{toctree}
+:maxdepth: 1
+
+release/release-480
+```
+
+(releases-2025)=
+## 2025
+
+```{toctree}
+:maxdepth: 1
+
+release/release-479
+release/release-478
+release/release-477
+release/release-476
+release/release-475
+release/release-474
+release/release-473
+release/release-472
+release/release-471
+release/release-470
+release/release-469
+```
+
 (releases-2024)=
 ## 2024
 

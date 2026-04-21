@@ -65,11 +65,7 @@ public class BenchmarkCopyPositions
         @Param({"false", "true"})
         private boolean nullsAllowed;
 
-        @Param({
-                "GROUPED",
-                "SEQUENCE",
-                "RANDOM",
-        })
+        @Param
         private SelectedPositions selectedPositions;
 
         @Param({"VARCHAR", "ROW(BIGINT)"})
@@ -231,7 +227,7 @@ public class BenchmarkCopyPositions
         new BenchmarkCopyPositions().testCopyPositions();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkCopyPositions.class)

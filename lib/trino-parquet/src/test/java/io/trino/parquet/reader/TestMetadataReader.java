@@ -23,10 +23,12 @@ import org.apache.parquet.format.Statistics;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
@@ -53,7 +55,8 @@ public class TestMetadataReader
     // Used by Presto [305, ?)
     private static final Optional<String> PARQUET_MR_1_10 = Optional.of("parquet-mr version 1.10.1 (build a89df8f9932b6ef6633d06069e50c9b7970bebd1)");
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsInt32(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -74,7 +77,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsInt64(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -95,7 +99,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsFloat(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -116,7 +121,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsDouble(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -137,7 +143,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsInt64WithoutNullCount(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -157,7 +164,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsInt64WithoutMin(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -177,7 +185,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsInt64WithoutMax(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -197,7 +206,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsFloatWithoutMin(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -217,7 +227,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsFloatWithoutMax(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -237,7 +248,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsDoubleWithoutMin(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -257,7 +269,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsDoubleWithoutMax(Optional<String> fileCreatedBy)
     {
         Statistics statistics = new Statistics();
@@ -277,7 +290,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsBinary(Optional<String> fileCreatedBy)
     {
         PrimitiveType varbinary = new PrimitiveType(OPTIONAL, BINARY, "Test column");
@@ -431,7 +445,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadStatsBinaryUtf8(Optional<String> fileCreatedBy)
     {
         PrimitiveType varchar = Types.optional(BINARY).as(LogicalTypeAnnotation.stringType()).named("Test column");
@@ -458,7 +473,8 @@ public class TestMetadataReader
                 });
     }
 
-    @Test(dataProvider = "allCreatedBy")
+    @ParameterizedTest
+    @MethodSource("allCreatedBy")
     public void testReadNullStats(Optional<String> fileCreatedBy)
     {
         // integer
@@ -486,15 +502,13 @@ public class TestMetadataReader
                         columnStatistics -> assertThat(columnStatistics.isEmpty()).isTrue());
     }
 
-    @DataProvider
-    public Object[][] allCreatedBy()
+    public static Stream<Optional<String>> allCreatedBy()
     {
-        return new Object[][] {
-                {NO_CREATED_BY},
-                {PARQUET_MR},
-                {PARQUET_MR_1_8},
-                {PARQUET_MR_1_10},
-        };
+        return Stream.of(
+                NO_CREATED_BY,
+                PARQUET_MR,
+                PARQUET_MR_1_8,
+                PARQUET_MR_1_10);
     }
 
     private static byte[] fromHex(String hex)

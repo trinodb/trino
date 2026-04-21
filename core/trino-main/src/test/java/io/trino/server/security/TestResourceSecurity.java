@@ -14,7 +14,7 @@
 package io.trino.server.security;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -72,7 +72,6 @@ import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -83,13 +82,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -99,7 +95,7 @@ import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -121,6 +117,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -132,7 +129,7 @@ public class TestResourceSecurity
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
     private static final String ALLOWED_USER_MAPPING_PATTERN = "(.*)@allowed";
-    private static final ImmutableMap<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
+    private static final Map<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
@@ -148,13 +145,12 @@ public class TestResourceSecurity
     private static final String MANAGEMENT_PASSWORD = "management-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
     private static final String JWK_KEY_ID = "test-rsa";
-    private static final String GROUPS_CLAIM = "groups";
     private static final String TRINO_AUDIENCE = "trino-client";
     private static final String ADDITIONAL_AUDIENCE = "https://external-service.com";
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
     private static final PrivateKey JWK_PRIVATE_KEY;
     private static final PublicKey JWK_PUBLIC_KEY;
-    private static final ObjectMapper json = new ObjectMapper();
+    private static final JsonMapper json = new JsonMapper();
 
     static {
         try {
@@ -488,7 +484,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
@@ -568,7 +564,7 @@ public class TestResourceSecurity
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -604,7 +600,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -674,16 +670,16 @@ public class TestResourceSecurity
                     uriBuilderFrom(baseUri)
                             .replacePath("/oauth2/callback/")
                             .addParameter("code", "TEST_CODE")
-                            .addParameter("state", bearer.getState())
+                            .addParameter("state", bearer.state())
                             .toString());
             if (refreshTokensEnabled) {
                 TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
-                TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.getTokenServer()));
+                TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.tokenServer()));
                 assertThat(tokenPair.accessToken()).isEqualTo(tokenServer.getAccessToken());
                 assertThat(tokenPair.refreshToken()).isEqualTo(Optional.of(tokenServer.getRefreshToken()));
             }
             else {
-                assertThat(getOauthToken(client, bearer.getTokenServer())).isEqualTo(tokenServer.getAccessToken());
+                assertThat(getOauthToken(client, bearer.tokenServer())).isEqualTo(tokenServer.getAccessToken());
             }
 
             // if Web UI is using oauth so we should get a cookie
@@ -696,7 +692,7 @@ public class TestResourceSecurity
                 assertThat(cookie.isHttpOnly()).isTrue();
 
                 HttpCookie idTokenCookie = getCookie(cookieManager, ID_TOKEN_COOKIE);
-                assertThat(idTokenCookie.getValue()).isEqualTo(tokenServer.issueIdToken(Optional.of(hashNonce(bearer.getNonceCookie().getValue()))));
+                assertThat(idTokenCookie.getValue()).isEqualTo(tokenServer.issueIdToken(Optional.of(hashNonce(bearer.nonceCookie().getValue()))));
                 assertThat(idTokenCookie.getPath()).isEqualTo("/ui/");
                 assertThat(idTokenCookie.getDomain()).isEqualTo(baseUri.getHost());
                 assertThat(idTokenCookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5)).isTrue();
@@ -713,7 +709,7 @@ public class TestResourceSecurity
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
                     .authenticator((route, response) -> response.request().newBuilder()
-                            .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.getTokenServer()))
+                            .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.tokenServer()))
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
@@ -733,7 +729,7 @@ public class TestResourceSecurity
                 .url(uriBuilderFrom(baseUri)
                         .replacePath("/oauth2/callback/")
                         .addParameter("error", maliciousErrorCode)
-                        .addParameter("state", bearer.getState())
+                        .addParameter("state", bearer.state())
                         .toString())
                 .build();
         try (Response response = client.newCall(request).execute()) {
@@ -785,45 +781,18 @@ public class TestResourceSecurity
         }
     }
 
-    private static class OAuthBearer
+    private record OAuthBearer(String state, String tokenServer, HttpCookie nonceCookie)
     {
-        private final String state;
-        private final String tokenServer;
-        private final HttpCookie nonceCookie;
-
-        public OAuthBearer(String state, String tokenServer, HttpCookie nonceCookie)
+        private OAuthBearer
         {
-            this.state = requireNonNull(state, "state is null");
-            this.tokenServer = requireNonNull(tokenServer, "tokenServer is null");
-            this.nonceCookie = requireNonNull(nonceCookie, "nonce is null");
-        }
-
-        public String getState()
-        {
-            return state;
-        }
-
-        public String getTokenServer()
-        {
-            return tokenServer;
-        }
-
-        public HttpCookie getNonceCookie()
-        {
-            return nonceCookie;
+            requireNonNull(state, "state is null");
+            requireNonNull(tokenServer, "tokenServer is null");
+            requireNonNull(nonceCookie, "nonce is null");
         }
     }
 
     @Test
     public void testOAuth2Groups()
-            throws Exception
-    {
-        testOAuth2Groups(Optional.empty());
-        testOAuth2Groups(Optional.of(ImmutableSet.of()));
-        testOAuth2Groups(Optional.of(ImmutableSet.of("admin", "public")));
-    }
-
-    private void testOAuth2Groups(Optional<Set<String>> groups)
             throws Exception
     {
         try (TokenServer tokenServer = new TokenServer(Optional.empty());
@@ -833,14 +802,13 @@ public class TestResourceSecurity
                                 .put("web-ui.enabled", "true")
                                 .put("http-server.authentication.type", "oauth2")
                                 .putAll(getOAuth2Properties(tokenServer))
-                                .put("deprecated.http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
                                 .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
                         .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
                         .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
-            String accessToken = tokenServer.issueAccessToken(groups);
+            String accessToken = tokenServer.issueAccessToken();
             OkHttpClient clientWithOAuthToken = client.newBuilder()
                     .authenticator((route, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + accessToken)
@@ -856,7 +824,6 @@ public class TestResourceSecurity
                 assertThat(response.code()).isEqualTo(SC_OK);
                 assertThat(response.header("user")).isEqualTo(TEST_USER);
                 assertThat(response.header("principal")).isEqualTo(TEST_USER);
-                assertThat(response.header("groups")).isEqualTo(groups.map(TestResource::toHeader).orElse(""));
             }
 
             OkHttpClient clientWithOAuthCookie = client.newBuilder()
@@ -886,7 +853,6 @@ public class TestResourceSecurity
                 assertThat(response.code()).isEqualTo(SC_OK);
                 assertThat(response.header("user")).isEqualTo(TEST_USER);
                 assertThat(response.header("principal")).isEqualTo(TEST_USER);
-                assertThat(response.header("groups")).isEqualTo(groups.map(TestResource::toHeader).orElse(""));
             }
         }
     }
@@ -1075,7 +1041,7 @@ public class TestResourceSecurity
             this.principalField = requireNonNull(principalField, "principalField is null");
             jwkServer = createTestingJwkServer();
             jwkServer.start();
-            accessToken = issueAccessToken(Optional.empty());
+            accessToken = issueAccessToken();
         }
 
         @Override
@@ -1108,7 +1074,7 @@ public class TestResourceSecurity
                 }
 
                 @Override
-                public Optional<Map<String, Object>> getClaims(String accessToken)
+                public Optional<Map<String, Object>> getAccessTokenClaims(String accessToken)
                 {
                     return Optional.of(jwtParser.parseSignedClaims(accessToken).getPayload());
                 }
@@ -1158,7 +1124,7 @@ public class TestResourceSecurity
             return REFRESH_TOKEN;
         }
 
-        public String issueAccessToken(Optional<Set<String>> groups)
+        public String issueAccessToken()
         {
             JwtBuilder accessToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
@@ -1172,7 +1138,6 @@ public class TestResourceSecurity
             else {
                 accessToken.subject(TEST_USER);
             }
-            groups.ifPresent(groupsClaim -> accessToken.claim(GROUPS_CLAIM, groupsClaim));
             return accessToken.compact();
         }
 
@@ -1205,7 +1170,7 @@ public class TestResourceSecurity
         {
             this.sessionContextFactory = new HttpRequestSessionContextFactory(
                     new PreparedStatementEncoder(new ProtocolConfig()),
-                    createTestMetadataManager(),
+                    createTestingMetadataManager(),
                     user -> ImmutableSet.of(),
                     accessControl,
                     new ProtocolConfig(),
@@ -1234,13 +1199,7 @@ public class TestResourceSecurity
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
-                    .header("groups", toHeader(identity.getGroups()))
                     .build();
-        }
-
-        public static String toHeader(Set<String> groups)
-        {
-            return groups.stream().sorted().collect(Collectors.joining(","));
         }
     }
 
@@ -1374,7 +1333,7 @@ public class TestResourceSecurity
             String password)
             throws IOException
     {
-        assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(firstNonNull(userName, ""), firstNonNull(password, ""))));
+        assertResponseCode(client, url, expectedCode, Headers.of("Authorization", Credentials.basic(requireNonNullElse(userName, ""), requireNonNullElse(password, ""))));
     }
 
     private static void assertResponseCode(OkHttpClient client,
@@ -1401,7 +1360,7 @@ public class TestResourceSecurity
 
     private static String getManagementLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/v1/node");
+        return getLocation(baseUri, "/v1/thread");
     }
 
     private static String getAuthorizedUserLocation(URI baseUri)
@@ -1487,7 +1446,7 @@ public class TestResourceSecurity
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
+        return new TestingHttpServer("testing-jwks-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet

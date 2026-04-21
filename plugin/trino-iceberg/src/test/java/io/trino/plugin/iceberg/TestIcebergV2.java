@@ -20,17 +20,18 @@ import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
-import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,10 +41,11 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -55,6 +57,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -69,121 +72,141 @@ import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.nio.file.Path;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Map.entry;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
+import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergV2
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = IcebergQueryRunner.builder()
-                .setInitialTables(NATION)
+        Session icebergSession = testSessionBuilder()
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema("tpch")
                 .build();
 
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch");
+
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        verify(dataDirectory.toFile().mkdirs());
+
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", Map.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                "hive.metastore.catalog.dir", dataDirectory.toString(),
+                "fs.hadoop.enabled", "true"));
+
         metastore = getHiveMetastore(queryRunner);
+        fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
 
-        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.security", "allow-all")
-                .buildOrThrow());
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog("hive", "hive", Map.of(
+                "hive.security", "allow-all",
+                "hive.metastore", "file",
+                // Intentionally sharing the file metastore directory with Iceberg
+                "hive.metastore.catalog.dir", dataDirectory.toString(),
+                "fs.hadoop.enabled", "true"));
 
-        try {
-            queryRunner.installPlugin(new BlackHolePlugin());
-            queryRunner.createCatalog("blackhole", "blackhole");
-        }
-        catch (RuntimeException e) {
-            Closables.closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        queryRunner.execute("CREATE SCHEMA tpch");
+        copyTpchTables(queryRunner, "tpch", "tiny", List.of(NATION));
 
         return queryRunner;
-    }
-
-    @BeforeAll
-    public void initFileSystemFactory()
-    {
-        fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
     }
 
     @Test
     public void testSettingFormatVersion()
     {
-        String tableName = "test_seting_format_version_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = newTrinoTable("test_setting_format_version_", "WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation")) {
+            assertThat(formatVersion(loadTable(table.getName()))).isEqualTo(2);
+        }
 
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = newTrinoTable("test_setting_format_version_", "WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation")) {
+            assertThat(formatVersion(loadTable(table.getName()))).isEqualTo(1);
+        }
     }
 
     @Test
     public void testDefaultFormatVersion()
     {
-        String tableName = "test_default_format_version_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertUpdate("DROP TABLE " + tableName);
+        try (TestTable table = newTrinoTable("test_default_format_version_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertThat(formatVersion(loadTable(table.getName()))).isEqualTo(2);
+        }
     }
 
     @Test
     public void testSetPropertiesObjectStoreLayoutEnabled()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
+        try (TestTable table = newTrinoTable("test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("object_store_layout_enabled");
             assertThat(loadTable(table.getName()).properties())
@@ -200,7 +223,7 @@ public class TestIcebergV2
     @Test
     public void testSetPropertiesDataLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_data_location", "(x int)")) {
+        try (TestTable table = newTrinoTable("test_data_location", "(x int)")) {
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .doesNotContain("data_location =");
             assertThat(loadTable(table.getName()).properties())
@@ -223,58 +246,62 @@ public class TestIcebergV2
     @Test
     public void testV2TableRead()
     {
-        String tableName = "test_v2_table_read" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        updateTableToV2(tableName);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        try (TestTable table = newTrinoTable("test_v2_table_read_", "WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation")) {
+            updateTableToV2(table.getName());
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
     }
 
     @Test
     public void testV2TableWithPositionDelete()
             throws Exception
     {
-        String tableName = "test_v2_row_delete" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
+        try (TestTable table = newTrinoTable("test_v2_row_delete_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
 
-        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
+            String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
-        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
+            FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
-        PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
-                .forTable(icebergTable)
-                .overwrite()
-                .rowSchema(icebergTable.schema())
-                .withSpec(PartitionSpec.unpartitioned())
-                .buildPositionWriter();
+            PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
+                    .createWriterFunc(GenericParquetWriter::create)
+                    .forTable(icebergTable)
+                    .overwrite()
+                    .rowSchema(icebergTable.schema())
+                    .withSpec(PartitionSpec.unpartitioned())
+                    .buildPositionWriter();
 
-        PositionDelete<Record> positionDelete = PositionDelete.create();
-        PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
-        try (Closeable ignored = writer) {
-            writer.write(record);
+            PositionDelete<Record> positionDelete = PositionDelete.create();
+            PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
+            try (Closeable ignored = writer) {
+                writer.write(record);
+            }
+
+            icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
         }
-
-        icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
-        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 24");
     }
 
     @Test
     public void testV2TableWithEqualityDelete()
             throws Exception
     {
-        String tableName = "test_v2_equality_delete" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+        try (TestTable table = newTrinoTable("test_v2_equality_delete", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            ZonedDateTime fileModifiedTimeBeforeDelete = (ZonedDateTime) computeScalar("SELECT MAX(\"$file_modified_time\") FROM " + tableName);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            assertThat(computeScalar("SELECT MAX(\"$file_modified_time\") FROM " + tableName)).isEqualTo(fileModifiedTimeBeforeDelete);
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
 
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {2L})), ImmutableMap.of("regionkey", 2L));
-        // the equality delete file is applied to 2 data files
-        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 2");
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {2L})), ImmutableMap.of("regionkey", 2L));
+            // the equality delete file is applied to 2 data files
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+        }
     }
 
     @Test
@@ -282,26 +309,28 @@ public class TestIcebergV2
             throws Exception
     {
         // Specify equality delete filter with different column order from table definition
-        String tableName = "test_v2_equality_delete_different_order" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE name != 'ARGENTINA'");
+        try (TestTable table = newTrinoTable("test_v2_equality_delete_different_order", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE name != 'ARGENTINA'");
+        }
     }
 
     @Test
     public void testV2TableWithEqualityDeleteWhenColumnIsNested()
             throws Exception
     {
-        String tableName = "test_v2_equality_delete_column_nested" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS " +
-                "SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
-                "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+        String tableDefinition = "AS SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
+                                 "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation";
+        try (TestTable table = newTrinoTable("test_v2_equality_delete_column_nested", tableDefinition)) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+        }
     }
 
     @Test
@@ -347,59 +376,48 @@ public class TestIcebergV2
     public void testOptimizingV2TableRemovesEqualityDeletesWhenWholeTableIsScanned()
             throws Exception
     {
-        String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
-        // Create multiple files per partition
-        for (int nationKey = 0; nationKey < 25; nationKey++) {
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        try (TestTable table = newTrinoTable("test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned", "(LIKE nation) WITH (partitioning = ARRAY['regionkey'])")) {
+            String tableName = table.getName();
+            // Create multiple files per partition
+            for (int nationKey = 0; nationKey < 25; nationKey++) {
+                assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+            }
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            List<String> initialActiveFiles = getActiveFiles(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
         }
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        List<String> initialActiveFiles = getActiveFiles(tableName);
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
     }
 
     @Test
     public void testOptimizingV2TableDoesntRemoveEqualityDeletesWhenOnlyPartOfTheTableIsOptimized()
             throws Exception
     {
-        String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
-        // Create multiple files per partition
-        for (int nationKey = 0; nationKey < 25; nationKey++) {
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        try (TestTable table = newTrinoTable("test_optimize_table_with_equality_delete_file_for_different_partition_", "(LIKE nation) WITH (partitioning = ARRAY['regionkey'])")) {
+            String tableName = table.getName();
+            // Create multiple files per partition
+            for (int nationKey = 0; nationKey < 25; nationKey++) {
+                assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+            }
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            List<String> initialActiveFiles = getActiveFiles(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles).doesNotContain(initialActiveFiles.stream().filter(path -> !path.contains("regionkey=1")).toArray(String[]::new));
         }
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        List<String> initialActiveFiles = getActiveFiles(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles).doesNotContain(initialActiveFiles.stream().filter(path -> !path.contains("regionkey=1")).toArray(String[]::new));
-    }
-
-    @Test
-    public void testSelectivelyOptimizingLeavesEqualityDeletes()
-            throws Exception
-    {
-        String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
     }
 
     @Test
@@ -410,7 +428,7 @@ public class TestIcebergV2
                 .setSystemProperty("task_min_writer_count", "1")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+        try (TestTable table = newTrinoTable("test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
                     .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
@@ -420,463 +438,595 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testMergePopulateSplitOffsets()
+    {
+        try (TestTable table = newTrinoTable("test_merge_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("MERGE INTO " + table.getName() + " t " +
+                            "USING " + table.getName() + " s " +
+                            "ON t.nationkey = s.nationkey " +
+                            "WHEN MATCHED THEN UPDATE SET name = CONCAT(t.name, '_updated')",
+                    25);
+
+            // Verify that split_offsets are populated in the files
+            MaterializedResult result = computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\"");
+            assertThat(result.getRowCount()).isGreaterThan(0);
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                assertThat((List<?>) row.getField(0)).isEqualTo(ImmutableList.of(4L));
+            }
+        }
+    }
+
+    @Test
     public void testMultipleEqualityDeletes()
             throws Exception
     {
-        String tableName = "test_multiple_equality_deletes_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+        try (TestTable table = newTrinoTable("test_multiple_equality_deletes_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
 
-        for (int i = 1; i < 3; i++) {
-            writeEqualityDeleteToNationTable(
-                    icebergTable,
-                    Optional.empty(),
-                    Optional.empty(),
-                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+            for (int i = 1; i < 3; i++) {
+                writeEqualityDeleteToNationTable(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
         }
-
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testEqualityDeleteAppliesOnlyToCorrectDataVersion()
             throws Exception
     {
-        String tableName = "test_multiple_equality_deletes_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        try (TestTable table = newTrinoTable("test_multiple_equality_deletes_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
 
-        for (int i = 1; i < 3; i++) {
+            for (int i = 1; i < 3; i++) {
+                writeEqualityDeleteToNationTable(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+
+            // Reinsert the data for regionkey = 1. This should insert the data with a larger datasequence number and the delete file should not apply to it anymore.
+            // Also delete something again so that the split has deletes and the delete logic is activated.
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", 5);
             writeEqualityDeleteToNationTable(
                     icebergTable,
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(3)));
+
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE (regionkey != 2L AND regionkey != 3L)");
         }
-
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
-
-        // Reinsert the data for regionkey = 1. This should insert the data with a larger datasequence number and the delete file should not apply to it anymore.
-        // Also delete something again so that the split has deletes and the delete logic is activated.
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", 5);
-        writeEqualityDeleteToNationTable(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("regionkey", Integer.toUnsignedLong(3)));
-
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE (regionkey != 2L AND regionkey != 3L)");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testMultipleEqualityDeletesWithEquivalentSchemas()
             throws Exception
     {
-        String tableName = "test_multiple_equality_deletes_equivalent_schemas_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        Schema deleteRowSchema = new Schema(ImmutableList.of("regionkey", "name").stream()
-                .map(name -> icebergTable.schema().findField(name))
-                .collect(toImmutableList()));
-        List<Integer> equalityFieldIds = ImmutableList.of("regionkey", "name").stream()
-                .map(name -> deleteRowSchema.findField(name).fieldId())
-                .collect(toImmutableList());
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
-                deleteRowSchema,
-                equalityFieldIds);
-        Schema equivalentDeleteRowSchema = new Schema(ImmutableList.of("name", "regionkey").stream()
-                .map(name -> icebergTable.schema().findField(name))
-                .collect(toImmutableList()));
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("name", "INDIA", "regionkey", 2L),
-                equivalentDeleteRowSchema,
-                equalityFieldIds);
+        try (TestTable table = newTrinoTable("test_multiple_equality_deletes_equivalent_schemas_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            Schema deleteRowSchema = new Schema(ImmutableList.of("regionkey", "name").stream()
+                    .map(name -> icebergTable.schema().findField(name))
+                    .collect(toImmutableList()));
+            List<Integer> equalityFieldIds = ImmutableList.of("regionkey", "name").stream()
+                    .map(name -> deleteRowSchema.findField(name).fieldId())
+                    .collect(toImmutableList());
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
+                    deleteRowSchema,
+                    equalityFieldIds);
+            Schema equivalentDeleteRowSchema = new Schema(ImmutableList.of("name", "regionkey").stream()
+                    .map(name -> icebergTable.schema().findField(name))
+                    .collect(toImmutableList()));
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("name", "INDIA", "regionkey", 2L),
+                    equivalentDeleteRowSchema,
+                    equalityFieldIds);
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR (regionkey = 2 AND name = 'INDIA'))");
-        assertUpdate("DROP TABLE " + tableName);
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR (regionkey = 2 AND name = 'INDIA'))");
+        }
     }
 
     @Test
     public void testMultipleEqualityDeletesWithDifferentSchemas()
             throws Exception
     {
-        String tableName = "test_multiple_equality_deletes_different_schemas_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
-                Optional.of(ImmutableList.of("regionkey", "name")));
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("name", "ALGERIA"),
-                Optional.of(ImmutableList.of("name")));
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of("regionkey", 2L),
-                Optional.of(ImmutableList.of("regionkey")));
+        try (TestTable table = newTrinoTable("test_multiple_equality_deletes_different_schemas_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
+                    Optional.of(ImmutableList.of("regionkey", "name")));
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("name", "ALGERIA"),
+                    Optional.of(ImmutableList.of("name")));
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.of(ImmutableList.of("regionkey")));
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
-        assertUpdate("DROP TABLE " + tableName);
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
+        }
     }
 
     @Test
     public void testEqualityDeletesAcrossPartitions()
             throws Exception
     {
-        String tableName = "test_equality_deletes_across_partitions_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['partition']) AS SELECT 'part_1' as partition, * FROM tpch.tiny.nation", 25);
-        assertUpdate("INSERT INTO " + tableName + " SELECT 'part_2' as partition, * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        PartitionData partitionData1 = PartitionData.fromJson("{\"partitionValues\":[\"part_1\"]}", new Type[] {Types.StringType.get()});
-        PartitionData partitionData2 = PartitionData.fromJson("{\"partitionValues\":[\"part_2\"]}", new Type[] {Types.StringType.get()});
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.of(icebergTable.spec()),
-                Optional.of(partitionData1),
-                ImmutableMap.of("regionkey", 1L),
-                Optional.of(ImmutableList.of("regionkey")));
-        // Delete from both partitions so internal code doesn't skip all deletion logic for second partition invalidating this test
-        writeEqualityDeleteToNationTableWithDeleteColumns(
-                icebergTable,
-                Optional.of(icebergTable.spec()),
-                Optional.of(partitionData2),
-                ImmutableMap.of("regionkey", 2L),
-                Optional.of(ImmutableList.of("regionkey")));
+        try (TestTable table = newTrinoTable("test_equality_deletes_across_partitions_", "WITH (partitioning = ARRAY['partition']) AS SELECT 'part_1' as partition, * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT 'part_2' as partition, * FROM tpch.tiny.nation", 25);
+            Table icebergTable = loadTable(tableName);
+            PartitionData partitionData1 = PartitionData.fromJson("{\"partitionValues\":[\"part_1\"]}", new Type[] {Types.StringType.get()});
+            PartitionData partitionData2 = PartitionData.fromJson("{\"partitionValues\":[\"part_2\"]}", new Type[] {Types.StringType.get()});
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(partitionData1),
+                    ImmutableMap.of("regionkey", 1L),
+                    Optional.of(ImmutableList.of("regionkey")));
+            // Delete from both partitions so internal code doesn't skip all deletion logic for second partition invalidating this test
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(partitionData2),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.of(ImmutableList.of("regionkey")));
 
-        assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM nation WHERE regionkey <> 1 UNION ALL select 'part_2', * FROM NATION where regionkey <> 2");
-        assertUpdate("DROP TABLE " + tableName);
+            assertQuery("SELECT * FROM " + tableName, "SELECT 'part_1', * FROM nation WHERE regionkey <> 1 UNION ALL select 'part_2', * FROM NATION where regionkey <> 2");
+        }
     }
 
     @Test
     public void testMultipleEqualityDeletesWithNestedFields()
             throws Exception
     {
-        String tableName = "test_multiple_equality_deletes_nested_fields_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " ( id BIGINT, root ROW(nested BIGINT, nested_other BIGINT))");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10, 100))", 1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+        try (TestTable table = newTrinoTable("test_multiple_equality_deletes_nested_fields_", "(id BIGINT, root ROW(nested BIGINT, nested_other BIGINT))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10, 100))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
 
-        List<String> deleteFileColumns = ImmutableList.of("root.nested");
-        Schema deleteRowSchema = icebergTable.schema().select(deleteFileColumns);
-        List<Integer> equalityFieldIds = ImmutableList.of("root.nested").stream()
-                .map(name -> deleteRowSchema.findField(name).fieldId())
-                .collect(toImmutableList());
-        Types.StructType nestedStructType = (Types.StructType) deleteRowSchema.findField("root").type();
-        Record nestedStruct = GenericRecord.create(nestedStructType);
-        nestedStruct.setField("nested", 20L);
-        for (int i = 1; i < 3; i++) {
-            writeEqualityDeleteToNationTableWithDeleteColumns(
-                    icebergTable,
-                    Optional.empty(),
-                    Optional.empty(),
-                    ImmutableMap.of("root", nestedStruct),
-                    deleteRowSchema,
-                    equalityFieldIds);
+            List<String> deleteFileColumns = ImmutableList.of("root.nested");
+            Schema deleteRowSchema = icebergTable.schema().select(deleteFileColumns);
+            List<Integer> equalityFieldIds = ImmutableList.of("root.nested").stream()
+                    .map(name -> deleteRowSchema.findField(name).fieldId())
+                    .collect(toImmutableList());
+            Types.StructType nestedStructType = (Types.StructType) deleteRowSchema.findField("root").type();
+            Record nestedStruct = GenericRecord.create(nestedStructType);
+            nestedStruct.setField("nested", 20L);
+            for (int i = 1; i < 3; i++) {
+                writeEqualityDeleteToNationTableWithDeleteColumns(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("root", nestedStruct),
+                        deleteRowSchema,
+                        equalityFieldIds);
+            }
+
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', CAST(row(10, 100) AS ROW(nested BIGINT, nested_other BIGINT)))");
+
+            // verify that the equality delete is effective also when not specifying the corresponding column in the projection list
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
         }
-
-        // TODO: support read equality deletes with nested fields(https://github.com/trinodb/trino/issues/18625)
-        assertThat(query("SELECT * FROM " + tableName)).failure().hasMessageContaining("Multiple entries with same key");
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testOptimizingWholeTableRemovesEqualityDeletes()
             throws Exception
     {
-        String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+        try (TestTable table = newTrinoTable("test_optimizing_whole_table_removes_eq_deletes_", "WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
+            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+        }
     }
 
     @Test
     public void testOptimizingV2TableWithEmptyPartitionSpec()
             throws Exception
     {
-        String tableName = "test_optimize_table_with_global_equality_delete_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTable(icebergTable);
-        List<String> initialActiveFiles = getActiveFiles(tableName);
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
+        try (TestTable table = newTrinoTable("test_optimize_table_with_global_equality_delete_file_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTable(icebergTable);
+            List<String> initialActiveFiles = getActiveFiles(tableName);
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
+        }
     }
 
     @Test
     public void testOptimizingPartitionsOfV2TableWithGlobalEqualityDeleteFile()
             throws Exception
     {
-        String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (LIKE nation) WITH (partitioning = ARRAY['regionkey'])");
-        // Create multiple files per partition
-        for (int nationKey = 0; nationKey < 25; nationKey++) {
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+        try (TestTable table = newTrinoTable("test_optimize_partitioned_table_with_global_equality_delete_file_", "(LIKE nation) WITH (partitioning = ARRAY['regionkey'])")) {
+            String tableName = table.getName();
+            // Create multiple files per partition
+            for (int nationKey = 0; nationKey < 25; nationKey++) {
+                assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE nationkey = " + nationKey, 1);
+            }
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+            List<String> initialActiveFiles = getActiveFiles(tableName);
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+            // nationkey is before the equality delete column in the table schema, comment is after
+            assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
+            assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .doesNotContain(initialActiveFiles.stream()
+                            .filter(path -> !path.contains("regionkey=1"))
+                            .toArray(String[]::new));
         }
-        Table icebergTable = loadTable(tableName);
-        assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        List<String> initialActiveFiles = getActiveFiles(tableName);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        // nationkey is before the equality delete column in the table schema, comment is after
-        assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles)
-                .doesNotContain(initialActiveFiles.stream()
-                        .filter(path -> !path.contains("regionkey=1"))
-                        .toArray(String[]::new));
     }
 
     @Test
-    public void testOptimizeDuringWriteOperations()
+    public void testOptimizingWholeTableRemovesDeleteFiles()
             throws Exception
     {
-        runOptimizeDuringWriteOperations(true);
-        runOptimizeDuringWriteOperations(false);
+        try (TestTable testTable = newTrinoTable("test_optimize_removes_obsolete_delete_files_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE regionkey % 2 = 0", 15);
+            Table icebergTable = loadTable(testTable.getName());
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 1");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
+
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
+        }
     }
 
-    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
+    @Test
+    public void testOptimizePartitionRemovesPartitionScopedEqualityDeletes()
             throws Exception
     {
-        int threads = 5;
-        int deletionThreads = threads - 1;
-        int rows = 12;
-        int rowsPerThread = rows / deletionThreads;
+        try (TestTable testTable = newTrinoTable("test_optimize_partition_eq_deletes_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for regionkey=1
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
 
-        CyclicBarrier barrier = new CyclicBarrier(threads);
-        ExecutorService executor = newFixedThreadPool(threads);
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
 
-        // Slow down the delete operations so optimize is more likely to complete
-        String blackholeTable = "blackhole_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
-                "test_optimize_during_write_operations",
-                "(int_col INT)")) {
-            String tableName = table.getName();
+            // OPTIMIZE only partition regionkey=1 — partition-scoped equality delete should be cleaned up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE regionkey = 1");
 
-            // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
-            if (useSmallFiles) {
-                for (int i = 0; i < rows; i++) {
-                    assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
-                }
-            }
-            else {
-                String values = IntStream.range(0, rows).mapToObj(String::valueOf).collect(Collectors.joining(", "));
-                assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), rows);
-            }
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
 
-            List<Future<List<Boolean>>> deletionFutures = IntStream.range(0, deletionThreads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(10, SECONDS);
-                        List<Boolean> successfulDeletes = new ArrayList<>();
-                        for (int i = 0; i < rowsPerThread; i++) {
-                            try {
-                                int rowNumber = threadNumber * rowsPerThread + i;
-                                getQueryRunner().execute(format("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)", tableName, rowNumber, blackholeTable));
-                                successfulDeletes.add(true);
-                            }
-                            catch (RuntimeException e) {
-                                successfulDeletes.add(false);
-                            }
-                        }
-                        return successfulDeletes;
-                    }))
-                    .collect(toImmutableList());
-
-            Future<?> optimizeFuture = executor.submit(() -> {
-                try {
-                    barrier.await(10, SECONDS);
-                    // Allow for some deletes to start before running optimize
-                    Thread.sleep(50);
-                    assertUpdate("ALTER TABLE %s EXECUTE optimize".formatted(tableName));
-                }
-                catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            List<String> expectedValues = new ArrayList<>();
-            for (int threadNumber = 0; threadNumber < deletionThreads; threadNumber++) {
-                List<Boolean> deleteOutcomes = deletionFutures.get(threadNumber).get();
-                verify(deleteOutcomes.size() == rowsPerThread);
-                for (int rowNumber = 0; rowNumber < rowsPerThread; rowNumber++) {
-                    boolean successfulDelete = deleteOutcomes.get(rowNumber);
-                    if (!successfulDelete) {
-                        expectedValues.add(String.valueOf(threadNumber * rowsPerThread + rowNumber));
-                    }
-                }
-            }
-
-            optimizeFuture.get();
-            assertThat(expectedValues.size()).isGreaterThan(0).isLessThan(rows);
-            assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1");
         }
-        finally {
-            executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+    }
+
+    @Test
+    public void testOptimizeWithInnerPartitionPredicateRemovesPartitionScopedEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_multi_partition_eq_deletes_", "(country VARCHAR, age INT, name VARCHAR) WITH (partitioning = ARRAY['country', 'age'])")) {
+            assertQuerySucceeds("INSERT INTO " + testTable.getName() + " VALUES ('US', 30, 'John'), ('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 30, 'John'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')");
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for age=30 in each country partition
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"US", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"CA", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+
+            // OPTIMIZE only partition age=25 - no delete files there to clean up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age = 25");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // OPTIMIZE with predicate not directly matching partition column should fail
+            assertThatThrownBy(() -> getQueryRunner().execute("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age % 30 = 0"))
+                    .isInstanceOf(QueryFailedException.class)
+                    .hasMessage("Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+
+            // OPTIMIZE only partition age=30 — partition-scoped equality delete for US/30 AND CA/30 should be cleaned up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE age = 30");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithOuterPartitionRemovesPartitionScopedEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_multi_partition_eq_deletes_", "(country VARCHAR, age INT, name VARCHAR) WITH (partitioning = ARRAY['country', 'age'])")) {
+            assertQuerySucceeds("INSERT INTO " + testTable.getName() + " VALUES ('US', 30, 'John'), ('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 30, 'John'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')");
+            Table icebergTable = loadTable(testTable.getName());
+            // Write a partition-scoped equality delete for age=30 in each country partition
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"US", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Object[] {"CA", 30})),
+                    ImmutableMap.of("name", "John"),
+                    Optional.empty());
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+
+            // OPTIMIZE only partition country='UK' - no delete files there to clean up
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE country = 'UK'");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // OPTIMIZE only partition country='US' — partition-scoped equality delete for US should be cleaned up,
+            // but the CA partition's equality delete should remain
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE country = 'US'");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT CAST(country AS VARCHAR), CAST(age AS INT), CAST(name AS VARCHAR) FROM (VALUES('US', 30, 'Bob'), ('US', 20, 'Alice'), ('CA', 30, 'Carol'), ('CA', 15, 'Sarah'), ('UK', 30, 'Tom')) AS t(country, age, name)");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithGlobalEqualityDelete()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_global_eq_deletes_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            BaseTable icebergTable = loadTable(testTable.getName());
+
+            // Evolve partition spec to unpartitioned so that the equality delete is stored
+            // with an unpartitioned spec — making it a global delete
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = DEFAULT");
+
+            // delete on soon-to-be partition column
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", 1L),
+                    Optional.of(ImmutableList.of("regionkey")));
+
+            // delete on regular column
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("name", "ETHIOPIA"),
+                    Optional.of(ImmutableList.of("name")));
+
+            // Evolve partition spec back to partitioned by regionkey
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = ARRAY['regionkey']");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            // Verify the global equality delete is applied across all partitions
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND name != 'ETHIOPIA'");
+
+            // OPTIMIZE only partition regionkey=1 — global equality delete must NOT be cleaned up
+            // because it is stored with an unpartitioned spec and applies across all partitions
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE regionkey = 1");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND name != 'ETHIOPIA'");
         }
     }
 
     @Test
     public void testUpgradeTableToV2FromTrino()
     {
-        String tableName = "test_upgrade_table_to_v2_from_trino_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        try (TestTable table = newTrinoTable("test_upgrade_table_to_v2_from_trino_", "WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertThat(formatVersion(loadTable(tableName))).isEqualTo(1);
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
+            assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        }
     }
 
     @Test
     public void testDowngradingV2TableToV1Fails()
     {
-        String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
-                .failure()
-                .hasMessage("Failed to set new property values")
-                .rootCause()
-                .hasMessage("Cannot downgrade v2 table to v1");
+        try (TestTable table = newTrinoTable("test_downgrading_v2_table_to_v1_fails_", "WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
+            assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
+                    .failure()
+                    .hasMessage("Failed to set new property values")
+                    .rootCause()
+                    .hasMessage("Cannot downgrade v2 table to v1");
+        }
     }
 
     @Test
     public void testUpgradingToInvalidVersionFails()
     {
-        String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
-                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+        try (TestTable table = newTrinoTable("test_upgrading_to_invalid_version_fails_", "WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertThat(formatVersion(loadTable(tableName))).isEqualTo(2);
+            assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
+                    .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 3");
+        }
     }
 
     @Test
     public void testUpdatingAllTableProperties()
     {
-        String tableName = "test_updating_all_table_properties_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
-        BaseTable table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
-        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC")).isTrue();
-        assertThat(table.spec().isUnpartitioned()).isTrue();
+        try (TestTable testTable = newTrinoTable("test_updating_all_table_properties_", "WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            BaseTable table = loadTable(tableName);
+            assertThat(formatVersion(table)).isEqualTo(1);
+            assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC")).isTrue();
+            assertThat(table.spec().isUnpartitioned()).isTrue();
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET', sorted_by = ARRAY['comment']");
-        table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
-        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
-        assertThat(table.spec().isPartitioned()).isTrue();
-        List<PartitionField> partitionFields = table.spec().fields();
-        assertThat(partitionFields).hasSize(1);
-        assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
-        assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
-        assertThat(table.sortOrder().isSorted()).isTrue();
-        List<SortField> sortFields = table.sortOrder().fields();
-        assertThat(sortFields).hasSize(1);
-        assertThat(getOnlyElement(sortFields).sourceId()).isEqualTo(table.schema().findField("comment").fieldId());
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET', sorted_by = ARRAY['comment']");
+            table = loadTable(tableName);
+            assertThat(formatVersion(table)).isEqualTo(2);
+            assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+            assertThat(table.spec().isPartitioned()).isTrue();
+            List<PartitionField> partitionFields = table.spec().fields();
+            assertThat(partitionFields).hasSize(1);
+            assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
+            assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
+            assertThat(table.sortOrder().isSorted()).isTrue();
+            List<SortField> sortFields = table.sortOrder().fields();
+            assertThat(sortFields).hasSize(1);
+            assertThat(getOnlyElement(sortFields).sourceId()).isEqualTo(table.schema().findField("comment").fieldId());
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        }
     }
 
     @Test
     public void testUnsettingAllTableProperties()
     {
-        String tableName = "test_unsetting_all_table_properties_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) " +
-                "AS SELECT * FROM tpch.tiny.nation", 25);
-        BaseTable table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
-        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
-        assertThat(table.spec().isPartitioned()).isTrue();
-        List<PartitionField> partitionFields = table.spec().fields();
-        assertThat(partitionFields).hasSize(1);
-        assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
-        assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
+        try (TestTable testTable = newTrinoTable("test_unsetting_all_table_properties_",
+                "WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            BaseTable table = loadTable(tableName);
+            assertThat(formatVersion(table)).isEqualTo(1);
+            assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+            assertThat(table.spec().isPartitioned()).isTrue();
+            List<PartitionField> partitionFields = table.spec().fields();
+            assertThat(partitionFields).hasSize(1);
+            assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
+            assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
-        table = loadTable(tableName);
-        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
-        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
-        assertThat(table.spec().isUnpartitioned()).isTrue();
-        assertThat(table.sortOrder().isUnsorted()).isTrue();
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
+            table = loadTable(tableName);
+            assertThat(formatVersion(table)).isEqualTo(2);
+            assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+            assertThat(table.spec().isUnpartitioned()).isTrue();
+            assertThat(table.sortOrder().isUnsorted()).isTrue();
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        }
     }
 
     @Test
     public void testDeletingEntireFile()
     {
-        String tableName = "test_deleting_entire_file_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_", "AS SELECT * FROM tpch.tiny.nation WITH NO DATA")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
 
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey <= 2", "SELECT count(*) FROM nation WHERE regionkey <= 2");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey > 2");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey <= 2", "SELECT count(*) FROM nation WHERE regionkey <= 2");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey > 2");
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        }
     }
 
     @Test
     public void testDeletingEntireFileFromPartitionedTable()
     {
-        String tableName = "test_deleting_entire_file_from_partitioned_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT) WITH (partitioning = ARRAY['a'])");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)", 6);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2), (1, 4), (1, 6), (2, 2), (2, 4), (2, 6)", 6);
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_from_partitioned_table_", "(a INT, b INT) WITH (partitioning = ARRAY['a'])")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)", 6);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2), (1, 4), (1, 6), (2, 2), (2, 4), (2, 6)", 6);
 
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
-        assertUpdate("DELETE FROM " + tableName + " WHERE b % 2 = 0", 6);
-        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertUpdate("DELETE FROM " + tableName + " WHERE b % 2 = 0", 6);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)");
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+        }
     }
 
     @Test
     public void testDeletingEntireFileWithNonTupleDomainConstraint()
     {
-        String tableName = "test_deleting_entire_file_with_non_tuple_domain_constraint" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation WITH NO DATA", 0);
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_with_non_tuple_domain_constraint_", "AS SELECT * FROM tpch.tiny.nation WITH NO DATA")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey = 1", "SELECT count(*) FROM nation WHERE regionkey = 1");
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation WHERE regionkey != 1", "SELECT count(*) FROM nation WHERE regionkey != 1");
 
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey % 2 = 0");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
+            assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey % 2 = 0");
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+        }
     }
 
     @Test
@@ -903,32 +1053,34 @@ public class TestIcebergV2
     public void testMultipleDeletes()
     {
         // Deletes only remove entire data files from the table if the whole file is removed in a single operation
-        String tableName = "test_multiple_deletes_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
-        // Ensure only one snapshot is committed to the table
-        long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
-        long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-        assertThat(initialSnapshotId).isEqualTo(parentSnapshotId);
+        try (TestTable table = newTrinoTable("test_multiple_deletes_cleanup_", "AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+            // Ensure only one snapshot is committed to the table
+            long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
+            long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
+            assertThat(initialSnapshotId).isEqualTo(parentSnapshotId);
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
-        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
+            assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        }
     }
 
     @Test
     public void testDeletingEntirePartitionedTable()
     {
-        String tableName = "test_deleting_entire_partitioned_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        try (TestTable table = newTrinoTable("test_deleting_entire_partitioned_table_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
 
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", "SELECT count(*) FROM nation WHERE regionkey < 10");
-        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
-        assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
-        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(5);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", "SELECT count(*) FROM nation WHERE regionkey < 10");
+            assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
+            assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
+        }
     }
 
     @Test
@@ -971,86 +1123,110 @@ public class TestIcebergV2
                         "CAST(upper_bounds AS JSON), " +
                         "key_metadata, " +
                         "split_offsets, " +
-                        "equality_ids " +
+                        "equality_ids, " +
+                        "file_sequence_number, " +
+                        "data_sequence_number, " +
+                        "referenced_data_file, " +
+                        "first_row_id, " +
+                        "content_offset, " +
+                        "content_size_in_bytes " +
                         "FROM \"" + tableName + "$files\"",
                 """
-                               VALUES
-                                       (0,
-                                        'PARQUET',
-                                        25L,
-                                        JSON '{"1":137,"2":216,"3":91,"4":801}',
-                                        JSON '{"1":25,"2":25,"3":25,"4":25}',
-                                        jSON '{"1":0,"2":0,"3":0,"4":0}',
-                                        jSON '{}',
-                                        JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
-                                        JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
-                                        null,
-                                        ARRAY[4L],
-                                        null),
-                                       (0,
-                                        'ORC',
-                                        10L,
-                                        JSON '{"1":2,"2":3}',
-                                        JSON '{"1":5,"2":3,"3":2}',
-                                        JSON '{"1":0,"2":2}',
-                                        JSON '{"4":1}',
-                                        JSON '{"1":"0"}',
-                                        JSON '{"1":"4"}',
-                                        X'54 72 69 6e 6f',
-                                        ARRAY[4L],
-                                        null),
-                                        (2,
-                                        'PARQUET',
-                                        1L,
-                                        JSON '{"3":49}',
-                                        JSON '{"3":1}',
-                                        JSON '{"3":0}',
-                                        JSON '{}',
-                                        JSON '{"3":"1"}',
-                                        JSON '{"3":"1"}',
-                                        null,
-                                        ARRAY[4],
-                                        ARRAY[3])
-                        """);
+                       VALUES
+                               (0,
+                                'PARQUET',
+                                25L,
+                                JSON '{"1":137,"2":216,"3":91,"4":801}',
+                                JSON '{"1":25,"2":25,"3":25,"4":25}',
+                                jSON '{"1":0,"2":0,"3":0,"4":0}',
+                                jSON '{}',
+                                JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
+                                JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
+                                null,
+                                ARRAY[4L],
+                                null,
+                                1L,
+                                1L,
+                                null,
+                                null,
+                                null,
+                                null),
+                               (0,
+                                'ORC',
+                                10L,
+                                JSON '{"1":2,"2":3}',
+                                JSON '{"1":5,"2":3,"3":2}',
+                                JSON '{"1":0,"2":2}',
+                                JSON '{"4":1}',
+                                JSON '{"1":"0"}',
+                                JSON '{"1":"4"}',
+                                X'54 72 69 6e 6f',
+                                ARRAY[4L],
+                                null,
+                                2L,
+                                2L,
+                                null,
+                                null,
+                                null,
+                                null),
+                                (2,
+                                'PARQUET',
+                                1L,
+                                JSON '{"3":52}',
+                                JSON '{"3":1}',
+                                JSON '{"3":0}',
+                                JSON '{}',
+                                JSON '{"3":"1"}',
+                                JSON '{"3":"1"}',
+                                null,
+                                ARRAY[4],
+                                ARRAY[3],
+                                3L,
+                                3L,
+                                null,
+                                null,
+                                null,
+                                null)
+                """);
+        // Verify columns with unpredictable exact values
+        assertThat(query("SELECT bool_and(manifest_location IS NOT NULL), bool_and(pos IS NOT NULL) FROM \"" + tableName + "$files\""))
+                .matches("VALUES (true, true)");
     }
 
     @Test
     public void testStatsFilePruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
-            Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
-            TypeManager typeManager = new TestingTypeManager();
+            OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
             Table table = loadTable(testTable.getName());
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
-            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
@@ -1058,8 +1234,7 @@ public class TestIcebergV2
                             column,
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
     }
@@ -1067,35 +1242,32 @@ public class TestIcebergV2
     @Test
     public void testColumnStatsPruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
-            Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
-            TypeManager typeManager = new TestingTypeManager();
+            OptionalLong snapshotId = OptionalLong.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
             Table table = loadTable(testTable.getName());
             TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
 
-            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.all(),
                     ImmutableSet.of(column),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withProjectedColumns.getColumnStatistics().get(column))
@@ -1106,16 +1278,15 @@ public class TestIcebergV2
                             .build());
 
             TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
                             Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
-                    true,
-                    fileSystemFactory.create(SESSION));
+                    newDirectExecutorService());
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics().get(column))
@@ -1193,254 +1364,254 @@ public class TestIcebergV2
     @Test
     public void testSnapshotReferenceSystemTable()
     {
-        String tableName = "test_snapshot_reference_system_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = this.loadTable(tableName);
-        long snapshotId1 = icebergTable.currentSnapshot().snapshotId();
-        icebergTable.manageSnapshots()
-                .createTag("test-tag", snapshotId1)
-                .setMaxRefAgeMs("test-tag", 1)
-                .commit();
+        try (TestTable table = newTrinoTable("test_snapshot_reference_system_table_cleanup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = this.loadTable(tableName);
+            long snapshotId1 = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createTag("test-tag", snapshotId1)
+                    .setMaxRefAgeMs("test-tag", 1)
+                    .commit();
 
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
-        icebergTable.refresh();
-        long snapshotId2 = icebergTable.currentSnapshot().snapshotId();
-        icebergTable.manageSnapshots()
-                .createBranch("test-branch", snapshotId2)
-                .setMaxSnapshotAgeMs("test-branch", 1)
-                .commit();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+            icebergTable.refresh();
+            long snapshotId2 = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createBranch("test-branch", snapshotId2)
+                    .setMaxSnapshotAgeMs("test-branch", 1)
+                    .commit();
 
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
-        icebergTable.refresh();
-        long snapshotId3 = icebergTable.currentSnapshot().snapshotId();
-        icebergTable.manageSnapshots()
-                .createBranch("test-branch2", snapshotId3)
-                .setMinSnapshotsToKeep("test-branch2", 1)
-                .commit();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+            icebergTable.refresh();
+            long snapshotId3 = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createBranch("test-branch2", snapshotId3)
+                    .setMinSnapshotsToKeep("test-branch2", 1)
+                    .commit();
 
-        assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
-                "VALUES ('name', 'varchar', '', '')," +
-                        "('type', 'varchar', '', '')," +
-                        "('snapshot_id', 'bigint', '', '')," +
-                        "('max_reference_age_in_ms', 'bigint', '', '')," +
-                        "('min_snapshots_to_keep', 'integer', '', '')," +
-                        "('max_snapshot_age_in_ms', 'bigint', '', '')");
+            assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
+                    "VALUES ('name', 'varchar', '', '')," +
+                    "('type', 'varchar', '', '')," +
+                    "('snapshot_id', 'bigint', '', '')," +
+                    "('max_reference_age_in_ms', 'bigint', '', '')," +
+                    "('min_snapshots_to_keep', 'integer', '', '')," +
+                    "('max_snapshot_age_in_ms', 'bigint', '', '')");
 
-        assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
-                "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
-                        "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
-                        "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
-                        "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
+            assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
+                    "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
+                    "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
+                    "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
+                    "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
+        }
     }
 
     @Test
     public void testReadingSnapshotReference()
     {
-        String tableName = "test_reading_snapshot_reference" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = loadTable(tableName);
-        long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
-        icebergTable.manageSnapshots()
-                .createTag("test-tag", refSnapshotId)
-                .createBranch("test-branch", refSnapshotId)
-                .commit();
-        assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
-                "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
-                        "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
-                        "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
+        try (TestTable table = newTrinoTable("test_reading_snapshot_reference_cleanup_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            long refSnapshotId = icebergTable.currentSnapshot().snapshotId();
+            icebergTable.manageSnapshots()
+                    .createTag("test-tag", refSnapshotId)
+                    .createBranch("test-branch", refSnapshotId)
+                    .commit();
+            assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
+                    "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
+                    "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
+                    "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
 
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
-        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId,
-                "SELECT * FROM nation");
-        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'",
-                "SELECT * FROM nation");
-        assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'",
-                "SELECT * FROM nation");
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+            assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId,
+                    "SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-tag'",
+                    "SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-branch'",
+                    "SELECT * FROM nation");
 
-        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-wrong-ref'",
-                ".*?Cannot find snapshot with reference name: test-wrong-ref");
-        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'TEST-TAG'",
-                ".*?Cannot find snapshot with reference name: TEST-TAG");
+            assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'test-wrong-ref'",
+                    ".*?Cannot find snapshot with reference name: test-wrong-ref");
+            assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'TEST-TAG'",
+                    ".*?Cannot find snapshot with reference name: TEST-TAG");
+        }
     }
 
     @Test
     public void testNestedFieldPartitioning()
     {
-        String tableName = "test_nested_field_partitioning_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])");
+        try (TestTable table = newTrinoTable("test_nested_field_partitioning_cleanup_", "(id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])")) {
+            String tableName = table.getName();
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(1, ROW('Patna'), ROW('BH')), " +
+                    "(2, ROW('Patna'), ROW('BH')), " +
+                    "(3, ROW('Bengaluru'), ROW('KA')), " +
+                    "(4, ROW('Bengaluru'), ROW('KA'))",
+                    4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(5, ROW('Patna'), ROW('BH')), " +
+                    "(6, ROW('Patna'), ROW('BH')), " +
+                    "(7, ROW('Bengaluru'), ROW('KA')), " +
+                    "(8, ROW('Bengaluru'), ROW('KA'))",
+                    4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(1, ROW('Patna'), ROW('BH')), " +
-                        "(2, ROW('Patna'), ROW('BH')), " +
-                        "(3, ROW('Bengaluru'), ROW('KA')), " +
-                        "(4, ROW('Bengaluru'), ROW('KA'))",
-                4);
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(5, ROW('Patna'), ROW('BH')), " +
-                        "(6, ROW('Patna'), ROW('BH')), " +
-                        "(7, ROW('Bengaluru'), ROW('KA')), " +
-                        "(8, ROW('Bengaluru'), ROW('KA'))",
-                4);
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertUpdate("DELETE FROM " + tableName + " WHERE district.name = 'Bengaluru'", 4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE district.name = 'Bengaluru'", 4);
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
+                    .containsExactlyInAnyOrder("state.name", "district.name");
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
-        assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
-                .containsExactlyInAnyOrder("state.name", "district.name");
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(9, ROW('Patna'), ROW('BH')), " +
+                    "(10, ROW('Bengaluru'), ROW('BH')), " +
+                    "(11, ROW('Bengaluru'), ROW('KA')), " +
+                    "(12, ROW('Bengaluru'), ROW('KA'))",
+                    4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(9, ROW('Patna'), ROW('BH')), " +
-                        "(10, ROW('Bengaluru'), ROW('BH')), " +
-                        "(11, ROW('Bengaluru'), ROW('KA')), " +
-                        "(12, ROW('Bengaluru'), ROW('KA'))",
-                4);
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
+            assertQuery("SELECT id, district.name, state.name FROM " + tableName, "VALUES " +
+                    "(1, 'Patna', 'BH'), " +
+                    "(2, 'Patna', 'BH'), " +
+                    "(5, 'Patna', 'BH'), " +
+                    "(6, 'Patna', 'BH'), " +
+                    "(9, 'Patna', 'BH'), " +
+                    "(10, 'Bengaluru', 'BH'), " +
+                    "(11, 'Bengaluru', 'KA'), " +
+                    "(12, 'Bengaluru', 'KA')");
 
-        assertQuery("SELECT id, district.name, state.name FROM " + tableName, "VALUES " +
-                "(1, 'Patna', 'BH'), " +
-                "(2, 'Patna', 'BH'), " +
-                "(5, 'Patna', 'BH'), " +
-                "(6, 'Patna', 'BH'), " +
-                "(9, 'Patna', 'BH'), " +
-                "(10, 'Bengaluru', 'BH'), " +
-                "(11, 'Bengaluru', 'KA'), " +
-                "(12, 'Bengaluru', 'KA')");
-
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
+        }
     }
 
     @Test
     public void testHighlyNestedFieldPartitioning()
     {
-        String tableName = "test_highly_nested_field_partitioning_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])");
+        try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_cleanup_",
+                "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])")) {
+            String tableName = table.getName();
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                        "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
-                4);
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                        "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
-                4);
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                    4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                    "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                    4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
-        assertQuery("SELECT partition.\"country.state.district.name\" FROM \"" + tableName + "$partitions\"", "VALUES 'Patna', 'Bengaluru'");
+            assertQuery("SELECT partition.\"country.state.district.name\" FROM \"" + tableName + "$partitions\"", "VALUES 'Patna', 'Bengaluru'");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE country.state.district.name = 'Bengaluru'", 4);
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE country.state.district.name = 'Bengaluru'", 4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
 
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"country.state.district.name\"', '\"country.state.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
-        assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
-                .containsExactlyInAnyOrder("country.state.district.name", "country.state.name");
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"country.state.district.name\"', '\"country.state.name\"']");
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
+                    .containsExactlyInAnyOrder("country.state.district.name", "country.state.name");
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
-                        "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                        "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
-                4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
+                    "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                    "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                    4);
 
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
 
-        assertQuery("SELECT id, country.name, country.state.name, country.state.district.name FROM " + tableName, "VALUES " +
-                "(1, 'India', 'BH', 'Patna'), " +
-                "(2, 'India', 'BH', 'Patna'), " +
-                "(5, 'India', 'BH', 'Patna'), " +
-                "(6, 'India', 'BH', 'Patna'), " +
-                "(9, 'India', 'BH', 'Patna'), " +
-                "(10, 'India', 'BH', 'Bengaluru'), " +
-                "(11, 'India', 'KA', 'Bengaluru'), " +
-                "(12, 'India', 'KA', 'Bengaluru')");
+            assertQuery("SELECT id, country.name, country.state.name, country.state.district.name FROM " + tableName, "VALUES " +
+                    "(1, 'India', 'BH', 'Patna'), " +
+                    "(2, 'India', 'BH', 'Patna'), " +
+                    "(5, 'India', 'BH', 'Patna'), " +
+                    "(6, 'India', 'BH', 'Patna'), " +
+                    "(9, 'India', 'BH', 'Patna'), " +
+                    "(10, 'India', 'BH', 'Bengaluru'), " +
+                    "(11, 'India', 'KA', 'Bengaluru'), " +
+                    "(12, 'India', 'KA', 'Bengaluru')");
 
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
+        }
     }
 
     @Test
     public void testHighlyNestedFieldPartitioningWithTruncateTransform()
     {
-        String tableName = "test_highly_nested_field_partitioning_with_transform_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])");
+        try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
+                "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])")) {
+            String tableName = table.getName();
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
-                        "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                        "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
-                4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
+                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                    "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
+                    4);
 
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
-        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
-        List<MaterializedRow> partitionedFiles = files.stream()
-                .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_trunc="))
-                .collect(toImmutableList());
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+            List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+            List<MaterializedRow> partitionedFiles = files.stream()
+                    .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_trunc="))
+                    .collect(toImmutableList());
 
-        assertThat(partitionedFiles).hasSize(2);
-        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+            assertThat(partitionedFiles).hasSize(2);
+            assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
 
-        assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
-                "(1, 'Patna', 'BH', 'India'), " +
-                "(2, 'Patna_Truncate', 'BH', 'India'), " +
-                "(3, 'Delhi', 'DL', 'India'), " +
-                "(4, 'Delhi_Truncate', 'DL', 'India')");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
+                    "(1, 'Patna', 'BH', 'India'), " +
+                    "(2, 'Patna_Truncate', 'BH', 'India'), " +
+                    "(3, 'Delhi', 'DL', 'India'), " +
+                    "(4, 'Delhi_Truncate', 'DL', 'India')");
+        }
     }
 
     @Test
     public void testHighlyNestedFieldPartitioningWithBucketTransform()
     {
-        String tableName = "test_highly_nested_field_partitioning_with_transform_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])");
+        try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
+                "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])")) {
+            String tableName = table.getName();
 
-        assertUpdate(
-                "INSERT INTO " + tableName + " VALUES " +
-                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                        "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
-                        "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                        "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
-                4);
+            assertUpdate(
+                    "INSERT INTO " + tableName + " VALUES " +
+                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                    "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
+                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                    4);
 
-        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
-        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
-        List<MaterializedRow> partitionedFiles = files.stream()
-                .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_bucket="))
-                .collect(toImmutableList());
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+            List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+            List<MaterializedRow> partitionedFiles = files.stream()
+                    .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_bucket="))
+                    .collect(toImmutableList());
 
-        assertThat(partitionedFiles).hasSize(2);
-        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+            assertThat(partitionedFiles).hasSize(2);
+            assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
 
-        assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
-                "(1, 'Patna', 'BH', 'India'), " +
-                "(2, 'Mumbai', 'MH', 'India'), " +
-                "(3, 'Delhi', 'DL', 'India'), " +
-                "(4, 'Bengaluru', 'KA', 'India')");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
+                    "(1, 'Patna', 'BH', 'India'), " +
+                    "(2, 'Mumbai', 'MH', 'India'), " +
+                    "(3, 'Delhi', 'DL', 'India'), " +
+                    "(4, 'Bengaluru', 'KA', 'India')");
+        }
     }
 
     @Test
@@ -1464,18 +1635,53 @@ public class TestIcebergV2
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/25077
+    void testHighlyNestedFields()
+    {
+        String table = "test_highly_nested_fields" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        List<Types.NestedField> fields = IntStream.rangeClosed(1, 10000)
+            .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
+            .collect(toImmutableList());
+
+        Types.NestedField column = Types.NestedField.optional(10001, "row_col", Types.StructType.of(fields));
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(column),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        assertUpdate("INSERT INTO " + table + " VALUES NULL", 1);
+        assertUpdate("UPDATE " + table + " SET row_col = NULL", 1);
+        assertUpdate("MERGE INTO " + table + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (NULL)", 1);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE optimize");
+        assertThat(query("SELECT * FROM " + table))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL");
+
+        assertUpdate("DELETE FROM " + table, 2);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + table);
+
+        assertUpdate("DROP TABLE " + table);
+    }
+
     @Test
     void testMapValueSchemaChange()
     {
         testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
         testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
-        testMapValueSchemaChange("AVRO", "NULL");
+        testMapValueSchemaChange("AVRO", "map(array[1], array[row(NULL)])");
     }
 
     private void testMapValueSchemaChange(String format, String expectedValue)
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_map_value_schema_change",
                 "WITH (format = '" + format + "') AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) col")) {
             Table icebergTable = loadTable(table.getName());
@@ -1507,13 +1713,72 @@ public class TestIcebergV2
     }
 
     @Test
-    void testEnvironmentContext()
+    public void testMetadataDeleteAfterCommitEnabled()
+            throws IOException
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_environment_context", "(x int)")) {
-            Table icebergTable = loadTable(table.getName());
-            assertThat(icebergTable.currentSnapshot().summary())
-                    .contains(entry("engine-name", "trino"), entry("engine-version", "testversion"));
+        int metadataPreviousVersionCount = 5;
+        try (TestTable table = newTrinoTable("test_metadata_delete_after_commit_enabled_", "(_bigint BIGINT, _varchar VARCHAR)")) {
+            String tableName = table.getName();
+            BaseTable icebergTable = loadTable(tableName);
+            String location = icebergTable.location();
+            icebergTable.updateProperties()
+                    .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
+                    .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionCount))
+                    .commit();
+
+            TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
+            Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+                Map<String, Long> metadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+                historyMetadataFiles.putAll(metadataFiles);
+                assertThat(metadataFiles.size()).isLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+                Set<String> expectMetadataFiles = historyMetadataFiles
+                        .entrySet()
+                        .stream()
+                        .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                        .limit(metadataPreviousVersionCount + 1)
+                        .map(Map.Entry::getKey)
+                        .collect(Collectors.toSet());
+                assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
+            }
         }
+    }
+
+    @Test
+    void testAnalyzeNoSnapshot()
+    {
+        String table = "test_analyze_no_snapshot" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(Types.NestedField.optional(1, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        String expectedStats =
+        """
+        VALUES
+        ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+        (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+        """;
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        assertUpdate("ANALYZE " + table);
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        catalog.dropTable(SESSION, schemaTableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)
@@ -1606,6 +1871,7 @@ public class TestIcebergV2
         BaseTable table = loadTable(tableName);
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();
+        checkArgument(currentMetadata.formatVersion() != 2, "Format version is already 2: '%s'", tableName);
         operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
 
         return table;

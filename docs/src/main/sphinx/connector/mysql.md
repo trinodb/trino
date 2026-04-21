@@ -38,7 +38,7 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
-available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 For example, the following `connection-url` allows you to require encrypted
 connections to the MySQL server:
@@ -99,14 +99,42 @@ creates a catalog named `sales` using the configured connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (mysql-fte-support)=
 ### Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+## Table properties
+
+Table property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL,
+  name VARCHAR,
+  age INT,
+  birthday DATE 
+)
+WITH (
+  primary_key = ARRAY['id']
+);
+```
+
+The following are supported MySQL table properties: 
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `primary_key`
+  - No
+  - The primary key of the table, can choose multi columns as the table primary key.
+    All key columns must be defined as `NOT NULL`.
+:::
 
 (mysql-type-mapping)=
 ## Type mapping
@@ -169,8 +197,8 @@ this table:
   - `REAL`
   -
 * - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)`
-  - See [MySQL DECIMAL type handling](mysql-decimal-handling)
+  - `DECIMAL(p, s)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -249,7 +277,7 @@ this table:
   -
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - [MySQL DECIMAL type handling](mysql-decimal-handling)
+  -
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -289,10 +317,6 @@ com.mysql.cj.exceptions.CJException: Unknown or incorrect time zone: 'UTC'
 
 To avoid the errors, you must use a time zone that is known on both systems,
 or [install the missing time zone on the MySQL server](https://dev.mysql.com/doc/refman/8.0/en/time-zone-support.html#time-zone-installation).
-
-(mysql-decimal-handling)=
-```{include} decimal-type-handling.fragment
-```
 
 ```{include} jdbc-type-mapping.fragment
 ```
@@ -334,26 +358,40 @@ that catalog name instead of `example` in the above examples.
 ## SQL support
 
 The connector provides read access and write access to data and metadata in the
-MySQL database. In addition to the {ref}`globally available <sql-globally-available>` and
-{ref}`read operation <sql-read-operations>` statements, the connector supports
-the following statements:
+MySQL database. In addition to the [globally available](sql-globally-available)
+and [read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](mysql-insert)
+- [](/sql/update), see also [](mysql-update)
+- [](/sql/delete), see also [](mysql-delete)
+- [](/sql/merge), see also [](mysql-merge)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](mysql-procedures)
+- [](mysql-table-functions)
 
+(mysql-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(mysql-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(mysql-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(mysql-merge)=
+```{include} non-transactional-merge.fragment
+```
+
+(mysql-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -361,6 +399,7 @@ the following statements:
 ```{include} procedures-execute.fragment
 ```
 
+(mysql-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
@@ -432,7 +471,7 @@ ANALYZE TABLE table_name;
 :::{note}
 MySQL and Trino may use statistics information in different ways. For this
 reason, the accuracy of table and column statistics returned by the MySQL
-connector might be lower than than that of others connectors.
+connector might be lower than that of others connectors.
 :::
 
 **Improving statistics accuracy**

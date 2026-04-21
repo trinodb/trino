@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,7 +61,7 @@ public class StageTaskStatistics
     private final DoubleSymmetricDistribution endTimeScaledDistribution;
 
     // split generation stats
-    private final DoubleSymmetricDistribution getSplitDistribution;
+    private final Map<String, DoubleSymmetricDistribution> getSplitDistribution;
 
     @JsonCreator
     @Unstable
@@ -89,7 +91,7 @@ public class StageTaskStatistics
             @JsonProperty("terminatingStartTimeScaledDistribution") DoubleSymmetricDistribution terminatingStartTimeScaledDistribution,
             @JsonProperty("lastEndTimeScaledDistribution") DoubleSymmetricDistribution lastEndTimeScaledDistribution,
             @JsonProperty("endTimeScaledDistribution") DoubleSymmetricDistribution endTimeScaledDistribution,
-            @JsonProperty("getSplitDistribution") DoubleSymmetricDistribution getSplitDistribution)
+            @JsonProperty("getSplitDistribution") Map<String, DoubleSymmetricDistribution> getSplitDistribution)
     {
         this.stageId = stageId;
         this.tasks = tasks;
@@ -270,7 +272,7 @@ public class StageTaskStatistics
     }
 
     @JsonProperty
-    public DoubleSymmetricDistribution getGetSplitDistribution()
+    public Map<String, DoubleSymmetricDistribution> getGetSplitDistribution()
     {
         return getSplitDistribution;
     }

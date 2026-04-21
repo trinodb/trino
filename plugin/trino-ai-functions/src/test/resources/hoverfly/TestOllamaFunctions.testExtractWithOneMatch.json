@@ -1,0 +1,188 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is tomorrow\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-351\",\"object\":\"chat.completion\",\"created\":1739563638,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"date\\\": \\\"tomorrow\\\"}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":72,\"completion_tokens\":8,\"total_tokens\":80}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "306" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:07:18 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-502\",\"object\":\"chat.completion\",\"created\":1739563641,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"date\\\": \\\"2022-12-31\\\"}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":78,\"completion_tokens\":12,\"total_tokens\":90}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "309" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:07:21 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\", \\\"money\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31 and the budget is $1000\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-537\",\"object\":\"chat.completion\",\"created\":1739563648,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"date\\\": \\\"2022-12-31\\\", \\\"money\\\": \\\"$1000\\\"}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":88,\"completion_tokens\":19,\"total_tokens\":107}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "332" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:07:28 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"person\\\", \\\"location\\\", \\\"organization\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nJohn Doe lives in New York and works for Acme Corp.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-346\",\"object\":\"chat.completion\",\"created\":1739563656,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"person\\\": \\\"John Doe\\\", \\\"location\\\": \\\"New York\\\", \\\"organization\\\": \\\"Acme Corp\\\"}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":86,\"completion_tokens\":23,\"total_tokens\":109}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "371" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:07:36 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/v1/chat/completions"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"email\\\", \\\"time\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nSend an email to jane.doe@example.com about the meeting at 10am.\\n\"\n  } ],\n  \"seed\" : 0\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"id\":\"chatcmpl-865\",\"object\":\"chat.completion\",\"created\":1739563664,\"model\":\"llama3.3\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"email\\\": \\\"jane.doe@example.com\\\", \\\"time\\\": \\\"10am\\\"}\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":87,\"completion_tokens\":19,\"total_tokens\":106}}\n",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "341" ],
+          "Content-Type" : [ "application/json" ],
+          "Date" : [ "Fri, 14 Feb 2025 20:07:44 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-14T12:07:47-08:00"
+  }
+}

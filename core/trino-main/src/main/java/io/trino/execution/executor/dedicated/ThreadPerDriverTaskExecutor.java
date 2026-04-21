@@ -79,6 +79,9 @@ public class ThreadPerDriverTaskExecutor
     @GuardedBy("this")
     private int runningLeafDrivers;
 
+    // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
+    private final Runnable leafSplitDoneCallback = this::leafSplitDone;
+
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
     {
@@ -143,10 +146,12 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Override
-    public synchronized void removeTask(TaskHandle handle)
+    public void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;
-        tasks.remove(entry.taskId());
+        synchronized (this) {
+            tasks.remove(entry.taskId());
+        }
         if (!entry.isDestroyed()) {
             entry.destroy();
         }
@@ -175,7 +180,7 @@ public class ThreadPerDriverTaskExecutor
 
     private boolean scheduleLeafSplit(TaskEntry task)
     {
-        boolean scheduled = task.dequeueAndRunLeafSplit(this::leafSplitDone);
+        boolean scheduled = task.dequeueAndRunLeafSplit(leafSplitDoneCallback);
         if (scheduled) {
             runningLeafDrivers++;
         }
@@ -239,7 +244,7 @@ public class ThreadPerDriverTaskExecutor
                         task.targetConcurrency()).indent(4));
             }
 
-            LOG.debug("\n" + builder);
+            LOG.debug("\n%s", builder);
         }
     }
 

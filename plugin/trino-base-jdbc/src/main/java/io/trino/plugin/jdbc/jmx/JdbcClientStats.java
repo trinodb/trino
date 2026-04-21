@@ -22,6 +22,7 @@ public final class JdbcClientStats
     private final JdbcApiStats addColumn = new JdbcApiStats();
     private final JdbcApiStats beginCreateTable = new JdbcApiStats();
     private final JdbcApiStats beginInsertTable = new JdbcApiStats();
+    private final JdbcApiStats beginMergeTable = new JdbcApiStats();
     private final JdbcApiStats buildInsertSql = new JdbcApiStats();
     private final JdbcApiStats prepareQuery = new JdbcApiStats();
     private final JdbcApiStats buildSql = new JdbcApiStats();
@@ -38,11 +39,14 @@ public final class JdbcClientStats
     private final JdbcApiStats renameSchema = new JdbcApiStats();
     private final JdbcApiStats dropTable = new JdbcApiStats();
     private final JdbcApiStats finishInsertTable = new JdbcApiStats();
+    private final JdbcApiStats finishMergeTable = new JdbcApiStats();
     private final JdbcApiStats getColumns = new JdbcApiStats();
     private final JdbcApiStats getAllTableComments = new JdbcApiStats();
+    private final JdbcApiStats getConnection = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithHandle = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithSplit = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithProcedure = new JdbcApiStats();
+    private final JdbcApiStats execute = new JdbcApiStats();
     private final JdbcApiStats getPreparedStatement = new JdbcApiStats();
     private final JdbcApiStats getSchemaNames = new JdbcApiStats();
     private final JdbcApiStats getSplits = new JdbcApiStats();
@@ -57,7 +61,8 @@ public final class JdbcClientStats
     private final JdbcApiStats dropNotNullConstraint = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
     private final JdbcApiStats setTableProperties = new JdbcApiStats();
-    private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
+    private final JdbcApiStats rollbackDestinationTableCreation = new JdbcApiStats();
+    private final JdbcApiStats rollbackTemporaryTableCreation = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
     private final JdbcApiStats toTrinoType = new JdbcApiStats();
     private final JdbcApiStats getColumnMappings = new JdbcApiStats();
@@ -90,6 +95,13 @@ public final class JdbcClientStats
     public JdbcApiStats getBeginCreateTable()
     {
         return beginCreateTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getBeginMergeTable()
+    {
+        return beginMergeTable;
     }
 
     @Managed
@@ -206,6 +218,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getFinishMergeTable()
+    {
+        return finishMergeTable;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getFinishInsertTable()
     {
         return finishInsertTable;
@@ -227,6 +246,13 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getGetConnection()
+    {
+        return getConnection;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getGetConnectionWithHandle()
     {
         return getConnectionWithHandle;
@@ -244,6 +270,13 @@ public final class JdbcClientStats
     public JdbcApiStats getGetConnectionWithProcedure()
     {
         return getConnectionWithProcedure;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getExecute()
+    {
+        return execute;
     }
 
     @Managed
@@ -346,9 +379,16 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
-    public JdbcApiStats getRollbackCreateTable()
+    public JdbcApiStats getRollbackDestinationTableCreation()
     {
-        return rollbackCreateTable;
+        return rollbackDestinationTableCreation;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getRollbackTemporaryTableCreation()
+    {
+        return rollbackTemporaryTableCreation;
     }
 
     @Managed

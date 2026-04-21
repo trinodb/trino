@@ -71,7 +71,7 @@ public class PlanOptimizersStatsCollector
     {
         return stats.values().stream()
                 .map(QueryPlanOptimizerStats::snapshot)
-                .sorted(Comparator.comparing(QueryPlanOptimizerStatistics::totalTime).reversed())
+                .sorted(Comparator.comparingLong(QueryPlanOptimizerStatistics::totalTime).reversed())
                 .limit(limit)
                 .collect(toImmutableList());
     }

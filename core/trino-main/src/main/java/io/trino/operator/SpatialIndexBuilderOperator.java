@@ -13,9 +13,9 @@
  */
 package io.trino.operator;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.memory.context.LocalMemoryContext;
@@ -23,12 +23,14 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.locationtech.jts.geom.Geometry;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -40,7 +42,7 @@ public class SpatialIndexBuilderOperator
     @FunctionalInterface
     public interface SpatialPredicate
     {
-        boolean apply(OGCGeometry probe, OGCGeometry build, OptionalDouble radius);
+        boolean apply(Geometry probe, Geometry build, OptionalDouble radius);
     }
 
     public static final class SpatialIndexBuilderOperatorFactory
@@ -51,9 +53,9 @@ public class SpatialIndexBuilderOperator
         private final PagesSpatialIndexFactory pagesSpatialIndexFactory;
         private final List<Integer> outputChannels;
         private final int indexChannel;
-        private final Optional<Integer> radiusChannel;
+        private final OptionalInt radiusChannel;
         private final OptionalDouble constantRadius;
-        private final Optional<Integer> partitionChannel;
+        private final OptionalInt partitionChannel;
         private final SpatialPredicate spatialRelationshipTest;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
         private final PagesIndex.Factory pagesIndexFactory;
@@ -69,11 +71,11 @@ public class SpatialIndexBuilderOperator
                 List<Type> types,
                 List<Integer> outputChannels,
                 int indexChannel,
-                Optional<Integer> radiusChannel,
+                OptionalInt radiusChannel,
                 OptionalDouble constantRadius,
-                Optional<Integer> partitionChannel,
+                OptionalInt partitionChannel,
                 SpatialPredicate spatialRelationshipTest,
-                Optional<String> kdbTreeJson,
+                Optional<Slice> kdbTreeJson,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory)
@@ -142,9 +144,9 @@ public class SpatialIndexBuilderOperator
 
     private final List<Integer> outputChannels;
     private final int indexChannel;
-    private final Optional<Integer> radiusChannel;
+    private final OptionalInt radiusChannel;
     private final OptionalDouble constantRadius;
-    private final Optional<Integer> partitionChannel;
+    private final OptionalInt partitionChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final Map<Integer, Rectangle> partitions;
@@ -160,9 +162,9 @@ public class SpatialIndexBuilderOperator
             PagesSpatialIndexFactory pagesSpatialIndexFactory,
             List<Integer> outputChannels,
             int indexChannel,
-            Optional<Integer> radiusChannel,
+            OptionalInt radiusChannel,
             OptionalDouble constantRadius,
-            Optional<Integer> partitionChannel,
+            OptionalInt partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions,

@@ -15,14 +15,13 @@ package io.trino.type;
 
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.type.ColorType.COLOR;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,7 +31,7 @@ public class TestColorArrayType
 {
     public TestColorArrayType()
     {
-        super(TESTING_TYPE_MANAGER.getType(arrayType(COLOR.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(COLOR.getTypeSignature()))));
+        super(new ArrayType(COLOR), List.class, createTestBlock(new ArrayType(COLOR)));
     }
 
     public static ValueBlock createTestBlock(Type arrayType)

@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -42,8 +41,8 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
@@ -58,13 +57,8 @@ public final class JsonStringArrayExtractScalar
     public static final String JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME = "$internal$json_string_array_extract_scalar";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonStringArrayExtractScalar.class, "extract", Slice.class, JsonPath.class);
 
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
     private static final ArrayType ARRAY_TYPE = new ArrayType(VARCHAR);
-
-    static {
-        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
-        new ObjectMapper(JSON_FACTORY);
-    }
 
     private JsonStringArrayExtractScalar()
     {
@@ -94,7 +88,7 @@ public final class JsonStringArrayExtractScalar
     @UsedByGeneratedCode
     public static Block extract(Slice json, JsonPath jsonPath)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, json)) {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 return null;

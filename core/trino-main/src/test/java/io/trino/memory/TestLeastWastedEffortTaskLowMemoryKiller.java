@@ -29,12 +29,13 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.taskId;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
@@ -249,7 +250,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
         return new TaskInfo(
                 new TaskStatus(
                         taskId,
-                        "task-instance-id",
+                        0,
                         0,
                         state,
                         URI.create("fake://task/" + taskId + "/node/some_node"),
@@ -262,7 +263,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         DataSize.of(0, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
-                        Optional.of(1),
+                        OptionalInt.of(1),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(1, DataSize.Unit.MEGABYTE),
                         DataSize.of(0, DataSize.Unit.MEGABYTE),
@@ -271,7 +272,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         1,
                         1),
-                DateTime.now(),
+                Instant.now(),
                 new OutputBufferInfo(
                         "TESTING",
                         BufferState.FINISHED,
@@ -286,7 +287,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
-                new TaskStats(DateTime.now(),
+                new TaskStats(Instant.now(),
                         null,
                         null,
                         null,
@@ -307,6 +308,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
+                        DataSize.ofBytes(0),
                         scheduledTime,
                         new Duration(0, MILLISECONDS),
                         blockedTime,
@@ -319,15 +321,13 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         DataSize.ofBytes(0),
                         0,
-                        DataSize.ofBytes(0),
-                        0,
                         new Duration(0, MILLISECONDS),
                         DataSize.ofBytes(0),
                         0,
                         new Duration(0, MILLISECONDS),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
-                        Optional.empty(),
+                        OptionalInt.empty(),
                         0,
                         new Duration(0, MILLISECONDS),
                         ImmutableList.of()),

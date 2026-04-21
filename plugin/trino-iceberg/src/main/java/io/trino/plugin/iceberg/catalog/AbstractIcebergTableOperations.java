@@ -63,6 +63,7 @@ import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.CatalogUtil.deleteRemovedMetadataFiles;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
@@ -83,7 +84,7 @@ public abstract class AbstractIcebergTableOperations
     protected final String tableName;
     protected final Optional<String> owner;
     protected final Optional<String> location;
-    protected final FileIO fileIo;
+    private final FileIO fileIo;
 
     protected TableMetadata currentMetadata;
     protected String currentMetadataLocation;
@@ -174,6 +175,7 @@ public abstract class AbstractIcebergTableOperations
         }
         else {
             commitToExistingTable(base, metadata);
+            deleteRemovedMetadataFiles(io(), base, metadata);
         }
 
         shouldRefresh = true;
@@ -226,7 +228,7 @@ public abstract class AbstractIcebergTableOperations
     protected String writeNewMetadata(TableMetadata metadata, int newVersion)
     {
         String newTableMetadataFilePath = newTableMetadataFilePath(metadata, newVersion);
-        OutputFile newMetadataLocation = fileIo.newOutputFile(newTableMetadataFilePath);
+        OutputFile newMetadataLocation = io().newOutputFile(newTableMetadataFilePath);
 
         // write the new metadata
         TableMetadataParser.write(metadata, newMetadataLocation);
@@ -238,7 +240,7 @@ public abstract class AbstractIcebergTableOperations
     {
         refreshFromMetadataLocation(
                 newLocation,
-                metadataLocation -> TableMetadataParser.read(fileIo, fileIo.newInputFile(metadataLocation)));
+                metadataLocation -> TableMetadataParser.read(io().newInputFile(metadataLocation)));
     }
 
     protected void refreshFromMetadataLocation(String newLocation, Function<String, TableMetadata> metadataLoader)

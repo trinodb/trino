@@ -13,24 +13,19 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -40,20 +35,15 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestSliceSerialization
 {
-    private ObjectMapperProvider provider;
+    private JsonMapper jsonMapper;
 
     @BeforeAll
     public void setup()
     {
-        provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()));
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        provider = null;
+        jsonMapper = new JsonMapperProvider()
+                .withJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceSerializer()))
+                .withJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()))
+                .get();
     }
 
     @Test
@@ -86,54 +76,17 @@ public class TestSliceSerialization
     private void testRoundTrip(Slice slice)
             throws JsonProcessingException
     {
-        ObjectMapper objectMapper = provider.get();
         Container expected = new Container(slice);
-        String json = objectMapper.writeValueAsString(expected);
-        Container actual = objectMapper.readValue(json, Container.class);
+        String json = jsonMapper.writeValueAsString(expected);
+        Container actual = jsonMapper.readValue(json, Container.class);
         assertThat(actual).isEqualTo(expected);
     }
 
-    public static class Container
+    public record Container(Slice value)
     {
-        private final Slice value;
-
-        @JsonCreator
-        public Container(@JsonProperty("value") Slice value)
+        public Container
         {
-            this.value = requireNonNull(value, "value is null");
-        }
-
-        @JsonProperty
-        public Slice getValue()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Container container = (Container) o;
-            return Objects.equals(value, container.value);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(value);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("value", value)
-                    .toString();
+            requireNonNull(value, "value is null");
         }
     }
 }

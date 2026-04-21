@@ -25,7 +25,6 @@ import io.trino.transaction.TransactionId;
 
 import java.util.function.Function;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.testing.TestingSession.testSession;
 
@@ -38,7 +37,7 @@ public class StatsCalculatorTester
     {
         queryRunner = new StandaloneQueryRunner(session);
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog(session.getCatalog().orElseThrow(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        queryRunner.createCatalog(session.getCatalog().orElseThrow(), "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
     }
 
     public StatsCalculatorAssertion assertStatsFor(Function<PlanBuilder, PlanNode> planProvider)

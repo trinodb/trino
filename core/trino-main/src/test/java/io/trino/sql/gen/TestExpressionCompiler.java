@@ -142,7 +142,7 @@ public class TestExpressionCompiler
         for (Boolean value : booleanValues) {
             assertThat(assertions.expression(toLiteral(value)))
                     .hasType(BOOLEAN)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("a IS NULL")
                     .binding("a", toLiteral(value)))
@@ -158,7 +158,7 @@ public class TestExpressionCompiler
 
             assertThat(assertions.expression(toLiteral(value)))
                     .hasType(INTEGER)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("- a")
                     .binding("a", toLiteral(value)))
@@ -185,7 +185,7 @@ public class TestExpressionCompiler
         for (Double value : doubleLefts) {
             assertThat(assertions.expression(toLiteral(value)))
                     .hasType(DOUBLE)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("- a")
                     .binding("a", toLiteral(value)))
@@ -221,7 +221,7 @@ public class TestExpressionCompiler
         for (String value : stringLefts) {
             assertThat(assertions.expression(toLiteral(value)))
                     .hasType(varcharType(value))
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("a IS NULL")
                     .binding("a", toLiteral(value)))
@@ -1238,7 +1238,7 @@ public class TestExpressionCompiler
             assertThat(assertions.expression("CAST(a AS boolean)")
                     .binding("a", toLiteral(value)))
                     .hasType(BOOLEAN)
-                    .isEqualTo(value == null ? null : (value ? true : false));
+                    .isEqualTo(value == null ? null : value);
 
             assertThat(assertions.expression("CAST(a AS integer)")
                     .binding("a", toLiteral(value)))
@@ -1265,12 +1265,12 @@ public class TestExpressionCompiler
             assertThat(assertions.expression("CAST(a AS boolean)")
                     .binding("a", toLiteral(value)))
                     .hasType(BOOLEAN)
-                    .isEqualTo(value == null ? null : (value != 0L ? true : false));
+                    .isEqualTo(value == null ? null : value != 0L);
 
             assertThat(assertions.expression("CAST(a AS integer)")
                     .binding("a", toLiteral(value)))
                     .hasType(INTEGER)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("CAST(a AS bigint)")
                     .binding("a", toLiteral(value)))
@@ -1293,7 +1293,7 @@ public class TestExpressionCompiler
             assertThat(assertions.expression("CAST(a AS boolean)")
                     .binding("a", toLiteral(value)))
                     .hasType(BOOLEAN)
-                    .isEqualTo(value == null ? null : (value != 0.0 ? true : false));
+                    .isEqualTo(value == null ? null : value != 0.0);
 
             if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
                 assertThat(assertions.expression("CAST(a AS bigint)")
@@ -1305,7 +1305,7 @@ public class TestExpressionCompiler
             assertThat(assertions.expression("CAST(a AS double)")
                     .binding("a", toLiteral(value)))
                     .hasType(DOUBLE)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
 
             assertThat(assertions.expression("CAST(a AS varchar)")
                     .binding("a", toLiteral(value)))
@@ -1373,7 +1373,7 @@ public class TestExpressionCompiler
                 assertThat(assertions.expression("CAST(a AS integer)")
                         .binding("a", toLiteral(String.valueOf(value))))
                         .hasType(INTEGER)
-                        .isEqualTo(value == null ? null : value);
+                        .isEqualTo(value);
 
                 assertThat(assertions.expression("CAST(a AS bigint)")
                         .binding("a", toLiteral(String.valueOf(value))))
@@ -1386,14 +1386,14 @@ public class TestExpressionCompiler
                 assertThat(assertions.expression("CAST(a AS double)")
                         .binding("a", toLiteral(String.valueOf(value))))
                         .hasType(DOUBLE)
-                        .isEqualTo(value == null ? null : value);
+                        .isEqualTo(value);
             }
         }
         for (String value : stringLefts) {
             assertThat(assertions.expression("CAST(a AS varchar)")
                     .binding("a", toLiteral(value)))
                     .hasType(VARCHAR)
-                    .isEqualTo(value == null ? null : value);
+                    .isEqualTo(value);
         }
     }
 
@@ -1928,19 +1928,19 @@ public class TestExpressionCompiler
         for (Boolean value : booleanValues) {
             assertThat(assertions.expression("a IN (true)")
                     .binding("a", toLiteral(value)))
-                    .isEqualTo(value == null ? null : value == Boolean.TRUE);
+                    .isEqualTo(value == null ? null : value);
             assertThat(assertions.expression("a IN (null, true)")
                     .binding("a", toLiteral(value)))
-                    .isEqualTo(value == null ? null : value == Boolean.TRUE ? true : null);
+                    .isEqualTo(value == null ? null : value ? true : null);
             assertThat(assertions.expression("a IN (true, null)")
                     .binding("a", toLiteral(value)))
-                    .isEqualTo(value == null ? null : value == Boolean.TRUE ? true : null);
+                    .isEqualTo(value == null ? null : value ? true : null);
             assertThat(assertions.expression("a IN (false)")
                     .binding("a", toLiteral(value)))
-                    .isEqualTo(value == null ? null : value == Boolean.FALSE);
+                    .isEqualTo(value == null ? null : !value);
             assertThat(assertions.expression("a IN (null, false)")
                     .binding("a", toLiteral(value)))
-                    .isEqualTo(value == null ? null : value == Boolean.FALSE ? true : null);
+                    .isEqualTo(value == null ? null : !value ? true : null);
             assertThat(assertions.expression("a IN (null)")
                     .binding("a", toLiteral(value)))
                     .isNull(BOOLEAN);

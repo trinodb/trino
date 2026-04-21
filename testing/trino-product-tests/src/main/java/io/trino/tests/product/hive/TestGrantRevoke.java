@@ -23,6 +23,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -58,7 +59,7 @@ public class TestGrantRevoke
      * Pre-requisites for the tests in this class:
      *
      * (1) hive.properties file should have this property set: hive.security=sql-standard
-     * (2) tempto-configuration.yaml file should have definitions for the following connections to Presto server:
+     * (2) tempto-configuration.yaml file should have definitions for the following connections to Trino server:
      *          - "alice@trino" that has "jdbc_user: alice"
      *          - "bob@trino" that has "jdbc_user: bob"
      *          - "charlie@trino" that has "jdbc_user: charlie"
@@ -289,7 +290,7 @@ public class TestGrantRevoke
         });
     }
 
-    private ImmutableList<Row> ownerGrants()
+    private List<Row> ownerGrants()
     {
         return ImmutableList.of(row("SELECT", Boolean.TRUE), row("INSERT", Boolean.TRUE), row("UPDATE", Boolean.TRUE), row("DELETE", Boolean.TRUE));
     }

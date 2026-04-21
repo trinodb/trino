@@ -37,6 +37,11 @@ public class IoExceptionSuppressingWriterInterceptor
             context.proceed();
         }
         catch (IOException e) {
+            if (e.getClass().getName().equalsIgnoreCase("org.eclipse.jetty.io.EofException")) {
+                // EofException is thrown when the client closes the connection before the response is fully written.
+                // This is not an error, so we suppress it.
+                return;
+            }
             log.warn("Could not write to output: %s(%s)", e.getClass().getSimpleName(), e.getMessage());
         }
     }

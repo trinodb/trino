@@ -14,13 +14,18 @@
 package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -31,56 +36,48 @@ public class PartitioningScheme
 {
     private final Partitioning partitioning;
     private final List<Symbol> outputLayout;
-    private final Optional<Symbol> hashColumn;
+    private final Supplier<List<Type>> outputTypes;
     private final boolean replicateNullsAndAny;
     private final Optional<int[]> bucketToPartition;
-    private final Optional<Integer> partitionCount;
+    private final OptionalInt bucketCount;
+    private final OptionalInt partitionCount;
 
     public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout)
     {
         this(
                 partitioning,
                 outputLayout,
-                Optional.empty(),
                 false,
                 Optional.empty(),
-                Optional.empty());
-    }
-
-    public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout, Optional<Symbol> hashColumn)
-    {
-        this(
-                partitioning,
-                outputLayout,
-                hashColumn,
-                false,
-                Optional.empty(),
-                Optional.empty());
+                OptionalInt.empty(),
+                OptionalInt.empty());
     }
 
     @JsonCreator
     public PartitioningScheme(
             @JsonProperty("partitioning") Partitioning partitioning,
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("hashColumn") Optional<Symbol> hashColumn,
             @JsonProperty("replicateNullsAndAny") boolean replicateNullsAndAny,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition,
-            @JsonProperty("partitionCount") Optional<Integer> partitionCount)
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("partitionCount") OptionalInt partitionCount)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
+        this.outputTypes = Suppliers.memoize(this::computeOutputTypes);
 
         Set<Symbol> columns = partitioning.getColumns();
         checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(columns),
                 "Output layout (%s) don't include all partition columns (%s)", outputLayout, columns);
 
-        this.hashColumn = requireNonNull(hashColumn, "hashColumn is null");
-        hashColumn.ifPresent(column -> checkArgument(outputLayout.contains(column),
-                "Output layout (%s) don't include hash column (%s)", outputLayout, column));
-
         checkArgument(!replicateNullsAndAny || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
         this.replicateNullsAndAny = replicateNullsAndAny;
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
+        this.bucketCount = bucketCount;
+        checkArgument(bucketCount.isEmpty() || !(partitioning.getHandle().getConnectorHandle() instanceof SystemPartitioningHandle),
+                "Bucket count cannot be set on a system partitioning handle");
+        checkArgument(bucketToPartition.isEmpty() || bucketCount.isEmpty() || bucketToPartition.get().length == bucketCount.getAsInt(),
+                "bucketToPartition length does not match bucketCount");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         checkArgument(
                 partitionCount.isEmpty() || partitioning.getHandle().getConnectorHandle() instanceof SystemPartitioningHandle,
@@ -99,10 +96,10 @@ public class PartitioningScheme
         return outputLayout;
     }
 
-    @JsonProperty
-    public Optional<Symbol> getHashColumn()
+    @JsonIgnore
+    public List<Type> getOutputTypes()
     {
-        return hashColumn;
+        return outputTypes.get();
     }
 
     @JsonProperty
@@ -118,25 +115,36 @@ public class PartitioningScheme
     }
 
     @JsonProperty
-    public Optional<Integer> getPartitionCount()
+    public OptionalInt getBucketCount()
+    {
+        return bucketCount;
+    }
+
+    @JsonProperty
+    public OptionalInt getPartitionCount()
     {
         return partitionCount;
     }
 
     public PartitioningScheme withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, partitionCount);
+        return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
+    }
+
+    public PartitioningScheme withBucketCount(OptionalInt bucketCount)
+    {
+        return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
     public PartitioningScheme withPartitioningHandle(PartitioningHandle partitioningHandle)
     {
         Partitioning newPartitioning = partitioning.withAlternativePartitioningHandle(partitioningHandle);
-        return new PartitioningScheme(newPartitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, partitionCount);
+        return new PartitioningScheme(newPartitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
-    public PartitioningScheme withPartitionCount(Optional<Integer> partitionCount)
+    public PartitioningScheme withPartitionCount(OptionalInt partitionCount)
     {
-        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, partitionCount);
+        return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
     public PartitioningScheme translateOutputLayout(List<Symbol> newOutputLayout)
@@ -147,11 +155,7 @@ public class PartitioningScheme
 
         Partitioning newPartitioning = partitioning.translate(symbol -> newOutputLayout.get(outputLayout.indexOf(symbol)));
 
-        Optional<Symbol> newHashSymbol = hashColumn
-                .map(outputLayout::indexOf)
-                .map(newOutputLayout::get);
-
-        return new PartitioningScheme(newPartitioning, newOutputLayout, newHashSymbol, replicateNullsAndAny, bucketToPartition, partitionCount);
+        return new PartitioningScheme(newPartitioning, newOutputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
     @Override
@@ -168,13 +172,14 @@ public class PartitioningScheme
                 Objects.equals(outputLayout, that.outputLayout) &&
                 replicateNullsAndAny == that.replicateNullsAndAny &&
                 Objects.equals(bucketToPartition, that.bucketToPartition) &&
+                Objects.equals(bucketCount, that.bucketCount) &&
                 Objects.equals(partitionCount, that.partitionCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, partitionCount);
+        return Objects.hash(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
     @Override
@@ -183,10 +188,19 @@ public class PartitioningScheme
         return toStringHelper(this)
                 .add("partitioning", partitioning)
                 .add("outputLayout", outputLayout)
-                .add("hashChannel", hashColumn)
                 .add("replicateNullsAndAny", replicateNullsAndAny)
                 .add("bucketToPartition", bucketToPartition)
+                .add("bucketCount", bucketCount)
                 .add("partitionCount", partitionCount)
                 .toString();
+    }
+
+    private List<Type> computeOutputTypes()
+    {
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(outputLayout.size());
+        for (Symbol symbol : outputLayout) {
+            types.add(symbol.type());
+        }
+        return types.build();
     }
 }

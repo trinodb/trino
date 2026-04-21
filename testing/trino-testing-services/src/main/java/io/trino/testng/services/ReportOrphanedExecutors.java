@@ -80,7 +80,7 @@ public class ReportOrphanedExecutors
 
                     field.setAccessible(true);
                     Object value = field.get(instance);
-                    if (value instanceof ExecutorService && !((ExecutorService) value).isShutdown()) {
+                    if (value instanceof ExecutorService executorService && !executorService.isShutdown()) {
                         throw new RuntimeException(format(
                                 "Executor [%s] in [%s] has not been shut down",
                                 field,

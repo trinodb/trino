@@ -20,6 +20,10 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -32,6 +36,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,6 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isMergeProjectWithValues;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -110,12 +116,12 @@ public class MergeProjectWithValues
         }
 
         // fix iteration order over ProjectNode's assignments
-        List<Map.Entry<Symbol, Expression>> assignments = ImmutableList.copyOf(node.getAssignments().entrySet());
+        List<Entry<Symbol, Expression>> assignments = ImmutableList.copyOf(node.getAssignments().entrySet());
         List<Symbol> outputs = assignments.stream()
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableList());
         List<Expression> expressions = assignments.stream()
-                .map(Map.Entry::getValue)
+                .map(Entry::getValue)
                 .collect(toImmutableList());
 
         // handle values with no output symbols
@@ -129,10 +135,12 @@ public class MergeProjectWithValues
         // do not proceed if ValuesNode contains a non-deterministic expression and it is referenced more than once by the projection
         Set<Symbol> nonDeterministicValuesOutputs = new HashSet<>();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Row row = (Row) rowExpression;
-            for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.items().get(i))) {
-                    nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+            if (!(rowExpression instanceof Constant)) {
+                Row row = (Row) rowExpression;
+                for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
+                    if (!isDeterministic(row.items().get(i))) {
+                        nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
+                    }
                 }
             }
         }
@@ -141,7 +149,7 @@ public class MergeProjectWithValues
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                 .entrySet().stream()
                 .filter(entry -> entry.getValue() > 1)
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableSet());
         if (!Sets.intersection(nonDeterministicValuesOutputs, multipleReferencedSymbols).isEmpty()) {
             return Result.empty();
@@ -150,7 +158,12 @@ public class MergeProjectWithValues
         // inline values expressions into projection's assignments
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
-            Map<Reference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
+            Map<Reference, Expression> mapping = switch (rowExpression) {
+                case Row row -> buildMappings(valuesNode.getOutputSymbols(), row);
+                case Constant constant -> buildMappings(valuesNode.getOutputSymbols(), constant);
+                default -> throw new IllegalStateException("Unexpected expression type in ValuesNode: " + rowExpression.getClass().getName());
+            };
+
             Row projectedRow = new Row(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
@@ -161,7 +174,8 @@ public class MergeProjectWithValues
 
     private static boolean isSupportedValues(ValuesNode valuesNode)
     {
-        return valuesNode.getRows().isEmpty() || valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
+        return valuesNode.getRows().isEmpty() ||
+                valuesNode.getRows().get().stream().allMatch(row -> row instanceof Row || row instanceof Constant);
     }
 
     private Map<Reference, Expression> buildMappings(List<Symbol> symbols, Row row)
@@ -170,6 +184,23 @@ public class MergeProjectWithValues
         for (int i = 0; i < row.items().size(); i++) {
             mappingBuilder.put(symbols.get(i).toSymbolReference(), row.items().get(i));
         }
+        return mappingBuilder.buildOrThrow();
+    }
+
+    private Map<Reference, Expression> buildMappings(List<Symbol> symbols, Constant row)
+    {
+        ImmutableMap.Builder<Reference, Expression> mappingBuilder = ImmutableMap.builder();
+
+        RowType type = (RowType) row.type();
+        SqlRow rowValue = (SqlRow) row.value();
+        for (int field = 0; field < type.getFields().size(); field++) {
+            Type fieldType = type.getFields().get(field).getType();
+
+            mappingBuilder.put(symbols.get(field).toSymbolReference(), new Constant(
+                    fieldType,
+                    readNativeValue(fieldType, rowValue.getRawFieldBlock(field), rowValue.getRawIndex())));
+        }
+
         return mappingBuilder.buildOrThrow();
     }
 }

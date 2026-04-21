@@ -34,8 +34,6 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
@@ -84,9 +82,11 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -119,7 +119,7 @@ public final class DomainTranslator
         return IrUtils.combineConjuncts(toPredicateConjuncts(tupleDomain));
     }
 
-    public List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
+    private List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(FALSE);
@@ -132,7 +132,7 @@ public final class DomainTranslator
                 .collect(toImmutableList());
     }
 
-    private Expression toPredicate(Domain domain, Reference reference)
+    public Expression toPredicate(Domain domain, Reference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNull(reference) : FALSE;
@@ -226,7 +226,7 @@ public final class DomainTranslator
         That result would be further translated to expression "xxx <> 1.0", which is satisfied by NaN.
         To avoid error, in such case the ranges are not optimised.
          */
-        if (type instanceof RealType || type instanceof DoubleType) {
+        if (typeHasNaN(type)) {
             boolean originalRangeIsAll = orderedRanges.stream().anyMatch(Range::isAll);
             boolean coalescedRangeIsAll = originalUnionSingleValues.stream().anyMatch(Range::isAll);
             if (!originalRangeIsAll && coalescedRangeIsAll) {
@@ -380,54 +380,8 @@ public final class DomainTranslator
 
                     // We can only make inferences if the remaining expressions on all terms are equal and deterministic
                     if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0))) {
-                        // NONE are no-op for the purpose of OR
-                        tupleDomains = tupleDomains.stream()
-                                .filter(domain -> !domain.isNone())
-                                .collect(toList());
-
-                        // The column-wise union is equivalent to the strict union if
-                        // 1) If all TupleDomains consist of the same exact single column (e.g. one TupleDomain => (a > 0), another TupleDomain => (a < 10))
-                        // 2) If one TupleDomain is a superset of the others (e.g. TupleDomain => (a > 0, b > 0 && b < 10) vs TupleDomain => (a > 5, b = 5))
-                        boolean matchingSingleSymbolDomains = tupleDomains.stream().allMatch(domain -> domain.getDomains().get().size() == 1);
-
-                        matchingSingleSymbolDomains = matchingSingleSymbolDomains && tupleDomains.stream()
-                                .map(tupleDomain -> tupleDomain.getDomains().get().keySet())
-                                .distinct()
-                                .count() == 1;
-
-                        boolean oneTermIsSuperSet = TupleDomain.maximal(tupleDomains).isPresent();
-
-                        if (oneTermIsSuperSet) {
+                        if (strictUnion(tupleDomains).isPresent()) {
                             remainingExpression = residuals.get(0);
-                        }
-                        else if (matchingSingleSymbolDomains) {
-                            // Types REAL and DOUBLE require special handling because they include NaN value. In this case, we cannot rely on the union of domains.
-                            // That is because domains covering the value set partially might union up to a domain covering the whole value set.
-                            // While the component domains didn't include NaN, the resulting domain could be further translated to predicate "TRUE" or "a IS NOT NULL",
-                            // which is satisfied by NaN. So during domain union, NaN might be implicitly added.
-                            // Example: Let 'a' be a column of type DOUBLE.
-                            //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
-                            //          Unioned TupleDomain => "is not null" /true for NaN/
-                            // To guard against wrong results, the current node is returned as the remainingExpression.
-                            Type type = getOnlyElement(tupleDomains.get(0).getDomains().get().values()).getType();
-
-                            // A Domain of a floating point type contains NaN in the following cases:
-                            // 1. When it contains all the values of the type and null.
-                            //    In such case the domain is 'all', and if it is the only domain
-                            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
-                            // 2. When it contains all the values of the type and doesn't contain null.
-                            //    In such case no normalization on the level of TupleDomain takes place,
-                            //    and the check for NaN is done by inspecting the Domain's valueSet.
-                            //    NaN is included when the valueSet is 'all'.
-                            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
-                                    (columnUnionedTupleDomain.getDomains().isPresent() &&
-                                            getOnlyElement(columnUnionedTupleDomain.getDomains().get().values()).getValues().isAll());
-                            boolean implicitlyAddedNaN = (type instanceof RealType || type instanceof DoubleType) &&
-                                    tupleDomains.stream().noneMatch(TupleDomain::isAll) &&
-                                    unionedDomainContainsNaN;
-                            if (!implicitlyAddedNaN) {
-                                remainingExpression = residuals.get(0);
-                            }
                         }
                     }
 
@@ -468,10 +422,10 @@ public final class DomainTranslator
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
-                if (castSourceType instanceof VarcharType && castTargetType == DATE) {
+                if (castSourceType instanceof VarcharType varcharType && castTargetType == DATE) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
-                            (VarcharType) castSourceType,
+                            varcharType,
                             complement,
                             node);
                     if (result.isPresent()) {
@@ -677,7 +631,7 @@ public final class DomainTranslator
             checkArgument(value != null);
 
             // Handle orderable types which do not have NaN.
-            if (!(type instanceof DoubleType) && !(type instanceof RealType)) {
+            if (!typeHasNaN(type)) {
                 return switch (comparisonOperator) {
                     case EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
                     case IDENTICAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), complement));
@@ -911,7 +865,7 @@ public final class DomainTranslator
                         // in case of IN, NULL on the right results with NULL comparison result (effectively false in predicate context), so can be ignored, as the
                         // comparison results are OR-ed
                     }
-                    else if (type instanceof RealType || type instanceof DoubleType) {
+                    else if (typeHasNaN(type)) {
                         // NaN can be ignored: it always compares to false, as if it was not among IN's values
                         if (!isFloatingPointNaN(type, constant.value())) {
                             if (complement) {

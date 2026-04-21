@@ -14,21 +14,21 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.ConfigurationException;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.JKS;
 import static io.trino.plugin.pinot.client.PinotKeystoreTrustStoreType.PKCS12;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPinotGrpcServerQueryClientTlsConfig
 {
@@ -84,9 +84,12 @@ public class TestPinotGrpcServerQueryClientTlsConfig
 
         PinotGrpcServerQueryClientTlsConfig config = new PinotGrpcServerQueryClientTlsConfig();
         config.setKeystorePath(keystorePath.toFile());
-        assertThatThrownBy(config::validate)
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("pinot.grpc.tls.keystore-password must set when pinot.grpc.tls.keystore-path is given");
+
+        assertFailsValidation(
+                config,
+                "keystorePasswordValid",
+                "pinot.grpc.tls.keystore-password must be set when pinot.grpc.tls.keystore-path is given",
+                AssertTrue.class);
     }
 
     @Test
@@ -100,15 +103,18 @@ public class TestPinotGrpcServerQueryClientTlsConfig
 
         PinotGrpcServerQueryClientTlsConfig config = new PinotGrpcServerQueryClientTlsConfig();
         config.setTruststorePath(truststorePath.toFile());
-        assertThatThrownBy(config::validate)
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("pinot.grpc.tls.truststore-password must set when pinot.grpc.tls.truststore-path is given");
+
+        assertFailsValidation(
+                config,
+                "truststorePasswordValid",
+                "pinot.grpc.tls.truststore-password must be set when pinot.grpc.tls.truststore-path is given",
+                AssertTrue.class);
     }
 
     private void writeToFile(Path filepath, String content)
             throws IOException
     {
-        try (FileWriter writer = new FileWriter(filepath.toFile(), UTF_8)) {
+        try (Writer writer = Files.newBufferedWriter(filepath, UTF_8)) {
             writer.write(content);
         }
     }

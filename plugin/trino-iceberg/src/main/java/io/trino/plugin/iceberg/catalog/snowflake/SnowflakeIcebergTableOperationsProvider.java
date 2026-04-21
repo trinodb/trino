@@ -18,27 +18,31 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.snowflake.SnowflakeIcebergTableOperations;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
-    private final String snowflakeDatabase;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
+    private final String snowflakeDatabase;
 
     @Inject
     public SnowflakeIcebergTableOperationsProvider(
-            IcebergSnowflakeCatalogConfig icebergSnowflakeCatalogConfig,
-            TrinoFileSystemFactory fileSystemFactory)
+            TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
+            IcebergSnowflakeCatalogConfig icebergSnowflakeCatalogConfig)
     {
         this.snowflakeDatabase = requireNonNull(icebergSnowflakeCatalogConfig.getDatabase(), "database is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
     }
 
     @Override
@@ -52,7 +56,7 @@ public class SnowflakeIcebergTableOperationsProvider
     {
         return new SnowflakeIcebergTableOperations(
                 (TrinoSnowflakeCatalog) catalog,
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                fileIoFactory.create(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 session,
                 snowflakeDatabase,
                 database,

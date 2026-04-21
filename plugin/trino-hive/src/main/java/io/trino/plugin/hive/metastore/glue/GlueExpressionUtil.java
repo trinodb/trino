@@ -67,7 +67,7 @@ public final class GlueExpressionUtil
 
     private static boolean isQuotedType(Type type)
     {
-        return QUOTED_TYPES.contains(type.getTypeSignature().getBase());
+        return QUOTED_TYPES.contains(type.getBaseName());
     }
 
     private static String valueToString(Type type, Object value)

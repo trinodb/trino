@@ -36,8 +36,11 @@
 - {func}`array_agg`
 - {func}`array_distinct`
 - {func}`array_except`
+- {func}`array_first`
+- {func}`array_histogram`
 - {func}`array_intersect`
 - {func}`array_join`
+- {func}`array_last`
 - {func}`array_max`
 - {func}`array_min`
 - {func}`array_position`
@@ -461,6 +464,8 @@
 - {func}`tan`
 - {func}`tanh`
 - {func}`tdigest_agg`
+- {func}`theta_sketch_cardinality`
+- {func}`theta_sketch_union`
 - {func}`timestamp_objectid`
 - {func}`timezone`
 - {func}`timezone_hour`

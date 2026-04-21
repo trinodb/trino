@@ -51,13 +51,12 @@ public class TestPruneJoinChildrenColumns
                         join(INNER, builder -> builder
                                 .equiCriteria("leftKey", "rightKey")
                                 .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L)))
-                                .left(values("leftKey", "leftKeyHash", "leftValue"))
+                                .left(values("leftKey", "leftValue"))
                                 .right(
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "rightKey", PlanMatchPattern.expression(new Reference(BIGINT, "rightKey")),
-                                                        "rightKeyHash", PlanMatchPattern.expression(new Reference(BIGINT, "rightKeyHash"))),
-                                                values("rightKey", "rightKeyHash", "rightValue")))));
+                                                        "rightKey", PlanMatchPattern.expression(new Reference(BIGINT, "rightKey"))),
+                                                values("rightKey", "rightValue")))));
     }
 
     @Test
@@ -82,8 +81,6 @@ public class TestPruneJoinChildrenColumns
                             ImmutableList.of(),
                             ImmutableList.of(leftValue),
                             ImmutableList.of(),
-                            Optional.empty(),
-                            Optional.empty(),
                             Optional.empty());
                 })
                 .matches(
@@ -98,17 +95,15 @@ public class TestPruneJoinChildrenColumns
     private static PlanNode buildJoin(PlanBuilder p, Predicate<Symbol> joinOutputFilter)
     {
         Symbol leftKey = p.symbol("leftKey", BIGINT);
-        Symbol leftKeyHash = p.symbol("leftKeyHash", BIGINT);
         Symbol leftValue = p.symbol("leftValue", BIGINT);
         Symbol rightKey = p.symbol("rightKey", BIGINT);
-        Symbol rightKeyHash = p.symbol("rightKeyHash", BIGINT);
         Symbol rightValue = p.symbol("rightValue", BIGINT);
         List<Symbol> leftOutputs = ImmutableList.of(leftValue);
         List<Symbol> rightOutputs = ImmutableList.of(rightValue);
         return p.join(
                 INNER,
-                p.values(leftKey, leftKeyHash, leftValue),
-                p.values(rightKey, rightKeyHash, rightValue),
+                p.values(leftKey, leftValue),
+                p.values(rightKey, rightValue),
                 ImmutableList.of(new JoinNode.EquiJoinClause(leftKey, rightKey)),
                 leftOutputs.stream()
                         .filter(joinOutputFilter)
@@ -116,8 +111,6 @@ public class TestPruneJoinChildrenColumns
                 rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
-                Optional.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L))),
-                Optional.of(leftKeyHash),
-                Optional.of(rightKeyHash));
+                Optional.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L))));
     }
 }

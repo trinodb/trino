@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -42,7 +42,7 @@ import static java.time.ZoneOffset.UTC;
 public final class TimestampToJsonCast
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
-    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
     private TimestampToJsonCast() {}
 
@@ -64,7 +64,7 @@ public final class TimestampToJsonCast
     {
         try {
             SliceOutput output = new DynamicSliceOutput(formatted.length() + 2); // 2 for the quotes
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
                 jsonGenerator.writeString(formatted);
             }
             return output.slice();

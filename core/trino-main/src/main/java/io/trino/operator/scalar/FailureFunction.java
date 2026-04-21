@@ -23,9 +23,11 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
+
 public final class FailureFunction
 {
-    private static final JsonCodec<FailureInfo> JSON_CODEC = JsonCodec.jsonCodec(FailureInfo.class);
+    private static final JsonCodec<FailureInfo> JSON_CODEC = jsonCodec(FailureInfo.class);
 
     private FailureFunction() {}
 
@@ -35,7 +37,7 @@ public final class FailureFunction
     @SqlType("unknown")
     public static boolean failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {
-        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
+        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getInput());
         // wrap the failure in a new exception to append the current stack trace
         throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
     }

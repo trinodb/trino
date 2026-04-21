@@ -25,11 +25,13 @@ import static java.lang.String.format;
  * @see ShortTimestampType
  * @see LongTimestampType
  */
+@SuppressWarnings("ClassInitializationDeadlock") // ShortTimestampType and LongTimestampType classes only ever access from TimestampType class
 public abstract sealed class TimestampType
         extends AbstractType
         implements FixedWidthType
         permits LongTimestampType, ShortTimestampType
 {
+    public static final String NAME = "timestamp";
     public static final int MAX_PRECISION = 12;
 
     public static final int MAX_SHORT_PRECISION = 6;
@@ -39,7 +41,9 @@ public abstract sealed class TimestampType
 
     static {
         for (int precision = 0; precision <= MAX_PRECISION; precision++) {
-            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
+            @SuppressWarnings("StaticInitializerReferencesSubClass")
+            TimestampType type = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
+            TYPES[precision] = type;
         }
     }
 
@@ -61,7 +65,7 @@ public abstract sealed class TimestampType
 
     TimestampType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
+        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 
@@ -73,6 +77,12 @@ public abstract sealed class TimestampType
     public final boolean isShort()
     {
         return precision <= MAX_SHORT_PRECISION;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + ")";
     }
 
     @Override

@@ -76,26 +76,20 @@ public class LogicalIndexNavigation
         checkArgument(currentRow >= patternStart && currentRow < patternStart + matchedLabels.length(), "current row is out of bounds of the match");
 
         int relativePosition;
+        int patternEndInclusive = running ? currentRow - patternStart : matchedLabels.length() - 1;
         if (last) {
-            int start;
-            if (running) {
-                start = currentRow - patternStart;
-            }
-            else {
-                start = matchedLabels.length() - 1;
-            }
-            relativePosition = findLastAndBackwards(start, matchedLabels);
+            relativePosition = findLastAndBackwards(patternEndInclusive, matchedLabels);
         }
         else {
-            relativePosition = findFirstAndForward(matchedLabels);
+            relativePosition = findFirstAndForward(patternEndInclusive, matchedLabels);
         }
         return adjustPosition(relativePosition, patternStart, searchStart, searchEnd);
     }
 
     // LAST(A.price, 3): find the last occurrence of label "A" and go 3 occurrences backwards
-    private int findLastAndBackwards(int searchStart, ArrayView matchedLabels)
+    private int findLastAndBackwards(int patternEndInclusive, ArrayView matchedLabels)
     {
-        int position = searchStart + 1;
+        int position = patternEndInclusive + 1;
         int found = 0;
         while (found <= logicalOffset && position > 0) {
             position--;
@@ -110,11 +104,11 @@ public class LogicalIndexNavigation
     }
 
     // FIRST(A.price, 3): find the first occurrence of label "A" and go 3 occurrences forward
-    private int findFirstAndForward(ArrayView matchedLabels)
+    private int findFirstAndForward(int patternEndInclusive, ArrayView matchedLabels)
     {
         int position = -1;
         int found = 0;
-        while (found <= logicalOffset && position < matchedLabels.length() - 1) {
+        while (found <= logicalOffset && position < patternEndInclusive) {
             position++;
             if (labels.isEmpty() || labels.contains(matchedLabels.get(position))) {
                 found++;

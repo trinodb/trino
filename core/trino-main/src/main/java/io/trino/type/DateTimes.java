@@ -45,7 +45,6 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 
 public final class DateTimes
 {
@@ -140,11 +139,6 @@ public final class DateTimes
     public static long scaleEpochMillisToMicros(long epochMillis)
     {
         return multiplyExact(epochMillis, MICROSECONDS_PER_MILLISECOND);
-    }
-
-    public static long epochSecondToMicrosWithRounding(long epochSecond, long picoOfSecond)
-    {
-        return epochSecond * MICROSECONDS_PER_SECOND + roundDiv(picoOfSecond, PICOSECONDS_PER_MICROSECOND);
     }
 
     public static int getMicrosOfSecond(long epochMicros)
@@ -629,12 +623,9 @@ public final class DateTimes
         return new LongTimeWithTimeZone(picos, calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute));
     }
 
-    public static LongTimestamp longTimestamp(long precision, Instant start)
+    public static LongTimestamp longTimestamp(LocalDateTime dateTime)
     {
-        checkArgument(precision > MAX_SHORT_PRECISION && precision <= TimestampType.MAX_PRECISION, "Precision is out of range");
-        return new LongTimestamp(
-                start.getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
-                (int) round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, (int) (TimestampType.MAX_PRECISION - precision)));
+        return longTimestamp(dateTime.toEpochSecond(ZoneOffset.UTC), dateTime.getNano() * (long) PICOSECONDS_PER_NANOSECOND);
     }
 
     public static LongTimestamp longTimestamp(long epochSecond, long fractionInPicos)

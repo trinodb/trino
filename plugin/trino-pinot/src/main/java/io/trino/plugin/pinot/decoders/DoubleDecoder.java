@@ -29,9 +29,9 @@ public class DoubleDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
+        else if (value instanceof String string) {
             // Pinot returns NEGATIVE_INFINITY, POSITIVE_INFINITY as a String
-            DOUBLE.writeDouble(output, Double.valueOf((String) value));
+            DOUBLE.writeDouble(output, Double.valueOf(string));
         }
         else {
             DOUBLE.writeDouble(output, ((Number) value).doubleValue());

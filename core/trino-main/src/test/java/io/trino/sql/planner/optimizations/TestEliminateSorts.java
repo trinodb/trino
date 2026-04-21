@@ -109,6 +109,7 @@ public class TestEliminateSorts
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
+                        "TestEliminateSorts",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),

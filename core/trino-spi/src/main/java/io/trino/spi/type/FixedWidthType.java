@@ -54,7 +54,7 @@ public interface FixedWidthType
     }
 
     @Override
-    default int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    default int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
     {
         return 0;
     }

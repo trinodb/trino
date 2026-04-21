@@ -22,7 +22,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
 import java.util.ArrayList;
@@ -239,19 +238,18 @@ public class OrcType
         if (type instanceof DecimalType decimalType) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type instanceof ArrayType) {
-            return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0), additionalTypeMapping);
+        if (type instanceof ArrayType arrayType) {
+            return createOrcArrayType(nextFieldTypeIndex, arrayType.getElementType(), additionalTypeMapping);
         }
-        if (type instanceof MapType) {
-            return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1), additionalTypeMapping);
+        if (type instanceof MapType mapType) {
+            return createOrcMapType(nextFieldTypeIndex, mapType.getKeyType(), mapType.getValueType(), additionalTypeMapping);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             List<String> fieldNames = new ArrayList<>();
-            for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
+            for (int i = 0; i < rowType.getFields().size(); i++) {
+                fieldNames.add(rowType.getFields().get(i).getName().orElse("field" + i));
             }
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
 
             return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes, additionalTypeMapping);
         }

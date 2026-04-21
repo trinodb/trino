@@ -27,6 +27,4 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 
 public sealed interface JsonTablePlanNode
-        permits JsonTablePlanCross, JsonTablePlanLeaf, JsonTablePlanSingle, JsonTablePlanUnion
-{
-}
+        permits JsonTablePlanCross, JsonTablePlanLeaf, JsonTablePlanSingle, JsonTablePlanUnion {}

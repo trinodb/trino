@@ -54,6 +54,8 @@ public final class PolymorphicScalarFunctionBuilder
     private String description;
     private boolean hidden;
     private Boolean deterministic;
+    private boolean neverFails;
+
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
 
     public PolymorphicScalarFunctionBuilder(String name, Class<?> clazz)
@@ -108,6 +110,12 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
+    public PolymorphicScalarFunctionBuilder neverFails(boolean neverFails)
+    {
+        this.neverFails = neverFails;
+        return this;
+    }
+
     public PolymorphicScalarFunctionBuilder choice(Function<ChoiceBuilder, ChoiceBuilder> choiceSpecification)
     {
         // if the argumentProperties is not set yet. We assume it is set to the default value.
@@ -141,6 +149,9 @@ public final class PolymorphicScalarFunctionBuilder
         }
         if (!deterministic) {
             functionMetadata.nondeterministic();
+        }
+        if (neverFails) {
+            functionMetadata.neverFails();
         }
         if (nullableResult) {
             functionMetadata.nullable();
@@ -180,12 +191,12 @@ public final class PolymorphicScalarFunctionBuilder
 
         public Type getType(String name)
         {
-            return functionBinding.getTypeVariable(name);
+            return functionBinding.variables().getTypeVariable(name);
         }
 
         public Long getLiteral(String name)
         {
-            return functionBinding.getLongVariable(name);
+            return functionBinding.variables().getLongVariable(name);
         }
 
         public List<Type> getParameterTypes()

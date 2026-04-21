@@ -12,7 +12,7 @@ communicate with the coordinator on the cluster.
 
 The Trino JDBC driver has the following requirements:
 
-- Java version 8 or higher. Java 22 or higher is recommended for improved
+- Java version 11 or higher. Java 22 or higher is recommended for improved
   decompression performance.
 - All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the `system.jdbc` schema.
@@ -27,7 +27,7 @@ Versions before 350 are not supported.
 (jdbc-installation)=
 ## Installation
 
-Download {maven_download}`jdbc` and add it to the classpath of your Java application.
+Download {download_mc}`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
@@ -235,6 +235,12 @@ may not be specified using both methods.
     list of key-value pairs. For example, `abc:xyz;example.foo:bar` sets the
     system property `abc` to the value `xyz` and the `foo` property for catalog
     `example` to the value `bar`.
+* - `extraHeaders`
+  - HTTP headers to add to the authenticated HTTP requests, specified as a
+    list of key-value pairs. For example, `X-Trino-Foo:xyz;X-Trino-Bar:bar` 
+    sends the `X-Trino-Foo` header with the value `xyz` and the `X-Trino-Bar`
+    header with the value `bar`. Protocol headers such as `X-Trino-User` cannot be
+    overridden using this parameter.
 * - `externalAuthentication`
   - Set to true if you want to use external authentication via
     [](/security/oauth2). Use a local web browser to authenticate with an
@@ -243,12 +249,17 @@ may not be specified using both methods.
   - Allows the sharing of external authentication tokens between different
     connections for the same authenticated user until the cache is invalidated,
     such as when a client is restarted or when the classloader reloads the JDBC
-    driver. This is disabled by default, with a value of `NONE`. To enable, set
-    the value to `MEMORY`. If the JDBC driver is used in a shared mode by
-    different users, the first registered token is stored and authenticates all
-    users.
+    driver. This is disabled by default, with a value of `NONE`. Set the value
+    to `MEMORY` to cache the token in memory within the same process. Set the
+    value to `SYSTEM` to persist the token to the filesystem (`~/.trino/`),
+    allowing it to be reused across separate CLI or JDBC processes. If the JDBC
+    driver is used in a shared mode by different users, the first registered
+    token is stored and authenticates all users.
 * - `disableCompression`
-  -  Whether compression should be enabled.
+  -  Whether HTTP compression should be disabled. Defaults to `false`.
+* - `disallowLocalRedirect`
+  -  Whether client should reject redirects to localhost, link or site local
+     IP addresses. Defaults to `false`.
 * - `assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`
   - When enabled, the name patterns passed to `DatabaseMetaData` methods are
     treated as underscores. You can use this as a workaround for applications
@@ -269,7 +280,9 @@ may not be specified using both methods.
     Valid values are JSON with Zstandard compression, `json+zstd` (recommended),
     JSON with LZ4 compression `json+lz4`, and uncompressed JSON `json`. By
     default, the default encoding configured on the cluster is used.
-
+* - `validateConnection`
+  - Defaults to `false`. If set to `true`, connectivity and credentials are validated 
+    when the connection is created, and when `java.sql.Connection.isValid(int)` is called.
 :::
 
 (jdbc-spooling-protocol)=

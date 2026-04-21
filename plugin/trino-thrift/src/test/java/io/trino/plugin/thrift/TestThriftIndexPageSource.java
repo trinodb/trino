@@ -30,10 +30,10 @@ import io.trino.plugin.thrift.api.TrinoThriftSplit;
 import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
 import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.plugin.thrift.api.datatypes.TrinoThriftInteger;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
@@ -93,7 +94,7 @@ public class TestThriftIndexPageSource
                 MAX_BYTES_PER_RESPONSE,
                 lookupRequestsConcurrency);
 
-        assertThat(pageSource.getNextPage()).isNull();
+        assertThat(pageSource.getNextSourcePage()).isNull();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(0);
         signals.get(0).await(1, SECONDS);
         signals.get(1).await(1, SECONDS);
@@ -110,12 +111,12 @@ public class TestThriftIndexPageSource
 
         // at this point first two requests were sent
         assertThat(pageSource.isFinished()).isFalse();
-        assertThat(pageSource.getNextPage()).isNull();
+        assertThat(pageSource.getNextSourcePage()).isNull();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(0);
 
         // completing the second request
         futures.get(1).set(pageResult(20, null));
-        Page page = pageSource.getNextPage();
+        SourcePage page = pageSource.getNextSourcePage();
         pageSizeReceived += page.getSizeInBytes();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
         assertThat(page).isNotNull();
@@ -132,7 +133,7 @@ public class TestThriftIndexPageSource
 
         // completing the first request
         futures.get(0).set(pageResult(10, null));
-        page = pageSource.getNextPage();
+        page = pageSource.getNextSourcePage();
         assertThat(page).isNotNull();
         pageSizeReceived += page.getSizeInBytes();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
@@ -143,7 +144,7 @@ public class TestThriftIndexPageSource
 
         // completing the third request
         futures.get(2).set(pageResult(30, null));
-        page = pageSource.getNextPage();
+        page = pageSource.getNextSourcePage();
         assertThat(page).isNotNull();
         pageSizeReceived += page.getSizeInBytes();
         assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
@@ -153,7 +154,7 @@ public class TestThriftIndexPageSource
         assertThat(pageSource.isFinished()).isTrue();
 
         // after completion
-        assertThat(pageSource.getNextPage()).isNull();
+        assertThat(pageSource.getNextSourcePage()).isNull();
         pageSource.close();
     }
 
@@ -204,7 +205,7 @@ public class TestThriftIndexPageSource
         while (!pageSource.isFinished()) {
             CompletableFuture<?> blocked = pageSource.isBlocked();
             blocked.get(1, SECONDS);
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             if (page != null) {
                 Block block = page.getBlock(0);
                 for (int position = 0; position < block.getPositionCount(); position++) {
@@ -223,7 +224,7 @@ public class TestThriftIndexPageSource
         assertThat(actual).isEqualTo(expected);
 
         // must be null after finish
-        assertThat(pageSource.getNextPage()).isNull();
+        assertThat(pageSource.getNextSourcePage()).isNull();
 
         pageSource.close();
     }
@@ -319,7 +320,7 @@ public class TestThriftIndexPageSource
 
     private static ThriftColumnHandle column(String name, Type type)
     {
-        return new ThriftColumnHandle(name, type, null, false);
+        return new ThriftColumnHandle(name, type, Optional.empty(), false);
     }
 
     private static List<List<Integer>> generateKeys(int beginInclusive, int endExclusive)

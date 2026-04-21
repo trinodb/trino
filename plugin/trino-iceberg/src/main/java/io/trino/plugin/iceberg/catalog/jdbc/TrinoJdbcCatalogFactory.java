@@ -20,7 +20,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -42,8 +42,10 @@ public class TrinoJdbcCatalogFactory
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final IcebergJdbcClient jdbcClient;
     private final String jdbcCatalogName;
+    private final IcebergJdbcCatalogConfig.SchemaVersion schemaVersion;
     private final String defaultWarehouseDir;
     private final boolean isUniqueTableLocation;
     private final Map<String, String> catalogProperties;
@@ -55,6 +57,7 @@ public class TrinoJdbcCatalogFactory
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             TrinoFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
             IcebergConfig icebergConfig)
@@ -63,15 +66,17 @@ public class TrinoJdbcCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.isUniqueTableLocation = requireNonNull(icebergConfig, "icebergConfig is null").isUniqueTableLocation();
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
+        this.schemaVersion = jdbcConfig.getSchemaVersion();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.put(URI, jdbcConfig.getConnectionUrl());
         properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
-        properties.put(PROPERTY_PREFIX + "schema-version", jdbcConfig.getSchemaVersion().toString());
+        properties.put(PROPERTY_PREFIX + "schema-version", schemaVersion.toString());
         jdbcConfig.getConnectionUser().ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
         jdbcConfig.getConnectionPassword().ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
         jdbcConfig.getRetryableStatusCodes().ifPresent(codes -> properties.put("retryable_status_codes", codes));
@@ -90,7 +95,7 @@ public class TrinoJdbcCatalogFactory
     public TrinoCatalog create(ConnectorIdentity identity)
     {
         JdbcCatalog jdbcCatalog = new JdbcCatalog(
-                config -> new ForwardingFileIo(fileSystemFactory.create(identity)),
+                config -> fileIoFactory.create(fileSystemFactory.create(identity)),
                 config -> clientPool,
                 false);
 
@@ -103,7 +108,9 @@ public class TrinoJdbcCatalogFactory
                 jdbcCatalog,
                 jdbcClient,
                 fileSystemFactory,
+                fileIoFactory,
                 isUniqueTableLocation,
-                defaultWarehouseDir);
+                defaultWarehouseDir,
+                schemaVersion);
     }
 }

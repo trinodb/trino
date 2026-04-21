@@ -14,6 +14,8 @@
 package io.trino.hive.formats.line.sequence;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.line.FooterAwareLineReader;
 import io.trino.hive.formats.line.LineBuffer;
@@ -74,6 +76,14 @@ public class SequenceFileReaderFactory
             lineReader = new FooterAwareLineReader(lineReader, footerCount, this::createLineBuffer);
         }
         return lineReader;
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(TrinoFileSystem trinoFileSystem, Location path, long estimatedFileSize, long fileModifiedTime)
+    {
+        // estimatedFileSize contains padded bytes
+        // The reads in SequenceFileReader rely on non-padded file length to detect end of file
+        return trinoFileSystem.newInputFile(path);
     }
 
     private void skipHeader(LineReader lineReader, int headerCount)

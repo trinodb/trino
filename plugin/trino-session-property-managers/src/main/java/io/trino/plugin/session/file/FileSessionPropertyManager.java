@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
@@ -35,18 +35,19 @@ import static java.lang.String.format;
 public class FileSessionPropertyManager
         extends AbstractSessionPropertyManager
 {
-    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .build())
             .listJsonCodec(SessionMatchSpec.class);
 
-    private final ImmutableList<SessionMatchSpec> sessionMatchSpecs;
+    private final List<SessionMatchSpec> sessionMatchSpecs;
 
     @Inject
     public FileSessionPropertyManager(FileSessionPropertyManagerConfig config)
     {
-        Path configurationFile = config.getConfigFile().toPath();
-        try {
-            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(Files.readAllBytes(configurationFile)));
+        try (InputStream stream = new FileInputStream(config.getConfigFile())) {
+            sessionMatchSpecs = ImmutableList.copyOf(CODEC.fromJson(stream));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

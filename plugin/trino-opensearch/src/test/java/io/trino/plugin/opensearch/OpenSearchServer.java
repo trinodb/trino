@@ -14,7 +14,7 @@
 package io.trino.plugin.opensearch;
 
 import com.google.common.net.HostAndPort;
-import org.opensearch.testcontainers.OpensearchContainer;
+import org.opensearch.testcontainers.OpenSearchContainer;
 import org.testcontainers.containers.Network;
 
 import java.io.Closeable;
@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -35,7 +36,7 @@ public class OpenSearchServer
     public static final String OPENSEARCH_IMAGE = "opensearchproject/opensearch:2.11.0";
 
     private final Path configurationPath;
-    private final OpensearchContainer container;
+    private final OpenSearchContainer container;
 
     public OpenSearchServer(String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
@@ -46,14 +47,14 @@ public class OpenSearchServer
     public OpenSearchServer(Network network, String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
     {
-        container = new OpensearchContainer<>(image);
+        container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
         if (secured) {
             container.withSecurityEnabled();
         }
 
         configurationPath = createTempDirectory(null);
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 

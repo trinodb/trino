@@ -57,7 +57,7 @@ public class TestVerifierRewriteQueries
     private final Handle handle;
     private final SqlParser parser;
     private final VerifierConfig config;
-    private final ImmutableList<QueryPair> queryPairs;
+    private final List<QueryPair> queryPairs;
 
     public TestVerifierRewriteQueries()
     {

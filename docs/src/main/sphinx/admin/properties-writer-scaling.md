@@ -33,11 +33,22 @@ writers are added only when the average amount of uncompressed data processed
 per writer is above the minimum threshold of `writer-scaling-min-data-processed`
 and query is bottlenecked on writing.
 
+## `task.scale-writers.max-writer-memory-percentage`
+
+- **Type:** {ref}`prop-type-double`
+- **Default value:** `70`
+- **Session property:** `task_scale_writers_max_writer_memory_percentage`
+
+Maximum percentage of memory per node that can be used by concurrent writers within a task
+before stopping writer scaling. This value must be between `0.0` and `100.0`.
+When the total memory used exceeds this percentage of the maximum memory per
+node, writer scaling is paused to prevent out-of-memory errors.
+
 (writer-scaling-min-data-processed)=
 ## `writer-scaling-min-data-processed`
 
 - **Type:** {ref}`prop-type-data-size`
-- **Default value:** `100MB`
+- **Default value:** `120MB`
 - **Session property:** `writer_scaling_min_data_processed`
 
 The minimum amount of uncompressed data that must be processed by a writer

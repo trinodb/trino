@@ -14,13 +14,18 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.relational.RowExpression;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,9 +33,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -43,9 +51,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.relational.Expressions.call;
-import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -84,19 +90,25 @@ public class TestFilterAndProjectOperator
                 .build();
 
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        RowExpression filter = call(
-                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                field(1, BIGINT),
-                constant(9L, BIGINT));
 
-        RowExpression field0 = field(0, VARCHAR);
-        RowExpression add5 = call(
+        Reference col0 = new Reference(VARCHAR, "$col_0");
+        Reference col1 = new Reference(BIGINT, "$col_1");
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(VARCHAR, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+
+        Expression filter = call(
+                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                col1, new Constant(BIGINT, 9L));
+
+        Expression field0 = col0;
+        Expression add5 = call(
                 functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                field(1, BIGINT),
-                constant(5L, BIGINT));
+                col1, new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
+        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), ImmutableList.of(field0, add5), layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
@@ -134,13 +146,18 @@ public class TestFilterAndProjectOperator
                 .build();
 
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        RowExpression filter = call(
+
+        Reference col1 = new Reference(BIGINT, "$col_1");
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_1"), 1);
+
+        Expression filter = call(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                field(1, BIGINT),
-                constant(10L, BIGINT));
+                col1, new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
+        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, Optional.of(filter), Optional.empty(), ImmutableList.of(col1), layout, Optional.empty(), OptionalInt.empty());
+        Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,

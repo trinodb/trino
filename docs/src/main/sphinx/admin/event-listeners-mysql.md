@@ -39,7 +39,7 @@ The `mysql-event-listener.db.url` defines the connection to a MySQL database
 available at the domain `example.net` on port 3306. You can pass further
 parameters to the MySQL JDBC driver. The supported parameters for the URL are
 documented in the [MySQL Developer
-Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 And set `event-listener.config-files` to `etc/mysql-event-listener.properties`
 in {ref}`config-properties`:
@@ -67,4 +67,8 @@ string, user, catalog, and others with information about the query processing.
   - Description
 * - `mysql-event-listener.db.url`
   - JDBC connection URL to the database including credentials
-:::
+* - `mysql-event-listener.terminate-on-initialization-failure`
+  - MySQL event listener initialization can fail if the database is unavailable.
+    This [boolean](prop-type-boolean) switch controls whether to throw an 
+    exception in such cases. Defaults to `true`.
+  :::

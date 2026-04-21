@@ -14,7 +14,6 @@
 package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -25,10 +24,10 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
-import io.trino.client.TypedQueryData;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
@@ -54,12 +53,12 @@ import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
@@ -70,6 +69,7 @@ import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -78,14 +78,17 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.ABANDONED;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.NOT_SUBMITTED;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.SUBMITTED;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
@@ -98,8 +101,10 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/v1/statement")
@@ -107,8 +112,7 @@ public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
-    private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
+    private static final Duration NO_DURATION = succinctDuration(0, MILLISECONDS);
 
     private final HttpRequestSessionContextFactory sessionContextFactory;
     private final DispatchManager dispatchManager;
@@ -152,6 +156,14 @@ public class QueuedStatementResource
     public void stop()
     {
         queryManager.destroy();
+    }
+
+    @ResourceSecurity(AUTHENTICATED_USER)
+    @HEAD
+    @Produces(APPLICATION_JSON)
+    public Response validateConnection()
+    {
+        return Response.ok().build();
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
@@ -199,23 +211,20 @@ public class QueuedStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token,
-            @QueryParam("maxWait") Duration maxWait,
             @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
-        ListenableFuture<Response> future = getStatus(query, token, maxWait, externalUriInfo);
+        ListenableFuture<Response> future = getStatus(query, token, externalUriInfo);
         bindAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
-    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, ExternalUriInfo externalUriInfo)
+    private ListenableFuture<Response> getStatus(Query query, long token, ExternalUriInfo externalUriInfo)
     {
-        long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
-
         return FluentFuture.from(query.waitForDispatched())
                 // wait for query to be dispatched, up to the wait timeout
-                .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
+                .withTimeout(MAX_WAIT_TIME.toMillis(), MILLISECONDS, timeoutExecutor)
                 .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
                 .transform(_ -> query.getQueryResults(token, externalUriInfo), responseExecutor)
@@ -259,7 +268,7 @@ public class QueuedStatementResource
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/queued/")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(slug.makeSlug(QUEUED_QUERY, token))
                 .path(String.valueOf(token))
                 .build();
@@ -276,12 +285,12 @@ public class QueuedStatementResource
     {
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
-                queryId.toString(),
+                queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 null,
                 nextUri,
                 null,
-                TypedQueryData.of(null),
+                QueryData.NULL,
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
@@ -293,7 +302,14 @@ public class QueuedStatementResource
                 queryError.orElse(null),
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
+    }
+
+    enum SubmissionState
+    {
+        NOT_SUBMITTED,
+        SUBMITTED,
+        ABANDONED
     }
 
     private static final class Query
@@ -308,7 +324,7 @@ public class QueuedStatementResource
         private final AtomicLong lastToken = new AtomicLong();
 
         private final long initTime = System.nanoTime();
-        private final AtomicReference<Boolean> submissionGate = new AtomicReference<>();
+        private final AtomicReference<SubmissionState> submissionGate = new AtomicReference<>(NOT_SUBMITTED);
         private final SettableFuture<Void> creationFuture = SettableFuture.create();
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory, Tracer tracer)
@@ -321,7 +337,7 @@ public class QueuedStatementResource
             this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
             requireNonNull(tracer, "tracer is null");
             this.querySpan = tracer.spanBuilder("query")
-                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.id())
                     .startSpan();
         }
 
@@ -340,14 +356,14 @@ public class QueuedStatementResource
             return lastToken.get();
         }
 
-        public boolean tryAbandonSubmissionWithTimeout(Duration querySubmissionTimeout)
+        public boolean tryAbandonSubmissionWithTimeout(long querySubmissionTimeoutNanos)
         {
-            return Duration.nanosSince(initTime).compareTo(querySubmissionTimeout) >= 0 && submissionGate.compareAndSet(null, false);
+            return (System.nanoTime() - initTime) >= querySubmissionTimeoutNanos && submissionGate.compareAndSet(NOT_SUBMITTED, ABANDONED);
         }
 
         public boolean isSubmissionAbandoned()
         {
-            return Boolean.FALSE.equals(submissionGate.get());
+            return submissionGate.get() == ABANDONED;
         }
 
         public boolean isCreated()
@@ -367,7 +383,7 @@ public class QueuedStatementResource
 
         private void submitIfNeeded()
         {
-            if (submissionGate.compareAndSet(null, true)) {
+            if (submissionGate.compareAndSet(NOT_SUBMITTED, SUBMITTED)) {
                 querySpan.addEvent("submit");
                 creationFuture.setFuture(dispatchManager.createQuery(queryId, querySpan, slug, sessionContext, query));
             }
@@ -442,7 +458,7 @@ public class QueuedStatementResource
         {
             return coordinatorLocation.getUri(externalUriInfo)
                     .path("/v1/statement/executing")
-                    .path(queryId.toString())
+                    .path(queryId.id())
                     .path(slug.makeSlug(EXECUTING_QUERY, 0))
                     .path("0")
                     .build();
@@ -451,8 +467,8 @@ public class QueuedStatementResource
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
         {
             ErrorCode errorCode;
-            if (executionFailureInfo.getErrorCode() != null) {
-                errorCode = executionFailureInfo.getErrorCode();
+            if (executionFailureInfo.errorCode() != null) {
+                errorCode = executionFailureInfo.errorCode();
             }
             else {
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
@@ -460,12 +476,12 @@ public class QueuedStatementResource
             }
 
             return new QueryError(
-                    firstNonNull(executionFailureInfo.getMessage(), "Internal error"),
+                    requireNonNullElse(executionFailureInfo.message(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
-                    executionFailureInfo.getErrorLocation(),
+                    executionFailureInfo.errorLocation(),
                     executionFailureInfo.toFailureInfo());
         }
     }
@@ -476,11 +492,11 @@ public class QueuedStatementResource
         private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
         private final ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("drain-state-query-manager"));
 
-        private final Duration querySubmissionTimeout;
+        private final long querySubmissionTimeoutNanos;
 
         public QueryManager(Duration querySubmissionTimeout)
         {
-            this.querySubmissionTimeout = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null");
+            this.querySubmissionTimeoutNanos = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null").roundTo(NANOSECONDS);
         }
 
         public void initialize(DispatchManager dispatchManager)
@@ -516,15 +532,12 @@ public class QueuedStatementResource
                 // Query submission was explicitly abandoned
                 return true;
             }
-            if (query.tryAbandonSubmissionWithTimeout(querySubmissionTimeout)) {
+            if (query.tryAbandonSubmissionWithTimeout(querySubmissionTimeoutNanos)) {
                 // Query took too long to be submitted by the client
                 return true;
             }
-            if (query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId())) {
-                // Query was created in the DispatchManager, and DispatchManager has already purged the query
-                return true;
-            }
-            return false;
+            // Query was created in the DispatchManager, and DispatchManager has already purged the query
+            return query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId());
         }
 
         private void removeQuery(QueryId queryId)

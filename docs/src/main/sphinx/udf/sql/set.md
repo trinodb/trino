@@ -23,9 +23,9 @@ multiple times to different values:
 
 ```sql
 FUNCTION one()
-  RETURNS bigint
+  RETURNS int
   BEGIN
-    DECLARE counter tinyint DEFAULT 1;
+    DECLARE counter int DEFAULT 1;
     SET counter = 0;
     SET counter = counter + 2;
     SET counter = counter / counter;

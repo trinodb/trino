@@ -18,13 +18,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public class StripeInformation
 {
-    private final int numberOfRows;
+    private final long numberOfRows;
     private final long offset;
     private final long indexLength;
     private final long dataLength;
     private final long footerLength;
 
-    public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength)
+    public StripeInformation(long numberOfRows, long offset, long indexLength, long dataLength, long footerLength)
     {
         // dataLength can be zero when the stripe only contains empty flat maps.
         checkArgument(numberOfRows > 0, "Stripe must have at least one row");
@@ -36,7 +36,7 @@ public class StripeInformation
         this.footerLength = footerLength;
     }
 
-    public int getNumberOfRows()
+    public long getNumberOfRows()
     {
         return numberOfRows;
     }

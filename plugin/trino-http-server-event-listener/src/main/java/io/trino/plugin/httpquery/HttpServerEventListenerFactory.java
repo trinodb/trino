@@ -53,9 +53,10 @@ public class HttpServerEventListenerFactory
     HttpServerEventListener createInternal(Map<String, String> config, EventListenerContext context, boolean testing)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.listener." + getName(),
                 new JsonModule(),
                 new JaxrsModule(),
-                testing ? new TestingHttpServerModule() : new HttpServerModule(),
+                testing ? new TestingHttpServerModule("http-server-event-listener") : new HttpServerModule(),
                 binder -> {
                     binder.bind(Tracer.class).toInstance(context.getTracer());
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
@@ -68,6 +69,7 @@ public class HttpServerEventListenerFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

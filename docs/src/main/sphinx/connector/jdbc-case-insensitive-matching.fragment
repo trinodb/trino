@@ -8,7 +8,9 @@ and "Customers") then Trino fails to query them due to ambiguity.
 
 In these cases, use the `case-insensitive-name-matching.config-file` catalog
 configuration property to specify a configuration file that maps these remote
-schemas/tables to their respective Trino schemas/tables:
+schemas and tables to their respective Trino schemas and tables. Additionally,
+the JSON file must include both the `schemas` and `tables` properties, even if
+only as empty arrays.
 
 ```json
 {

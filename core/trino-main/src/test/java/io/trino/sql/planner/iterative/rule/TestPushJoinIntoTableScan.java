@@ -16,13 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -56,9 +56,11 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -106,11 +108,11 @@ public class TestPushJoinIntoTableScan
             COLUMN_B1, COLUMN_B1_HANDLE);
 
     private static final List<ColumnMetadata> TABLE_A_COLUMN_METADATA = TABLE_A_ASSIGNMENTS.entrySet().stream()
-            .map(entry -> new ColumnMetadata(entry.getKey(), ((MockConnectorColumnHandle) entry.getValue()).getType()))
+            .map(entry -> new ColumnMetadata(entry.getKey(), ((MockConnectorColumnHandle) entry.getValue()).type()))
             .collect(toImmutableList());
 
     private static final List<ColumnMetadata> TABLE_B_COLUMN_METADATA = TABLE_B_ASSIGNMENTS.entrySet().stream()
-            .map(entry -> new ColumnMetadata(entry.getKey(), ((MockConnectorColumnHandle) entry.getValue()).getType()))
+            .map(entry -> new ColumnMetadata(entry.getKey(), ((MockConnectorColumnHandle) entry.getValue()).type()))
             .collect(toImmutableList());
 
     public static final SchemaTableName JOIN_PUSHDOWN_SCHEMA_TABLE_NAME = new SchemaTableName(SCHEMA, "TABLE_A_JOINED_WITH_B");
@@ -129,19 +131,22 @@ public class TestPushJoinIntoTableScan
             COLUMN_B1_HANDLE, JOIN_COLUMN_B1_HANDLE);
 
     public static final List<ColumnMetadata> JOIN_TABLE_COLUMN_METADATA = JOIN_TABLE_A_COLUMN_MAPPING.entrySet().stream()
-            .map(entry -> new ColumnMetadata(((MockConnectorColumnHandle) entry.getValue()).getName(), ((MockConnectorColumnHandle) entry.getValue()).getType()))
+            .map(entry -> new ColumnMetadata(((MockConnectorColumnHandle) entry.getValue()).name(), ((MockConnectorColumnHandle) entry.getValue()).type()))
             .collect(toImmutableList());
 
     @ParameterizedTest
     @MethodSource("testPushJoinIntoTableScanParams")
     public void testPushJoinIntoTableScan(io.trino.sql.planner.plan.JoinType joinType, Optional<Comparison.Operator> filterComparisonOperator)
     {
-        MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, applyJoinType, left, right, joinCondition, leftAssignments, rightAssignments, _) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
             assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
             assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
             JoinCondition.Operator expectedOperator = filterComparisonOperator.map(this::getConditionOperator).orElse(JoinCondition.Operator.EQUAL);
-            assertThat(joinConditions).containsExactly(new JoinCondition(expectedOperator, COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE));
+            assertThat(joinCondition).isEqualTo(new Call(
+                    BOOLEAN,
+                    expectedOperator.getCallFunctionName(),
+                    List.of(COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE)));
 
             return Optional.of(new JoinApplicationResult<>(
                     JOIN_CONNECTOR_TABLE_HANDLE,
@@ -233,11 +238,12 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableScanWithComplexFilter()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
-                    assertThat(joinConditions).as("joinConditions")
-                            .isEqualTo(List.of(
-                                    new JoinCondition(
-                                            JoinCondition.Operator.GREATER_THAN,
+                (_, _, _, _, joinCondition, _, _, _) -> {
+                    assertThat(joinCondition).as("joinCondition")
+                            .isEqualTo(new Call(
+                                    BOOLEAN,
+                                    GREATER_THAN_OPERATOR_FUNCTION_NAME,
+                                    List.of(
                                             new Call(
                                                     BIGINT,
                                                     MULTIPLY_FUNCTION_NAME,
@@ -288,7 +294,7 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableScanDoesNotFireForDifferentCatalogs()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                (_, _, __, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -330,7 +336,7 @@ public class TestPushJoinIntoTableScan
                 .build();
 
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                (_, _, _, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -369,7 +375,7 @@ public class TestPushJoinIntoTableScan
                 .build();
 
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                (_, _, _, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -404,7 +410,7 @@ public class TestPushJoinIntoTableScan
     @MethodSource("testPushJoinIntoTableScanPreservesEnforcedConstraintParams")
     public void testPushJoinIntoTableScanPreservesEnforcedConstraint(io.trino.sql.planner.plan.JoinType joinType, TupleDomain<ColumnHandle> leftConstraint, TupleDomain<ColumnHandle> rightConstraint, TupleDomain<Predicate<ColumnHandle>> expectedConstraint)
     {
-        MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.of(new JoinApplicationResult<>(
+        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, _, _, _, _, _, _, _) -> Optional.of(new JoinApplicationResult<>(
                 JOIN_CONNECTOR_TABLE_HANDLE,
                 JOIN_TABLE_A_COLUMN_MAPPING,
                 JOIN_TABLE_B_COLUMN_MAPPING,
@@ -501,7 +507,7 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableDoesNotFireForCrossJoin()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                (_, _, _, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -536,7 +542,7 @@ public class TestPushJoinIntoTableScan
     @Test
     public void testPushJoinIntoTableRequiresFullColumnHandleMappingInResult()
     {
-        MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.of(new JoinApplicationResult<>(
+        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, _, _, _, _, _, _, _) -> Optional.of(new JoinApplicationResult<>(
                 JOIN_CONNECTOR_TABLE_HANDLE,
                 ImmutableMap.of(COLUMN_A1_HANDLE, JOIN_COLUMN_A1_HANDLE, COLUMN_A2_HANDLE, JOIN_COLUMN_A2_HANDLE),
                 // mapping for COLUMN_B1_HANDLE is missing

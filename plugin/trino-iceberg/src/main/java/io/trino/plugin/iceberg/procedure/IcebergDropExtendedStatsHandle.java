@@ -14,6 +14,4 @@
 package io.trino.plugin.iceberg.procedure;
 
 public record IcebergDropExtendedStatsHandle()
-        implements IcebergProcedureHandle
-{
-}
+        implements IcebergProcedureHandle {}

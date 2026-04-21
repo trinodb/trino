@@ -28,7 +28,9 @@ public class TestRedshiftConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
-                .setFetchSize(null));
+                .setFetchSize(null)
+                .setUnloadLocation(null)
+                .setUnloadIamRole(null));
     }
 
     @Test
@@ -36,10 +38,14 @@ public class TestRedshiftConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redshift.fetch-size", "2000")
+                .put("redshift.unload-location", "s3://bucket")
+                .put("redshift.unload-iam-role", "arn:aws:iam::123456789000:role/redshift_iam_role")
                 .buildOrThrow();
 
         RedshiftConfig expected = new RedshiftConfig()
-                .setFetchSize(2000);
+                .setFetchSize(2000)
+                .setUnloadLocation("s3://bucket")
+                .setUnloadIamRole("arn:aws:iam::123456789000:role/redshift_iam_role");
 
         assertFullMapping(properties, expected);
     }

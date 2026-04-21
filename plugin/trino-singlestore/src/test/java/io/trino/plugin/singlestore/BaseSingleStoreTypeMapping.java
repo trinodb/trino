@@ -54,6 +54,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -98,9 +99,9 @@ public abstract class BaseSingleStoreTypeMapping
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1932, 4, 1);
         checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
-        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1932, 4, 1, 0, 13, 42);
         checkIsGap(jvmZone, timeGapInJvmZone1);
         LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone2);
@@ -127,7 +128,10 @@ public abstract class BaseSingleStoreTypeMapping
                 .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
                 .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
                 .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("bit(1)", "b'1'", BOOLEAN, "true")
                 .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_bit"));
+
+        testUnsupportedDataType("bit(10)");
     }
 
     @Test
@@ -279,7 +283,38 @@ public abstract class BaseSingleStoreTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMax()
     {
-        testUnsupportedDataType("decimal(50,0)");
+        // Test that DECIMAL types with precision > 38 map to NUMBER type
+        // SingleStore supports DECIMAL up to precision 65 with scale up to 30
+
+        // Test precision 40, scale 5 (just above the 38 threshold)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(40,5)", "12345678901234567890123456789012345.12345", NUMBER, "NUMBER '12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40,5)", "-12345678901234567890123456789012345.12345", NUMBER, "NUMBER '-12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40,5)", "123.45", NUMBER, "NUMBER '123.45'")
+                .addRoundTrip("decimal(40,5)", "-123.45", NUMBER, "NUMBER '-123.45'")
+                .addRoundTrip("decimal(40,5)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p40"));
+
+        // Test precision 50, scale 0
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50,0)", "12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890'")
+                .addRoundTrip("decimal(50,0)", "-12345678901234567890123456789012345678901234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678901234567890'")
+                .addRoundTrip("decimal(50,0)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p50"));
+
+        // Test precision 60, scale 10
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(60,10)", "12345678901234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '12345678901234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("decimal(60,10)", "-12345678901234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("decimal(60,10)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p60"));
+
+        // Test precision 65 (SingleStore's max), scale 30
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(65,30)", "12345678901234567890123456789012345.123456789012345678901234567890", NUMBER, "NUMBER '12345678901234567890123456789012345.123456789012345678901234567890'")
+                .addRoundTrip("decimal(65,30)", "-12345678901234567890123456789012345.123456789012345678901234567890", NUMBER, "NUMBER '-12345678901234567890123456789012345.123456789012345678901234567890'")
+                .addRoundTrip("decimal(65,30)", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p65"));
     }
 
     @Test
@@ -991,6 +1026,74 @@ public abstract class BaseSingleStoreTypeMapping
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
         }
+    }
+
+    @Test
+    void testUnsupportedTinyint()
+    {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_tinyint", "(value tinyint)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-129)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (128)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+        }
+    }
+
+    @Test
+    void testUnsupportedSmallint()
+    {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_smallint", "(value smallint)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-32769)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (32768)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+        }
+    }
+
+    @Test
+    void testUnsupportedInteger()
+    {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_integer", "(value integer)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-2147483649)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (2147483648)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+        }
+    }
+
+    @Test
+    void testUnsupportedBigint()
+    {
+        try (TestTable table = newTrinoTable("tpch.test_unsupported_bigint", "(value bigint)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (-9223372036854775809)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (9223372036854775808)", table.getName())))
+                    .hasMessageContaining("Out of range value");
+        }
+    }
+
+    @Test
+    void testOlderDate()
+    {
+        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_date", "(value date)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (CAST('0000-01-01' AS date))", table.getName())))
+                    .hasMessageContaining("Invalid DATE/TIME in type conversion");
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES (CAST('0001-01-01' AS date))", table.getName())))
+                    .hasMessageContaining("Invalid DATE/TIME in type conversion");
+        }
+    }
+
+    @Test
+    void testSingleStoreCreatedParameterizedVarcharUnicodeEmoji()
+    {
+        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_varchar_unicode", "(value varchar(1) CHARACTER SET utf8)")) {
+            assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES ('😂')", table.getName())))
+                    .hasMessageContaining("Data invalid");
+        }
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(1) CHARACTER SET utf8mb4", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .execute(getQueryRunner(), singleStoreCreateAndInsert("tpch.singlestore_test_parameterized_varchar_unicode"));
     }
 
     protected DataSetup trinoCreateAsSelect(String tableNamePrefix)

@@ -15,10 +15,11 @@ package io.trino.orc;
 
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -60,11 +61,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -105,11 +106,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.
@@ -138,7 +139,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(BIGINT.getTypeSignature()), TypeParameter.typeParameter(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;
@@ -152,11 +153,11 @@ public class TestOrcReaderMemoryUsage
             long readerMemoryUsage = reader.getMemoryUsage();
 
             while (true) {
-                Page page = reader.nextPage();
-                if (page == null) {
+                SourcePage sourcePage = reader.nextPage();
+                if (sourcePage == null) {
                     break;
                 }
-                page = page.getLoadedPage();
+                Page page = sourcePage.getPage();
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
                 // increasing during the test, which will cause the StreamReader buffer sizes to increase too.

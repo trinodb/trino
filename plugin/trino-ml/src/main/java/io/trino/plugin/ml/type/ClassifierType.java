@@ -15,8 +15,8 @@ package io.trino.plugin.ml.type;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -37,9 +37,15 @@ public class ClassifierType
 
     public ClassifierType(Type type)
     {
-        super(new TypeSignature(ClassifierParametricType.NAME, TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+        super(new TypeSignature(ClassifierParametricType.NAME, TypeParameter.typeParameter(type.getTypeSignature())));
         checkArgument(type.isComparable(), "type must be comparable");
         labelType = type;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return ClassifierParametricType.NAME + "(" + labelType.getDisplayName() + "))";
     }
 
     @Override
