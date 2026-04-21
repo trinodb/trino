@@ -41,6 +41,7 @@ public class IdentityCast
                         .returnType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("T"))
                         .build())
+                .neverFails()
                 .build());
     }
 

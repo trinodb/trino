@@ -41,6 +41,7 @@ public class GenericHashCodeOperator
                         .returnType(BIGINT)
                         .argumentType(new TypeSignature("T"))
                         .build())
+                .neverFails()
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

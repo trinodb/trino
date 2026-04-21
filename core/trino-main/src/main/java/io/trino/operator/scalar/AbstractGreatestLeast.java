@@ -84,6 +84,7 @@ public abstract class AbstractGreatestLeast
                         .variableArity()
                         .build())
                 .nullable()
+                .neverFails()
                 .argumentNullability(true)
                 .description(description)
                 .build());

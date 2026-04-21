@@ -44,6 +44,7 @@ public final class CastFromUnknownOperator
                         .returnType(new TypeSignature("E"))
                         .argumentType(UNKNOWN)
                         .build())
+                .neverFails()
                 .build());
     }
 

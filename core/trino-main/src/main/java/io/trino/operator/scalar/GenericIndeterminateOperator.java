@@ -42,6 +42,7 @@ public class GenericIndeterminateOperator
                         .argumentType(new TypeSignature("T"))
                         .build())
                 .argumentNullability(true)
+                .neverFails()
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

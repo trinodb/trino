@@ -43,6 +43,7 @@ public class GenericIdenticalOperator
                         .argumentType(new TypeSignature("T"))
                         .build())
                 .argumentNullability(true, true)
+                .neverFails()
                 .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
