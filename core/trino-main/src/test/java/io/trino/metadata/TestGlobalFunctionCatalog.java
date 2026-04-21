@@ -22,11 +22,13 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -55,6 +57,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,6 +65,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGlobalFunctionCatalog
 {
+    @Test
+    void testEverythingImplemented()
+            throws Exception
+    {
+        assertAllMethodsOverridden(FunctionProvider.class, GlobalFunctionCatalog.class, Set.of(
+                // Default implementation of getTableFunctionProcessorProviderFactory is OK
+                FunctionProvider.class.getMethod("getTableFunctionProcessorProviderFactory", ConnectorTableFunctionHandle.class)));
+    }
+
     @Test
     public void testIdentityCast()
     {
