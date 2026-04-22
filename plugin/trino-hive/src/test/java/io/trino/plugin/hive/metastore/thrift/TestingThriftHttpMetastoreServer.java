@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -21,6 +22,7 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.NoSuchObjectException;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletException;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 
 public class TestingThriftHttpMetastoreServer
         implements Closeable
@@ -74,6 +77,7 @@ public class TestingThriftHttpMetastoreServer
             case "getDatabase" -> handler.getDatabase(args[0].toString());
             case "getTables" -> handler.getTables(args[0].toString(), args[1].toString());
             case "getTablesByType" -> handler.getTablesByType(args[0].toString(), args[1].toString(), args[2].toString());
+            case "getTableMeta" -> handler.getTableMeta((String) args[0], (String) args[1], (List<String>) args[2]);
             default -> throw new UnsupportedOperationException();
         });
     }
@@ -125,5 +129,18 @@ public class TestingThriftHttpMetastoreServer
         List<String> getTables(String databaseName, String pattern);
 
         List<String> getTablesByType(String databaseName, String pattern, String tableType);
+
+        default List<TableMeta> getTableMeta(String databaseName, String pattern, List<String> tableTypes)
+        {
+            ImmutableList.Builder<TableMeta> meta = ImmutableList.builder();
+            String typeFilter = tableTypes == null || tableTypes.isEmpty() ? MANAGED_TABLE.name() : tableTypes.get(0);
+            for (String tableName : getTables(databaseName, pattern)) {
+                meta.add(new TableMeta(databaseName, tableName, MANAGED_TABLE.name()));
+            }
+            for (String tableName : getTablesByType(databaseName, pattern, typeFilter)) {
+                meta.add(new TableMeta(databaseName, tableName, MANAGED_TABLE.name()));
+            }
+            return meta.build();
+        }
     }
 }
