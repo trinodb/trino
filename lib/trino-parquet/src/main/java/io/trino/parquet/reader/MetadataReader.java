@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -20,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.crypto.AesCipherUtils;
 import io.trino.parquet.crypto.AesGcmEncryptor;
@@ -41,6 +43,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
+import static io.trino.parquet.ParquetReaderOptions.DEFAULT_FOOTER_READ_SIZE;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetValidationUtils.validateParquetCrypto;
 import static io.trino.parquet.crypto.AesCipherUtils.GCM_TAG_LENGTH;
@@ -50,6 +53,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.readFileCryptoMetaData;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
@@ -58,24 +62,24 @@ public final class MetadataReader
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
     private static final Slice EMAGIC = Slices.utf8Slice("PARE");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
-    // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
-    private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
 
     private MetadataReader() {}
 
+    @VisibleForTesting
     public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
-        return readFooter(dataSource, Optional.empty(), Optional.empty(), fileDecryptionProperties);
+        return readFooter(dataSource, DEFAULT_FOOTER_READ_SIZE, Optional.empty(), Optional.empty(), fileDecryptionProperties);
     }
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize maxFooterReadSize, Optional<FileDecryptionProperties> fileDecryptionProperties)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, ParquetReaderOptions options, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
-        return readFooter(dataSource, Optional.of(maxFooterReadSize), Optional.empty(), fileDecryptionProperties);
+        requireNonNull(options, "options is null");
+        return readFooter(dataSource, options.getFooterReadSize(), Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation, fileDecryptionProperties);
     }
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<FileDecryptionProperties> fileDecryptionProperties)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, DataSize footerReadSize, Optional<DataSize> maxFooterReadSize, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<FileDecryptionProperties> fileDecryptionProperties)
             throws IOException
     {
         // Parquet File Layout:
@@ -90,7 +94,9 @@ public final class MetadataReader
 
         // Read the tail of the file
         long estimatedFileSize = dataSource.getEstimatedSize();
-        long expectedReadSize = min(estimatedFileSize, EXPECTED_FOOTER_SIZE);
+        long footerReadSizeInBytes = footerReadSize.toBytes();
+        validateParquet(footerReadSizeInBytes >= POST_SCRIPT_SIZE, dataSource.getId(), "Parquet footer read size must be at least %s bytes", POST_SCRIPT_SIZE);
+        long expectedReadSize = min(estimatedFileSize, footerReadSizeInBytes);
         Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
         Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());

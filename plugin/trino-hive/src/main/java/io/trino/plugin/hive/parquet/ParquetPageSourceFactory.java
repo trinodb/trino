@@ -236,7 +236,7 @@ public class ParquetPageSourceFactory
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation, fileDecryptionProperties);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, parquetWriteValidation, fileDecryptionProperties);
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 

@@ -115,6 +115,11 @@ with Parquet files performed by supported object storage connectors:
     This prevents workers from going into full GC or crashing due to poorly
     configured Parquet writers.
   - `15MB`
+* - `parquet.footer-read-size`
+  - Sets the expected Parquet footer size used for the initial file-tail read.
+    If the actual footer is larger, Trino reads the footer again using the
+    actual size.
+  - `48kB`
 * - `parquet.max-page-read-size`
   - Maximum allowed size of a parquet page during reads. Files with parquet pages
     larger than this will generate an exception on read.

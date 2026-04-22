@@ -286,7 +286,7 @@ public class TestHiveParquetEncryption
                     .withKeyRetriever(new TestHiveParquetEncryption.TestingParquetEncryptionModule(
                             FOOTER_KEY, Optional.of(COLUMN_KEY_AGE), Optional.of(COLUMN_KEY_ID)))
                     .build();
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(dec));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(dec));
 
             ColumnChunkMetadata ageChunk = metadata.getBlocks().getFirst().columns().stream()
                     .filter(column -> column.getPath().equals(AGE_PATH))

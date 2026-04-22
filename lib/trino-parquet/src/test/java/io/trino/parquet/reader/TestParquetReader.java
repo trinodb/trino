@@ -15,10 +15,14 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.io.Resources;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -40,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -55,6 +60,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -239,8 +246,37 @@ public class TestParquetReader
                         generateInputPages(types, 10, 50)),
                 ParquetReaderOptions.defaultOptions());
 
-        assertThatThrownBy(() -> MetadataReader.readFooter(dataSource, DataSize.ofBytes(1000), Optional.empty()))
+        ParquetReaderOptions readerOptions = ParquetReaderOptions.builder()
+                .withMaxFooterReadSize(DataSize.ofBytes(1000))
+                .build();
+
+        assertThatThrownBy(() -> MetadataReader.readFooter(dataSource, readerOptions, Optional.empty(), Optional.empty()))
                 .hasMessageMatching(".* Parquet footer size .* exceeds maximum allowed size .*");
+    }
+
+    @Test
+    void testFooterReadSize()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columna", "columnb");
+        List<Type> types = ImmutableList.of(INTEGER, BIGINT);
+
+        RecordingParquetDataSource dataSource = new RecordingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(10))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 10, 50)));
+
+        ParquetReaderOptions readerOptions = ParquetReaderOptions.builder()
+                .withFooterReadSize(DataSize.ofBytes(128))
+                .build();
+
+        MetadataReader.readFooter(dataSource, readerOptions, Optional.empty(), Optional.empty());
+
+        assertThat(dataSource.getTailReadLengths()).startsWith(128);
     }
 
     private void testReadingOldParquetFiles(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
@@ -263,6 +299,71 @@ public class TestParquetReader
             assertThat(expected.hasNext())
                     .describedAs("Read fewer values than expected")
                     .isFalse();
+        }
+    }
+
+    private static class RecordingParquetDataSource
+            implements ParquetDataSource
+    {
+        private final ParquetDataSourceId id = new ParquetDataSourceId("recording");
+        private final Slice input;
+        private final List<Integer> tailReadLengths = new ArrayList<>();
+        private long readBytes;
+
+        public RecordingParquetDataSource(Slice input)
+        {
+            this.input = input;
+        }
+
+        @Override
+        public ParquetDataSourceId getId()
+        {
+            return id;
+        }
+
+        @Override
+        public long getReadBytes()
+        {
+            return readBytes;
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return input.length();
+        }
+
+        @Override
+        public Slice readTail(int length)
+        {
+            tailReadLengths.add(length);
+            int readSize = toIntExact(min(input.length(), length));
+            readBytes += readSize;
+            return input.slice(input.length() - readSize, readSize);
+        }
+
+        @Override
+        public Slice readFully(long position, int length)
+        {
+            readBytes += length;
+            return input.slice(toIntExact(position), length);
+        }
+
+        @Override
+        public <K> Map<K, ChunkedInputStream> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public List<Integer> getTailReadLengths()
+        {
+            return tailReadLengths;
         }
     }
 }

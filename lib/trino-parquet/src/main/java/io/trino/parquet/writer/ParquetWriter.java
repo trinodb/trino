@@ -19,6 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import io.trino.parquet.Column;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -112,6 +113,7 @@ public class ParquetWriter
     private List<ColumnWriter> columnWriters;
     private int rows;
     private long bufferedBytes;
+    private OptionalInt footerReadSize = OptionalInt.empty();
     private boolean closed;
     private boolean writeHeader;
     @Nullable
@@ -237,7 +239,8 @@ public class ParquetWriter
         checkState(validationBuilder.isPresent(), "validation is not enabled");
         ParquetWriteValidation writeValidation = validationBuilder.get().build();
         try {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.empty(), Optional.of(writeValidation), Optional.empty());
+            checkState(footerReadSize.isPresent(), "footer has not been written");
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, DataSize.ofBytes(footerReadSize.getAsInt()), Optional.empty(), Optional.of(writeValidation), Optional.empty());
             try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
                 for (SourcePage page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
                     // fully load the page
@@ -373,6 +376,7 @@ public class ParquetWriter
         createDataOutput(footerSize).writeData(outputStream);
 
         createDataOutput(MAGIC).writeData(outputStream);
+        footerReadSize = OptionalInt.of(footer.length() + SIZE_OF_INT + MAGIC.length());
     }
 
     private void writeBloomFilters(List<RowGroup> rowGroups, List<List<Optional<BloomFilter>>> rowGroupBloomFilters)

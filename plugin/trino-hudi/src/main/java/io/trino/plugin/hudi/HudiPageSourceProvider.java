@@ -232,7 +232,7 @@ public class HudiPageSourceProvider
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.fileSize()), options, memoryContext, dataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options, Optional.empty(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

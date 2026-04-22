@@ -242,7 +242,7 @@ public final class TestParquetEncryption
                             Optional.empty()))
                     .withCheckFooterIntegrity(encryptFooter)
                     .build();
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
             assertThat(metadata.getBlocks().size()).isGreaterThan(1);
         }
 
@@ -331,7 +331,7 @@ public final class TestParquetEncryption
                     .withKeyRetriever(new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.empty()))
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             // first (and only) row‑group → column‑chunk for "age"
             ColumnChunkMetadata chunk =
@@ -458,8 +458,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(
-                    source, Optional.empty(), Optional.empty(), Optional.of(props));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(props));
 
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
@@ -535,7 +534,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(props));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(props));
 
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
@@ -737,7 +736,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             ColumnChunkMetadata age = metadata.getBlocks().getFirst().columns().stream()
                     .filter(context -> context.getPath().equals(AGE_PATH))
@@ -820,7 +819,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             ColumnChunkMetadata age = metadata.getBlocks().getFirst().columns().stream()
                     .filter(context -> context.getPath().equals(AGE_PATH))
@@ -854,8 +853,7 @@ public final class TestParquetEncryption
                 .withCheckFooterIntegrity(checkFooterIntegrity);
         aadPrefix.ifPresent(properties::withAadPrefix);
 
-        ParquetMetadata metadata = MetadataReader.readFooter(
-                source, Optional.empty(), Optional.empty(), Optional.of(properties.build()));
+        ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties.build()));
 
         ColumnDescriptor descriptor = new ColumnDescriptor(
                 new String[] {"age"},
@@ -919,7 +917,7 @@ public final class TestParquetEncryption
         FileDecryptionProperties properties = FileDecryptionProperties
                 .builder().withKeyRetriever(retriever).withCheckFooterIntegrity(true).build();
 
-        ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+        ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
         ColumnDescriptor ageDescriptor = new ColumnDescriptor(
                 new String[] {"age"},
