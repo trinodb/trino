@@ -242,8 +242,14 @@ public class EntriesTable
                     // data files don't have equality ids
                     fieldBuilders.get(++position).appendNull();
 
+                    // sort_order_id is optional per the Iceberg spec — null means "unsorted"
                     Integer sortOrderId = dataFile.get(++position, Integer.class);
-                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                    if (sortOrderId == null) {
+                        fieldBuilders.get(position).appendNull();
+                    }
+                    else {
+                        INTEGER.writeLong(fieldBuilders.get(position), sortOrderId.longValue());
+                    }
                 }
                 case POSITION_DELETE -> {
                     // position delete files don't have equality ids
@@ -258,7 +264,12 @@ public class EntriesTable
                     appendIntegerArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
 
                     Integer sortOrderId = dataFile.get(++position, Integer.class);
-                    INTEGER.writeLong(fieldBuilders.get(position), Long.valueOf(sortOrderId));
+                    if (sortOrderId == null) {
+                        fieldBuilders.get(position).appendNull();
+                    }
+                    else {
+                        INTEGER.writeLong(fieldBuilders.get(position), sortOrderId.longValue());
+                    }
                 }
             }
         });

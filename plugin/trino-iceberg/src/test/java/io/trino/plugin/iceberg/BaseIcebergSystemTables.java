@@ -25,7 +25,10 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.intellij.lang.annotations.Language;
@@ -34,6 +37,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -789,6 +793,45 @@ public abstract class BaseIcebergSystemTables
                             "dt":{"column_size":null,"value_count":null,"null_value_count":null,"nan_value_count":null,"lower_bound":null,"upper_bound":null},\
                             "id":{"column_size":51,"value_count":1,"null_value_count":0,"nan_value_count":null,"lower_bound":1,"upper_bound":1}\
                             }""");
+        }
+    }
+
+    @Test
+    void testEntriesTableWithNullSortOrderId()
+            throws Exception
+    {
+        // Iceberg spec (table spec v1/v2/v3) marks data_file.sort_order_id as optional: a null value
+        // is a valid on-disk state meaning "unsorted", and readers must tolerate it. Writers such as
+        // PyIceberg emit null here on default appends. Trino's own writer populates 0, which is why
+        // reaching the code path from SQL is impossible — commit a DataFile directly through the
+        // Iceberg Java API to produce a manifest entry with sort_order_id unset.
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries_null_sort_order", "AS SELECT 1 id")) {
+            Table icebergTable = loadTable(table.getName());
+            DataFile dataFile = DataFiles.builder(icebergTable.spec())
+                    .withPath(icebergTable.location() + "/data/synthetic-no-sort-order." + format.name().toLowerCase(ENGLISH))
+                    .withFormat(FileFormat.fromString(format.name()))
+                    .withFileSizeInBytes(1234)
+                    .withRecordCount(1)
+                    .build();
+            // DataFiles.Builder defaults sort_order_id to SortOrder.unsorted().orderId() (== 0).
+            // The spec-valid null state is what PyIceberg emits; reach it by clearing the inherited
+            // BaseFile.sortOrderId field so the manifest row is written with the column unset.
+            Field sortOrderIdField = dataFile.getClass().getSuperclass().getDeclaredField("sortOrderId");
+            sortOrderIdField.setAccessible(true);
+            sortOrderIdField.set(dataFile, null);
+            assertThat(dataFile.sortOrderId()).isNull();
+
+            icebergTable.newAppend().appendFile(dataFile).commit();
+            long appendedSnapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Reading $entries must not throw and must surface the null as SQL NULL.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
+            // $all_entries shares the same code path and must also tolerate the null.
+            assertThat(computeScalar("SELECT data_file.sort_order_id FROM \"" + table.getName() + "$all_entries\"" +
+                    " WHERE snapshot_id = " + appendedSnapshotId))
+                    .isNull();
         }
     }
 
