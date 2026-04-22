@@ -462,6 +462,113 @@ FROM
 ```{include} query-table-function-ordering.fragment
 ```
 
+(opensearch-search-function)=
+#### `search(varchar, varchar, varchar) -> table`
+
+The `search` function runs any [OpenSearch Query DSL](https://opensearch.org/docs/latest/query-dsl/index/) query and returns
+typed rows based on the target index mapping. Unlike `raw_query`, the result
+is a regular table that composes naturally with SQL joins, aggregations,
+`WHERE` clauses, and `LIMIT`. The connector pushes these filters and the
+full-text query into a single OpenSearch request, and uses scroll internally,
+so results are not bound by `index.max_result_window`.
+
+The `search` function requires three parameters:
+
+- `schema`: The schema in the catalog that the query is to be executed on.
+- `index`: The index or alias in OpenSearch to search.
+- `query`: A JSON object containing the contents of the `"query"` field of an
+  OpenSearch `_search` body (for example `{"match": {"field": "value"}}`).
+  Must not contain top-level `_search` body keys such as `size`, `from`,
+  `sort`, `aggs`, `highlight`, or `_source` — use `raw_query` if those are
+  needed.
+
+For example, use `search` to fetch rows from the `orders` index where the
+comment matches a term, ordered by relevance:
+
+```sql
+SELECT orderkey, comment, "_score"
+FROM TABLE(
+    example.system.search(
+        schema => 'sales',
+        index => 'orders',
+        query => '{"match": {"comment": "urgent"}}'
+    )
+);
+```
+
+Combine with an SQL predicate — the filter is pushed down together with the
+full-text query into the same OpenSearch request:
+
+```sql
+SELECT orderkey, comment
+FROM TABLE(
+    example.system.search(
+        schema => 'sales',
+        index => 'orders',
+        query => '{"match": {"comment": "urgent"}}'
+    )
+)
+WHERE orderstatus = 'O';
+```
+
+Use a `bool` query to combine multiple conditions in OpenSearch:
+
+```sql
+SELECT orderkey
+FROM TABLE(
+    example.system.search(
+        schema => 'sales',
+        index => 'orders',
+        query => '{"bool": {"must": [
+                      {"match": {"comment": "urgent"}},
+                      {"range": {"totalprice": {"gte": 100}}}
+                  ]}}'
+    )
+);
+```
+
+Join OpenSearch results with data from another catalog:
+
+```sql
+SELECT t.orderkey, t.comment, c.name
+FROM TABLE(
+    example.system.search(
+        schema => 'sales',
+        index => 'orders',
+        query => '{"match": {"comment": "urgent"}}'
+    )
+) t
+JOIN postgres.public.customers c ON t.custkey = c.custkey;
+```
+
+Results are ordered by relevance (`_score`) by default. Use an `ORDER BY` in
+SQL to override the ordering — Trino sorts after the rows are retrieved:
+
+```sql
+SELECT orderkey
+FROM TABLE(
+    example.system.search(
+        schema => 'sales',
+        index => 'orders',
+        query => '{"match": {"comment": "urgent"}}'
+    )
+)
+ORDER BY orderdate DESC;
+```
+
+The builtin columns `_id`, `_score`, and `_source` are available on the
+result alongside the mapped fields.
+
+`search` and `raw_query` cover different use cases:
+
+| | `search` | `raw_query` |
+|---|---|---|
+| Returns | Typed rows | Single `VARCHAR` row with the full JSON response |
+| Pagination | Scroll (no `max_result_window` cap) | Single `_search` (bounded by `index.max_result_window`) |
+| Combines with `WHERE` / `JOIN` | Yes, with pushdown | No (single blob column) |
+| Aggregations / highlighting | Use SQL `GROUP BY`, etc. | Yes (native `aggs` / `highlight`) |
+| Input | Query clause object | Full `_search` body |
+
 ## Performance
 
 The connector includes a number of performance improvements, detailed in the
