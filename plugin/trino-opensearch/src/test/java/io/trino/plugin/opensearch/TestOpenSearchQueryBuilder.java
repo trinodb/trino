@@ -30,6 +30,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.WrapperQueryBuilder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +38,7 @@ import java.util.Optional;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOpenSearchQueryBuilder
@@ -134,5 +136,38 @@ public class TestOpenSearchQueryBuilder
     {
         QueryBuilder actual = OpenSearchQueryBuilder.buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of());
         assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testQueryOnlyUsesWrapper()
+    {
+        String json = "{\"match\":{\"name\":\"ALGERIA\"}}";
+        QueryBuilder built = OpenSearchQueryBuilder.buildSearchQuery(TupleDomain.all(), Optional.of(json), ImmutableMap.of());
+
+        assertThat(built).isInstanceOf(BoolQueryBuilder.class);
+        BoolQueryBuilder bool = (BoolQueryBuilder) built;
+        assertThat(bool.must()).hasSize(1);
+        assertThat(bool.must().get(0)).isInstanceOf(WrapperQueryBuilder.class);
+        WrapperQueryBuilder wrapper = (WrapperQueryBuilder) bool.must().get(0);
+        assertThat(new String(wrapper.source(), UTF_8)).isEqualTo(json);
+        assertThat(bool.filter()).isEmpty();
+    }
+
+    @Test
+    public void testQueryCombinesWithConstraintAndRegexes()
+    {
+        String json = "{\"match\":{\"name\":\"foo\"}}";
+        TupleDomain<OpenSearchColumnHandle> constraint = TupleDomain.withColumnDomains(
+                ImmutableMap.of(AGE, Domain.singleValue(INTEGER, 5L)));
+        Map<String, String> regexes = ImmutableMap.of("name", "fo.*");
+
+        QueryBuilder built = OpenSearchQueryBuilder.buildSearchQuery(constraint, Optional.of(json), regexes);
+
+        assertThat(built).isInstanceOf(BoolQueryBuilder.class);
+        BoolQueryBuilder bool = (BoolQueryBuilder) built;
+        assertThat(bool.must()).hasSize(1);
+        assertThat(bool.must().get(0)).isInstanceOf(WrapperQueryBuilder.class);
+        // filter contains term (age=5) and a bool wrapping regexp (name ~= fo.*)
+        assertThat(bool.filter()).hasSize(2);
     }
 }
