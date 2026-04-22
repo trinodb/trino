@@ -41,6 +41,7 @@ import io.trino.plugin.opensearch.decoders.TinyintDecoder;
 import io.trino.plugin.opensearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.opensearch.decoders.VarcharDecoder;
 import io.trino.plugin.opensearch.ptf.RawQuery.RawQueryFunctionHandle;
+import io.trino.plugin.opensearch.ptf.Search.SearchFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
@@ -775,13 +776,17 @@ public class OpenSearchMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof RawQueryFunctionHandle rawQueryFunctionHandle)) {
-            return Optional.empty();
+        if (handle instanceof RawQueryFunctionHandle rawQueryFunctionHandle) {
+            ConnectorTableHandle tableHandle = rawQueryFunctionHandle.getTableHandle();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
+            return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
         }
-
-        ConnectorTableHandle tableHandle = rawQueryFunctionHandle.getTableHandle();
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
-        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+        if (handle instanceof SearchFunctionHandle searchFunctionHandle) {
+            ConnectorTableHandle tableHandle = searchFunctionHandle.getTableHandle();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
+            return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+        }
+        return Optional.empty();
     }
 
     private static boolean supportsPredicates(IndexMetadata.Type type, Type trinoType)
