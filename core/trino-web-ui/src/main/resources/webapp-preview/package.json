@@ -24,7 +24,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
-    "@mui/x-charts": "^8.27.5",
+    "@mui/x-charts": "^8.28.2",
     "@xyflow/react": "^12.10.2",
     "axios": "^1.14.0",
     "lodash": "^4.17.23",
