@@ -2012,6 +2012,66 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchMatchQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey, name FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES (BIGINT '0', VARCHAR 'ALGERIA')");
+    }
+
+    @Test
+    public void testSearchCombinedWithPredicate()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match_all\": {}}')) " +
+                        "WHERE name = 'ALGERIA'",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchWithLimit()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT count(*) FROM (" +
+                        "  SELECT * FROM TABLE(%s.system.search(" +
+                        "    schema => 'tpch', " +
+                        "    index => 'nation', " +
+                        "    query => '{\"match_all\": {}}')) " +
+                        "  LIMIT 3" +
+                        ")",
+                catalogName)))
+                .matches("VALUES BIGINT '3'");
+    }
+
+    @Test
+    public void testSearchCount()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT count(*) FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"range\": {\"nationkey\": {\"gte\": 0, \"lte\": 3}}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '4'");
+    }
+
+    @Test
     public void testSimpleProjectionPushdown()
             throws IOException
     {
