@@ -2205,6 +2205,58 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchReturnsMoreThanMaxResultWindow()
+            throws IOException
+    {
+        String indexName = "search_scroll_test_" + randomNameSuffix();
+        @Language("JSON")
+        String body = "" +
+                "{" +
+                "  \"settings\": {\"index\": {\"max_result_window\": 100}}," +
+                "  \"mappings\": {" +
+                "    \"properties\": {" +
+                "      \"id\": {\"type\": \"long\"}," +
+                "      \"body\": {\"type\": \"text\"}" +
+                "    }" +
+                "  }" +
+                "}";
+        Request createIndexRequest = new Request("PUT", "/" + indexName);
+        createIndexRequest.setJsonEntity(body);
+        client.getLowLevelClient().performRequest(createIndexRequest);
+
+        for (int i = 0; i < 250; i++) {
+            index(indexName, ImmutableMap.<String, Object>builder()
+                    .put("id", i)
+                    .put("body", "common")
+                    .buildOrThrow());
+        }
+        client.getLowLevelClient().performRequest(new Request("POST", "/" + indexName + "/_refresh"));
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        assertThat(query(format(
+                "SELECT count(*) FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => '%s', " +
+                        "query => '{\"match\": {\"body\": \"common\"}}'))",
+                catalogName, indexName)))
+                .matches("VALUES BIGINT '250'");
+    }
+
+    @Test
+    public void testRawQueryStillWorks()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        MaterializedResult result = computeActual(format(
+                "SELECT result FROM TABLE(%s.system.raw_query(" +
+                        "schema => 'tpch', index => 'nation', " +
+                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}'))",
+                catalogName));
+        assertThat(result.getRowCount()).isEqualTo(1);
+        assertThat(result.getTypes().getFirst()).isInstanceOf(VarcharType.class);
+    }
+
+    @Test
     public void testSimpleProjectionPushdown()
             throws IOException
     {
