@@ -34,7 +34,7 @@ public record EncryptionKey(byte[] key, String algorithm)
         return ofAes256(key);
     }
 
-    private static EncryptionKey ofAes256(byte[] key)
+    public static EncryptionKey ofAes256(byte[] key)
     {
         return new EncryptionKey(key, "AES256");
     }
