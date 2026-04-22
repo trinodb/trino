@@ -108,6 +108,23 @@ public class TestMinWorkerRequirement
     }
 
     @Test
+    public void testSystemQueryDispatchesWithoutWorkers()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder()
+                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                        .put("node-scheduler.include-coordinator", "false")
+                        .put("query-manager.required-workers", "1")
+                        .put("query-manager.required-workers-max-wait", "1ns")
+                        .buildOrThrow())
+                .setWorkerCount(0)
+                .build()) {
+            queryRunner.execute("SELECT * FROM system.runtime.queries");
+            queryRunner.execute("SELECT * FROM system.runtime.nodes");
+        }
+    }
+
+    @Test
     @Timeout(60)
     public void testInsufficientWorkerNodesAfterDrop()
             throws Exception

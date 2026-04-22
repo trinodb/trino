@@ -38,6 +38,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -125,11 +126,15 @@ public class LocalDispatchQuery
     {
         // wait for query execution to finish construction
         addSuccessCallback(queryExecutionFuture, queryExecution -> {
-            Session session = stateMachine.getSession();
-            int executionMinCount = 1; // always wait for 1 node to be up
-            if (queryExecution.shouldWaitForMinWorkers()) {
-                executionMinCount = getRequiredWorkers(session);
+            if (!queryExecution.shouldWaitForMinWorkers()) {
+                // Queries targeting only internal/system catalogs run entirely on the
+                // coordinator and must not wait for workers.  See trinodb/trino#4130.
+                addSuccessCallback(immediateVoidFuture(), () -> startExecution(queryExecution), queryExecutor);
+                return;
             }
+
+            Session session = stateMachine.getSession();
+            int executionMinCount = getRequiredWorkers(session);
             ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
             // when worker requirement is met, start the execution
             addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
