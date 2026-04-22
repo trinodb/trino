@@ -16,10 +16,18 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hudi.version>1.1.1</dep.hudi.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <!--Used to test execution in task executor after de-serializing-->
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>4.0.2</version>
+        </dependency>
+
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -65,6 +73,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>
@@ -123,8 +136,32 @@
             <version>${dep.hudi.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>*</groupId>
+                    <groupId>io.dropwizard.metrics</groupId>
                     <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hbase</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.orc</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-hive-sync</artifactId>
+            <version>${dep.hudi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hudi</groupId>
+                    <artifactId>hudi-hadoop-common</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -133,6 +170,30 @@
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-io</artifactId>
             <version>${dep.hudi.version}</version>
+            <classifier>shaded</classifier>
+            <exclusions>
+                <exclusion>
+                    <!-- Conflicts with org.lz4:lz4-java already on the classpath -->
+                    <groupId>at.yawk.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-sync-common</artifactId>
+            <version>${dep.hudi.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hudi</groupId>
+                    <artifactId>hudi-hadoop-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -206,6 +267,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive-formats</artifactId>
             <scope>runtime</scope>
@@ -215,13 +282,6 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo-shaded</artifactId>
-            <version>4.0.3</version>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -239,6 +299,19 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -389,6 +462,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20250107</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -397,6 +477,11 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -425,11 +510,53 @@
                         <!-- org.apache.hudi:hudi-client-common and org.apache.hudi:hudi-java-client log4j.properties duplicates -->
                         <ignoredResourcePattern>log4j.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>log4j-surefire.properties</ignoredResourcePattern>
+                        <!-- about.html is an Eclipse license file bundled by both org.eclipse.jetty and org.glassfish.jersey artifacts -->
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
 
                     <ignoredClassPatterns>
                         <ignoredClassPattern>org.apache.parquet.conf.ParquetConfiguration</ignoredClassPattern>
                     </ignoredClassPatterns>
+
+                    <ignoredDependencies>
+                        <!-- hudi-io:shaded is an uber-jar that physically bundles protobuf .proto resources
+                             inside the jar itself; these cannot be excluded as transitive dependencies -->
+                        <dependency>
+                            <groupId>org.apache.hudi</groupId>
+                            <artifactId>hudi-io</artifactId>
+                            <classifier>shaded</classifier>
+                        </dependency>
+                        <!-- at.yawk.lz4:lz4-java (from trino-hive-formats) and org.lz4:lz4-java (from hudi-common)
+                             are different group IDs providing the same net.jpountz.* package -->
+                        <dependency>
+                            <groupId>at.yawk.lz4</groupId>
+                            <artifactId>lz4-java</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- Kryo is not directly used but required for compilation:
+                             HoodieRecord implements KryoSerializable, so the compiler
+                             needs Kryo to verify the class hierarchy -->
+                        <ignoredUnusedDeclaredDependency>com.esotericsoftware:kryo</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- Kryo is not directly used but required for compilation:
+                             HoodieRecord implements KryoSerializable, so the compiler
+                             needs Kryo to verify the class hierarchy -->
+                        <ignoredUnusedDeclaredDependency>com.esotericsoftware:kryo</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
