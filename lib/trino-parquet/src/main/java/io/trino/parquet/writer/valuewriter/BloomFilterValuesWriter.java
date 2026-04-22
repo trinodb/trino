@@ -55,6 +55,14 @@ public class BloomFilterValuesWriter
         return writer.getBufferedSize();
     }
 
+    public long getEstimatedBufferedSize()
+    {
+        return switch (writer) {
+            case DictionaryFallbackValuesWriter dictionaryFallbackValuesWriter -> dictionaryFallbackValuesWriter.getEstimatedBufferedSize();
+            default -> writer.getBufferedSize();
+        };
+    }
+
     @Override
     public BytesInput getBytes()
     {

@@ -73,9 +73,15 @@ public class ArrayColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        return elementWriter.getBufferedBytes();
+        return elementWriter.getEstimatedBufferedBytes(compressionStats);
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        return elementWriter.getCompressionStats();
     }
 
     @Override

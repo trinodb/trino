@@ -32,6 +32,7 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
+import io.trino.parquet.writer.ColumnWriter.CompressionStats;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
@@ -112,7 +113,8 @@ public class ParquetWriter
 
     private List<ColumnWriter> columnWriters;
     private int rows;
-    private long bufferedBytes;
+    private long estimatedBufferedBytes;
+    private CompressionStats previousCompressionStats = CompressionStats.EMPTY;
     private OptionalInt footerReadSize = OptionalInt.empty();
     private boolean closed;
     private boolean writeHeader;
@@ -148,14 +150,9 @@ public class ParquetWriter
         this.chunkMaxBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
     }
 
-    public long getWrittenBytes()
+    public long getEstimatedWrittenBytes()
     {
-        return outputStream.longSize();
-    }
-
-    public long getBufferedBytes()
-    {
-        return bufferedBytes;
+        return outputStream.longSize() + estimatedBufferedBytes;
     }
 
     public long getRetainedBytes()
@@ -196,20 +193,19 @@ public class ParquetWriter
     private void writeChunk(Page page)
             throws IOException
     {
-        bufferedBytes = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
             writer.writeBlock(new ColumnChunk(page.getBlock(channel)));
-            bufferedBytes += writer.getBufferedBytes();
         }
         rows += page.getPositionCount();
+        updateEstimatedBufferedBytes();
 
-        if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
+        if (estimatedBufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
             initColumnWriters();
             rows = 0;
-            bufferedBytes = columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+            updateEstimatedBufferedBytes();
         }
     }
 
@@ -230,7 +226,7 @@ public class ParquetWriter
             writeBloomFilters(fileMetaData.getRow_groups(), bloomFilterGroups.build());
             writeFooter();
         }
-        bufferedBytes = 0;
+        estimatedBufferedBytes = 0;
     }
 
     public void validate(ParquetDataSource input)
@@ -416,10 +412,21 @@ public class ParquetWriter
     {
         long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
+        previousCompressionStats = previousCompressionStats.add(new CompressionStats(totalCompressedBytes, totalBytes));
         List<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
         fileFooter.addRowGroup(new RowGroup(columnChunks, totalBytes, rows)
                 .setTotal_compressed_size(totalCompressedBytes)
                 .setFile_offset(fileOffset));
+    }
+
+    private void updateEstimatedBufferedBytes()
+    {
+        CompressionStats compressionStats = columnWriters.stream()
+                .map(ColumnWriter::getCompressionStats)
+                .reduce(previousCompressionStats, CompressionStats::add);
+        estimatedBufferedBytes = columnWriters.stream()
+                .mapToLong(columnWriter -> columnWriter.getEstimatedBufferedBytes(compressionStats))
+                .sum();
     }
 
     private static Slice serializeFooter(FileMetaData fileMetaData)

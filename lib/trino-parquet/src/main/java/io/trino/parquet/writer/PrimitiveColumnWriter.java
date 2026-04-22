@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetMetadataConverter;
@@ -69,6 +70,8 @@ public class PrimitiveColumnWriter
     private static final int INSTANCE_SIZE = instanceSize(PrimitiveColumnWriter.class);
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 8 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 2 * 1024 * 1024;
+    private static final int MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE = 1024 * 1024;
+    private static final double MAX_COMPRESSION_EXPANSION_RATIO = 1.5;
     // ParquetMetadataConverter.MAX_STATS_SIZE is 4096, we need a value which would guarantee that min and max
     // don't add up to 4096 (so less than 2048). Using 1K as that is big enough for most use cases.
     private static final int MAX_STATISTICS_LENGTH_IN_BYTES = 1024;
@@ -107,9 +110,7 @@ public class PrimitiveColumnWriter
     private final int pageSizeThreshold;
     private final int pageValueCountLimit;
 
-    // Total size of compressed parquet pages and the current uncompressed page buffered in memory
-    // Used by ParquetWriter to decide when a row group is big enough to flush
-    private long bufferedBytes;
+    // Total size of compressed parquet pages
     private long pageBufferedBytes;
 
     public PrimitiveColumnWriter(
@@ -167,9 +168,6 @@ public class PrimitiveColumnWriter
         long currentPageBufferedBytes = getCurrentPageBufferedBytes();
         if (valueCount >= pageValueCountLimit || currentPageBufferedBytes >= pageSizeThreshold) {
             flushCurrentPageToBuffer();
-        }
-        else {
-            updateBufferedBytes(currentPageBufferedBytes);
         }
     }
 
@@ -279,7 +277,6 @@ public class PrimitiveColumnWriter
         repetitionLevelWriter.reset();
         definitionLevelWriter.reset();
         primitiveValueWriter.reset();
-        updateBufferedBytes(getCurrentPageBufferedBytes());
     }
 
     private DataStreams getDataStreams()
@@ -324,9 +321,18 @@ public class PrimitiveColumnWriter
     }
 
     @Override
-    public long getBufferedBytes()
+    public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        return bufferedBytes;
+        long pendingBufferedBytesEstimate = definitionLevelWriter.getBufferedSize() +
+                repetitionLevelWriter.getBufferedSize() +
+                primitiveValueWriter.getEstimatedBufferedSize();
+        return pageBufferedBytes + estimateCompressedSize(pendingBufferedBytesEstimate, compressionStats);
+    }
+
+    @Override
+    public CompressionStats getCompressionStats()
+    {
+        return new CompressionStats(totalCompressedSize, totalUnCompressedSize);
     }
 
     @Override
@@ -339,16 +345,36 @@ public class PrimitiveColumnWriter
                 repetitionLevelWriter.getAllocatedSize();
     }
 
-    private void updateBufferedBytes(long currentPageBufferedBytes)
-    {
-        bufferedBytes = pageBufferedBytes + currentPageBufferedBytes;
-    }
-
     private long getCurrentPageBufferedBytes()
     {
         return definitionLevelWriter.getBufferedSize() +
                 repetitionLevelWriter.getBufferedSize() +
                 primitiveValueWriter.getBufferedSize();
+    }
+
+    private long estimateCompressedSize(long uncompressedSize, CompressionStats compressionStats)
+    {
+        // If the current write has a reasonable compression sample size, use the compression ratio from the current
+        // writer, otherwise use the compression stats from other columns in this file. Also, verify the overall
+        // compression stats has a reasonable compression sample size before use.
+        if (totalUnCompressedSize >= MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE || compressionStats.uncompressedSize() < MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE) {
+            return estimateCompressedSize(uncompressedSize, totalCompressedSize, totalUnCompressedSize);
+        }
+        return estimateCompressedSize(uncompressedSize, compressionStats.compressedSize(), compressionStats.uncompressedSize());
+    }
+
+    @VisibleForTesting
+    static long estimateCompressedSize(long uncompressedSize, long totalCompressedSize, long totalUnCompressedSize)
+    {
+        if (uncompressedSize == 0 || totalUnCompressedSize == 0) {
+            return uncompressedSize;
+        }
+        double compressionRatio = Math.min((double) totalCompressedSize / totalUnCompressedSize, MAX_COMPRESSION_EXPANSION_RATIO);
+        double estimatedSize = Math.ceil(uncompressedSize * compressionRatio);
+        if (estimatedSize >= Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        return (long) estimatedSize;
     }
 
     private static PageHeader dataPageV1Header(

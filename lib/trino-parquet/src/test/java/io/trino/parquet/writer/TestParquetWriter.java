@@ -36,6 +36,7 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -63,12 +64,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
@@ -123,7 +127,7 @@ public class TestParquetWriter
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
-                                .setMaxPageSize(DataSize.ofBytes(20 * 1024))
+                                .setMaxPageSize(DataSize.of(20, KILOBYTE))
                                 .build(),
                         types,
                         columnNames,
@@ -291,7 +295,7 @@ public class TestParquetWriter
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
-                                .setMaxBlockSize(DataSize.ofBytes(20 * 1024))
+                                .setMaxBlockSize(DataSize.of(12, KILOBYTE))
                                 .build(),
                         types,
                         columnNames,
@@ -319,7 +323,7 @@ public class TestParquetWriter
         ParquetWriter writer = createParquetWriter(
                 new ByteArrayOutputStream(),
                 ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(1024))
+                        .setMaxPageSize(DataSize.of(1, KILOBYTE))
                         .build(),
                 types,
                 columnNames,
@@ -337,6 +341,78 @@ public class TestParquetWriter
         assertThat(previousRetainedBytes).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
         writer.close();
         assertThat(previousRetainedBytes - writer.getRetainedBytes()).isGreaterThanOrEqualTo(2 * Integer.BYTES * 1000 * 100);
+    }
+
+    @Test
+    public void testEstimatedWrittenBytesUsesEncodedCompressedSize()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(VARCHAR);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(2, MEGABYTE))
+                        .setMaxBlockSize(DataSize.of(64, MEGABYTE))
+                        .build(),
+                types,
+                columnNames,
+                CompressionCodec.SNAPPY);
+
+        writer.write(repeatedVarcharPage(4096, 1024));
+        writer.write(repeatedVarcharPage(1024, 1024));
+
+        long compressedBufferedEstimate = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(Math.abs(compressedBufferedEstimate - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+    }
+
+    @Test
+    public void testEstimatedWrittenBytesUsesAggregateCompressionRatioForSmallColumnSamples()
+            throws IOException
+    {
+        int columnCount = 24;
+        List<String> columnNames = IntStream.range(0, columnCount)
+                .mapToObj("column_%s"::formatted)
+                .collect(toImmutableList());
+        List<Type> types = Collections.nCopies(columnCount, VARCHAR);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(1, MEGABYTE))
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .build(),
+                types,
+                columnNames,
+                CompressionCodec.SNAPPY);
+
+        Page page = mixedVarcharPage(4096, columnCount);
+        long targetEstimatedWrittenBytes = DataSize.of(16, MEGABYTE).toBytes();
+        long estimatedWrittenBytes = 0;
+        for (int writes = 0; estimatedWrittenBytes < targetEstimatedWrittenBytes && writes < 512; writes++) {
+            writer.write(page);
+            estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+        }
+        assertThat(estimatedWrittenBytes).isGreaterThanOrEqualTo(targetEstimatedWrittenBytes);
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(estimatedWrittenBytes).isCloseTo(actualWrittenBytes, Percentage.withPercentage(10));
+    }
+
+    @Test
+    public void testCompressedSizeEstimateCapsExpansionRatio()
+    {
+        assertThat(PrimitiveColumnWriter.estimateCompressedSize(1024, 40, 10)).isEqualTo(1536);
+        assertThat(PrimitiveColumnWriter.estimateCompressedSize(1024, 5, 10)).isEqualTo(512);
+        assertThat(PrimitiveColumnWriter.estimateCompressedSize(0, 40, 10)).isEqualTo(0);
+        assertThat(PrimitiveColumnWriter.estimateCompressedSize(1024, 0, 0)).isEqualTo(1024);
     }
 
     @Test
@@ -436,7 +512,7 @@ public class TestParquetWriter
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
-                                .setMaxBlockSize(DataSize.ofBytes(4 * 1024))
+                                .setMaxBlockSize(DataSize.of(4, KILOBYTE))
                                 .setBloomFilterColumns(ImmutableSet.copyOf(columnNames))
                                 .build(),
                         types,
@@ -550,5 +626,32 @@ public class TestParquetWriter
         List<Long> shuffledData = LongStream.range(0, size).boxed().collect(toList());
         Collections.shuffle(shuffledData, random);
         return shuffledData;
+    }
+
+    private static Page repeatedVarcharPage(int positionCount, int valueSize)
+    {
+        Slice value = Slices.utf8Slice("x".repeat(valueSize));
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            VARCHAR.writeSlice(blockBuilder, value);
+        }
+        return new Page(blockBuilder.build());
+    }
+
+    private static Page mixedVarcharPage(int positionCount, int columnCount)
+    {
+        Block[] blocks = new Block[columnCount];
+        String payload = "x".repeat(256);
+        for (int column = 0; column < columnCount; column++) {
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            for (int position = 0; position < positionCount; position++) {
+                String value = column == 0
+                        ? "payload-%s-%s".formatted(position % 4096, payload)
+                        : "dimension-%s-%s".formatted(column, position % 32);
+                VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(value));
+            }
+            blocks[column] = blockBuilder.build();
+        }
+        return new Page(blocks);
     }
 }

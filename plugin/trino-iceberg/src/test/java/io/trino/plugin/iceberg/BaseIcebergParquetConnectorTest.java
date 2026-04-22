@@ -173,7 +173,7 @@ public abstract class BaseIcebergParquetConnectorTest
                 "AS SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
             assertUpdate(
-                    withSmallRowGroups(getSession()),
+                    withTableChangesRowGroups(getSession()),
                     "INSERT INTO %s SELECT orderkey, partkey, suppkey FROM tpch.tiny.lineitem".formatted(table.getName()),
                     60175L);
             long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
@@ -185,8 +185,8 @@ public abstract class BaseIcebergParquetConnectorTest
             String filePath = getOnlyTableFilePath(table.getName());
             ParquetMetadata parquetMetadata = getParquetFileMetadata(fileSystem.newInputFile(Location.of(filePath)));
             int blocksSize = parquetMetadata.getBlocks().size();
-            int splitBatchSize = new QueryManagerConfig().getScheduleSplitBatchSize();
-            assertThat(blocksSize > splitBatchSize && blocksSize % splitBatchSize != 0).isTrue();
+            int splitBatchSize = getTableChangesSplitBatchSize();
+            assertThat(blocksSize).isGreaterThan(splitBatchSize);
 
             assertQuery(
                     """
@@ -195,6 +195,18 @@ public abstract class BaseIcebergParquetConnectorTest
                     """.formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT orderkey, partkey, suppkey, 'insert', %s, '%s', 0 FROM lineitem".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
         }
+    }
+
+    protected Session withTableChangesRowGroups(Session session)
+    {
+        return Session.builder(withSmallRowGroups(session))
+                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "256B")
+                .build();
+    }
+
+    protected int getTableChangesSplitBatchSize()
+    {
+        return new QueryManagerConfig().getScheduleSplitBatchSize();
     }
 
     private String getOnlyTableFilePath(String tableName)
