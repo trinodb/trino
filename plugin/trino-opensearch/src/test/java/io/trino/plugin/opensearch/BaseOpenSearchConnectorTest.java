@@ -2154,6 +2154,75 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchInvalidJson()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => 'not json'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must be a valid JSON object");
+    }
+
+    @Test
+    public void testSearchQueryNotObject()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => '[1, 2, 3]'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must be a JSON object");
+    }
+
+    @Test
+    public void testSearchEmptyQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nation', query => '{}'))",
+                catalogName)))
+                .failure().hasMessageContaining("'query' must not be empty");
+    }
+
+    @Test
+    public void testSearchInvalidIndex()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        // If this substring check proves unstable across OpenSearch versions, drop the specific
+        // substring and just assert the query fails.
+        assertThat(query(format(
+                "SELECT * FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', index => 'nonexistent_index_xyz', query => '{\"match_all\":{}}'))",
+                catalogName)))
+                .failure().hasMessageContaining("nonexistent_index_xyz");
+    }
+
+    @Test
+    public void testSearchRejectsTopLevelSearchBodyKeys()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        for (String key : List.of("size", "from", "sort", "aggs", "aggregations", "highlight", "_source", "track_total_hits")) {
+            String json = format("{\"%s\": {}}", key);
+            assertThat(query(format(
+                    "SELECT * FROM TABLE(%s.system.search(" +
+                            "schema => 'tpch', index => 'nation', query => '%s'))",
+                    catalogName,
+                    json)))
+                    .as("reserved key: %s", key)
+                    .failure()
+                    .hasMessageContaining("use raw_query for full _search bodies")
+                    .hasMessageContaining(key);
+        }
+    }
+
+    @Test
     public void testSimpleProjectionPushdown()
             throws IOException
     {
