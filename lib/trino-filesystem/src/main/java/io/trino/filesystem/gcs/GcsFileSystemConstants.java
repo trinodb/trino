@@ -18,6 +18,8 @@ public final class GcsFileSystemConstants
     public static final String EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY = "internal$gcs_oauth2_token";
     public static final String EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY = "internal$gcs_oauth2_token_expires_at";
     public static final String EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY = "internal$gcs_project_id";
+    public static final String EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY = "internal$gcs_encryption_key";
+    public static final String EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY = "internal$gcs_decryption_key";
 
     private GcsFileSystemConstants() {}
 }
