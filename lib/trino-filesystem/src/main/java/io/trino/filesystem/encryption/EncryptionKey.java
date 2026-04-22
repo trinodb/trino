@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record EncryptionKey(byte[] key, String algorithm)
@@ -34,8 +35,10 @@ public record EncryptionKey(byte[] key, String algorithm)
         return ofAes256(key);
     }
 
-    private static EncryptionKey ofAes256(byte[] key)
+    public static EncryptionKey ofAes256(byte[] key)
     {
+        requireNonNull(key, "key is null");
+        checkArgument(key.length == 32, "AES-256 key must be 32 bytes, got %s", key.length);
         return new EncryptionKey(key, "AES256");
     }
 
