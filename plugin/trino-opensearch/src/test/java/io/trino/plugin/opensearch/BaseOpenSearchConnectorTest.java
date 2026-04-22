@@ -2072,6 +2072,71 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchBoolQuery()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"bool\": {\"must\": [" +
+                        "{\"match\": {\"name\": \"ALGERIA\"}}, " +
+                        "{\"range\": {\"regionkey\": {\"gte\": 0}}}" +
+                        "]}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchMatchPhrase()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match_phrase\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchQueryString()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        assertThat(query(format(
+                "SELECT nationkey FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"query_string\": {\"query\": \"name:ALGERIA\"}}'))",
+                catalogName)))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testSearchEmitsDefaultRelevanceSort()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
+        // With a scored query (match), `_score` on the result row must be non-null and positive.
+        // That only happens when OpenSearch does NOT use sort=_doc (which would set _score=null).
+        // BuiltinColumns.SCORE is typed as REAL → surfaces in materialized rows as Float.
+        MaterializedResult result = computeActual(format(
+                "SELECT nationkey, \"_score\" FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => 'nation', " +
+                        "query => '{\"match\": {\"name\": \"ALGERIA\"}}'))",
+                catalogName));
+        assertThat(result.getRowCount()).isEqualTo(1);
+        Float score = (Float) result.getMaterializedRows().get(0).getField(1);
+        assertThat(score).isNotNull();
+        assertThat(score).isGreaterThan(0.0f);
+    }
+
+    @Test
     public void testSimpleProjectionPushdown()
             throws IOException
     {
