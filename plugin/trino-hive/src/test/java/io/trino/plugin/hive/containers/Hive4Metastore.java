@@ -89,6 +89,12 @@ public class Hive4Metastore
         return URI.create("thrift://" + address.getHost() + ":" + address.getPort());
     }
 
+    public URI getHiveHttpMetastoreEndpoint()
+    {
+        HostAndPort address = getMappedHostAndPortForExposedPort(HIVE_METASTORE_PORT);
+        return URI.create("http://" + address.getHost() + ":" + address.getPort());
+    }
+
     public URI getInternalHiveMetastoreEndpoint()
     {
         return URI.create("thrift://" + HOST_NAME + ":" + HIVE_METASTORE_PORT);
