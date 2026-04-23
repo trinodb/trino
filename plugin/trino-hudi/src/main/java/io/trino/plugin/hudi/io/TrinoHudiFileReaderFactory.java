@@ -24,6 +24,7 @@ import org.apache.hudi.io.storage.HoodieFileReaderFactory;
 import org.apache.hudi.io.storage.HoodieNativeAvroHFileReader;
 import org.apache.hudi.storage.HoodieStorage;
 import org.apache.hudi.storage.StoragePath;
+import org.apache.hudi.storage.StoragePathInfo;
 
 import java.io.IOException;
 
@@ -53,13 +54,11 @@ public class TrinoHudiFileReaderFactory
             Option<Schema> schemaOption)
             throws IOException
     {
+        HFileReaderFactory readerFactory = HFileReaderFactory.builder()
+                .withStorage(storage).withProps(hoodieConfig.getProps())
+                .withPath(path).build();
         return HoodieNativeAvroHFileReader.builder()
-                .readerFactory(HFileReaderFactory.builder()
-                        .withStorage(storage)
-                        .build())
-                .path(path)
-                .schema(schemaOption)
-                .build();
+                .readerFactory(readerFactory).path(path).schema(schemaOption).build();
     }
 
     @Override
@@ -71,11 +70,30 @@ public class TrinoHudiFileReaderFactory
             Option<Schema> schemaOption)
             throws IOException
     {
+        HFileReaderFactory readerFactory = HFileReaderFactory.builder()
+                .withStorage(storage)
+                .withProps(hoodieConfig.getProps())
+                .withContent(content)
+                .build();
         return HoodieNativeAvroHFileReader.builder()
-                .readerFactory(HFileReaderFactory.builder()
-                        .withStorage(storage)
-                        .withContent(content)
-                        .build())
+                .readerFactory(readerFactory).path(path).schema(schemaOption).build();
+    }
+
+    @Override
+    protected HoodieFileReader newHFileFileReader(
+            HoodieConfig hoodieConfig,
+            StoragePathInfo pathInfo,
+            Option<Schema> schemaOption)
+            throws IOException
+    {
+        HFileReaderFactory readerFactory = HFileReaderFactory.builder()
+                .withStorage(storage)
+                .withProps(hoodieConfig.getProps())
+                .withPath(pathInfo.getPath())
+                .build();
+        return HoodieNativeAvroHFileReader.builder()
+                .readerFactory(readerFactory)
+                .path(pathInfo.getPath())
                 .schema(schemaOption)
                 .build();
     }
