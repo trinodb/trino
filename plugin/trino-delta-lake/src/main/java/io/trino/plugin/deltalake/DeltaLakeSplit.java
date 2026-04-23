@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
@@ -23,7 +21,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -33,146 +30,43 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class DeltaLakeSplit
+public record DeltaLakeSplit(
+        @JsonProperty("path") String path,
+        @JsonProperty("start") long start,
+        @JsonProperty("length") long length,
+        @JsonProperty("fileSize") long fileSize,
+        @JsonProperty("rowCount") Optional<Long> fileRowCount,
+        @JsonProperty("fileModifiedTime") long fileModifiedTime,
+        @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector,
+        @JsonProperty("affinityKey") Optional<String> affinityKey,
+        @JsonProperty("splitWeight") SplitWeight splitWeight,
+        @JsonProperty("statisticsPredicate") TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
+        @JsonProperty("partitionKeys") Map<String, Optional<String>> partitionKeys)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(DeltaLakeSplit.class);
 
-    private final String path;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final Optional<Long> fileRowCount;
-    private final long fileModifiedTime;
-    private final Optional<DeletionVectorEntry> deletionVector;
-    private final Optional<String> affinityKey;
-    private final SplitWeight splitWeight;
-    private final TupleDomain<DeltaLakeColumnHandle> statisticsPredicate;
-    private final Map<String, Optional<String>> partitionKeys;
-
-    @JsonCreator
-    public DeltaLakeSplit(
-            @JsonProperty("path") String path,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("rowCount") Optional<Long> fileRowCount,
-            @JsonProperty("fileModifiedTime") long fileModifiedTime,
-            @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector,
-            @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("statisticsPredicate") TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
-            @JsonProperty("partitionKeys") Map<String, Optional<String>> partitionKeys)
+    public DeltaLakeSplit
     {
-        this(
-                path,
-                start,
-                length,
-                fileSize,
-                fileRowCount,
-                fileModifiedTime,
-                deletionVector,
-                Optional.empty(),
-                splitWeight,
-                statisticsPredicate,
-                partitionKeys);
+        requireNonNull(path, "path is null");
+        requireNonNull(fileRowCount, "rowCount is null");
+        requireNonNull(deletionVector, "deletionVector is null");
+        requireNonNull(affinityKey, "affinityKey is null");
+        requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(statisticsPredicate, "statisticsPredicate is null");
+        requireNonNull(partitionKeys, "partitionKeys is null");
     }
 
-    public DeltaLakeSplit(
-            String path,
-            long start,
-            long length,
-            long fileSize,
-            Optional<Long> fileRowCount,
-            long fileModifiedTime,
-            Optional<DeletionVectorEntry> deletionVector,
-            Optional<String> affinityKey,
-            SplitWeight splitWeight,
-            TupleDomain<DeltaLakeColumnHandle> statisticsPredicate,
-            Map<String, Optional<String>> partitionKeys)
-    {
-        this.path = requireNonNull(path, "path is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileRowCount = requireNonNull(fileRowCount, "rowCount is null");
-        this.fileModifiedTime = fileModifiedTime;
-        this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
-        this.affinityKey = requireNonNull(affinityKey, "affinityKey is null");
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
-        this.statisticsPredicate = requireNonNull(statisticsPredicate, "statisticsPredicate is null");
-        this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
-    }
-
-    // do not serialize affinity key as it is only used by the scheduler on the coordinator
-    @JsonIgnore
     @Override
     public Optional<String> getAffinityKey()
     {
         return affinityKey;
     }
 
-    @JsonProperty
     @Override
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
-    }
-
-    @JsonProperty
-    public String getPath()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getLength()
-    {
-        return length;
-    }
-
-    @JsonProperty
-    public long getFileSize()
-    {
-        return fileSize;
-    }
-
-    @JsonProperty
-    public Optional<Long> getFileRowCount()
-    {
-        return fileRowCount;
-    }
-
-    @JsonProperty
-    public long getFileModifiedTime()
-    {
-        return fileModifiedTime;
-    }
-
-    @JsonProperty
-    public Optional<DeletionVectorEntry> getDeletionVector()
-    {
-        return deletionVector;
-    }
-
-    /**
-     * A TupleDomain representing the min/max statistics from the file this split was generated from. This does not contain any partitioning information.
-     */
-    @JsonProperty
-    public TupleDomain<DeltaLakeColumnHandle> getStatisticsPredicate()
-    {
-        return statisticsPredicate;
-    }
-
-    @JsonProperty
-    public Map<String, Optional<String>> getPartitionKeys()
-    {
-        return partitionKeys;
     }
 
     @Override
@@ -202,32 +96,5 @@ public class DeltaLakeSplit
                 .add("statisticsPredicate", statisticsPredicate)
                 .add("partitionKeys", partitionKeys)
                 .toString();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        DeltaLakeSplit that = (DeltaLakeSplit) o;
-        return start == that.start &&
-                length == that.length &&
-                fileSize == that.fileSize &&
-                fileModifiedTime == that.fileModifiedTime &&
-                path.equals(that.path) &&
-                fileRowCount.equals(that.fileRowCount) &&
-                deletionVector.equals(that.deletionVector) &&
-                Objects.equals(statisticsPredicate, that.statisticsPredicate) &&
-                Objects.equals(partitionKeys, that.partitionKeys);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(path, start, length, fileSize, fileRowCount, fileModifiedTime, deletionVector, statisticsPredicate, partitionKeys);
     }
 }

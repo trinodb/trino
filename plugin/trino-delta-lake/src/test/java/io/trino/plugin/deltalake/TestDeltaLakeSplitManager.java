@@ -126,11 +126,12 @@ public class TestDeltaLakeSplitManager
 
         DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
         List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
+        long maxSplitSize = deltaLakeConfig.getMaxSplitSize().toBytes();
         List<DeltaLakeSplit> expected = ImmutableList.of(
-                makeSplit(absoluteDecodedParsedFilePath, 0, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(absoluteDecodedParsedFilePath, 5_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(absoluteDecodedParsedFilePath, 10_000, 5_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(absoluteDecodedParsedFilePath, 15_000, 5_000, fileSize, minimumAssignedSplitWeight));
+                makeSplit(absoluteDecodedParsedFilePath, 0, 5_000, fileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(absoluteDecodedParsedFilePath, 5_000, 5_000, fileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(absoluteDecodedParsedFilePath, 10_000, 5_000, fileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(absoluteDecodedParsedFilePath, 15_000, 5_000, fileSize, maxSplitSize, minimumAssignedSplitWeight));
 
         assertThat(splits).isEqualTo(expected);
     }
@@ -148,10 +149,11 @@ public class TestDeltaLakeSplitManager
         DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
         List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
 
+        long maxSplitSize = deltaLakeConfig.getMaxSplitSize().toBytes();
         List<DeltaLakeSplit> expected = ImmutableList.of(
-                makeSplit(FULL_PATH, 0, 20_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(FULL_PATH, 20_000, 20_000, fileSize, minimumAssignedSplitWeight),
-                makeSplit(FULL_PATH, 40_000, 10_000, fileSize, minimumAssignedSplitWeight));
+                makeSplit(FULL_PATH, 0, 20_000, fileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(FULL_PATH, 20_000, 20_000, fileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(FULL_PATH, 40_000, 10_000, fileSize, maxSplitSize, minimumAssignedSplitWeight));
 
         assertThat(splits).isEqualTo(expected);
     }
@@ -170,10 +172,11 @@ public class TestDeltaLakeSplitManager
         DeltaLakeSplitManager splitManager = setupSplitManager(addFileEntries, deltaLakeConfig);
 
         List<DeltaLakeSplit> splits = getSplits(splitManager, deltaLakeConfig);
+        long maxSplitSize = deltaLakeConfig.getMaxSplitSize().toBytes();
         List<DeltaLakeSplit> expected = ImmutableList.of(
-                makeSplit(FULL_PATH, 0, 1_000, firstFileSize, minimumAssignedSplitWeight),
-                makeSplit(FULL_PATH, 0, 10_000, secondFileSize, minimumAssignedSplitWeight),
-                makeSplit(FULL_PATH, 10_000, 10_000, secondFileSize, minimumAssignedSplitWeight));
+                makeSplit(FULL_PATH, 0, 1_000, firstFileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(FULL_PATH, 0, 10_000, secondFileSize, maxSplitSize, minimumAssignedSplitWeight),
+                makeSplit(FULL_PATH, 10_000, 10_000, secondFileSize, maxSplitSize, minimumAssignedSplitWeight));
         assertThat(splits).isEqualTo(expected);
     }
 
@@ -254,10 +257,10 @@ public class TestDeltaLakeSplitManager
         return new AddFileEntry(path, ImmutableMap.of(), fileSize, 0, false, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.empty());
     }
 
-    private DeltaLakeSplit makeSplit(String path, long start, long splitSize, long fileSize, double minimumAssignedSplitWeight)
+    private DeltaLakeSplit makeSplit(String path, long start, long splitSize, long fileSize, long maxSplitSize, double minimumAssignedSplitWeight)
     {
-        SplitWeight splitWeight = SplitWeight.fromProportion(clamp((double) fileSize / splitSize, minimumAssignedSplitWeight, 1.0));
-        return new DeltaLakeSplit(path, start, splitSize, fileSize, Optional.empty(), 0, Optional.empty(), splitWeight, TupleDomain.all(), ImmutableMap.of());
+        SplitWeight splitWeight = SplitWeight.fromProportion(clamp((double) splitSize / maxSplitSize, minimumAssignedSplitWeight, 1.0));
+        return new DeltaLakeSplit(path, start, splitSize, fileSize, Optional.empty(), 0, Optional.empty(), Optional.empty(), splitWeight, TupleDomain.all(), ImmutableMap.of());
     }
 
     private List<DeltaLakeSplit> getSplits(DeltaLakeSplitManager splitManager, DeltaLakeConfig deltaLakeConfig)
