@@ -808,7 +808,8 @@ public abstract class BaseBigQueryTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        CreateAsSelectDataSetup dataSetup = new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new BigQueryDataSetup(getQueryRunner(), dataSetup);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -818,7 +819,8 @@ public abstract class BaseBigQueryTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        CreateAndInsertDataSetup dataSetup = new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new BigQueryDataSetup(getQueryRunner(), dataSetup);
     }
 
     private DataSetup bigqueryCreateAndInsert(String tableNamePrefix)
