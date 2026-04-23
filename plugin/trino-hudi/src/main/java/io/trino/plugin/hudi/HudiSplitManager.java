@@ -109,6 +109,7 @@ public class HudiSplitManager
             HiveMetastore metastore,
             HudiTableHandle tableHandle)
     {
+        HoodieTimer timer = HoodieTimer.start();
         List<HiveColumnHandle> partitionColumns = tableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {
             return ImmutableMap.of(
@@ -134,9 +135,11 @@ public class HudiSplitManager
         if (!partitionsNotFound.isEmpty()) {
             throw new TrinoException(HUDI_PARTITION_NOT_FOUND, format("Cannot find partitions in metastore: %s", partitionsNotFound));
         }
-        return partitionsByNames
+        Map<String, Partition> partitonsMap = partitionsByNames
                 .entrySet().stream()
                 .filter(e -> e.getValue().isPresent())
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
+        log.info("Time taken to fetch partition from metastore for table %s is %s in ms", tableHandle.getTableName(), timer.endTimer());
+        return partitonsMap;
     }
 }

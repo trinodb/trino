@@ -35,6 +35,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import org.apache.hudi.common.table.HoodieTableConfig;
+import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.hive.HiveStylePartitionValueExtractor;
@@ -181,6 +182,7 @@ public class HudiBackgroundSplitLoader
 
     private Deque<HiveHudiPartitionInfo> getPartitionInfos(boolean useIndex)
     {
+        HoodieTimer timer = HoodieTimer.start();
         Map<String, Partition> metadataPartitions;
         if (enableMetadataTable && isMetadataPartitionListingEnabled) {
             try {
@@ -224,10 +226,12 @@ public class HudiBackgroundSplitLoader
                 : null).orElse(metadataPartitions.keySet().stream());
 
         Map<String, Partition> finalMetadataPartitions = metadataPartitions;
-        return effectivePartitions
+        Deque<HiveHudiPartitionInfo> partitionInfoDeque = effectivePartitions
                 .map(partitionName -> buildHiveHudiPartitionInfo(tableHandle, partitionName, finalMetadataPartitions.get(partitionName)))
                 .filter(hudiPartitionInfo -> hudiPartitionInfo.doesMatchPredicates() || hudiPartitionInfo.getHivePartitionName().equals(NON_PARTITION))
                 .collect(Collectors.toCollection(ConcurrentLinkedDeque::new));
+        log.info("Total time taken to load all partitions for table %s.%s is %s ms", tableHandle.getSchemaName(), tableHandle.getTableName(), timer.endTimer());
+        return partitionInfoDeque;
     }
 
     private HiveHudiPartitionInfo buildHiveHudiPartitionInfo(HudiTableHandle tableHandle, String partitionName, Partition partition)

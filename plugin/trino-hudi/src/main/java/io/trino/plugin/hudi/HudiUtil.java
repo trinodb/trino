@@ -234,10 +234,13 @@ public final class HudiUtil
             String basePath)
     {
         try {
-            return HoodieTableMetaClient.builder()
+            HoodieTimer timer = HoodieTimer.start();
+            HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder()
                     .setStorage(new TrinoHudiStorage(fileSystem, new TrinoStorageConfiguration()))
                     .setBasePath(basePath)
                     .build();
+            log.info("Time taken to load meta client for basepath %s is %s in ms", basePath, timer.endTimer());
+            return metaClient;
         }
         catch (TableNotFoundException e) {
             throw new TrinoException(HUDI_BAD_DATA,
