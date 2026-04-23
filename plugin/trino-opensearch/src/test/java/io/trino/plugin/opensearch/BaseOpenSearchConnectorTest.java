@@ -2243,6 +2243,45 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
+    public void testSearchWithCaseSensitiveField()
+            throws IOException
+    {
+        // Regression test: the search PTF must handle indexes whose fields use mixed-case names.
+        // ConnectorTableMetadata lowercases column names, while OpenSearch preserves the mapping
+        // case, so any lookup that joins the schema names against the column-handle map by the
+        // lowercased name fails and the query aborts with GENERIC_INTERNAL_ERROR.
+        String indexName = "search_case_sensitive_" + randomNameSuffix();
+        @Language("JSON")
+        String properties =
+                """
+                {
+                    "properties": {
+                        "id": {"type": "long"},
+                        "createdAt": {"type": "keyword"},
+                        "labelText": {"type": "keyword"}
+                    }
+                }
+                """;
+        createIndex(indexName, properties);
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("id", 1L)
+                .put("createdAt", "2026-04-23")
+                .put("labelText", "alpha")
+                .buildOrThrow());
+
+        String catalogName = getSession().getCatalog().orElseThrow();
+        assertThat(query(format(
+                "SELECT id, createdat, labeltext FROM TABLE(%s.system.search(" +
+                        "schema => 'tpch', " +
+                        "index => '%s', " +
+                        "query => '{\"match_all\": {}}'))",
+                catalogName, indexName)))
+                .matches("VALUES (BIGINT '1', VARCHAR '2026-04-23', VARCHAR 'alpha')");
+
+        deleteIndex(indexName);
+    }
+
+    @Test
     public void testRawQueryStillWorks()
     {
         String catalogName = getSession().getCatalog().orElseThrow();

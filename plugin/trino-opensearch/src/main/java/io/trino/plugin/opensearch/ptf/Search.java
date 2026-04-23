@@ -26,12 +26,9 @@ import io.trino.plugin.opensearch.OpenSearchColumnHandle;
 import io.trino.plugin.opensearch.OpenSearchMetadata;
 import io.trino.plugin.opensearch.OpenSearchTableHandle;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
@@ -136,11 +133,10 @@ public class Search
                     index,
                     Optional.of(query));
 
-            ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
-            Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
-            List<ColumnHandle> columns = tableSchema.getColumns().stream()
-                    .map(ColumnSchema::getName)
-                    .map(columnsByName::get)
+            // ColumnMetadata lowercases names, while the handle map preserves the OpenSearch mapping case,
+            // so resolving ColumnSchema names against the map would miss any mixed-case field (e.g. `createdAt`).
+            List<OpenSearchColumnHandle> columns = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .map(OpenSearchColumnHandle.class::cast)
                     .collect(toImmutableList());
 
             if (columns.isEmpty()) {
@@ -150,7 +146,6 @@ public class Search
             }
 
             Descriptor returnedType = new Descriptor(columns.stream()
-                    .map(OpenSearchColumnHandle.class::cast)
                     .map(column -> new Descriptor.Field(column.name(), Optional.of(column.type())))
                     .collect(toImmutableList()));
 
