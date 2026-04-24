@@ -58,10 +58,15 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public Optional<ExtendedStatistics> readExtendedStatistics(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            String tableLocation,
+            String extendedStatsFile,
+            VendedCredentialsHandle credentialsHandle)
     {
         try {
-            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle));
+            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation, extendedStatsFile), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation, extendedStatsFile, credentialsHandle));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -70,17 +75,24 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public void updateExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle, ExtendedStatistics statistics)
+    public String writeExtendedStatistics(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            String tableLocation,
+            Optional<String> previousExtendedStatsFile,
+            VendedCredentialsHandle credentialsHandle,
+            ExtendedStatistics statistics)
     {
-        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle, statistics);
-        cache.invalidate(new CacheKey(schemaTableName, tableLocation));
+        String extendedStatsFile = delegate.writeExtendedStatistics(session, schemaTableName, tableLocation, previousExtendedStatsFile, credentialsHandle, statistics);
+        cache.invalidate(new CacheKey(schemaTableName, tableLocation, extendedStatsFile));
+        return extendedStatsFile;
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, String extendedStatsFile, VendedCredentialsHandle credentialsHandle)
     {
-        delegate.deleteExtendedStatistics(session, schemaTableName, tableLocation, credentialsHandle);
-        cache.invalidate(new CacheKey(schemaTableName, tableLocation));
+        delegate.deleteExtendedStatistics(session, schemaTableName, tableLocation, extendedStatsFile, credentialsHandle);
+        cache.invalidate(new CacheKey(schemaTableName, tableLocation, extendedStatsFile));
     }
 
     public void invalidateCache()
@@ -102,12 +114,13 @@ public class CachingExtendedStatisticsAccess
     @BindingAnnotation
     public @interface ForCachingExtendedStatisticsAccess {}
 
-    private record CacheKey(SchemaTableName tableName, String location)
+    private record CacheKey(SchemaTableName tableName, String location, String extendedStatsFile)
     {
         CacheKey
         {
             requireNonNull(tableName, "tableName is null");
             requireNonNull(location, "location is null");
+            requireNonNull(extendedStatsFile, "extendedStatsFile is null");
         }
     }
 }

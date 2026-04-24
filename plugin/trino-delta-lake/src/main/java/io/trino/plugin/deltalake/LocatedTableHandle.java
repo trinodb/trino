@@ -17,6 +17,8 @@ import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
+import java.util.Optional;
+
 public interface LocatedTableHandle
         extends ConnectorTableHandle
 {
@@ -27,4 +29,6 @@ public interface LocatedTableHandle
     String location();
 
     VendedCredentialsHandle toCredentialsHandle();
+
+    Optional<String> extendedStatsFile();
 }

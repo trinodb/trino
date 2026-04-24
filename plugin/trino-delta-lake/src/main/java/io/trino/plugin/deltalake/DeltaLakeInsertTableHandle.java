@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +33,8 @@ public record DeltaLakeInsertTableHandle(
         List<DeltaLakeColumnHandle> inputColumns,
         long readVersion,
         boolean retriesEnabled,
-        VendedCredentialsHandle credentialsHandle)
+        VendedCredentialsHandle credentialsHandle,
+        Optional<String> extendedStatisticsFile)
         implements ConnectorInsertTableHandle
 {
     public DeltaLakeInsertTableHandle
@@ -43,6 +45,7 @@ public record DeltaLakeInsertTableHandle(
         inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         requireNonNull(location, "location is null");
         requireNonNull(credentialsHandle, "credentialsHandle is null");
+        requireNonNull(extendedStatisticsFile, "extendedStatisticsFile is null");
     }
 
     @Override

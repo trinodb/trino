@@ -44,7 +44,6 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtoco
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -82,6 +81,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -449,7 +449,7 @@ public class TransactionLogAccess
         Map<FileEntryKey, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
         HashSet<FileEntryKey> removedFiles = new HashSet<>();
 
-        // The json entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
+        // The JSON entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
         // - Any files which have been removed need to be excluded
         // - Any files with newer add actions need to be updated with the most recent metadata
         transactions.forEach(transaction -> {
@@ -489,94 +489,97 @@ public class TransactionLogAccess
 
     public MetadataAndProtocolEntries getMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
     {
-        if (tableSnapshot.getCachedMetadata().isEmpty() && tableSnapshot.getCachedProtocol().isEmpty()) {
-            return getLatestMetadataAndProtocolEntry(session, fileSystem, tableSnapshot);
+        MetadataAndProtocolEntries.Builder builder = MetadataAndProtocolEntries.builder()
+                .withEntries(tableSnapshot.getCachedEntries());
+        if (builder.isFull()) {
+            return builder.build();
         }
 
-        if (tableSnapshot.getCachedMetadata().isEmpty()) {
-            getMetadataEntry(session, fileSystem, tableSnapshot);
-        }
-        else if (tableSnapshot.getCachedProtocol().isEmpty()) {
-            getProtocolEntry(session, fileSystem, tableSnapshot);
-        }
-
-        return new MetadataAndProtocolEntries(tableSnapshot.getCachedMetadata(), tableSnapshot.getCachedProtocol());
-    }
-
-    private MetadataAndProtocolEntries getLatestMetadataAndProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
-    {
-        Optional<MetadataEntry> latestMetadataEntry = Optional.empty();
-        Optional<ProtocolEntry> latestProtocolEntry = Optional.empty();
         for (Transaction transaction : tableSnapshot.getTransactions().reversed()) {
             MetadataAndProtocolEntries metadataAndProtocol = transaction.transactionEntries().getMetadataAndProtocol(fileSystem);
-            if (latestMetadataEntry.isEmpty() && metadataAndProtocol.metadata().isPresent()) {
-                latestMetadataEntry = metadataAndProtocol.metadata();
+            builder.withEntries(metadataAndProtocol);
+            if (builder.isFull()) {
+                break;
             }
-            if (latestProtocolEntry.isEmpty() && metadataAndProtocol.protocol().isPresent()) {
-                latestProtocolEntry = metadataAndProtocol.protocol();
-            }
-            if (latestMetadataEntry.isPresent() && latestProtocolEntry.isPresent()) {
-                tableSnapshot.setCachedMetadata(latestMetadataEntry);
-                tableSnapshot.setCachedProtocol(latestProtocolEntry);
-                return new MetadataAndProtocolEntries(latestMetadataEntry, latestProtocolEntry);
-            }
+        }
+
+        if (builder.isFull()) {
+            MetadataAndProtocolEntries entries = builder.build();
+            tableSnapshot.updateCachedEntries(entries);
+            return entries;
+        }
+
+        tryUpdateCommitInfoIfPossible(builder, fileSystem, tableSnapshot);
+
+        Set<CheckpointEntryIterator.EntryType> entryTypes = resolveCheckpointReadTypes(builder);
+        if (entryTypes.isEmpty()) {
+            MetadataAndProtocolEntries entries = builder.build();
+            tableSnapshot.updateCachedEntries(entries);
+            return entries;
         }
 
         MetadataAndProtocolEntries checkpointEntries = getCheckpointEntry(
                 session,
                 tableSnapshot,
-                ImmutableSet.of(METADATA, PROTOCOL),
+                entryTypes,
                 checkpointStream -> {
-                    MetadataEntry metadataEntry = null;
-                    ProtocolEntry protocolEntry = null;
                     for (Iterator<DeltaLakeTransactionLogEntry> it = checkpointStream.iterator(); it.hasNext(); ) {
                         DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
-                        if (transactionLogEntry.getMetaData() != null) {
-                            metadataEntry = transactionLogEntry.getMetaData();
-                        }
-                        if (transactionLogEntry.getProtocol() != null) {
-                            protocolEntry = transactionLogEntry.getProtocol();
+                        builder.withTransactionLogEntry(transactionLogEntry);
+                        // checkpoint don't contain commitInfo entry
+                        if (builder.hasMetadata() && builder.hasProtocol()) {
+                            return Optional.of(builder.build());
                         }
                     }
-                    return Optional.of(new MetadataAndProtocolEntries(metadataEntry, protocolEntry));
+                    return Optional.of(builder.build());
                 },
                 fileSystem,
                 fileFormatDataSourceStats)
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata and protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
 
-        tableSnapshot.setCachedMetadata(latestMetadataEntry.or(checkpointEntries::metadata));
-        tableSnapshot.setCachedProtocol(latestProtocolEntry.or(checkpointEntries::protocol));
-
-        return new MetadataAndProtocolEntries(tableSnapshot.getCachedMetadata(), tableSnapshot.getCachedProtocol());
+        tableSnapshot.updateCachedEntries(checkpointEntries);
+        return checkpointEntries;
     }
 
-    public ProtocolEntry getProtocolEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
+    // Resolve checkpoint entry types to read based on which entries are missing for current builder,
+    // i,e if the builder already hasMetadata, then we could skip reading it.
+    private static Set<CheckpointEntryIterator.EntryType> resolveCheckpointReadTypes(MetadataAndProtocolEntries.Builder builder)
     {
-        if (tableSnapshot.getCachedProtocol().isEmpty()) {
-            Optional<ProtocolEntry> latestProtocolEntry = tableSnapshot.getTransactions().reversed().stream()
-                    .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
-                    .map(MetadataAndProtocolEntries::protocol)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .findFirst();
-
-            if (latestProtocolEntry.isEmpty()) {
-                latestProtocolEntry = getCheckpointEntry(
-                        session,
-                        tableSnapshot,
-                        ImmutableSet.of(PROTOCOL),
-                        checkpointStream -> checkpointStream
-                                .map(DeltaLakeTransactionLogEntry::getProtocol)
-                                .filter(Objects::nonNull)
-                                .reduce((_, second) -> second),
-                        fileSystem,
-                        fileFormatDataSourceStats);
-            }
-
-            tableSnapshot.setCachedProtocol(latestProtocolEntry);
+        checkState(!builder.isFull(), "Builder is already full");
+        ImmutableSet.Builder<CheckpointEntryIterator.EntryType> typesForRead = ImmutableSet.builder();
+        if (!builder.hasMetadata()) {
+            typesForRead.add(METADATA);
         }
-        return tableSnapshot.getCachedProtocol()
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        if (!builder.hasProtocol()) {
+            typesForRead.add(PROTOCOL);
+        }
+
+        return typesForRead.build();
+    }
+
+    private void tryUpdateCommitInfoIfPossible(MetadataAndProtocolEntries.Builder builder, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
+    {
+        if (builder.hasCommitInfo()) {
+            return;
+        }
+
+        // we have looked up in the transaction logs and can't find the commitInfo
+        if (!tableSnapshot.getTransactions().isEmpty()) {
+            return;
+        }
+
+        // we didn't try to find the commitInfo in any transaction logs, probably because there are no transactions in the log(table just created)
+        // or there exists logs but just has written the checkpoint, but we didn't persist the commitInfo in the checkpoint, in this case we should
+        // look at the last log to try to find the commitInfo.
+        String tableLocation = tableSnapshot.getTableLocation();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+        try (Stream<DeltaLakeTransactionLogEntry> entryStream = getJsonEntries(fileSystem, transactionLogDir, ImmutableList.of(tableSnapshot.getVersion()))) {
+            // TODO: optimize the logic for inCommitTimestamp https://github.com/delta-io/delta/blob/master/PROTOCOL.md#writer-requirements-for-in-commit-timestamps
+            entryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .ifPresent(builder::withCommitInfo);
+        }
     }
 
     private <T> Optional<T> getCheckpointEntry(

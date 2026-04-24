@@ -110,8 +110,6 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses(
                 "CREATE TABLE test_create_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.newStream"))
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "OutputFile.create"))
@@ -122,8 +120,6 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses(
                 "CREATE TABLE test_create_partitioned_as_select WITH (partitioned_by=ARRAY['key']) AS SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t(key, col)",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.newStream"))
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "OutputFile.create"))
@@ -160,8 +156,6 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses(
                 "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.newStream"))
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "OutputFile.create"))
@@ -171,7 +165,6 @@ public class TestDeltaLakeFileOperations
         assertFileSystemAccesses(
                 "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
                 ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
@@ -247,6 +240,8 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 2)
                         .build());
@@ -270,6 +265,8 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
                         .addCopies(new FileOperation(DATA, "key=p1/", "InputFile.newInput"), 2)
                         .addCopies(new FileOperation(DATA, "key=p2/", "InputFile.newInput"), 2)
@@ -538,6 +535,8 @@ public class TestDeltaLakeFileOperations
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.exists"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000020.json", "InputFile.length"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.length"), 2)
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000020.checkpoint.parquet", "InputFile.newInput"), 2)
                         .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 20)
@@ -1155,8 +1154,8 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000001.0000000002.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.length")) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000006.checkpoint.0000000002.0000000002.parquet", "InputFile.newInput"))// TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000008.json", "InputFile.length"))
@@ -1178,6 +1177,8 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.newStream"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.newInput"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.length"))
@@ -1214,6 +1215,8 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", "InputFile.newStream"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.length"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length")) // TransactionLogTail.getEntriesFromJson access non-existing file as end of tail
                         .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
                         .build());
@@ -1244,6 +1247,8 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", "InputFile.newInput"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.length"))
                         .add(new FileOperation(CHECKPOINT, "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length")) // TransactionLogTail.getEntriesFromJson access non-existing file as end of tail
                         .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
                         .build());
@@ -1281,7 +1286,6 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
-                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
                         .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                         .add(new FileOperation(DELETION_VECTOR, "deletion_vector_a52eda8c-0a57-4636-814b-9c165388f7ca.bin", "InputFile.newInput"))
@@ -1400,8 +1404,8 @@ public class TestDeltaLakeFileOperations
             if (path.matches(".*/_delta_log/\\d+\\.json")) {
                 return new FileOperation(TRANSACTION_LOG_JSON, fileName, operationType);
             }
-            if (path.matches(".*/_delta_log/_trino_meta/extended_stats.json")) {
-                return new FileOperation(TRINO_EXTENDED_STATS_JSON, fileName, operationType);
+            if (path.matches(".*/_delta_log/_trino_meta/.*extended_stats.json")) {
+                return new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", operationType);
             }
             if (path.matches(".*/_delta_log/_starburst_meta/extendeded_stats.json")) {
                 return new FileOperation(STARBURST_EXTENDED_STATS_JSON, fileName, operationType);

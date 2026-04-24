@@ -81,8 +81,7 @@ public class TableSnapshot
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
-    private Optional<MetadataEntry> cachedMetadata = Optional.empty();
-    private Optional<ProtocolEntry> cachedProtocol = Optional.empty();
+    private MetadataAndProtocolEntries cachedMetadataAndProtocolEntries = MetadataAndProtocolEntries.builder().build();
 
     private TableSnapshot(
             SchemaTableName table,
@@ -181,12 +180,12 @@ public class TableSnapshot
 
     public Optional<MetadataEntry> getCachedMetadata()
     {
-        return cachedMetadata;
+        return cachedMetadataAndProtocolEntries.metadata();
     }
 
     public Optional<ProtocolEntry> getCachedProtocol()
     {
-        return cachedProtocol;
+        return cachedMetadataAndProtocolEntries.protocol();
     }
 
     public String getTableLocation()
@@ -194,14 +193,29 @@ public class TableSnapshot
         return tableLocation;
     }
 
-    public void setCachedMetadata(Optional<MetadataEntry> cachedMetadata)
+    public MetadataAndProtocolEntries getCachedEntries()
     {
-        this.cachedMetadata = cachedMetadata;
+        return cachedMetadataAndProtocolEntries;
     }
 
-    public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
+    public void updateCachedEntries(MetadataAndProtocolEntries updateEntries)
     {
-        this.cachedProtocol = cachedProtocol;
+        this.cachedMetadataAndProtocolEntries = MetadataAndProtocolEntries.builder()
+                .withEntries(updateEntries)
+                .withEntries(this.cachedMetadataAndProtocolEntries)
+                .build();
+    }
+
+    public void setCachedMetadata(Optional<MetadataEntry> cachedMetadata)
+    {
+        if (cachedMetadata.isEmpty()) {
+            return;
+        }
+
+        cachedMetadataAndProtocolEntries = MetadataAndProtocolEntries.builder()
+                .withMetadataEntry(cachedMetadata.get())
+                .withEntries(cachedMetadataAndProtocolEntries)
+                .build();
     }
 
     public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries(TrinoFileSystem fileSystem)
@@ -221,8 +235,7 @@ public class TableSnapshot
                 + table.getRetainedSizeInBytes()
                 + logTail.getRetainedSizeInBytes()
                 + estimatedSizeOf(tableLocation)
-                + sizeOf(cachedMetadata, MetadataEntry::getRetainedSizeInBytes)
-                + sizeOf(cachedProtocol, ProtocolEntry::getRetainedSizeInBytes);
+                + cachedMetadataAndProtocolEntries.getRetainedSizeInBytes();
     }
 
     public Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(

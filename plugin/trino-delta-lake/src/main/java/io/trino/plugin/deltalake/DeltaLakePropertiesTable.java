@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.transactionlog.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -37,6 +38,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -86,11 +88,14 @@ public class DeltaLakePropertiesTable
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
         try {
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
-            metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
-            protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
+            MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(session, fileSystem, tableSnapshot);
+            metadataEntry = metadataAndProtocolEntries.metadata()
+                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + table.schemaTableName()));
+            protocolEntry = metadataAndProtocolEntries.protocol()
+                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + table.schemaTableName()));
         }
         catch (IOException e) {
-            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
         }
 
         return new FixedPageSource(buildPages(metadataEntry, protocolEntry));

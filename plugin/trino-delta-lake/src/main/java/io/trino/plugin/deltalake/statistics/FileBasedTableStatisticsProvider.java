@@ -50,6 +50,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
+import static io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess.STATISTICS_FILE;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
@@ -212,7 +213,7 @@ public class FileBasedTableStatisticsProvider
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.toCredentialsHandle());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.extendedStatsFile().orElse(STATISTICS_FILE), tableHandle.toCredentialsHandle());
         }
 
         for (DeltaLakeColumnHandle column : columns) {

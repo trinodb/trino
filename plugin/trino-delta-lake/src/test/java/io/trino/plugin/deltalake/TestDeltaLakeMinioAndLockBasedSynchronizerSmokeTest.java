@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -138,7 +139,9 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
                             tableName),
                     2);
 
-            Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName));
+            Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName)).stream()
+                    .filter(path -> !path.endsWith(".extended_stats.json"))
+                    .collect(toImmutableSet());
             assertThat(originalFiles).isNotEmpty(); // sanity check
 
             String lockFilePath = lockTable(tableName, java.time.Duration.ofMinutes(5));
@@ -153,7 +156,8 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
                     .build();
             assertEventually(
                     new Duration(5, TimeUnit.SECONDS),
-                    () -> assertThat(getTableFiles(tableName)).containsExactlyInAnyOrderElementsOf(expectedFiles));
+                    () -> assertThat(getTableFiles(tableName).stream().filter(path -> !path.endsWith(".extended_stats.json")).collect(toImmutableSet()))
+                            .containsExactlyInAnyOrderElementsOf(expectedFiles));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

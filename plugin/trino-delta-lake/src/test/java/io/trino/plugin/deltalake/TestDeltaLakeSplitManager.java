@@ -99,7 +99,8 @@ public class TestDeltaLakeSplitManager
             Optional.empty(),
             Optional.empty(),
             0,
-            false);
+            false,
+            Optional.empty());
     private final HiveTransactionHandle transactionHandle = new HiveTransactionHandle(true);
 
     @Test
@@ -208,7 +209,6 @@ public class TestDeltaLakeSplitManager
                 new CheckpointSchemaManager(typeManager),
                 new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
                 new NodeVersion("test_version"),
-                transactionLogAccess,
                 new FileFormatDataSourceStats(),
                 jsonCodec(LastCheckpoint.class),
                 new DeltaLakeConfig(),

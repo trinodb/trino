@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.PlanTester;
@@ -35,6 +37,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -68,7 +71,8 @@ public final class TestingDeltaLakeUtils
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false);
+                false,
+                Optional.empty());
     }
 
     public static DeltaLakeTableHandle createTable(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
@@ -86,7 +90,8 @@ public final class TestingDeltaLakeUtils
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false);
+                false,
+                Optional.empty());
     }
 
     public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, TrinoFileSystemFactory fileSystemFactory, String tableLocation)
@@ -98,8 +103,11 @@ public final class TestingDeltaLakeUtils
         transactionLogAccess.flushCache();
 
         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(dummyTable, tableLocation), Optional.empty());
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystemFactory.create(SESSION), snapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystemFactory.create(SESSION), snapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystemFactory.create(SESSION), snapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + snapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + snapshot.getTable()));
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), snapshot, TupleDomain.all(), alwaysTrue())) {
             return addFileEntries.collect(toImmutableList());
         }

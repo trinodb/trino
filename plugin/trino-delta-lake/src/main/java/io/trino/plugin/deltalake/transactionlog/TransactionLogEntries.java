@@ -20,7 +20,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.spi.TrinoException;
 
 import java.io.BufferedReader;
@@ -95,23 +94,15 @@ public final class TransactionLogEntries
     {
         // There can be at most one metadata and protocol entry per transaction log
         // We use that stop reading from file when a metadata and protocol entry are found
+        MetadataAndProtocolEntries.Builder builder = MetadataAndProtocolEntries.builder();
         try (Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntries(fileSystem)) {
-            Optional<MetadataEntry> metadataEntry = Optional.empty();
-            Optional<ProtocolEntry> protocolEntry = Optional.empty();
             for (Iterator<DeltaLakeTransactionLogEntry> it = logEntryStream.iterator(); it.hasNext(); ) {
-                DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
-                if (transactionLogEntry.getMetaData() != null) {
-                    metadataEntry = Optional.of(transactionLogEntry.getMetaData());
-                }
-                else if (transactionLogEntry.getProtocol() != null) {
-                    protocolEntry = Optional.of(transactionLogEntry.getProtocol());
-                }
-
-                if (protocolEntry.isPresent() && metadataEntry.isPresent()) {
+                builder.withTransactionLogEntry(it.next());
+                if (builder.isFull()) {
                     break;
                 }
             }
-            return new MetadataAndProtocolEntries(metadataEntry, protocolEntry);
+            return builder.build();
         }
     }
 

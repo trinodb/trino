@@ -26,16 +26,17 @@ import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -75,6 +76,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractColumnMetadata;
@@ -185,8 +187,11 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccessFromResources("person", "databricks73/person");
 
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         List<AddFileEntry> addFileEntries;
         try (Stream<AddFileEntry> addFileEntriesStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntriesStream.collect(toImmutableList());
@@ -224,8 +229,11 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccessFromResources("uppercase_columns", "databricks73/uppercase_columns");
 
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
 
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             AddFileEntry addFileEntry = addFileEntries
@@ -249,8 +257,11 @@ public class TestTransactionLogAccess
         // - Added in the parquet checkpoint but removed in a JSON commit
         // - Added in a JSON commit and removed in a later JSON commit
         setupTransactionLogAccessFromResources("person_test_pruning", "databricks73/person_test_pruning");
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> paths = addFileEntries
                     .map(AddFileEntry::getPath)
@@ -266,8 +277,11 @@ public class TestTransactionLogAccess
             throws Exception
     {
         setupTransactionLogAccessFromResources("person_test_pruning", "databricks73/person_test_pruning");
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         List<AddFileEntry> addFileEntries;
         try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntryStream.collect(toImmutableList());
@@ -292,8 +306,11 @@ public class TestTransactionLogAccess
             throws Exception
     {
         setupTransactionLogAccessFromResources("person_test_pruning", "databricks73/person_test_pruning");
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             // Test data contains an entry added by the parquet checkpoint, removed by a JSON action, and then added back by a later JSON action
             List<AddFileEntry> activeEntries = addFileEntries
@@ -320,7 +337,6 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
-        transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
 
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
@@ -346,7 +362,6 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
         TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
-        transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystem, tableSnapshot);
         MetadataAndProtocolEntries logEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, fileSystem, tableSnapshot);
 
         MetadataEntry metadataEntry = logEntries.metadata().orElseThrow();
@@ -374,8 +389,11 @@ public class TestTransactionLogAccess
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> paths = addFileEntries
                     .map(AddFileEntry::getPath)
@@ -400,7 +418,9 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot)
+                .protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         assertThat(protocolEntry.minReaderVersion()).isEqualTo(1);
         assertThat(protocolEntry.minWriterVersion()).isEqualTo(2);
     }
@@ -445,8 +465,11 @@ public class TestTransactionLogAccess
         File resourceDir = new File(getClass().getClassLoader().getResource("databricks73/person/_delta_log").toURI());
         copyTransactionLogEntry(0, 7, resourceDir, transactionLogDir);
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet",
@@ -489,8 +512,11 @@ public class TestTransactionLogAccess
         copyTransactionLogEntry(0, 8, resourceDir, transactionLogDir);
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
 
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             Set<String> dataFiles = ImmutableSet.of(
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
@@ -545,8 +571,11 @@ public class TestTransactionLogAccess
                         new ParquetWriterConfig())
                         .getSessionProperties())
                 .build();
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(activeDataFileCacheSession, tracingFileSystemFactory.create(activeDataFileCacheSession, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(activeDataFileCacheSession, tracingFileSystemFactory.create(activeDataFileCacheSession, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
 
         Set<String> originalDataFiles = ImmutableSet.of(
                 "age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet",
@@ -598,7 +627,8 @@ public class TestTransactionLogAccess
                                     Optional.empty(),
                                     Optional.empty(),
                                     0,
-                                    false),
+                                    false,
+                                    Optional.empty()),
                             updatedTableSnapshot,
                             TupleDomain.all(),
                             alwaysTrue())) {
@@ -632,8 +662,11 @@ public class TestTransactionLogAccess
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         List<AddFileEntry> expectedDataFiles;
         try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             expectedDataFiles = addFileEntryStream.collect(toImmutableList());
@@ -658,7 +691,7 @@ public class TestTransactionLogAccess
         }
 
         assertThat(expectedDataFiles).hasSize(dataFilesWithFixedVersion.size());
-        List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot), transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot), TESTING_TYPE_MANAGER);
+        List<ColumnMetadata> columns = extractColumnMetadata(metadataEntry, protocolEntry, TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);
             AddFileEntry actual = dataFilesWithFixedVersion.get(i);
@@ -719,8 +752,11 @@ public class TestTransactionLogAccess
         String tableName = "parquet_struct_statistics";
         setupTransactionLogAccess(tableName, getClass().getClassLoader().getResource("databricks73/pruning/" + tableName).toURI().toString());
 
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
         List<AddFileEntry> addFileEntries;
         try (Stream<AddFileEntry> addFileEntryStream = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
             addFileEntries = addFileEntryStream.collect(toImmutableList());
@@ -805,8 +841,11 @@ public class TestTransactionLogAccess
         String tableName = "person";
         String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
         setupTransactionLogAccess("person", getClass().getClassLoader().getResource("databricks73/person").toString(), new DeltaLakeConfig(), Optional.of(9L));
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataAndProtocolEntries metadataAndProtocolEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
+        MetadataEntry metadataEntry = metadataAndProtocolEntries.metadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+        ProtocolEntry protocolEntry = metadataAndProtocolEntries.protocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol not found in transaction log for " + tableSnapshot.getTable()));
 
         // Version 10 has a checkpoint file
         transactionLogAccess.flushCache();
