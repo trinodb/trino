@@ -846,7 +846,7 @@ public class TestingAccessControlManager
             this(actorName, (entity, branch) -> entityPredicate.test(entity), type);
         }
 
-        private TestingPrivilege(Optional<String> actorName, BiPredicate<String, Optional<String>> entityPredicate, TestingPrivilegeType type)
+        public TestingPrivilege(Optional<String> actorName, BiPredicate<String, Optional<String>> entityPredicate, TestingPrivilegeType type)
         {
             this.actorName = requireNonNull(actorName, "actorName is null");
             this.entityPredicate = requireNonNull(entityPredicate, "entityPredicate is null");

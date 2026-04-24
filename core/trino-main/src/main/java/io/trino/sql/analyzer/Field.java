@@ -232,6 +232,7 @@ public class Field
             this.type = field.type;
             this.hidden = field.hidden;
             this.originTable = field.originTable;
+            this.originBranch = field.originBranch;
             this.originColumnName = field.originColumnName;
             this.aliased = field.aliased;
         }
