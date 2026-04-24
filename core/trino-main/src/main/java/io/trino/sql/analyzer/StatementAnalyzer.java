@@ -704,7 +704,7 @@ class StatementAnalyzer
                                     (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
-            return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(insert, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -783,7 +783,7 @@ class StatementAnalyzer
                                     (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
-            return createAndAssignScope(refreshMaterializedView, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(refreshMaterializedView, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         private boolean typesMatchForInsert(List<Type> tableTypes, List<Type> queryTypes)
@@ -892,7 +892,7 @@ class StatementAnalyzer
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -939,7 +939,7 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName), exception);
             }
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -960,7 +960,7 @@ class StatementAnalyzer
                             false));
                     analysis.setUpdateType("CREATE TABLE");
                     analysis.setUpdateTarget(targetTableHandle.get().catalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
-                    return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+                    return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
@@ -1056,7 +1056,7 @@ class StatementAnalyzer
                     Optional.empty(),
                     Optional.of(outputColumns.build()));
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(node, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -1342,7 +1342,9 @@ class StatementAnalyzer
             analysis.setUpdateType("ALTER TABLE EXECUTE");
             analysis.setUpdateTarget(executeHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
 
-            return createAndAssignScope(node, scope, Field.newUnqualified("metric_name", VARCHAR), Field.newUnqualified("metric_value", BIGINT));
+            return createAndAssignScope(node, scope,
+                    Field.builder().name("metric_name").type(VARCHAR).build(),
+                    Field.builder().name("metric_value").type(BIGINT).build());
         }
 
         private List<Property> processTableExecuteArguments(TableExecute node, TableProcedureMetadata procedureMetadata, Optional<Scope> scope)
@@ -1578,14 +1580,14 @@ class StatementAnalyzer
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            return createAndAssignScope(node, scope, Field.builder().name("Query Plan").type(VARCHAR).build());
         }
 
         @Override
         protected Scope visitExplainAnalyze(ExplainAnalyze node, Optional<Scope> scope)
         {
             process(node.getStatement(), scope);
-            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            return createAndAssignScope(node, scope, Field.builder().name("Query Plan").type(VARCHAR).build());
         }
 
         @Override
@@ -1663,16 +1665,16 @@ class StatementAnalyzer
                     Type elementType = arrayType.getElementType();
                     if (elementType instanceof RowType rowType) {
                         rowType.getFields().stream()
-                                .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                                .map(field -> Field.builder().name(field.getName()).type(field.getType()).build())
                                 .forEach(expressionOutputs::add);
                     }
                     else {
-                        expressionOutputs.add(Field.newUnqualified(Optional.empty(), elementType));
+                        expressionOutputs.add(Field.builder().type(elementType).build());
                     }
                 }
                 else if (expressionType instanceof MapType mapType) {
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getKeyType()));
-                    expressionOutputs.add(Field.newUnqualified(Optional.empty(), mapType.getValueType()));
+                    expressionOutputs.add(Field.builder().type(mapType.getKeyType()).build());
+                    expressionOutputs.add(Field.builder().type(mapType.getValueType()).build());
                 }
                 else {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
@@ -1685,7 +1687,7 @@ class StatementAnalyzer
 
             Optional<Field> ordinalityField = Optional.empty();
             if (node.isWithOrdinality()) {
-                ordinalityField = Optional.of(Field.newUnqualified(Optional.empty(), BIGINT));
+                ordinalityField = Optional.of(Field.builder().type(BIGINT).build());
             }
 
             ordinalityField.ifPresent(outputFields::add);
@@ -1877,7 +1879,10 @@ class StatementAnalyzer
             if (properColumnsDescriptor != null) {
                 properColumnsDescriptor.getFields().stream()
                         // per spec, field names are mandatory. We support anonymous fields.
-                        .map(field -> Field.newUnqualified(field.getName(), field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field"))))
+                        .map(field -> Field.builder()
+                                .name(field.getName())
+                                .type(field.getType().orElseThrow(() -> new IllegalStateException("missing returned type for proper field")))
+                                .build())
                         .forEach(fields::add);
             }
 
@@ -2411,7 +2416,7 @@ class StatementAnalyzer
                 // Add the row id field
                 ColumnHandle rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get());
                 Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
-                Field field = Field.newUnqualified(Optional.empty(), type);
+                Field field = Field.builder().type(type).build();
                 fields.add(field);
                 analysis.setColumn(field, rowIdColumnHandle);
             }
@@ -2587,14 +2592,11 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                Optional.of(aliases.next().getValue()),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                        Field field = inputField.rebuild()
+                                .relationAlias(Optional.of(QualifiedName.of(table.getName().getSuffix())))
+                                .name(aliases.next().getValue())
+                                .hidden(false)
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -2606,14 +2608,10 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        Field field = Field.newQualified(
-                                QualifiedName.of(table.getName().getSuffix()),
-                                inputField.getName(),
-                                inputField.getType(),
-                                false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
-                                inputField.isAliased());
+                        Field field = inputField.rebuild()
+                                .relationAlias(Optional.of(QualifiedName.of(table.getName().getSuffix())))
+                                .hidden(false)
+                                .build();
                         fieldBuilder.add(field);
                         analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
@@ -2689,14 +2687,15 @@ class StatementAnalyzer
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
             List<Field> viewFields = columns.stream()
-                    .map(column -> Field.newQualified(
-                            table.getName(),
-                            Optional.of(column.name()),
-                            getViewColumnType(column, name, table),
-                            false,
-                            Optional.of(name),
-                            Optional.of(column.name()),
-                            false))
+                    .map(column -> Field.builder()
+                            .relationAlias(Optional.of(table.getName()))
+                            .name(column.name())
+                            .type(getViewColumnType(column, name, table))
+                            .hidden(false)
+                            .originTable(Optional.of(name))
+                            .originColumnName(Optional.of(column.name()))
+                            .aliased(false)
+                            .build())
                     .collect(toImmutableList());
 
             if (freshStorageTable.isPresent()) {
@@ -2803,14 +2802,15 @@ class StatementAnalyzer
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
             for (ColumnSchema column : tableSchema.columns()) {
-                Field field = Field.newQualified(
-                        table.getName(),
-                        Optional.of(column.getName()),
-                        column.getType(),
-                        column.isHidden(),
-                        Optional.of(tableName),
-                        Optional.of(column.getName()),
-                        false);
+                Field field = Field.builder()
+                        .relationAlias(Optional.of(table.getName()))
+                        .name(column.getName())
+                        .type(column.getType())
+                        .hidden(column.isHidden())
+                        .originTable(Optional.of(tableName))
+                        .originColumnName(Optional.of(column.getName()))
+                        .aliased(false)
+                        .build();
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -2943,9 +2943,10 @@ class StatementAnalyzer
                 }
             }
             for (MeasureDefinition measureDefinition : relation.getMeasures()) {
-                outputFieldsBuilder.add(Field.newUnqualified(
-                        measureDefinition.getName().getValue(),
-                        measureTypes.get(NodeRef.of(measureDefinition.getExpression()))));
+                outputFieldsBuilder.add(Field.builder()
+                        .name(measureDefinition.getName().getValue())
+                        .type(measureTypes.get(NodeRef.of(measureDefinition.getExpression())))
+                        .build());
             }
             if (!oneRowPerMatch) {
                 Set<Field> inputFieldsOnOutput = inputFieldsOnOutputBuilder.build();
@@ -3093,27 +3094,19 @@ class StatementAnalyzer
                 for (int i = 0; i < properColumnsCount; i++) {
                     // proper columns are not hidden, so we don't need to skip hidden fields
                     Field field = relationType.getFieldByIndex(i);
-                    fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
-                            Optional.of(relation.getColumnNames().get(i).getCanonicalValue()), // although the canonical name is recorded, fields are resolved case-insensitive
-                            field.getType(),
-                            field.isHidden(),
-                            field.getOriginTable(),
-                            field.getOriginColumnName(),
-                            field.isAliased()));
+                    // although the canonical name is recorded, fields are resolved case-insensitive
+                    fieldsBuilder.add(field.rebuild()
+                            .relationAlias(Optional.of(QualifiedName.of(ImmutableList.of(relation.getAlias()))))
+                            .name(relation.getColumnNames().get(i).getCanonicalValue())
+                            .build());
                 }
             }
             else {
                 for (int i = 0; i < properColumnsCount; i++) {
                     Field field = relationType.getFieldByIndex(i);
-                    fieldsBuilder.add(Field.newQualified(
-                            QualifiedName.of(ImmutableList.of(relation.getAlias())),
-                            field.getName(),
-                            field.getType(),
-                            field.isHidden(),
-                            field.getOriginTable(),
-                            field.getOriginColumnName(),
-                            field.isAliased()));
+                    fieldsBuilder.add(field.rebuild()
+                            .relationAlias(Optional.of(QualifiedName.of(ImmutableList.of(relation.getAlias()))))
+                            .build());
                 }
             }
 
@@ -3697,7 +3690,7 @@ class StatementAnalyzer
             updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
 
-            return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(update, scope, Field.builder().name("rows").type(BIGINT).build());
         }
 
         @Override
@@ -3883,7 +3876,7 @@ class StatementAnalyzer
 
             createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build());
 
-            return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
+            return createAndAssignScope(merge, Optional.empty(), Field.builder().name("rows").type(BIGINT).build());
         }
 
         private void createMergeAnalysis(
@@ -4053,7 +4046,7 @@ class StatementAnalyzer
                 Optional<Type> type = typeCoercion.getCommonSuperType(leftField.getType(), rightField.getType());
                 analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.orElseThrow()));
 
-                joinFields.add(Field.newUnqualified(column.getValue(), type.get()));
+                joinFields.add(Field.builder().name(column.getValue()).type(type.get()).build());
 
                 leftJoinFields.add(leftField.getRelationFieldIndex());
                 rightJoinFields.add(rightField.getRelationFieldIndex());
@@ -4236,7 +4229,7 @@ class StatementAnalyzer
             }
 
             List<Field> fields = commonSuperType.getFields().stream()
-                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                    .map(field -> Field.builder().name(field.getName()).type(field.getType()).build())
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);
@@ -4315,7 +4308,7 @@ class StatementAnalyzer
                         if (!uniqueNames.add(name)) {
                             throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, ordinalityColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
-                        outputFields.add(Field.newUnqualified(name, BIGINT));
+                        outputFields.add(Field.builder().name(name).type(BIGINT).build());
                         orderedOutputColumns.add(NodeRef.of(ordinalityColumn));
                     }
                     case ValueColumn valueColumn -> {
@@ -4341,7 +4334,7 @@ class StatementAnalyzer
                                 warningCollector,
                                 correlationSupport);
                         analysis.recordSubqueries(jsonTable, typeAndAnalysis.analysis());
-                        outputFields.add(Field.newUnqualified(name, typeAndAnalysis.type()));
+                        outputFields.add(Field.builder().name(name).type(typeAndAnalysis.type()).build());
                         orderedOutputColumns.add(NodeRef.of(valueColumn));
                     }
                     case QueryColumn queryColumn -> {
@@ -4354,7 +4347,7 @@ class StatementAnalyzer
                                 .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), queryColumn.getLocation()));
                         analysis.setJsonPathAnalysis(queryColumn, pathAnalysis);
                         Type type = analyzeJsonQueryExpression(queryColumn, session, plannerContext, statementAnalyzerFactory, accessControl, enclosingScope, analysis, warningCollector);
-                        outputFields.add(Field.newUnqualified(name, type));
+                        outputFields.add(Field.builder().name(name).type(type).build());
                         orderedOutputColumns.add(NodeRef.of(queryColumn));
                     }
                     case NestedColumns nestedColumns -> {
@@ -4886,7 +4879,12 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
+                        Field newField = field.rebuild()
+                                .name(name)
+                                .aliased(false)
+                                .hidden(false)
+                                .relationAlias(Optional.empty())
+                                .build();
                         analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
                         outputFields.add(newField);
                     }
@@ -4920,7 +4918,13 @@ class StatementAnalyzer
                         }
                     }
 
-                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.builder()
+                            .name(field.map(Identifier::getValue))
+                            .type(analysis.getType(expression))
+                            .originTable(originTable)
+                            .originColumnName(originColumn)
+                            .aliased(column.getAlias().isPresent())
+                            .build(); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
                     }
@@ -5166,7 +5170,7 @@ class StatementAnalyzer
                 if (!allColumns.getAliases().isEmpty()) {
                     name = Optional.of(allColumns.getAliases().get(i).getValue());
                 }
-                itemOutputFieldBuilder.add(Field.newUnqualified(name, outputExpressionType));
+                itemOutputFieldBuilder.add(Field.builder().name(name).type(outputExpressionType).build());
             }
             selectExpressionBuilder.add(new SelectExpression(expression, Optional.of(unfoldedExpressionsBuilder.build())));
             analysis.setSelectAllResultFields(allColumns, itemOutputFieldBuilder.build());
