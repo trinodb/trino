@@ -280,7 +280,7 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
-        handle = new JdbcTableHandle(
+        handle = handle.newHandle(
                 handle.getRelationHandle(),
                 newDomain,
                 newConstraintExpressions,
@@ -300,7 +300,7 @@ public class DefaultJdbcMetadata
         List<JdbcColumnHandle> columns = getColumns(session, jdbcClient, handle);
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
 
-        return new JdbcTableHandle(
+        return handle.newHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
                 ImmutableList.of(),
@@ -359,7 +359,7 @@ public class DefaultJdbcMetadata
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
-                new JdbcTableHandle(
+                handle.newHandle(
                         handle.getRelationHandle(),
                         handle.getConstraint(),
                         handle.getConstraintExpressions(),
@@ -420,7 +420,7 @@ public class DefaultJdbcMetadata
 
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), newColumns, columnExpressionsBuilder.buildOrThrow());
         return Optional.of(new ProjectionApplicationResult<>(
-                new JdbcTableHandle(
+                handle.newHandle(
                         new JdbcQueryRelationHandle(preparedQuery),
                         TupleDomain.all(),
                         ImmutableList.of(),
@@ -593,7 +593,7 @@ public class DefaultJdbcMetadata
                 Optional.of(groupingSetsAsJdbcColumnHandles),
                 newColumnsList,
                 expressions.buildOrThrow());
-        handle = new JdbcTableHandle(
+        handle = handle.newHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
                 ImmutableList.of(),
@@ -736,7 +736,7 @@ public class DefaultJdbcMetadata
         }
 
         return Optional.of(new JoinApplicationResult<>(
-                new JdbcTableHandle(
+                leftHandle.newHandle(
                         new JdbcQueryRelationHandle(joinQuery.get()),
                         TupleDomain.all(),
                         ImmutableList.of(),
@@ -830,7 +830,7 @@ public class DefaultJdbcMetadata
         }
 
         return Optional.of(new JoinApplicationResult<>(
-                new JdbcTableHandle(
+                leftHandle.newHandle(
                         new JdbcQueryRelationHandle(joinQuery.get()),
                         TupleDomain.all(),
                         ImmutableList.of(),
@@ -940,7 +940,7 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
-        handle = new JdbcTableHandle(
+        handle = handle.newHandle(
                 handle.getRelationHandle(),
                 handle.getConstraint(),
                 handle.getConstraintExpressions(),
@@ -995,7 +995,7 @@ public class DefaultJdbcMetadata
             handle = flushAttributesAsQuery(session, handle);
         }
 
-        JdbcTableHandle sortedTableHandle = new JdbcTableHandle(
+        JdbcTableHandle sortedTableHandle = handle.newHandle(
                 handle.getRelationHandle(),
                 handle.getConstraint(),
                 handle.getConstraintExpressions(),

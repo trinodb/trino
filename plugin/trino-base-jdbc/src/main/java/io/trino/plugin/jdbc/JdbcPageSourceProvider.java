@@ -125,7 +125,7 @@ public class JdbcPageSourceProvider
             }
         }
 
-        JdbcTableHandle newTableHandle = new JdbcTableHandle(
+        JdbcTableHandle newTableHandle = tableHandle.newHandle(
                 tableHandle.getRelationHandle(),
                 tableHandle.getConstraint(),
                 tableHandle.getConstraintExpressions(),

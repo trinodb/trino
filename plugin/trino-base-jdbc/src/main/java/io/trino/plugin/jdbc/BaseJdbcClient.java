@@ -1238,7 +1238,16 @@ public abstract class BaseJdbcClient
 
         List<JdbcColumnHandle> columns = getColumns(session, schemaTableName, remoteTableName);
 
-        JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
+        JdbcTableHandle plainTable = handle.newHandle(new JdbcNamedRelationHandle(schemaTableName, remoteTableName, Optional.empty()),
+                TupleDomain.all(),
+                ImmutableList.of(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                Optional.empty(),
+                Optional.of(ImmutableSet.of()),
+                0,
+                Optional.empty(),
+                ImmutableList.of());
 
         JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns);
         rollbackActionCollector.accept(() -> rollbackTemporaryTableCreation(session, outputTableHandle));

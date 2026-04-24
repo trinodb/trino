@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public final class JdbcTableHandle
+public class JdbcTableHandle
         extends BaseJdbcConnectorTableHandle
 {
     private final JdbcRelationHandle relationHandle;
@@ -105,9 +105,34 @@ public final class JdbcTableHandle
         this.updateAssignments = ImmutableList.copyOf(updateAssignments);
     }
 
-    public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)
+    public JdbcTableHandle newHandle(
+            JdbcRelationHandle relationHandle,
+            TupleDomain<ColumnHandle> constraint,
+            List<ParameterizedExpression> constraintExpressions,
+            Optional<List<JdbcSortItem>> sortOrder,
+            OptionalLong limit,
+            Optional<List<JdbcColumnHandle>> columns,
+            Optional<Set<SchemaTableName>> otherReferencedTables,
+            int nextSyntheticColumnId,
+            Optional<String> authorization,
+            List<JdbcAssignmentItem> updateAssignments)
     {
         return new JdbcTableHandle(
+                relationHandle,
+                constraint,
+                constraintExpressions,
+                sortOrder,
+                limit,
+                columns,
+                otherReferencedTables,
+                nextSyntheticColumnId,
+                authorization,
+                updateAssignments);
+    }
+
+    public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)
+    {
+        return newHandle(
                 relationHandle,
                 constraint.intersect(newConstraint),
                 constraintExpressions,
@@ -122,7 +147,7 @@ public final class JdbcTableHandle
 
     public JdbcTableHandle withAssignments(Map<ColumnHandle, Constant> assignments)
     {
-        return new JdbcTableHandle(
+        return newHandle(
                 relationHandle,
                 constraint,
                 constraintExpressions,
