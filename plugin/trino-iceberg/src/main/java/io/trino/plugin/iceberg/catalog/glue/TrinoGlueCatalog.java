@@ -130,6 +130,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConn
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
@@ -575,6 +576,13 @@ public class TrinoGlueCatalog
                     tableMetadataCache,
                     table,
                     () -> {
+                        if (!isMaterializedViewStorage(table.getTableName())) {
+                            Table glueTable = getTable(table, false);
+                            String tableType = getTableType(glueTable);
+                            if (isTrinoView(tableType, glueTable.parameters()) || isTrinoMaterializedView(tableType, glueTable.parameters())) {
+                                throw new TableNotFoundException(table);
+                            }
+                        }
                         TableOperations operations = tableOperationsProvider.createTableOperations(
                                 this,
                                 session,
