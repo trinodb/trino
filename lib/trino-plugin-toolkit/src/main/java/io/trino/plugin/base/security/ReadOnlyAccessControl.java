@@ -156,19 +156,19 @@ public class ReadOnlyAccessControl
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
-        denyInsertTable(tableName.toString());
+        denyInsertTable(tableName.toString(), branch);
     }
 
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
-        denyDeleteTable(tableName.toString());
+        denyDeleteTable(tableName.toString(), branch);
     }
 
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
     {
-        denyUpdateTableColumns(tableName.toString(), updatedColumns);
+        denyUpdateTableColumns(tableName.toString(), branch, updatedColumns);
     }
 
     @Override
