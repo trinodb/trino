@@ -202,6 +202,11 @@ public interface TrinoCatalog
 
     Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName);
 
+    default Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName, String hiveCatalogName)
+    {
+        return Optional.empty();
+    }
+
     default Metrics getMetrics()
     {
         return Metrics.EMPTY;

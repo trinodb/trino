@@ -155,7 +155,9 @@ implementation is used:
   - Enable [projection pushdown](/optimizer/pushdown)
   - `true`
 * - `iceberg.hive-catalog-name`
-  - Catalog to redirect to when a Hive table is referenced.
+  - Catalog to redirect to when a Hive table or a Hive/Trino view backed by the
+    same Hive Metastore is referenced. See
+    [](iceberg-table-redirection) and [](iceberg-view-redirection).
   -
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
@@ -2306,6 +2308,36 @@ before re-analyzing.
 
 The connector supports redirection from Iceberg tables to Hive tables with the
 `iceberg.hive-catalog-name` catalog configuration property.
+
+(iceberg-view-redirection)=
+### View redirection
+
+When `iceberg.hive-catalog-name` is set, the Iceberg connector transparently
+redirects operations on non-Iceberg views to the configured Hive catalog. A
+view is redirected when it exists in the Hive metastore as a Hive view or as
+a Trino/Presto view; Iceberg materialized views are never redirected.
+
+This is useful in dual-catalog deployments where the Iceberg and Hive
+catalogs are backed by the same Hive metastore, for example during an
+incremental migration from Hive to Iceberg. Dashboards and BI tools that
+connect through a single catalog continue working while views are being
+migrated between catalogs.
+
+The following operations follow view redirection:
+
+- {doc}`/sql/select`
+- {doc}`/sql/show-create-view`
+- {doc}`/sql/create-view` (including `CREATE OR REPLACE VIEW`)
+- {doc}`/sql/drop-view`
+- {doc}`/sql/alter-view` (`RENAME TO`)
+- {doc}`/sql/comment` on views and on view columns
+
+The redirection loop is detected with a maximum of 10 hops. An attempt to
+follow a redirection cycle or to exceed the maximum number of hops fails
+with `VIEW_REDIRECTION_ERROR`.
+
+View redirection is not supported for references that specify a branch
+(for example `catalog.schema.view@branch`).
 
 ### File system cache
 
