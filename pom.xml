@@ -209,7 +209,7 @@
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
         <dep.swagger.version>2.2.48</dep.swagger.version>
         <dep.takari.version>2.3.3</dep.takari.version>
-        <dep.tcnative.version>2.0.75.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.77.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.zookeeper.version>3.9.5</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
