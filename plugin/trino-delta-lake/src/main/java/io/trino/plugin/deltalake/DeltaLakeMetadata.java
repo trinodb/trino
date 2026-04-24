@@ -68,6 +68,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeComputedStatistics;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.UnsupportedTypeException;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTableDescriptor;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeVersionChecksum;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -491,15 +492,6 @@ public class DeltaLakeMetadata
         }
     }
 
-    private record DeltaLakeTableDescriptor(long version, MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
-    {
-        DeltaLakeTableDescriptor
-        {
-            requireNonNull(metadataEntry, "metadataEntry is null");
-            requireNonNull(protocolEntry, "protocolEntry is null");
-        }
-    }
-
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
             TransactionLogAccess transactionLogAccess,
@@ -819,21 +811,23 @@ public class DeltaLakeMetadata
     {
         long latestCommitVersion = endTableVersion.orElseGet(() -> resolveLatestCommitVersion(tableName, fileSystem, tableLocation));
 
-        Optional<DeltaLakeVersionChecksum> versionChecksum;
-        try {
-            versionChecksum = readVersionChecksumFile(fileSystem, tableLocation, latestCommitVersion);
-        }
-        catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to read checksum file for version %d of table %s", latestCommitVersion, tableName), e);
-        }
-        if (versionChecksum.isEmpty()) {
-            return Optional.empty();
-        }
-        DeltaLakeVersionChecksum checksum = versionChecksum.get();
-        if (checksum.metadata().isEmpty() || checksum.protocol().isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(new DeltaLakeTableDescriptor(latestCommitVersion, checksum.metadata().orElseThrow(), checksum.protocol().orElseThrow()));
+        return transactionLogAccess.loadDescriptor(tableName, tableLocation, latestCommitVersion, () -> {
+            Optional<DeltaLakeVersionChecksum> versionChecksum;
+            try {
+                versionChecksum = readVersionChecksumFile(fileSystem, tableLocation, latestCommitVersion);
+            }
+            catch (IOException | UncheckedIOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to read checksum file for version %d of table %s", latestCommitVersion, tableName), e);
+            }
+            if (versionChecksum.isEmpty()) {
+                return Optional.empty();
+            }
+            DeltaLakeVersionChecksum checksum = versionChecksum.get();
+            if (checksum.metadata().isEmpty() || checksum.protocol().isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new DeltaLakeTableDescriptor(latestCommitVersion, checksum.metadata().orElseThrow(), checksum.protocol().orElseThrow()));
+        });
     }
 
     // Reuse the version resolved earlier in this transaction to skip _last_checkpoint and transaction log listing

@@ -26,6 +26,7 @@ import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTableDescriptor;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -63,6 +64,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -430,6 +433,57 @@ public class TestTransactionLogAccess
         Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
         TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir.toURI().toString()), Optional.empty());
         assertThat(updatedSnapshot.getVersion()).isEqualTo(12);
+    }
+
+    @Test
+    public void testDescriptorCache()
+            throws Exception
+    {
+        setupTransactionLogAccessFromResources("person", "databricks73/person");
+
+        SchemaTableName tableName = new SchemaTableName("schema", "person");
+        AtomicInteger loaderInvocations = new AtomicInteger();
+        DeltaLakeTableDescriptor descriptor = new DeltaLakeTableDescriptor(
+                0L,
+                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
+        Supplier<Optional<DeltaLakeTableDescriptor>> loader = () -> {
+            loaderInvocations.incrementAndGet();
+            return Optional.of(descriptor);
+        };
+
+        // Same key: second call hits the cache.
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 0L, loader);
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 0L, loader);
+        assertThat(loaderInvocations).hasValue(1);
+
+        // Different version: cache miss.
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 1L, loader);
+        assertThat(loaderInvocations).hasValue(2);
+
+        // Negative result is also cached.
+        Supplier<Optional<DeltaLakeTableDescriptor>> emptyLoader = () -> {
+            loaderInvocations.incrementAndGet();
+            return Optional.empty();
+        };
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 2L, emptyLoader);
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 2L, emptyLoader);
+        assertThat(loaderInvocations).hasValue(3);
+
+        // Invalidating by name + location clears all entries for that table.
+        transactionLogAccess.invalidateCache(tableName, Optional.of(tableLocation));
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 0L, loader);
+        assertThat(loaderInvocations).hasValue(4);
+
+        // Invalidating by name with no location (used by flush_metadata_cache) also clears the entry.
+        transactionLogAccess.invalidateCache(tableName, Optional.empty());
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 0L, loader);
+        assertThat(loaderInvocations).hasValue(5);
+
+        // flushCache clears all cached descriptors.
+        transactionLogAccess.flushCache();
+        transactionLogAccess.loadDescriptor(tableName, tableLocation, 0L, loader);
+        assertThat(loaderInvocations).hasValue(6);
     }
 
     @Test

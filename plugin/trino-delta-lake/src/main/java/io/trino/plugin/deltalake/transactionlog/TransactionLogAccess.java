@@ -78,6 +78,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -90,6 +91,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -108,6 +110,8 @@ public class TransactionLogAccess
     private static final Pattern MULTI_PART_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.(\\d*)\\.(\\d*)\\.parquet");
     private static final Pattern V2_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.(json|parquet)");
 
+    private static final long DESCRIPTOR_CACHE_MAX_SIZE = 1000;
+
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -121,6 +125,7 @@ public class TransactionLogAccess
     private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
+    private final Cache<TableDescriptorCacheKey, Optional<DeltaLakeTableDescriptor>> tableDescriptors;
 
     @Inject
     public TransactionLogAccess(
@@ -152,6 +157,12 @@ public class TransactionLogAccess
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
+        tableDescriptors = EvictableCacheBuilder.newBuilder()
+                .maximumSize(DESCRIPTOR_CACHE_MAX_SIZE)
+                .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .shareNothingWhenDisabled()
+                .recordStats()
+                .build();
     }
 
     @Managed
@@ -159,6 +170,22 @@ public class TransactionLogAccess
     public CacheStatsMBean getMetadataCacheStats()
     {
         return new CacheStatsMBean(tableSnapshots);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getDescriptorCacheStats()
+    {
+        return new CacheStatsMBean(tableDescriptors);
+    }
+
+    public Optional<DeltaLakeTableDescriptor> loadDescriptor(
+            SchemaTableName tableName,
+            String tableLocation,
+            long version,
+            Supplier<Optional<DeltaLakeTableDescriptor>> loader)
+    {
+        return uncheckedCacheGet(tableDescriptors, new TableDescriptorCacheKey(tableName, tableLocation, version), loader);
     }
 
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion)
@@ -335,16 +362,20 @@ public class TransactionLogAccess
     public void flushCache()
     {
         tableSnapshots.invalidateAll();
+        tableDescriptors.invalidateAll();
     }
 
     public void invalidateCache(SchemaTableName schemaTableName, Optional<String> tableLocation)
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
-        // Invalidate by location in case one table (location) unregistered and re-register under different name
-        tableLocation.ifPresent(location -> {
-            invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.location().equals(location));
-        });
-        invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.tableName().equals(schemaTableName));
+        // Invalidate by location in case one table (location) unregistered and re-registered under a different name
+        invalidateAllIf(tableSnapshots, key -> matchesNameOrLocation(key.tableName(), key.location(), schemaTableName, tableLocation));
+        invalidateAllIf(tableDescriptors, key -> matchesNameOrLocation(key.tableName(), key.location(), schemaTableName, tableLocation));
+    }
+
+    private static boolean matchesNameOrLocation(SchemaTableName name, String location, SchemaTableName matchName, Optional<String> matchLocation)
+    {
+        return name.equals(matchName) || matchLocation.map(location::equals).orElse(false);
     }
 
     public MetadataEntry getMetadataEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
@@ -706,6 +737,15 @@ public class TransactionLogAccess
             return INSTANCE_SIZE +
                     tableName.getRetainedSizeInBytes() +
                     estimatedSizeOf(location);
+        }
+    }
+
+    private record TableDescriptorCacheKey(SchemaTableName tableName, String location, long version)
+    {
+        TableDescriptorCacheKey
+        {
+            requireNonNull(tableName, "tableName is null");
+            requireNonNull(location, "location is null");
         }
     }
 }
