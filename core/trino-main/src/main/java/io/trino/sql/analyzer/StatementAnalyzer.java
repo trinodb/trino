@@ -2445,7 +2445,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
                     .build();
             analyzeFiltersAndMasks(table, targetTableName, new RelationType(outputFields), accessControlScope);
-            analysis.registerTable(table, tableHandle, targetTableName, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.empty());
+            analysis.registerTable(table, tableHandle, targetTableName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
@@ -2750,7 +2750,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(viewFields))
                     .build();
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
-            analysis.registerTable(table, freshStorageTable, name, table.getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
+            analysis.registerTable(table, freshStorageTable, name, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             return createAndAssignScope(table, scope, viewFields);
         }
