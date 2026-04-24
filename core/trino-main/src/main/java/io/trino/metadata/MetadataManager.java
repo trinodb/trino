@@ -180,6 +180,7 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.StandardErrorCode.VIEW_REDIRECTION_ERROR;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -194,6 +195,9 @@ public final class MetadataManager
 
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
+
+    @VisibleForTesting
+    public static final int MAX_VIEW_REDIRECTIONS = 10;
 
     private final AccessControl accessControl;
     private final GlobalFunctionCatalog functions;
@@ -2056,16 +2060,93 @@ public final class MetadataManager
     }
 
     @Override
-    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName originalViewName)
     {
-        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
-        Optional<ViewDefinition> view = getView(session, targetViewName);
-
-        if (targetViewName.equals(viewName)) {
-            return RedirectionAwareView.noRedirection(view);
+        requireNonNull(session, "session is null");
+        requireNonNull(originalViewName, "originalViewName is null");
+        if (cannotExist(originalViewName)) {
+            return RedirectionAwareView.noRedirection(Optional.empty());
         }
 
-        return new RedirectionAwareView(view, Optional.of(targetViewName));
+        QualifiedObjectName resolvedViewName = resolveViewRedirectionChain(session, originalViewName);
+        RedirectionAwareView redirectionAwareView = buildRedirectionAwareView(session, originalViewName, resolvedViewName);
+        if (redirectionAwareView.viewDefinition().isPresent() || !resolvedViewName.equals(originalViewName)) {
+            return redirectionAwareView;
+        }
+
+        // A view may instead be reachable through table redirection, for example connector-provided metadata views
+        // (such as the Iceberg "$partitions" view) queried through a Hive catalog that redirects to Iceberg. The
+        // redirectView SPI does not cover this case, so fall back to table redirection to resolve such views.
+        QualifiedObjectName tableRedirectedViewName = getRedirectedTableName(session, originalViewName, Optional.empty(), Optional.empty());
+        if (!tableRedirectedViewName.equals(originalViewName)) {
+            return buildRedirectionAwareView(session, originalViewName, tableRedirectedViewName);
+        }
+        return redirectionAwareView;
+    }
+
+    @Override
+    public Optional<QualifiedObjectName> getRedirectedViewName(Session session, QualifiedObjectName originalViewName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(originalViewName, "originalViewName is null");
+        if (cannotExist(originalViewName)) {
+            return Optional.empty();
+        }
+
+        QualifiedObjectName resolvedViewName = resolveViewRedirectionChain(session, originalViewName);
+        if (resolvedViewName.equals(originalViewName)) {
+            return Optional.empty();
+        }
+        return Optional.of(resolvedViewName);
+    }
+
+    // Walks the view redirection chain via the ConnectorMetadata.redirectView SPI hook and returns the final
+    // resolved view name. Does not resolve the view definition, so it has no side effects on the target view
+    // (for example, it never triggers run-as DEFINER resolution). Returns originalViewName when nothing redirects.
+    private QualifiedObjectName resolveViewRedirectionChain(Session session, QualifiedObjectName originalViewName)
+    {
+        QualifiedObjectName viewName = originalViewName;
+        Set<QualifiedObjectName> visitedViewNames = new LinkedHashSet<>();
+        visitedViewNames.add(viewName);
+
+        for (int count = 0; count < MAX_VIEW_REDIRECTIONS; count++) {
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+
+            if (catalog.isEmpty()) {
+                return viewName;
+            }
+
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getConnectorHandleForSchema(new CatalogSchemaName(viewName.catalogName(), viewName.schemaName()));
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            Optional<QualifiedObjectName> redirectedViewName = metadata.redirectView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())
+                    .map(name -> convertFromSchemaTableName(name.getCatalogName()).apply(name.getSchemaTableName()));
+
+            if (redirectedViewName.isEmpty()) {
+                return viewName;
+            }
+
+            viewName = redirectedViewName.get();
+
+            if (!visitedViewNames.add(viewName)) {
+                throw new TrinoException(VIEW_REDIRECTION_ERROR,
+                        format("View redirections form a loop: %s",
+                                Streams.concat(visitedViewNames.stream(), Stream.of(viewName))
+                                        .map(QualifiedObjectName::toString)
+                                        .collect(Collectors.joining(" -> "))));
+            }
+        }
+        throw new TrinoException(VIEW_REDIRECTION_ERROR, format("View redirected too many times (%d): %s", MAX_VIEW_REDIRECTIONS, visitedViewNames));
+    }
+
+    private RedirectionAwareView buildRedirectionAwareView(Session session, QualifiedObjectName originalViewName, QualifiedObjectName resolvedViewName)
+    {
+        Optional<ViewDefinition> view = getView(session, resolvedViewName);
+        if (resolvedViewName.equals(originalViewName)) {
+            return RedirectionAwareView.noRedirection(view);
+        }
+        return new RedirectionAwareView(view, Optional.of(resolvedViewName));
     }
 
     @Override

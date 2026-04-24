@@ -123,6 +123,7 @@ public class MockConnectorFactory
     private final ApplyTableFunction applyTableFunction;
     private final ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
+    private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout;
     private final BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType;
@@ -184,6 +185,7 @@ public class MockConnectorFactory
             ApplyTableFunction applyTableFunction,
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType,
@@ -241,6 +243,7 @@ public class MockConnectorFactory
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
+        this.redirectView = requireNonNull(redirectView, "redirectView is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
@@ -308,6 +311,7 @@ public class MockConnectorFactory
                 applyTableFunction,
                 applyTableScanRedirect,
                 redirectTable,
+                redirectView,
                 getInsertLayout,
                 getNewTableLayout,
                 getSupportedType,
@@ -471,6 +475,7 @@ public class MockConnectorFactory
         private ApplyTableFunction applyTableFunction = (_, _) -> Optional.empty();
         private ApplyTableScanRedirect applyTableScanRedirect = (_, _) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (_, _) -> Optional.empty();
+        private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView = (_, _) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = _ -> ImmutableList.of();
         private Function<SchemaTableName, Metrics> metrics = _ -> EMPTY;
         private Function<SchemaTableName, Metrics> splitSourceMetrics = _ -> EMPTY;
@@ -674,6 +679,12 @@ public class MockConnectorFactory
         public Builder withRedirectTable(BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable)
         {
             this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
+            return this;
+        }
+
+        public Builder withRedirectView(BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView)
+        {
+            this.redirectView = requireNonNull(redirectView, "redirectView is null");
             return this;
         }
 
@@ -906,6 +917,7 @@ public class MockConnectorFactory
                     applyTableFunction,
                     applyTableScanRedirect,
                     redirectTable,
+                    redirectView,
                     getInsertLayout,
                     getNewTableLayout,
                     getSupportedType,
