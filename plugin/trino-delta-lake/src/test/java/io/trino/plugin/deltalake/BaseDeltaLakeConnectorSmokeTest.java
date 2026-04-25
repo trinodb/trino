@@ -385,17 +385,14 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableLocation = getLocationForTable(bucketName, tableName);
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
         try {
-            // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
-            int workerCount = getQueryRunner().getNodeCount();
-
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
 
             for (int i = 0; i < 3; i++) {
                 Set<String> initialFiles = getActiveFiles(tableName);
-                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
                 Set<String> filesAfterOptimize = getActiveFiles(tableName);
                 assertThat(filesAfterOptimize)
-                        .hasSizeBetween(1, workerCount)
+                        .hasSize(1)
                         .containsExactlyElementsOf(initialFiles);
             }
 
@@ -444,18 +441,15 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableLocation = getLocationForTable(bucketName, tableName);
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "', partitioned_by = ARRAY['key'])");
         try {
-            // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
-            int workerCount = getQueryRunner().getNodeCount();
-
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
 
             for (int i = 0; i < 3; i++) {
                 Set<String> initialFiles = getActiveFiles(tableName);
-                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
                 Set<String> filesAfterOptimize = getActiveFiles(tableName);
                 assertThat(filesAfterOptimize)
-                        .hasSizeBetween(1, workerCount)
+                        .hasSize(2)
                         .containsExactlyInAnyOrderElementsOf(initialFiles);
             }
             assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one'), (2, 'two')");
@@ -1949,12 +1943,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     // Verify we have sufficiently many test rows with respect to worker count.
                     .hasSizeGreaterThan(workerCount);
 
-            computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
             Set<String> updatedFiles = getActiveFiles(tableName);
             assertThat(updatedFiles)
-                    .hasSizeBetween(1, workerCount)
+                    .hasSize(1)
                     .doesNotContainAnyElementsOf(initialFiles);
             // No files should be removed (this is VACUUM's job)
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
@@ -2005,15 +1999,68 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             Set<String> initialFiles = getActiveFiles(tableName);
             assertThat(initialFiles).hasSize(9);
 
-            computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 3), ('removed_delete_files_count', 0), ('added_data_files_count', 1)");
 
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY value) FROM " + tableName))
                     .matches("VALUES (BIGINT '508', VARCHAR 'ONE Three four one one one tHrEe three two')");
 
             Set<String> updatedFiles = getActiveFiles(tableName);
             assertThat(updatedFiles)
-                    .hasSizeBetween(7, initialFiles.size());
+                    .hasSize(7);
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithDeletionVectors()
+    {
+        String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "CREATE TABLE " + tableName + " WITH (deletion_vectors_enabled = true, location = '" + tableLocation + "') AS SELECT * FROM tpch.tiny.nation");
+        try {
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation");
+            Set<String> initFile = getActiveFiles(tableName);
+            assertThat(initFile).hasSize(6);
+            assertQuerySucceeds("DELETE FROM " + tableName + " WHERE nationkey < 5");
+            assertUpdate(withSingleWriterPerTask(getSession()),"ALTER TABLE " + tableName + " EXECUTE optimize",
+                    "VALUES ('rewritten_data_files_count', 6), ('removed_delete_files_count', 6), ('added_data_files_count', 1)");
+            assertThat(getActiveFiles(tableName)).hasSize(1);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPartitionedTableAndDeleteVector()
+    {
+        String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "CREATE TABLE " + tableName + " WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['regionkey'], location = '" + tableLocation + "') AS SELECT nationkey, regionkey FROM tpch.tiny.nation");
+        try {
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(30);
+            assertQuerySucceeds("DELETE FROM " + tableName + " WHERE nationkey < 5");
+
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 30), ('removed_delete_files_count', 18), ('added_data_files_count', 5)");
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(5);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -2046,7 +2093,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             Set<String> initialFiles = getActiveFiles(tableName, currentSession);
             assertThat(initialFiles).hasSize(10);
 
-            computeActual(currentSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            computeActual(withSingleWriterPerTask(currentSession), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
             assertThat(query(currentSession, "SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY value) FROM " + tableName))
                     .matches("VALUES (BIGINT '55', VARCHAR 'one one one one one one one three two two')");
@@ -2058,6 +2105,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
         }
+    }
+
+    private Session withSingleWriterPerTask(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty("task_min_writer_count", "1")
+                .build();
     }
 
     private void fillWithInserts(String tableName, String values, int toCreate)
@@ -2144,7 +2198,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         Set<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         assertThat(query("SELECT " +
                 "sum(value1), " +
