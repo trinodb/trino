@@ -203,6 +203,28 @@ public class TestIgniteClient
         assertThat(converted.parameters()).isEmpty();
     }
 
+    /**
+     * Ignite does not support DECIMAL with negative scale. Verify that
+     * {@link IgniteClient#toColumnMapping} returns empty for negative scale,
+     * rather than attempting to remap it.
+     *
+     * @see <a href="https://github.com/trinodb/trino/issues/28416">trinodb/trino#28416</a>
+     */
+    @Test
+    public void testDecimalWithNegativeScaleMapping()
+    {
+        // negative scale should not be mapped
+        assertThat(JDBC_CLIENT.toColumnMapping(SESSION, null, decimalTypeHandle(5, -3))).isEmpty();
+        assertThat(JDBC_CLIENT.toColumnMapping(SESSION, null, decimalTypeHandle(1, -1))).isEmpty();
+        assertThat(JDBC_CLIENT.toColumnMapping(SESSION, null, decimalTypeHandle(14, -14))).isEmpty();
+        assertThat(JDBC_CLIENT.toColumnMapping(SESSION, null, decimalTypeHandle(1, -37))).isEmpty();
+    }
+
+    private static JdbcTypeHandle decimalTypeHandle(int precision, int scale)
+    {
+        return new JdbcTypeHandle(Types.DECIMAL, Optional.of("decimal"), Optional.of(precision), Optional.of(scale), Optional.empty(), Optional.empty());
+    }
+
     private ConnectorExpression translateToConnectorExpression(Expression expression)
     {
         return ConnectorExpressionTranslator.translate(TEST_SESSION, expression)
