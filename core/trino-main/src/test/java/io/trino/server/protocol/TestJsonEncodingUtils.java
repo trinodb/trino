@@ -87,11 +87,6 @@ public class TestJsonEncodingUtils
         return new JsonQueryDataDecoder.Factory().create(columns, DataAttributes.empty(), false);
     }
 
-    protected QueryDataEncoder createEncoder(List<OutputColumn> columns)
-    {
-        return new JsonQueryDataEncoder.Factory().create(TEST_SESSION, columns);
-    }
-
     protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
     {
         return new JsonQueryDataEncoder.Factory().create(session, columns);
@@ -779,12 +774,6 @@ public class TestJsonEncodingUtils
         try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
             return ImmutableList.copyOf(iterator);
         }
-    }
-
-    protected List<List<Object>> parseJson(List<TypedColumn> columns, boolean supportsVariant, byte[] json)
-            throws IOException
-    {
-        return parseJson(columns, supportsVariant, false, json);
     }
 
     protected List<List<Object>> parseJson(List<TypedColumn> columns, boolean supportsVariant, boolean supportsVariantBinary, byte[] json)
