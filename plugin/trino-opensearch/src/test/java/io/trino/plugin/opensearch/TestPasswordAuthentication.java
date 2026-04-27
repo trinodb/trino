@@ -19,8 +19,10 @@ import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.core5.http.HttpHost;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -71,7 +73,7 @@ public class TestPasswordAuthentication
                 .buildOrThrow());
 
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost("https", address.getHost(), address.getPort()))
                 .setHttpClientConfigCallback(this::setupSslContext));
 
         QueryRunner runner = OpenSearchQueryRunner.builder(opensearch.getAddress())
@@ -92,11 +94,15 @@ public class TestPasswordAuthentication
     private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)
     {
         try {
-            return clientBuilder.setSSLContext(createSSLContext(
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
-                    Optional.of("123456")));
+            return clientBuilder.setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+                    .setTlsStrategy(ClientTlsStrategyBuilder.create()
+                            .setSslContext(createSSLContext(
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
+                                    Optional.of("123456")))
+                            .buildAsync())
+                    .build());
         }
         catch (GeneralSecurityException | IOException | URISyntaxException e) {
             throw new RuntimeException(e);

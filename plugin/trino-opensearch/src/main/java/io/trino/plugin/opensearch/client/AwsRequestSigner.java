@@ -14,57 +14,47 @@
 package io.trino.plugin.opensearch.client;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.http.Header;
-import org.apache.http.HttpEntityEnclosingRequest;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpRequestInterceptor;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.protocol.HttpContext;
+import org.apache.hc.client5.http.async.AsyncExecCallback;
+import org.apache.hc.client5.http.async.AsyncExecChain;
+import org.apache.hc.client5.http.async.AsyncExecChainHandler;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.nio.AsyncEntityProducer;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.signer.Aws4Signer;
-import software.amazon.awssdk.auth.signer.params.Aws4SignerParams;
-import software.amazon.awssdk.auth.signer.params.SignerChecksumParams;
-import software.amazon.awssdk.core.checksums.Algorithm;
-import software.amazon.awssdk.http.ContentStreamProvider;
-import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.http.SdkHttpMethod;
-import software.amazon.awssdk.http.auth.aws.signer.SignerConstant;
-import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.http.SdkHttpRequest;
+import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
+import software.amazon.awssdk.http.auth.spi.signer.SignedRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.opensearch.AwsSecurityConfig.DeploymentType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
-import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
+import static java.util.Arrays.stream;
+import static software.amazon.awssdk.http.auth.aws.signer.AwsV4FamilyHttpSigner.PAYLOAD_SIGNING_ENABLED;
+import static software.amazon.awssdk.http.auth.aws.signer.AwsV4FamilyHttpSigner.SERVICE_SIGNING_NAME;
+import static software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner.REGION_NAME;
 
-@SuppressWarnings("deprecation")
 class AwsRequestSigner
-        implements HttpRequestInterceptor
+        implements AsyncExecChainHandler
 {
-    private static final String EMPTY_BODY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
     private final String serviceName;
     private final String region;
     private final AwsCredentialsProvider credentialsProvider;
-    private final Aws4Signer signer;
+    private final AwsV4HttpSigner signer;
 
     public AwsRequestSigner(String region, DeploymentType deploymentType, AwsCredentialsProvider credentialsProvider)
     {
         this.credentialsProvider = credentialsProvider;
-        this.signer = Aws4Signer.create();
+        this.signer = AwsV4HttpSigner.create();
         this.serviceName = switch (deploymentType) {
             case SERVERLESS -> "aoss";
             case PROVISIONED -> "es";
@@ -73,75 +63,66 @@ class AwsRequestSigner
     }
 
     @Override
-    public void process(HttpRequest request, HttpContext context)
-            throws IOException
+    public void execute(HttpRequest request, AsyncEntityProducer entityProducer, AsyncExecChain.Scope scope, AsyncExecChain chain, AsyncExecCallback asyncExecCallback)
+            throws HttpException, IOException
     {
-        String method = request.getRequestLine().getMethod();
-
-        URI uri = URI.create(request.getRequestLine().getUri());
-        URIBuilder uriBuilder = new URIBuilder(uri);
-
-        Map<String, List<String>> parameters = new TreeMap<>(CASE_INSENSITIVE_ORDER);
-        for (NameValuePair parameter : uriBuilder.getQueryParams()) {
-            parameters.computeIfAbsent(parameter.getName(), key -> new ArrayList<>())
-                    .add(parameter.getValue());
+        URI uri;
+        try {
+            uri = request.getUri();
+        }
+        catch (URISyntaxException e) {
+            throw new IOException("Invalid request URI", e);
         }
 
-        InputStream content = null;
-        if (request instanceof HttpEntityEnclosingRequest enclosingRequest) {
-            if (enclosingRequest.getEntity() != null) {
-                content = enclosingRequest.getEntity().getContent();
+        String query = uri.getRawQuery();
+        Map<String, List<String>> parameters = new TreeMap<>(CASE_INSENSITIVE_ORDER);
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] parts = param.split("=", 2);
+                String name = parts[0];
+                String value = parts.length > 1 ? parts[1] : "";
+                parameters.computeIfAbsent(name, key -> new ArrayList<>()).add(value);
             }
         }
 
-        Map<String, List<String>> headers = Arrays.stream(request.getAllHeaders())
+        Map<String, List<String>> headers = stream(request.getHeaders())
                 .collect(toImmutableMap(Header::getName, header -> ImmutableList.of(header.getValue())));
-        SdkHttpFullRequest.Builder awsRequest = SdkHttpFullRequest.builder()
+
+        SdkHttpRequest.Builder awsRequest = SdkHttpRequest.builder()
                 .rawQueryParameters(parameters)
-                .method(SdkHttpMethod.fromValue(method))
-                .protocol("https")
-                .encodedPath(uri.getPath())
+                .method(SdkHttpMethod.fromValue(request.getMethod()))
+                .protocol(uri.getScheme() != null ? uri.getScheme() : "https")
+                .encodedPath(uri.getRawPath())
                 .headers(headers)
                 .rawQueryParameters(parameters);
 
-        Aws4SignerParams aws4SignerParams = Aws4SignerParams.builder()
-                .signingName(serviceName)
-                .signingRegion(Region.of(region))
-                .awsCredentials(credentialsProvider.resolveCredentials())
-                .checksumParams(
-                        SignerChecksumParams.builder()
-                                .algorithm(Algorithm.SHA256)
-                                .isStreamingRequest(false)
-                                .checksumHeaderName(SignerConstant.X_AMZ_CONTENT_SHA256)
-                                .build())
-                .build();
-        HttpHost host = (HttpHost) context.getAttribute(HTTP_TARGET_HOST);
-        if (host != null) {
-            awsRequest.uri(URI.create(host.toURI()));
+        if (uri.getHost() != null) {
+            try {
+                awsRequest.uri(new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(), null, null, null));
+            }
+            catch (URISyntaxException e) {
+                throw new IOException("Invalid host URI", e);
+            }
         }
 
-        if (content == null) {
-            // https://github.com/aws/aws-sdk-java-v2/issues/3807 workaround is to set header when content is null.
-            awsRequest.putHeader(SignerConstant.X_AMZ_CONTENT_SHA256, EMPTY_BODY_SHA256);
+        SignedRequest signedRequest = signer.sign(builder -> builder
+                .identity(credentialsProvider.resolveCredentials())
+                .request(awsRequest.build())
+                .putProperty(SERVICE_SIGNING_NAME, serviceName)
+                .putProperty(REGION_NAME, region)
+                // AsyncEntityProducer is a streaming API with no synchronous way to read content.
+                // Disable payload signing when body is present, which uses UNSIGNED-PAYLOAD.
+                // This is supported by both AWS OpenSearch Service and OpenSearch Serverless.
+                .putProperty(PAYLOAD_SIGNING_ENABLED, entityProducer == null));
+
+        // Clear existing headers and set signed ones
+        for (Header existingHeader : request.getHeaders()) {
+            request.removeHeaders(existingHeader.getName());
         }
-        else {
-            awsRequest.contentStreamProvider(ContentStreamProvider.fromInputStream(content));
+        for (Map.Entry<String, List<String>> entry : signedRequest.request().headers().entrySet()) {
+            request.setHeader(entry.getKey(), entry.getValue().getFirst());
         }
 
-        SdkHttpFullRequest signedRequest = signer.sign(awsRequest.build(), aws4SignerParams);
-
-        Header[] newHeaders = signedRequest.headers().entrySet().stream()
-                .map(entry -> new BasicHeader(entry.getKey(), entry.getValue().getFirst()))
-                .toArray(Header[]::new);
-
-        request.setHeaders(newHeaders);
-
-        InputStream newContent = signedRequest.contentStreamProvider().stream().map(ContentStreamProvider::newStream).findAny().orElse(null);
-        checkState(newContent == null || request instanceof HttpEntityEnclosingRequest);
-        if (newContent != null) {
-            BasicHttpEntity entity = new BasicHttpEntity();
-            entity.setContent(newContent);
-            ((HttpEntityEnclosingRequest) request).setEntity(entity);
-        }
+        chain.proceed(request, entityProducer, scope, asyncExecCallback);
     }
 }

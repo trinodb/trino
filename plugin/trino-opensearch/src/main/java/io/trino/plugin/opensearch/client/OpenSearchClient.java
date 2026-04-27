@@ -33,20 +33,20 @@ import io.trino.plugin.opensearch.PasswordConfig;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.reactor.IOReactorConfig;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.reactor.IOReactorConfig;
+import org.apache.hc.core5.util.Timeout;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.SearchRequest;
@@ -74,6 +74,7 @@ import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -105,6 +106,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
 import static org.opensearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class OpenSearchClient
@@ -179,7 +181,14 @@ public class OpenSearchClient
                     .map(OpenSearchNode::address)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
+                    .map(address -> {
+                        try {
+                            return HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address));
+                        }
+                        catch (URISyntaxException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
                     .toArray(HttpHost[]::new);
 
             if (hosts.length > 0 && !ignorePublishAddress) {
@@ -195,6 +204,7 @@ public class OpenSearchClient
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static BackpressureRestHighLevelClient createClient(
             OpenSearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
@@ -203,42 +213,47 @@ public class OpenSearchClient
     {
         RestClientBuilder builder = RestClient.builder(
                 config.getHosts().stream()
-                        .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
+                        .map(httpHost -> new HttpHost(config.isTlsEnabled() ? "https" : "http", httpHost, config.getPort()))
                         .toArray(HttpHost[]::new));
 
-        builder.setHttpClientConfigCallback(_ -> {
-            RequestConfig requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                    .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))
-                    .build();
+        builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+                .setConnectTimeout(Timeout.ofMilliseconds(config.getConnectTimeout().toMillis()))
+                .setResponseTimeout(Timeout.ofMilliseconds(config.getRequestTimeout().toMillis())));
 
+        builder.setHttpClientConfigCallback(clientBuilder -> {
             IOReactorConfig reactorConfig = IOReactorConfig.custom()
                     .setIoThreadCount(config.getHttpThreadCount())
                     .build();
 
-            // the client builder passed to the call-back is configured to use system properties, which makes it
-            // impossible to configure concurrency settings, so we need to build a new one from scratch
-            HttpAsyncClientBuilder clientBuilder = HttpAsyncClientBuilder.create()
-                    .setDefaultRequestConfig(requestConfig)
-                    .setDefaultIOReactorConfig(reactorConfig)
-                    .setMaxConnPerRoute(config.getMaxHttpConnections())
-                    .setMaxConnTotal(config.getMaxHttpConnections());
-            if (config.isTlsEnabled()) {
-                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
-                        .ifPresent(clientBuilder::setSSLContext);
+            clientBuilder.setIOReactorConfig(reactorConfig);
 
+            if (config.isTlsEnabled()) {
+                Optional<SSLContext> sslContext = buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword());
+                ClientTlsStrategyBuilder tlsStrategyBuilder = ClientTlsStrategyBuilder.create();
+                sslContext.ifPresent(tlsStrategyBuilder::setSslContext);
                 if (!config.isVerifyHostnames()) {
-                    clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+                    tlsStrategyBuilder.setHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
+                clientBuilder.setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+                        .setMaxConnPerRoute(config.getMaxHttpConnections())
+                        .setMaxConnTotal(config.getMaxHttpConnections())
+                        .setTlsStrategy(tlsStrategyBuilder.buildAsync())
+                        .build());
+            }
+            else {
+                clientBuilder.setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+                        .setMaxConnPerRoute(config.getMaxHttpConnections())
+                        .setMaxConnTotal(config.getMaxHttpConnections())
+                        .build());
             }
 
             passwordConfig.ifPresent(securityConfig -> {
-                CredentialsProvider credentials = new BasicCredentialsProvider();
-                credentials.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword()));
+                BasicCredentialsProvider credentials = new BasicCredentialsProvider();
+                credentials.setCredentials(new AuthScope(null, -1), new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword().toCharArray()));
                 clientBuilder.setDefaultCredentialsProvider(credentials);
             });
 
-            awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
+            awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addExecInterceptorLast("AwsRequestSigner", new AwsRequestSigner(
                     securityConfig.getRegion(),
                     securityConfig.getDeploymentType(),
                     getAwsCredentialsProvider(securityConfig))));
@@ -559,8 +574,7 @@ public class OpenSearchClient
                             "GET",
                             path,
                             ImmutableMap.of(),
-                            new ByteArrayEntity(query.getBytes(UTF_8)),
-                            new BasicHeader("Content-Type", "application/json"),
+                            new ByteArrayEntity(query.getBytes(UTF_8), APPLICATION_JSON),
                             new BasicHeader("Accept-Encoding", "application/json"));
         }
         catch (IOException e) {
@@ -571,7 +585,7 @@ public class OpenSearchClient
         try {
             body = EntityUtils.toString(response.getEntity());
         }
-        catch (IOException e) {
+        catch (Exception e) {
             throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
         }
 
@@ -669,7 +683,7 @@ public class OpenSearchClient
                                 "GET",
                                 format("/%s/_count?preference=_shards:%s", index, shard),
                                 ImmutableMap.of(),
-                                new StringEntity(sourceBuilder.toString(), UTF_8),
+                                new StringEntity(sourceBuilder.toString(), APPLICATION_JSON),
                                 new BasicHeader("Content-Type", "application/json"));
             }
             catch (ResponseException e) {
