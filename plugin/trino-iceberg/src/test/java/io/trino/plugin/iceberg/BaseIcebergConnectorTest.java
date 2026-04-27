@@ -133,7 +133,6 @@ import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -7027,22 +7026,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testRemoveOrphanFilesWithUnexpectedMissingManifest()
-            throws Exception
-    {
-        String tableName = "test_remove_orphan_files_with_missing_manifest_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
-        String manifestFileToRemove = (String) computeScalar("SELECT path FROM \"" + tableName + "$manifests\"");
-        fileSystem.deleteFile(Location.of(manifestFileToRemove));
-
-        assertThat(query("ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES"))
-                .failure()
-                .hasErrorCode(ICEBERG_INVALID_METADATA)
-                .hasMessage("Manifest file does not exist: " + manifestFileToRemove);
-    }
-
-    @Test
     public void testRemoveOrphanFiles()
             throws Exception
     {
@@ -7067,50 +7050,6 @@ public abstract class BaseIcebergConnectorTest
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
         assertThat(updatedDataFiles).doesNotContain(orphanFile);
-    }
-
-    @Test
-    public void testIfRemoveOrphanFilesCleansUnnecessaryDataFilesInPartitionedTable()
-            throws Exception
-    {
-        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomNameSuffix();
-        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
-        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
-        String tableLocation = getTableLocation(tableName);
-        String orphanFile = getIcebergTableDataPath(tableLocation) + "/key=one/invalidData." + format;
-        createFile(orphanFile);
-        List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(initialDataFiles).contains(orphanFile);
-
-        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
-        assertThat(updatedDataFiles).doesNotContain(orphanFile);
-    }
-
-    @Test
-    public void testIfRemoveOrphanFilesCleansUnnecessaryMetadataFilesInPartitionedTable()
-            throws Exception
-    {
-        String tableName = "test_deleting_orphan_files_unnecessary_files" + randomNameSuffix();
-        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
-        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
-        String tableLocation = getTableLocation(tableName);
-        String orphanMetadataFile = getIcebergTableMetadataPath(tableLocation) + "/invalidData." + format;
-        createFile(orphanMetadataFile);
-        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
-        assertThat(initialMetadataFiles).contains(orphanMetadataFile);
-
-        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
-        assertThat(updatedMetadataFiles.size()).isLessThan(initialMetadataFiles.size());
-        assertThat(updatedMetadataFiles).doesNotContain(orphanMetadataFile);
     }
 
     @Test
