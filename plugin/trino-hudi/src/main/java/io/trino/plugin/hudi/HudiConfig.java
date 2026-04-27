@@ -67,6 +67,7 @@ public class HudiConfig
     private boolean metadataCacheEnabled = true;
     private boolean metadataPartitionListingEnabled = true;
     private boolean scopeFsvToPrunedPartitions;
+    private boolean scopeColumnStatsToPrunedPartitions;
 
     public List<String> getColumnsToHide()
     {
@@ -435,6 +436,21 @@ public class HudiConfig
     public HudiConfig setScopeFsvToPrunedPartitions(boolean scopeFsvToPrunedPartitions)
     {
         this.scopeFsvToPrunedPartitions = scopeFsvToPrunedPartitions;
+        return this;
+    }
+
+    public boolean isScopeColumnStatsToPrunedPartitions()
+    {
+        return scopeColumnStatsToPrunedPartitions;
+    }
+
+    @Config("hudi.metadata.scope-column-stats-to-pruned-partitions")
+    @ConfigDescription("Restrict column stats index lookups to the pruned set of partitions. " +
+            "Defers the column stats fetch until partition pruning has run, then issues prefix " +
+            "lookups keyed by (column, partition) instead of column-only.")
+    public HudiConfig setScopeColumnStatsToPrunedPartitions(boolean scopeColumnStatsToPrunedPartitions)
+    {
+        this.scopeColumnStatsToPrunedPartitions = scopeColumnStatsToPrunedPartitions;
         return this;
     }
 

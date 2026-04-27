@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.query.index;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
@@ -47,17 +48,23 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnStatsWaitTimeout;
+import static io.trino.plugin.hudi.HudiSessionProperties.isScopeColumnStatsToPrunedPartitions;
 
 public class HudiColumnStatsIndexSupport
         extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
     // file name -> column name -> domain with column stats
-    private final CompletableFuture<Optional<Map<String, Map<String, Domain>>>> domainsWithStatsFuture;
+    // volatile because the future may be created lazily from a different thread when scoped
+    // lookups are enabled (see setPrunedPartitionPaths).
+    private volatile CompletableFuture<Optional<Map<String, Map<String, Domain>>>> domainsWithStatsFuture;
     protected final TupleDomain<String> regularColumnPredicates;
     private final List<String> regularColumns;
+    private final Map<String, Type> columnTypes;
+    private final Lazy<HoodieTableMetadata> lazyTableMetadata;
     private final Duration columnStatsWaitTimeout;
-    private final long futureStartTimeMs;
+    private final boolean scopeColumnStatsToPrunedPartitions;
+    private volatile long futureStartTimeMs;
 
     public HudiColumnStatsIndexSupport(ConnectorSession session, SchemaTableName schemaTableName, Lazy<HoodieTableMetaClient> lazyMetaClient, Lazy<HoodieTableMetadata> lazyTableMetadata, TupleDomain<String> regularColumnPredicates)
     {
@@ -68,58 +75,114 @@ public class HudiColumnStatsIndexSupport
     {
         super(log, schemaTableName, lazyMetaClient);
         this.columnStatsWaitTimeout = getColumnStatsWaitTimeout(session);
+        this.scopeColumnStatsToPrunedPartitions = isScopeColumnStatsToPrunedPartitions(session);
         this.regularColumnPredicates = regularColumnPredicates;
         this.regularColumns = regularColumnPredicates.getDomains()
                 .map(domains -> new ArrayList<>(domains.keySet()))
                 .orElseGet(ArrayList::new);
+        this.columnTypes = regularColumnPredicates.getDomains()
+                .map(domains -> domains.entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType())))
+                .orElseGet(Map::of);
+        this.lazyTableMetadata = lazyTableMetadata;
+
         if (regularColumnPredicates.isAll() || regularColumnPredicates.getDomains().isEmpty()) {
             this.domainsWithStatsFuture = CompletableFuture.completedFuture(Optional.empty());
+            this.futureStartTimeMs = System.currentTimeMillis();
+        }
+        else if (scopeColumnStatsToPrunedPartitions) {
+            // Defer the lookup until pruned partition paths are provided via
+            // setPrunedPartitionPaths(). shouldSkipFileSlice() falls back to no-skip if that
+            // never happens.
+            this.domainsWithStatsFuture = null;
+            this.futureStartTimeMs = 0L;
         }
         else {
-            // Get filter columns
-            List<ColumnStatsIndexPrefixRawKey> rawKeys = regularColumns
-                    .stream()
-                    .map(ColumnStatsIndexPrefixRawKey::new).toList();
-
-            Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
-
-            domainsWithStatsFuture = CompletableFuture.supplyAsync(() -> {
-                HoodieTimer timer = HoodieTimer.start();
-                if (!lazyMetaClient.get().getTableConfig().getMetadataPartitions()
-                        .contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS)) {
-                    return Optional.empty();
-                }
-
-                Map<String, Map<String, Domain>> domainsWithStats =
-                        lazyTableMetadata.get().getRecordsByKeyPrefixes(
-                                        HoodieListData.lazy(rawKeys),
-                                        HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
-                                .collectAsList()
-                                .stream()
-                                .filter(f -> f.getData().getColumnStatMetadata().isPresent())
-                                .map(f -> f.getData().getColumnStatMetadata().get())
-                                .collect(Collectors.groupingBy(
-                                        HoodieMetadataColumnStats::getFileName,
-                                        Collectors.toMap(
-                                                HoodieMetadataColumnStats::getColumnName,
-                                                // Pre-compute the Domain object for each HoodieMetadataColumnStats
-                                                stats -> getDomainFromColumnStats(stats.getColumnName(), columnTypes.get(stats.getColumnName()), stats))));
-
-                log.debug("Column stats lookup took %s ms and identified %d relevant file IDs.", timer.endTimer(), domainsWithStats.size());
-
-                return Optional.of(domainsWithStats);
-            });
+            // Existing behaviour: fire a column-only prefix lookup eagerly and let it run
+            // concurrently with file system view loading.
+            this.domainsWithStatsFuture = startLookup(buildColumnOnlyPrefixKeys());
+            this.futureStartTimeMs = System.currentTimeMillis();
         }
+    }
+
+    @Override
+    public void setPrunedPartitionPaths(List<String> relativePartitionPaths)
+    {
+        if (!scopeColumnStatsToPrunedPartitions || domainsWithStatsFuture != null) {
+            return;
+        }
+        if (regularColumnPredicates.isAll() || regularColumnPredicates.getDomains().isEmpty()) {
+            return;
+        }
+        List<ColumnStatsIndexPrefixRawKey> rawKeys = buildColumnPartitionPrefixKeys(relativePartitionPaths);
         this.futureStartTimeMs = System.currentTimeMillis();
+        this.domainsWithStatsFuture = startLookup(rawKeys);
+    }
+
+    private List<ColumnStatsIndexPrefixRawKey> buildColumnOnlyPrefixKeys()
+    {
+        return regularColumns.stream()
+                .map(ColumnStatsIndexPrefixRawKey::new)
+                .collect(Collectors.toList());
+    }
+
+    private List<ColumnStatsIndexPrefixRawKey> buildColumnPartitionPrefixKeys(List<String> relativePartitionPaths)
+    {
+        ImmutableList.Builder<ColumnStatsIndexPrefixRawKey> builder = ImmutableList.builder();
+        for (String column : regularColumns) {
+            for (String partition : relativePartitionPaths) {
+                builder.add(new ColumnStatsIndexPrefixRawKey(column, partition));
+            }
+        }
+        return builder.build();
+    }
+
+    private CompletableFuture<Optional<Map<String, Map<String, Domain>>>> startLookup(List<ColumnStatsIndexPrefixRawKey> rawKeys)
+    {
+        if (rawKeys.isEmpty()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            HoodieTimer timer = HoodieTimer.start();
+            if (!lazyMetaClient.get().getTableConfig().getMetadataPartitions()
+                    .contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS)) {
+                return Optional.empty();
+            }
+
+            Map<String, Map<String, Domain>> domainsWithStats =
+                    lazyTableMetadata.get().getRecordsByKeyPrefixes(
+                                    HoodieListData.lazy(rawKeys),
+                                    HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
+                            .collectAsList()
+                            .stream()
+                            .filter(f -> f.getData().getColumnStatMetadata().isPresent())
+                            .map(f -> f.getData().getColumnStatMetadata().get())
+                            .collect(Collectors.groupingBy(
+                                    HoodieMetadataColumnStats::getFileName,
+                                    Collectors.toMap(
+                                            HoodieMetadataColumnStats::getColumnName,
+                                            // Pre-compute the Domain object for each HoodieMetadataColumnStats
+                                            stats -> getDomainFromColumnStats(stats.getColumnName(), columnTypes.get(stats.getColumnName()), stats))));
+
+            log.debug("Column stats lookup took %s ms over %d prefix keys and identified %d relevant file IDs.",
+                    timer.endTimer(), rawKeys.size(), domainsWithStats.size());
+
+            return Optional.of(domainsWithStats);
+        });
     }
 
     @Override
     public boolean shouldSkipFileSlice(FileSlice slice)
     {
+        CompletableFuture<Optional<Map<String, Map<String, Domain>>>> future = domainsWithStatsFuture;
+        if (future == null) {
+            // Scoped lookup was enabled but pruned partition paths were never published.
+            // Fall back to no-skip rather than blocking forever or throwing.
+            return false;
+        }
         try {
-            if (domainsWithStatsFuture.isDone()) {
-                Optional<Map<String, Map<String, Domain>>> domainsWithStatsOpt = domainsWithStatsFuture.get();
+            if (future.isDone()) {
+                Optional<Map<String, Map<String, Domain>>> domainsWithStatsOpt = future.get();
                 return domainsWithStatsOpt
                         .map(domainsWithStats -> shouldSkipFileSlice(slice, domainsWithStats, regularColumnPredicates, regularColumns))
                         .orElse(false);
@@ -134,7 +197,7 @@ public class HudiColumnStatsIndexSupport
             // If still within the timeout window, wait up to the remaining time
             long remainingMs = Math.max(0, columnStatsWaitTimeout.toMillis() - elapsedMs);
             Optional<Map<String, Map<String, Domain>>> statsOpt =
-                    domainsWithStatsFuture.get(remainingMs, TimeUnit.MILLISECONDS);
+                    future.get(remainingMs, TimeUnit.MILLISECONDS);
 
             return statsOpt
                     .map(stats -> shouldSkipFileSlice(slice, stats, regularColumnPredicates, regularColumns))

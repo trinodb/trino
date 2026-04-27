@@ -16,6 +16,8 @@ package io.trino.plugin.hudi.query.index;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
 
+import java.util.List;
+
 public interface HudiIndexSupport
 {
     boolean canApply(TupleDomain<String> tupleDomain);
@@ -24,4 +26,12 @@ public interface HudiIndexSupport
     {
         return false;
     }
+
+    /**
+     * Hint the index implementation with the set of partitions known to be relevant for the query
+     * after partition pruning. Implementations may use this to scope index lookups to those
+     * partitions instead of the whole table. Must be called before any {@link #shouldSkipFileSlice}
+     * invocation. Default is a no-op.
+     */
+    default void setPrunedPartitionPaths(List<String> relativePartitionPaths) {}
 }

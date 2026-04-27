@@ -81,7 +81,9 @@ public class HudiSnapshotDirectoryLister
     @Override
     public void setPrunedPartitionPaths(List<String> relativePartitionPaths)
     {
-        this.prunedPartitionPaths = ImmutableList.copyOf(relativePartitionPaths);
+        List<String> paths = ImmutableList.copyOf(relativePartitionPaths);
+        this.prunedPartitionPaths = paths;
+        indexSupportOpt.ifPresent(indexSupport -> indexSupport.setPrunedPartitionPaths(paths));
     }
 
     @Override
