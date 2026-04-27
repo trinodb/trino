@@ -157,7 +157,7 @@ public class BenchmarkPartitionedOutputOperator
         private TestType type = TestType.BIGINT;
 
         @Param({"0", "0.2"})
-        private float nullRate = 0.2F;
+        private float nullRate = 0.2f;
 
         private List<Type> types;
         private int pageCount;

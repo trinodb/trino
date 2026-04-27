@@ -92,7 +92,7 @@ public class TestHiveBucketing
         assertBucketEquals("bigint", Long.MAX_VALUE, -2147483648, -536577852);
 
         assertBucketEquals("float", null, 0, 0);
-        assertBucketEquals("float", 12.34F, 1095069860, -381747602);
+        assertBucketEquals("float", 12.34f, 1095069860, -381747602);
         assertBucketEquals("float", -Float.MAX_VALUE, -8388609, 470252243);
         assertBucketEquals("float", Float.MIN_VALUE, 1, 1206721797);
         assertBucketEquals("float", Float.POSITIVE_INFINITY, 2139095040, -292175804);
@@ -160,7 +160,7 @@ public class TestHiveBucketing
         // multiple bucketing columns
         assertBucketEquals(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
+                ImmutableList.of(12.34f, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
                 95411006,
                 932898434);
         assertBucketEquals(
@@ -186,7 +186,7 @@ public class TestHiveBucketing
         assertBucketsEqual(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
                 ImmutableList.of(
-                        ImmutableList.of(12.34F, 56.78F),
+                        ImmutableList.of(12.34f, 56.78f),
                         ImmutableList.of(ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableList.of((short) 1, (short) 2, (short) 3)),
                         ImmutableList.of(ImmutableMap.of("key1", 123L), ImmutableMap.of("key2", 456L))),
                 32,

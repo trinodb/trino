@@ -37,17 +37,17 @@ public class TestRealType
     public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = REAL.createFixedSizeBlockBuilder(30);
-        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
-        REAL.writeLong(blockBuilder, floatToRawIntBits(44.44F));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(11.11f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(22.22f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(33.33f));
+        REAL.writeLong(blockBuilder, floatToRawIntBits(44.44f));
         return blockBuilder.buildValueBlock();
     }
 

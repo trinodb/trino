@@ -295,7 +295,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getLong(column)).isEqualTo(Long.MAX_VALUE);
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("1.2345E+25"));
                 assertThat(rs.getFloat(column)).isEqualTo(1.2345e25f);
-                assertThat(rs.getDouble(column)).isEqualTo(1.2345000397219687E25);
+                assertThat(rs.getDouble(column)).isEqualTo(1.2345000397219687e25);
                 assertThat(rs.getString(column)).isEqualTo("1.2345E25");
                 assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 1.2345E25");
             });
@@ -414,7 +414,7 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getObject(column)).isEqualTo(new BigDecimal("9223372036854775774"));
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
                 assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
-                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776e18);
                 assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
             });
         }
@@ -500,8 +500,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThat(rs.getInt(column)).isEqualTo(-34);
                 assertThat(rs.getLong(column)).isEqualTo(9223372036854775774L);
                 assertThat(rs.getBigDecimal(column)).isEqualTo(new BigDecimal("9223372036854775774"));
-                assertThat(rs.getFloat(column)).isEqualTo(9.223372E18f);
-                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776E18);
+                assertThat(rs.getFloat(column)).isEqualTo(9.223372e18f);
+                assertThat(rs.getDouble(column)).isEqualTo(9.223372036854776e18);
                 assertThat(rs.getString(column)).isEqualTo("9223372036854775774");
                 assertSqlExceptionThrownBy(() -> rs.getBytes(column)).hasMessage("Value is not a byte array: 9223372036854775774");
 

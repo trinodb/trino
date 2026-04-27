@@ -91,13 +91,13 @@ public class TestPositionsAppender
                     input(rleBlock(type, 2), 0, 1), // rle all positions
                     input(nullRleBlock(type, 4), 1, 2),
                     input(dictionaryBlock(type, 4, 2, 0), 0, 3), // dict not null
-                    input(dictionaryBlock(type, 8, 4, 0.5F), 1, 3, 5), // dict mixed
+                    input(dictionaryBlock(type, 8, 4, 0.5f), 1, 3, 5), // dict mixed
                     input(dictionaryBlock(type, 8, 4, 1), 1, 3, 5), // dict null
                     input(rleBlock(dictionaryBlock(type, 1, 2, 0), 3), 2), // rle -> dict
                     input(rleBlock(dictionaryBlock(notNullBlock(type, 2), new int[] {1}), 3), 2), // rle -> dict with position 0 mapped to > 0
                     input(rleBlock(dictionaryBlock(rleBlock(type, 4), 1), 3), 1), // rle -> dict -> rle
-                    input(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 2), // dict -> dict
-                    input(dictionaryBlock(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5F), 3), 3), 2), // dict -> dict -> dict
+                    input(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5f), 3), 2), // dict -> dict
+                    input(dictionaryBlock(dictionaryBlock(dictionaryBlock(type, 5, 4, 0.5f), 3), 3), 2), // dict -> dict -> dict
                     input(dictionaryBlock(rleBlock(type, 4), 3), 0, 2), // dict -> rle
                     input(notNullBlock(type, 4).getRegion(2, 2), 0, 1), // not null block with offset
                     input(partiallyNullBlock(type, 4).getRegion(2, 2), 0, 1), // nullable block with offset
@@ -366,7 +366,7 @@ public class TestPositionsAppender
         RowType type = anonymousRow(BIGINT, BIGINT, VARCHAR);
         Block rowBLock = RowBlock.fromFieldBlocks(2, new Block[] {
                 notNullBlock(TestType.BIGINT, 2),
-                dictionaryBlock(TestType.BIGINT, 2, 2, 0.5F),
+                dictionaryBlock(TestType.BIGINT, 2, 2, 0.5f),
                 rleBlock(TestType.VARCHAR, 2),
         });
 
@@ -438,7 +438,7 @@ public class TestPositionsAppender
 
     private static Block partiallyNullBlock(TestType type, int positionCount)
     {
-        return createRandomBlockForType(type, positionCount, 0.5F);
+        return createRandomBlockForType(type, positionCount, 0.5f);
     }
 
     private static Block notNullBlock(TestType type, int positionCount)

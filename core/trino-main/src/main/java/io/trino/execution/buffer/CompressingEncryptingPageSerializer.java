@@ -172,7 +172,7 @@ public class CompressingEncryptingPageSerializer
 
         public void startPage(int positionCount, int sizeInBytes)
         {
-            WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2F) + SERIALIZED_PAGE_HEADER_SIZE);
+            WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2f) + SERIALIZED_PAGE_HEADER_SIZE);
             buffer.writeInt(positionCount);
             // leave space for uncompressed and compressed sizes
             buffer.skip(Integer.BYTES * 2);

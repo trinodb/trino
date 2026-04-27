@@ -1572,7 +1572,7 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as MAP(integer, real))")
                 .binding("a", "MAP(ARRAY['123', '456'], ARRAY[1.23456E0, 2.34567E0])"))
                 .hasType(mapType(INTEGER, REAL))
-                .isEqualTo(ImmutableMap.of(123, 1.23456F, 456, 2.34567F));
+                .isEqualTo(ImmutableMap.of(123, 1.23456f, 456, 2.34567f));
 
         assertThat(assertions.expression("cast(a as MAP(smallint, decimal(6,5)))")
                 .binding("a", "MAP(ARRAY['123', '456'], ARRAY[1.23456E0, 2.34567E0])"))
