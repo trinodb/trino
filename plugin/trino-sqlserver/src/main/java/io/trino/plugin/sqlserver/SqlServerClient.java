@@ -512,7 +512,7 @@ public class SqlServerClient
             throws SQLException
     {
         // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
-        // The second arqgument is treated literally.
+        // The second argument is treated literally.
         String columnFrom = DOT_JOINER.join(
                 quoted(remoteTableName.getCatalogName().orElseThrow()),
                 quoted(remoteTableName.getSchemaName().orElseThrow()),
