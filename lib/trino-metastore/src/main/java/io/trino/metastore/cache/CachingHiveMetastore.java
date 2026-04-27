@@ -920,7 +920,7 @@ public final class CachingHiveMetastore
 
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
-        invalidatePartitionCache(databaseName, tableName, partitionName -> true);
+        invalidatePartitionCache(databaseName, tableName, _ -> true);
     }
 
     private void invalidatePartitionCache(String databaseName, String tableName, Predicate<Optional<String>> partitionPredicate)

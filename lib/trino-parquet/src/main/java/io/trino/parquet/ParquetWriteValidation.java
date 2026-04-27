@@ -465,7 +465,7 @@ public class ParquetWriteValidation
                     types.size(),
                     columnNames.size());
             this.checksum = new WriteChecksumBuilder(types);
-            retainedSize += estimatedSizeOf(types, type -> 0)
+            retainedSize += estimatedSizeOf(types, _ -> 0)
                     + estimatedSizeOf(columnNames, SizeOf::estimatedSizeOf);
         }
 

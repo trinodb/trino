@@ -119,7 +119,7 @@ public class TrinoFileSystemCache
         int maxSize = conf.getInt("fs.cache.max-size", 1000);
         FileSystemHolder fileSystemHolder;
         try {
-            fileSystemHolder = cache.compute(key, (k, currentFileSystemHolder) -> {
+            fileSystemHolder = cache.compute(key, (_, currentFileSystemHolder) -> {
                 if (currentFileSystemHolder == null) {
                     // ConcurrentHashMap.compute guarantees that remapping function is invoked at most once, so cacheSize remains eventually consistent with cache.size()
                     if (cacheSize.getAndUpdate(currentSize -> Math.min(currentSize + 1, maxSize)) >= maxSize) {
@@ -178,7 +178,7 @@ public class TrinoFileSystemCache
                 // After acquiring the lock, decrement cacheSize only if
                 // (1) the key is still mapped to a FileSystemHolder
                 // (2) the filesystem object inside FileSystemHolder is the same
-                cache.compute(key, (k, currentFileSystemHolder) -> {
+                cache.compute(key, (_, currentFileSystemHolder) -> {
                     if (currentFileSystemHolder != null
                             && fileSystem.equals(currentFileSystemHolder.getFileSystem())) {
                         cacheSize.decrementAndGet();
@@ -197,7 +197,7 @@ public class TrinoFileSystemCache
         try {
             cache.forEach((key, fileSystemHolder) -> {
                 try {
-                    cache.compute(key, (k, currentFileSystemHolder) -> {
+                    cache.compute(key, (_, currentFileSystemHolder) -> {
                         // decrement cacheSize only if the key is still mapped
                         if (currentFileSystemHolder != null) {
                             cacheSize.decrementAndGet();

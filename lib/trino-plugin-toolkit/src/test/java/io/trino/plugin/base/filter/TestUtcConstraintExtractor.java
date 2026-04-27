@@ -74,7 +74,7 @@ public class TestUtcConstraintExtractor
                         TupleDomain.withColumnDomains(Map.of(A_BIGINT, Domain.singleValue(BIGINT, 1L))),
                         Constant.TRUE,
                         Map.of(),
-                        values -> {
+                        _ -> {
                             throw new AssertionError("should not be called");
                         },
                         Set.of(A_BIGINT))))
