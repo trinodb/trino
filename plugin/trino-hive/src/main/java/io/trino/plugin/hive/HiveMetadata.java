@@ -852,7 +852,7 @@ public class HiveMetadata
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         return streamTables(session, optionalSchemaName)
-                .collect(toImmutableMap(TableInfo::tableName, tableInfo -> tableInfo.extendedRelationType().toRelationType(), (ignore, second) -> second));
+                .collect(toImmutableMap(TableInfo::tableName, tableInfo -> tableInfo.extendedRelationType().toRelationType(), (_, second) -> second));
     }
 
     private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)
@@ -978,7 +978,7 @@ public class HiveMetadata
         }
         return optionalTable
                 .filter(table -> !hideDeltaLakeTables || !isDeltaLakeTable(table))
-                .map(table -> ImmutableList.of(tableName))
+                .map(_ -> ImmutableList.of(tableName))
                 .orElseGet(ImmutableList::of);
     }
 
@@ -3141,7 +3141,7 @@ public class HiveMetadata
         TupleDomain<ColumnHandle> unenforcedConstraint = partitionResult.getEffectivePredicate();
         if (newHandle.getPartitions().isPresent()) {
             List<HiveColumnHandle> partitionColumns = partitionResult.getPartitionColumns();
-            unenforcedConstraint = partitionResult.getEffectivePredicate().filter((column, domain) -> !partitionColumns.contains(column));
+            unenforcedConstraint = partitionResult.getEffectivePredicate().filter((column, _) -> !partitionColumns.contains(column));
         }
 
         return Optional.of(new ConstraintApplicationResult<>(newHandle, unenforcedConstraint, constraint.getExpression(), false));

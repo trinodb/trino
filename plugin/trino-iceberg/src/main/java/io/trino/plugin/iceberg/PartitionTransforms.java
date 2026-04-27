@@ -980,7 +980,7 @@ public final class PartitionTransforms
                 true,
                 false,
                 block -> RunLengthEncodedBlock.create(nullBlock, block.getPositionCount()),
-                (block, position) -> null);
+                (_, _) -> null);
     }
 
     private static Block transformBlock(Type sourceType, FixedWidthType resultType, Block block, LongUnaryOperator function)

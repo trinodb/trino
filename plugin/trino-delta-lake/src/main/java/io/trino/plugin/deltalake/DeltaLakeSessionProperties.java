@@ -182,7 +182,7 @@ public final class DeltaLakeSessionProperties
                         "Internal Delta Lake connector property",
                         HiveTimestampPrecision.class,
                         MILLISECONDS,
-                        value -> { throw new IllegalStateException("The property cannot be set"); },
+                        _ -> { throw new IllegalStateException("The property cannot be set"); },
                         true),
                 durationProperty(
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,

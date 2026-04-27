@@ -528,26 +528,26 @@ public class TestCheckpointEntryIterator
         Map<String, Object> minValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
                         .boxed()
-                        .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> random.nextLong(0, 1000))))
+                        .collect(toImmutableMap("intcol%s"::formatted, _ -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "A".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> maxValues = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
                         .boxed()
-                        .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> 1000L + random.nextLong(0, 1000))))
+                        .collect(toImmutableMap("intcol%s"::formatted, _ -> 1000L + random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> "Z".repeat(random.nextInt(1, 10)) + UUID.randomUUID())))
                 .buildOrThrow();
         Map<String, Object> nullCount = ImmutableMap.<String, Object>builder()
                 .putAll(IntStream.rangeClosed(1, countIntegerColumns)
                         .boxed()
-                        .collect(toImmutableMap("intcol%s"::formatted, columnIndex -> random.nextLong(0, 1000))))
+                        .collect(toImmutableMap("intcol%s"::formatted, _ -> random.nextLong(0, 1000))))
                 .putAll(IntStream.rangeClosed(1, countStringColumns)
                         .boxed()
-                        .collect(toImmutableMap("stringcol%s"::formatted, columnIndex -> random.nextLong(0, 1000))))
+                        .collect(toImmutableMap("stringcol%s"::formatted, _ -> random.nextLong(0, 1000))))
                 .buildOrThrow();
         return new DeltaLakeParquetFileStatistics(
                 Optional.of(1000L),
@@ -913,7 +913,7 @@ public class TestCheckpointEntryIterator
                 Optional.empty());
 
         int numRemoveEntries = 100;
-        Set<RemoveFileEntry> removeEntries = IntStream.range(0, numRemoveEntries).mapToObj(x ->
+        Set<RemoveFileEntry> removeEntries = IntStream.range(0, numRemoveEntries).mapToObj(_ ->
                         new RemoveFileEntry(
                                 UUID.randomUUID().toString(),
                                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),

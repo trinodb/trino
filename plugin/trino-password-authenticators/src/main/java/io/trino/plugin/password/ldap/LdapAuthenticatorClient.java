@@ -38,7 +38,7 @@ public class LdapAuthenticatorClient
     public void validatePassword(String userDistinguishedName, String password)
             throws NamingException
     {
-        ldapClient.processLdapContext(userDistinguishedName, password, context -> null);
+        ldapClient.processLdapContext(userDistinguishedName, password, _ -> null);
     }
 
     public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)

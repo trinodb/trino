@@ -36,7 +36,7 @@ class NoopGlueCache
     @Override
     public List<String> getDatabaseNames(Function<Consumer<Database>, List<String>> loader)
     {
-        return loader.apply(database -> {});
+        return loader.apply(_ -> {});
     }
 
     @Override
@@ -54,7 +54,7 @@ class NoopGlueCache
     @Override
     public List<TableInfo> getTables(String databaseName, Function<Consumer<Table>, List<TableInfo>> loader)
     {
-        return loader.apply(table -> {});
+        return loader.apply(_ -> {});
     }
 
     @Override
@@ -81,7 +81,7 @@ class NoopGlueCache
     @Override
     public Set<PartitionName> getPartitionNames(String databaseName, String tableName, String glueExpression, Function<Consumer<Partition>, Set<PartitionName>> loader)
     {
-        return loader.apply(partition -> {});
+        return loader.apply(_ -> {});
     }
 
     @Override
@@ -93,7 +93,7 @@ class NoopGlueCache
     @Override
     public Collection<Partition> batchGetPartitions(String databaseName, String tableName, Collection<PartitionName> partitionNames, BiFunction<Consumer<Partition>, Collection<PartitionName>, Collection<Partition>> loader)
     {
-        return loader.apply(partition -> {}, partitionNames);
+        return loader.apply(_ -> {}, partitionNames);
     }
 
     @Override

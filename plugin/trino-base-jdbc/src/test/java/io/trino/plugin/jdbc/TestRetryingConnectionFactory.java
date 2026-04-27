@@ -209,7 +209,7 @@ public class TestRetryingConnectionFactory
             Action action = requireNonNull(actions.pollLast(), "actions.pollFirst() is null");
             switch (action) {
                 case RETURN:
-                    return newProxy(Connection.class, (proxy, method, args) -> null);
+                    return newProxy(Connection.class, (_, _, _) -> null);
                 case THROW_NPE:
                     throw new NullPointerException("Testing NPE");
                 case THROW_TRINO_EXCEPTION:

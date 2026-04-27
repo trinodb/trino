@@ -175,7 +175,7 @@ public final class Statistics
     {
         Map<String, Map<HiveColumnStatisticType, Block>> result = new HashMap<>();
         computedStatistics.forEach((metadata, block) -> {
-            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
+            Map<HiveColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), _ -> new HashMap<>());
             columnStatistics.put(HiveColumnStatisticType.from(metadata), block);
         });
         return result.entrySet()

@@ -68,7 +68,7 @@ public class MongoPageSourceProvider
         TupleDomain<MongoColumnHandle> dynamicPredicate = dynamicFilter
                 .getCurrentPredicate()
                 .transformKeys(MongoColumnHandle.class::cast)
-                .filter((mongoColumnHandle, domain) -> isPushdownSupportedType(mongoColumnHandle.type()));
+                .filter((mongoColumnHandle, _) -> isPushdownSupportedType(mongoColumnHandle.type()));
 
         MongoTableHandle newTableHandle = tableHandle;
 

@@ -406,7 +406,7 @@ final class TestBlackHoleSmoke
                 .matches("SELECT 0 FROM TABLE(sequence(1, 2 * 3 * 5))");
 
         assertThat(query(range(0, 7)
-                .mapToObj(i -> "SELECT * FROM table_multiple_splits")
+                .mapToObj(_ -> "SELECT * FROM table_multiple_splits")
                 .collect(joining(" UNION ALL "))))
                 .matches("SELECT 0 FROM TABLE(sequence(1, 2 * 3 * 5 * 7))");
 

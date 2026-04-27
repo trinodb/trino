@@ -2325,7 +2325,7 @@ public abstract class BaseHiveConnectorTest
     {
         testFilterOnBucketedValue(
                 "BOOLEAN",
-                Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
+                Stream.concat(IntStream.range(0, 100).mapToObj(_ -> "true"), IntStream.range(0, 100).mapToObj(_ -> "false"))
                         .collect(toImmutableList()),
                 "true",
                 100,

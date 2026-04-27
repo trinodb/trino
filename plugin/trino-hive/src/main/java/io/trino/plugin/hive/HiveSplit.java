@@ -290,7 +290,7 @@ public class HiveSplit
                 + estimatedSizeOf(partitionName)
                 + sizeOf(readBucketNumber)
                 + sizeOf(tableBucketNumber)
-                + estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes)
+                + estimatedSizeOf(hiveColumnCoercions, (Integer _) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes)
                 + sizeOf(bucketConversion, BucketConversion::getRetainedSizeInBytes)
                 + sizeOf(bucketValidation, BucketValidation::getRetainedSizeInBytes)
                 + sizeOf(acidInfo, AcidInfo::retainedSizeInBytes)

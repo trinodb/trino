@@ -3345,18 +3345,18 @@ public class IcebergMetadata
         }
 
         if (tableReplace) {
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         if (tableHandle == null) {
             // Assume new table (CTAS), collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
         if (table.getSnapshotId().isEmpty()) {
             // Table has no data (empty, or wiped out). Collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
@@ -3365,7 +3365,7 @@ public class IcebergMetadata
         String totalRecords = snapshot.summary().get(TOTAL_RECORDS_PROP);
         if (totalRecords != null && Long.parseLong(totalRecords) == 0) {
             // Table has no data (empty, or wiped out). Collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
@@ -3379,7 +3379,7 @@ public class IcebergMetadata
                 .filter(column -> ndvs.containsKey(column.getId()))
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet());
-        return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), availableColumnNames -> {});
+        return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), _ -> {});
     }
 
     @Override
@@ -3441,7 +3441,7 @@ public class IcebergMetadata
                 .filter(columnMetadata -> allScalarColumnNames.contains(columnMetadata.getName()))
                 .filter(selectedColumnNames
                         .map(columnNames -> (Predicate<ColumnMetadata>) columnMetadata -> columnNames.contains(columnMetadata.getName()))
-                        .orElse(columnMetadata -> true))
+                        .orElse(_ -> true))
                 .map(column -> new ColumnStatisticMetadata(column.getName(), NUMBER_OF_DISTINCT_VALUES_NAME, NUMBER_OF_DISTINCT_VALUES_FUNCTION))
                 .collect(toImmutableSet());
 
@@ -3504,7 +3504,7 @@ public class IcebergMetadata
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> isMetadataColumnId(column.getId()));
         if (!medataColumnPredicate.isAll()) {
             return Optional.empty();
         }
@@ -3601,7 +3601,7 @@ public class IcebergMetadata
         if (baseSnapshotId.isPresent()) {
             rowDelta.validateFromSnapshot(icebergTable.snapshot(baseSnapshotId.getAsLong()).snapshotId());
         }
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
         TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
         effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, commitTasks, typeManager));
         effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));

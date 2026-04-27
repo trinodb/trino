@@ -123,7 +123,7 @@ public class TestTableSnapshot
 
         assertFileSystemAccesses(
                 () -> {
-                    tableSnapshot.get().getJsonTransactionLogEntries(trackingFileSystem).forEach(entry -> {});
+                    tableSnapshot.get().getJsonTransactionLogEntries(trackingFileSystem).forEach(_ -> {});
                 },
                 ImmutableMultiset.of());
     }

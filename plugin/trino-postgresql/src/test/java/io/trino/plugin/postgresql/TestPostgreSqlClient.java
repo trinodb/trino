@@ -118,7 +118,7 @@ public class TestPostgreSqlClient
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
             new JdbcStatisticsConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new TestingPostgreSqlConnectorContext().getTypeManager(),
             new DefaultIdentifierMapping(),

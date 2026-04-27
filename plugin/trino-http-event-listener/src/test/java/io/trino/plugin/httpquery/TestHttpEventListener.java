@@ -428,7 +428,7 @@ final class TestHttpEventListener
         assertThat(recordedRequest)
                 .describedAs("No request sent when logging is enabled")
                 .isNotNull();
-        customHeaders.forEach((key, value) -> {
+        customHeaders.forEach((key, _) -> {
             assertThat(recordedRequest.getHeaders().get(key))
                     .describedAs(format("Custom header %s not present in request", key))
                     .isNotNull();

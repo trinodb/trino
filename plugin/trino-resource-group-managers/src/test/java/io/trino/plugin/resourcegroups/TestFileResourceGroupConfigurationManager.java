@@ -85,7 +85,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .userGroups("first matching", "second matching")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userGroupsSelectionCriteria("not matching"))).isEmpty();
         assertThat(groupManager.match(userGroupsSelectionCriteria("first matching")))
@@ -101,7 +101,7 @@ public class TestFileResourceGroupConfigurationManager
                 ImmutableList.of(selectorSpec(groupIdTemplate("group"))
                         .users("First matching user", "Second matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userSelectionCriteria("Not matching user"))).isEmpty();
         assertThat(groupManager.match(userSelectionCriteria("First matching user")))
@@ -118,7 +118,7 @@ public class TestFileResourceGroupConfigurationManager
                         .userGroups("Matching group")
                         .users("Matching user")));
 
-        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager groupManager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Matching user", "Not matching group"))).isEmpty();
         assertThat(groupManager.match(userAndUserGroupsSelectionCriteria("Not matching user", "Matching group"))).isEmpty();
@@ -134,7 +134,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).originalUserPattern("foo.+")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "other-usr", Optional.empty()))).isEmpty();
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "other-usr", Optional.of("foo-usr")))).isEmpty();
@@ -150,7 +150,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).authenticatedUserPattern("foo.+")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "foo-usr", Optional.empty()))).isEmpty();
         assertThat(manager.match(identitySelectionCriteria("foo-usr", "foo-usr", Optional.of("other-usr")))).isEmpty();
@@ -197,7 +197,7 @@ public class TestFileResourceGroupConfigurationManager
                 resourceGroupSpec("group"),
                 ImmutableList.of(selectorSpec(groupIdTemplate("group")).queryTextPattern("(?i).+FROM tableX")));
 
-        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(_ -> {}, managerSpec);
 
         assertThat(manager.match(queryTextSelectionCriteria("select 1"))).isEmpty();
         assertThat(manager.match(queryTextSelectionCriteria("select * from tableY"))).isEmpty();

@@ -1089,7 +1089,7 @@ public class TestCachingHiveMetastore
     {
         private final CachingHiveMetastore cachingHiveMetastore;
         private final MockThriftMetastoreClient thriftClient;
-        private Consumer<CachingHiveMetastore> metastoreInteractions = hiveMetastore -> {};
+        private Consumer<CachingHiveMetastore> metastoreInteractions = _ -> {};
 
         private PartitionCachingAssertions(Executor refreshExecutor)
         {

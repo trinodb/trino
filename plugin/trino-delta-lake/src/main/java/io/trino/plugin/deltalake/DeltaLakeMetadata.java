@@ -894,7 +894,7 @@ public class DeltaLakeMetadata
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
     {
         return streamTables(session, schemaName)
-                .collect(toImmutableMap(TableInfo::tableName, this::resolveRelationType, (ignore, second) -> second));
+                .collect(toImmutableMap(TableInfo::tableName, this::resolveRelationType, (_, second) -> second));
     }
 
     private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)

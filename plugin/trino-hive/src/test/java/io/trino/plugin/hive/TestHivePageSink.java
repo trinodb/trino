@@ -299,7 +299,7 @@ public class TestHivePageSink
                 .map(TestHivePageSink::getType)
                 .map(hiveType -> TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()))
                 .collect(toList());
-        Page page = createPage(lineItem -> true);
+        Page page = createPage(_ -> true);
         pageSink.appendPage(page);
         getFutureValue(pageSink.finish());
 

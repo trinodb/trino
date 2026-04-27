@@ -99,7 +99,7 @@ public class HivePartitionManager
 
         Optional<List<String>> partitionNames = Optional.empty();
         Iterable<HivePartition> partitionsIterable;
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(value -> true);
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(_ -> true);
         if (hiveTableHandle.getPartitions().isPresent()) {
             partitionsIterable = hiveTableHandle.getPartitions().get().stream()
                     .filter(partition -> partitionMatches(partitionColumns, effectivePredicate, predicate, partition))
@@ -133,7 +133,7 @@ public class HivePartitionManager
 
         List<HivePartition> partitionList = partitionValuesList.stream()
                 .map(partitionValues -> toPartitionName(partitionColumnNames, partitionValues))
-                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, TupleDomain.all(), value -> true))
+                .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, TupleDomain.all(), _ -> true))
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
@@ -154,7 +154,7 @@ public class HivePartitionManager
         if (partitionList.isPresent()) {
             partitionNames = Optional.empty();
             List<HiveColumnHandle> partitionColumns = partitions.getPartitionColumns();
-            enforcedConstraint = partitions.getEffectivePredicate().filter((column, domain) -> partitionColumns.contains(column));
+            enforcedConstraint = partitions.getEffectivePredicate().filter((column, _) -> partitionColumns.contains(column));
         }
         return new HiveTableHandle(
                 handle.getSchemaName(),

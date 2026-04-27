@@ -290,7 +290,7 @@ public class BigQueryMetadata
         }).orElseGet(() -> listSchemaNames(session));
         Map<SchemaTableName, RelationCommentMetadata> resultsByName = schemaNames.stream()
                 .flatMap(schema -> listRelationCommentMetadata(session, client, schema))
-                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, second) -> {
+                .collect(toImmutableMap(RelationCommentMetadata::name, Functions.identity(), (first, _) -> {
                     log.debug("Filtered out [%s] from list of tables due to ambiguous name", first.name());
                     return null;
                 }));
@@ -441,7 +441,7 @@ public class BigQueryMetadata
         Optional<String> query = Optional.ofNullable(((ViewDefinition) tableInfo.getDefinition()).getQuery());
         Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.of(query.orElse("NULL")));
 
-        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), constraint -> new InMemoryRecordSet(types, propertyValues).cursor()));
+        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), _ -> new InMemoryRecordSet(types, propertyValues).cursor()));
     }
 
     @Override

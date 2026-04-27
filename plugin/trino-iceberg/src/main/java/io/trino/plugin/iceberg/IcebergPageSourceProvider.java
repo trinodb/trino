@@ -438,7 +438,7 @@ public class IcebergPageSourceProvider
                 })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, ignored -> new DeleteManager(typeManager));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}

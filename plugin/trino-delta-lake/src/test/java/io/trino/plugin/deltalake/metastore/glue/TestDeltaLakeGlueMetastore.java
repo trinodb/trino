@@ -184,9 +184,9 @@ public class TestDeltaLakeGlueMetastore
         });
         createTransactionLog(deltaLakeTableLocation);
 
-        createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
+        createTable(nonDeltaLakeTable1, tableLocation(nonDeltaLakeTable1), _ -> {});
         createTable(nonDeltaLakeTable2, tableLocation(nonDeltaLakeTable2), tableBuilder -> tableBuilder.setParameter(TABLE_PROVIDER_PROPERTY, "foo"));
-        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), tableBuilder -> {});
+        createView(nonDeltaLakeView1, tableLocation(nonDeltaLakeTable1), _ -> {});
 
         DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
 

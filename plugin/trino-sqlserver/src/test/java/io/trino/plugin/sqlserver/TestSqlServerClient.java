@@ -60,7 +60,7 @@ public class TestSqlServerClient
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
-            session -> {
+            _ -> {
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),

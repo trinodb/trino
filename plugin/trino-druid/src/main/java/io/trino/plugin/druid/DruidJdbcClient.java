@@ -324,10 +324,10 @@ public class DruidJdbcClient
                     boolean canPushdownFilter = domain.getValues().getValuesProcessor().transform(
                             ranges -> ranges.getOrderedRanges().stream()
                                     .allMatch(DruidJdbcClient::hasSecondPrecision),
-                            discreteValues -> {
+                            _ -> {
                                 throw new UnsupportedOperationException("Not supported for discrete values");
                             },
-                            allOrNone -> true);
+                            _ -> true);
 
                     if (canPushdownFilter) {
                         return FULL_PUSHDOWN.apply(session, domain);

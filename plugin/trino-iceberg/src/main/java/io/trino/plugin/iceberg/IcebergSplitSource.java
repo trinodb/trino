@@ -224,7 +224,7 @@ public class IcebergSplitSource
         this.projectedBaseColumns = tableHandle.getProjectedColumns().stream()
                 .map(column -> column.getBaseColumnIdentity().getId())
                 .collect(toImmutableSet());
-        this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
         this.partitionDomain = getPartitionDomain(tableHandle.getEnforcedPredicate());
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
         checkArgument(
