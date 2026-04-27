@@ -723,6 +723,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
@@ -736,6 +737,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
@@ -762,6 +764,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
@@ -828,6 +831,8 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
+        requireNonNull(columnNames, "columnNames is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
 
@@ -1109,6 +1114,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(branch, "branch is null");
         requireNonNull(columnNames, "columnNames is null");
 
         checkCanAccessCatalog(securityContext, tableName.catalogName());
