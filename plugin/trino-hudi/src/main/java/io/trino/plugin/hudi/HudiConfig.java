@@ -66,6 +66,7 @@ public class HudiConfig
     private Duration secondaryIndexWaitTimeout = new Duration(2, SECONDS);
     private boolean metadataCacheEnabled = true;
     private boolean metadataPartitionListingEnabled = true;
+    private boolean scopeFsvToPrunedPartitions;
 
     public List<String> getColumnsToHide()
     {
@@ -420,6 +421,20 @@ public class HudiConfig
     public HudiConfig setMetadataPartitionListingEnabled(boolean metadataPartitionListingEnabled)
     {
         this.metadataPartitionListingEnabled = metadataPartitionListingEnabled;
+        return this;
+    }
+
+    public boolean isScopeFsvToPrunedPartitions()
+    {
+        return scopeFsvToPrunedPartitions;
+    }
+
+    @Config("hudi.metadata.scope-fsv-to-pruned-partitions")
+    @ConfigDescription("Load only the pruned set of partitions into the file system view instead of all partitions. " +
+            "Reduces split generation latency for queries that touch a small fraction of partitions.")
+    public HudiConfig setScopeFsvToPrunedPartitions(boolean scopeFsvToPrunedPartitions)
+    {
+        this.scopeFsvToPrunedPartitions = scopeFsvToPrunedPartitions;
         return this;
     }
 

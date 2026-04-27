@@ -75,6 +75,7 @@ public class HudiSessionProperties
     static final String RECORD_INDEX_WAIT_TIMEOUT = "record_index_wait_timeout";
     static final String SECONDARY_INDEX_WAIT_TIMEOUT = "secondary_index_wait_timeout";
     static final String METADATA_PARTITION_LISTING_ENABLED = "metadata_partition_listing_enabled";
+    static final String SCOPE_FSV_TO_PRUNED_PARTITIONS = "scope_fsv_to_pruned_partitions";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -247,6 +248,11 @@ public class HudiSessionProperties
                         hudiConfig.isMetadataPartitionListingEnabled(),
                         false),
                 booleanProperty(
+                        SCOPE_FSV_TO_PRUNED_PARTITIONS,
+                        "Load only pruned partitions into the Hudi file system view instead of all partitions",
+                        hudiConfig.isScopeFsvToPrunedPartitions(),
+                        false),
+                booleanProperty(
                         RESOLVE_COLUMN_NAME_CASING_ENABLED,
                         "Enable resolve column name casing",
                         hudiConfig.isResolveColumnNameCasingEnabled(),
@@ -413,5 +419,10 @@ public class HudiSessionProperties
     public static boolean isMetadataPartitionListingEnabled(ConnectorSession session)
     {
         return session.getProperty(METADATA_PARTITION_LISTING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isScopeFsvToPrunedPartitions(ConnectorSession session)
+    {
+        return session.getProperty(SCOPE_FSV_TO_PRUNED_PARTITIONS, Boolean.class);
     }
 }

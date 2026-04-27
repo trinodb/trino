@@ -17,10 +17,18 @@ import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import org.apache.hudi.common.model.FileSlice;
 
 import java.io.Closeable;
+import java.util.List;
 import java.util.stream.Stream;
 
 public interface HudiDirectoryLister
         extends Closeable
 {
     Stream<FileSlice> listStatus(HudiPartitionInfo partitionInfo, boolean useIndex);
+
+    /**
+     * Hint the lister with the set of partitions known to be relevant for this query so that
+     * the underlying file system view can be loaded for only those partitions instead of all.
+     * Must be called before the first {@link #listStatus} invocation. Default is a no-op.
+     */
+    default void setPrunedPartitionPaths(List<String> relativePartitionPaths) {}
 }

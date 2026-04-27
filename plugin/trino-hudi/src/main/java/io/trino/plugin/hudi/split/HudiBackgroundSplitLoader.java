@@ -147,6 +147,13 @@ public class HudiBackgroundSplitLoader
             return;
         }
 
+        // Hint the directory lister with the pruned partition set so the underlying file system view
+        // can be loaded for only those partitions instead of all. The lister chooses whether to use
+        // this hint based on its own session-level flag; this call is always safe.
+        hudiDirectoryLister.setPrunedPartitionPaths(partitionQueue.stream()
+                .map(HiveHudiPartitionInfo::getRelativePartitionPath)
+                .toList());
+
         List<HudiPartitionInfoLoader> splitGenerators = new ArrayList<>();
         List<ListenableFuture<Void>> futures = new ArrayList<>();
 
