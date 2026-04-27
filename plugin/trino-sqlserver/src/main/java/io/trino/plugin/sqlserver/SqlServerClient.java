@@ -80,7 +80,6 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -137,6 +136,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -571,27 +571,25 @@ public class SqlServerClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(remoteTableName)), ImmutableList.of());
+        return Jdbi.open(connection).createQuery("""
+                                                 SELECT c.name AS column_name, c.collation_name FROM sys.columns c
+                                                 INNER JOIN sys.tables t ON c.object_id = t.object_id
+                                                 INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                                                 WHERE s.name = :schema_name AND t.name = :table_name
+                                                 """)
+                .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
+                .bind("table_name", remoteTableName.getTableName())
+                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                        rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
+    }
 
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
-            ResultSetMetaData metadata = preparedStatement.getMetaData();
-            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
-            for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                String name = metadata.getColumnName(column);
-                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
-            }
-            return columns.buildOrThrow();
+    private static CaseSensitivity toCaseSensitivity(String collation)
+    {
+        if (collation == null || collation.isEmpty()) {
+            return CASE_INSENSITIVE;
         }
-        catch (SQLException e) {
-            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
-                // The 208 indicates that the object doesn't exist or lack of permission.
-                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
-                // TableNotFoundException will be suppressed when listing information_schema.
-                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
-                throw new TableNotFoundException(schemaTableName);
-            }
-            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + requireNonNullElse(e.getMessage(), e), e);
-        }
+        // https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support
+        return collation.contains("_BIN") || collation.contains("_BIN2") || collation.contains("_CS") ? CASE_SENSITIVE : CASE_INSENSITIVE;
     }
 
     @Override
