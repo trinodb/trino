@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -59,6 +60,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -67,6 +69,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -82,6 +85,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
@@ -216,6 +220,8 @@ public final class DuckDbClient
                         DATE,
                         (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
                         dateWriteFunction()));
+            case Types.TIMESTAMP:
+                return Optional.of(timestampColumnMapping(createTimestampType(6)));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -266,6 +272,12 @@ public final class DuckDbClient
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
+        if (type instanceof TimestampType timestampType) {
+            if (timestampType.getPrecision() <= 6) {
+                return WriteMapping.longMapping("timestamp", duckDbTimestampWriteFunction());
+            }
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
@@ -286,5 +298,11 @@ public final class DuckDbClient
                 statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
             }
         };
+    }
+
+    private static LongWriteFunction duckDbTimestampWriteFunction()
+    {
+        return LongWriteFunction.of(Types.TIMESTAMP, (statement, index, value) ->
+                statement.setObject(index, fromTrinoTimestamp(value)));
     }
 }

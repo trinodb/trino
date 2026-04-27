@@ -42,6 +42,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.time.ZoneOffset.UTC;
@@ -298,6 +299,37 @@ final class TestDuckDbTypeMapping
                 .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+    }
+
+    @Test
+    void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000001'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.000001'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 01:33:17.456789'", createTimestampType(6), "TIMESTAMP '2018-10-28 01:33:17.456789'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-03-25 03:17:17.000000'", createTimestampType(6), "TIMESTAMP '2018-03-25 03:17:17.000000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-10-28 03:33:33.333333'", createTimestampType(6), "TIMESTAMP '2018-10-28 03:33:33.333333'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2018-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '2018-12-31 23:59:59.999999'")
+                .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '0001-01-01 00:00:00.000000'", createTimestampType(6), "TIMESTAMP '0001-01-01 00:00:00.000000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '9999-12-31 23:59:59.999999'", createTimestampType(6), "TIMESTAMP '9999-12-31 23:59:59.999999'")
+                .execute(getQueryRunner(), session, duckDbCreateAndInsert("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
     }
 
     private DataSetup duckDbCreateAndInsert(String tableNamePrefix)

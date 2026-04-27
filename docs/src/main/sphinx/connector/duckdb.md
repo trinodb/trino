@@ -111,6 +111,10 @@ this table:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP`
+  - `TIMESTAMP(6)`
+  - 
+
 :::
 
 No other types are supported.
@@ -160,6 +164,10 @@ this table:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP(P)`
+  - `TIMESTAMP`
+  - Supported for `P <= 6`
+
 :::
 
 No other types are supported.
