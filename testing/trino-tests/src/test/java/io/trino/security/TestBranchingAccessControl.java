@@ -246,4 +246,45 @@ final class TestBranchingAccessControl
                 "View owner does not have sufficient privileges: View owner 'owner' cannot create view that selects from branch dev in mock.tiny.nation",
                 privilege("owner", "nation", CREATE_VIEW_WITH_SELECT_COLUMNS));
     }
+
+    @Test
+    void testSelectFromViewBranchDeniedByBranchPrivilege()
+    {
+        assertAccessDenied(
+                "SELECT nationkey FROM mock.tiny.nation_view FOR VERSION AS OF 'dev'",
+                "Cannot select from columns \\[nationkey] in branch dev in table mock.tiny.nation_view",
+                branchPrivilege("nation_view", "dev", SELECT_COLUMN));
+
+        // SELECT from view without branch specifier is still allowed
+        assertAccessAllowed(
+                "SELECT nationkey FROM mock.tiny.nation_view",
+                branchPrivilege("nation_view", "dev", SELECT_COLUMN));
+
+        // SELECT from view with a different branch is still allowed
+        assertAccessAllowed(
+                "SELECT nationkey FROM mock.tiny.nation_view FOR VERSION AS OF 'main'",
+                branchPrivilege("nation_view", "dev", SELECT_COLUMN));
+
+        // only grant on branch allows access
+        assertAccessAllowed(
+                "SELECT nationkey FROM mock.tiny.nation_view FOR VERSION AS OF 'main'",
+                allExceptBranchPrivilege("nation_view", "main", SELECT_COLUMN));
+
+        // corner case: SELECT * creates a synthetic scope:
+        // if branch information is not copied correctly between scopes, it will try to access table with no branch
+        assertAccessAllowed(
+                "SELECT * FROM mock.tiny.nation_view FOR VERSION AS OF 'main'",
+                allExceptBranchPrivilege("nation_view", "main", SELECT_COLUMN));
+    }
+
+    @Test
+    void testSelectFromViewBranchDeniedByTablePrivilege()
+    {
+        // Denying without branch blocks all access, including branch access
+        // (This actually depends on specific semantics of the access control, but at least we'll test the error messages)
+        assertAccessDenied(
+                "SELECT nationkey FROM mock.tiny.nation_view FOR VERSION AS OF 'dev'",
+                "Cannot select from columns \\[nationkey] in branch dev in table mock.tiny.nation_view",
+                privilege("nation_view", SELECT_COLUMN));
+    }
 }
