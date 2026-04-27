@@ -182,7 +182,7 @@ final class ParquetWriters
             ParquetWriterOptions writerOptions,
             Optional<DateTimeZone> parquetTimeZone)
     {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(writerOptions.getMaxPageSize(), DEFAULT_DICTIONARY_PAGE_SIZE);
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(writerOptions, DEFAULT_DICTIONARY_PAGE_SIZE);
         WriteBuilder writeBuilder = new WriteBuilder(
                 messageType,
                 trinoTypes,

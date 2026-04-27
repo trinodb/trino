@@ -29,6 +29,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row;
@@ -360,6 +361,48 @@ public class TestHiveSparkCompatibility
             for (String trinoTable : trinoTables) {
                 onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTable);
             }
+        }
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoSparkParquetDeltaLengthByteArrayCompatibility()
+    {
+        String trinoTableName = "test_trino_spark_parquet_delta_length_compat_" + randomNameSuffix();
+        String fullyQualifiedTrinoTableName = format("%s.default.%s", TRINO_CATALOG, trinoTableName);
+        try {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (format = 'PARQUET')",
+                    fullyQualifiedTrinoTableName));
+
+            // Force the DELTA_LENGTH_BYTE_ARRAY fallback with high-cardinality UUID-derived
+            // values. The dictionary writer falls back at first-page flush via the compression
+            // ratio check (random UUIDs offer no dictionary compression); 5000 rows is
+            // comfortably above the empirical threshold pinned by
+            // TestParquetWriter#testDeltaLengthByteArrayFallbackIsWritten.
+            StringBuilder values = new StringBuilder();
+            for (int i = 0; i < 5000; i++) {
+                String uuid = UUID.randomUUID().toString();
+                if (i > 0) {
+                    values.append(", ");
+                }
+                values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
+            }
+            onTrino().executeQuery(format("INSERT INTO %s VALUES %s", fullyQualifiedTrinoTableName, values));
+
+            // Hive read
+            assertThat(onHive().executeQuery(format("SELECT count(*) FROM default.%s", trinoTableName)))
+                    .containsOnly(row(5000));
+
+            // Spark on the Hive catalog
+            assertThat(onSpark().executeQuery(format("SELECT count(*) FROM default.%s", trinoTableName)))
+                    .containsOnly(row(5000L));
+            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM default.%s", trinoTableName)))
+                    .containsOnly(row(5000L));
+            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT bin) FROM default.%s", trinoTableName)))
+                    .containsOnly(row(5000L));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + fullyQualifiedTrinoTableName);
         }
     }
 
