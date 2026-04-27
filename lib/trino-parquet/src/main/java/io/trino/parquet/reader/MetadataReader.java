@@ -228,10 +228,10 @@ public final class MetadataReader
 
         return org.apache.parquet.column.statistics.Statistics
                 .getBuilderForReading(columnStatistics.type())
-                       .withMin(min)
-                       .withMax(max)
-                       .withNumNulls(!columnStatistics.isNumNullsSet() && statistics.isSetNull_count() ? statistics.getNull_count() : columnStatistics.getNumNulls())
-                       .build();
+                .withMin(min)
+                .withMax(max)
+                .withNumNulls(!columnStatistics.isNumNullsSet() && statistics.isSetNull_count() ? statistics.getNull_count() : columnStatistics.getNumNulls())
+                .build();
     }
 
     private static boolean isAscii(byte b)
