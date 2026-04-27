@@ -836,7 +836,7 @@ public class TestRealOperators
     public void testNanHash()
             throws Throwable
     {
-        int[] nanRepresentations = {floatToIntBits(Float.NaN), 0xffc00000, 0x7fc00000, 0x7fc01234, 0xffc01234};
+        int[] nanRepresentations = {floatToIntBits(Float.NaN), 0xFFC00000, 0x7FC00000, 0x7FC01234, 0xFFC01234};
         for (int nanRepresentation : nanRepresentations) {
             assertThat(isNaN(intBitsToFloat(nanRepresentation))).isTrue();
             assertThat(executeHashOperator(nanRepresentation)).isEqualTo(executeHashOperator(nanRepresentations[0]));

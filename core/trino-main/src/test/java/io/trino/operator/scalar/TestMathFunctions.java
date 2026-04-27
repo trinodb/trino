@@ -57,7 +57,7 @@ public class TestMathFunctions
     private static final int[] intRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
-    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
+    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.FFFFFFFFFFFFFp-2;
 
     private QueryAssertions assertions;
 

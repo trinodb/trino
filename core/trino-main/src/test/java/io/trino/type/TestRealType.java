@@ -68,7 +68,7 @@ public class TestRealType
         REAL.writeInt(blockBuilder, floatToRawIntBits(Float.NaN));
         // the following two are the integer values of a float NaN
         REAL.writeInt(blockBuilder, -0x400000);
-        REAL.writeInt(blockBuilder, 0x7fc00000);
+        REAL.writeInt(blockBuilder, 0x7FC00000);
         Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);

@@ -282,7 +282,7 @@ public class BooleanInputStream
         int remaining = batchSize - offset;
         if (remaining > 0) {
             byte data = byteStream.next();
-            int value = (data & 0xff) >> (8 - remaining);
+            int value = (data & 0xFF) >> (8 - remaining);
             unsetCount += (remaining - Integer.bitCount(value));
             switch (remaining) {
                 case 7:

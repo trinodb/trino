@@ -86,7 +86,7 @@ public class NullsDecoders
                 else if (bitPackedValueOffset != 0) { // bit-packed - read remaining bits of current byte
                     int remainingBits = Byte.SIZE - bitPackedValueOffset;
                     int chunkSize = min(remainingBits, length);
-                    int remainingPackedValue = (bitPackedValue & 0xff) >>> bitPackedValueOffset;
+                    int remainingPackedValue = (bitPackedValue & 0xFF) >>> bitPackedValueOffset;
                     // In bitPackedValue 1's are nulls, so the number of non-nulls is
                     // chunkSize - bitCount(remainingBits up to chunkSize)
                     nonNullCount += chunkSize - bitCount((byte) (remainingPackedValue & ((1 << chunkSize) - 1)));

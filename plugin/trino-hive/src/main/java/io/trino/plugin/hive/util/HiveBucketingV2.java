@@ -218,14 +218,14 @@ final class HiveBucketingV2
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static byte[] bytes(short value)
     {
-        return new byte[] {(byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+        return new byte[] {(byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // big-endian
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static byte[] bytes(int value)
     {
-        return new byte[] {(byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+        return new byte[] {(byte) ((value >> 24) & 0xFF), (byte) ((value >> 16) & 0xFF), (byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // big-endian
@@ -233,8 +233,8 @@ final class HiveBucketingV2
     private static byte[] bytes(long value)
     {
         return new byte[] {
-                (byte) ((value >> 56) & 0xff), (byte) ((value >> 48) & 0xff), (byte) ((value >> 40) & 0xff), (byte) ((value >> 32) & 0xff),
-                (byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+                (byte) ((value >> 56) & 0xFF), (byte) ((value >> 48) & 0xFF), (byte) ((value >> 40) & 0xFF), (byte) ((value >> 32) & 0xFF),
+                (byte) ((value >> 24) & 0xFF), (byte) ((value >> 16) & 0xFF), (byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // copied from org.apache.hive.common.util.Murmur3
@@ -252,11 +252,11 @@ final class HiveBucketingV2
             int k = Ints.fromBytes(data[i + 3], data[i + 2], data[i + 1], data[i]);
 
             // mix functions
-            k *= 0xcc9e2d51;
+            k *= 0xCC9E2D51;
             k = Integer.rotateLeft(k, 15);
-            k *= 0x1b873593;
+            k *= 0x1B873593;
             hash ^= k;
-            hash = Integer.rotateLeft(hash, 13) * 5 + 0xe6546b64;
+            hash = Integer.rotateLeft(hash, 13) * 5 + 0xE6546B64;
         }
 
         // tail
@@ -272,18 +272,18 @@ final class HiveBucketingV2
                 k1 ^= data[idx];
 
                 // mix functions
-                k1 *= 0xcc9e2d51;
+                k1 *= 0xCC9E2D51;
                 k1 = Integer.rotateLeft(k1, 15);
-                k1 *= 0x1b873593;
+                k1 *= 0x1B873593;
                 hash ^= k1;
         }
 
         // finalization
         hash ^= length;
         hash ^= (hash >>> 16);
-        hash *= 0x85ebca6b;
+        hash *= 0x85EBCA6B;
         hash ^= (hash >>> 13);
-        hash *= 0xc2b2ae35;
+        hash *= 0xC2B2AE35;
         hash ^= (hash >>> 16);
 
         return hash;

@@ -955,8 +955,8 @@ public class ClickHouseClient
                     byte[] bytes;
                     if (address.length == 4) {
                         bytes = new byte[16];
-                        bytes[10] = (byte) 0xff;
-                        bytes[11] = (byte) 0xff;
+                        bytes[10] = (byte) 0xFF;
+                        bytes[11] = (byte) 0xFF;
                         arraycopy(address, 0, bytes, 12, 4);
                     }
                     else if (address.length == 16) {

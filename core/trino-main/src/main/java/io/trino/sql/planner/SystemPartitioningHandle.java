@@ -213,7 +213,7 @@ public final class SystemPartitioningHandle
             public int getBucket(Page page, int position)
             {
                 int bucket = counter % bucketCount;
-                counter = (counter + 1) & 0x7fff_ffff;
+                counter = (counter + 1) & 0x7FFF_FFFF;
                 return bucket;
             }
 

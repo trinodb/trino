@@ -27,7 +27,7 @@ public final class BitwiseFunctions
     private static final long TINYINT_SIGNED_BIT = 0b1000_0000L;
     private static final long SMALLINT_MASK = 0b1111_1111_1111_1111L;
     private static final long SMALLINT_SIGNED_BIT = 0b1000_0000_0000_0000L;
-    private static final long INTEGER_MASK = 0x00_00_00_00_ff_ff_ff_ffL;
+    private static final long INTEGER_MASK = 0x00_00_00_00_FF_FF_FF_FFL;
     private static final long INTEGER_SIGNED_BIT = 0x00_00_00_00_00_80_00_00_00L;
 
     private BitwiseFunctions() {}

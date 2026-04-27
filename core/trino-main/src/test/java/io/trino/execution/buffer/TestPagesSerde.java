@@ -328,14 +328,14 @@ public class TestPagesSerde
             for (int i = 0; i < numberOfEntries; ++i) {
                 long value = slice.getLong(offset);
                 offset += 8;
-                long b7 = value >> 56 & 0xffL;
-                long b6 = value >> 48 & 0xffL;
-                long b5 = value >> 40 & 0xffL;
-                long b4 = value >> 32 & 0xffL;
-                long b3 = value >> 24 & 0xffL;
-                long b2 = value >> 16 & 0xffL;
-                long b1 = value >> 8 & 0xffL;
-                long b0 = value & 0xffL;
+                long b7 = value >> 56 & 0xFFL;
+                long b6 = value >> 48 & 0xFFL;
+                long b5 = value >> 40 & 0xFFL;
+                long b4 = value >> 32 & 0xFFL;
+                long b3 = value >> 24 & 0xFFL;
+                long b2 = value >> 16 & 0xFFL;
+                long b1 = value >> 8 & 0xFFL;
+                long b0 = value & 0xFFL;
                 // write one byte at a time
                 output.writeByte((int) b0);
                 output.writeByte((int) b1);

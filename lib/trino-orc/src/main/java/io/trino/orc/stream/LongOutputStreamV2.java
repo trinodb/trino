@@ -384,7 +384,7 @@ public class LongOutputStreamV2
 
         // write the repeating value in big endian byte order
         for (int i = numBytesRepeatVal - 1; i >= 0; i--) {
-            int b = (int) ((repeatVal >>> (i * 8)) & 0xff);
+            int b = (int) ((repeatVal >>> (i * 8)) & 0xFF);
             buffer.write(b);
         }
 
@@ -407,7 +407,7 @@ public class LongOutputStreamV2
         final int headerFirstByte = EncodingType.DIRECT.getOpCode() | encodeBitWidth | tailBits;
 
         // second byte of the header stores the remaining 8 bits of run length
-        final int headerSecondByte = variableRunLength & 0xff;
+        final int headerSecondByte = variableRunLength & 0xFF;
 
         // write header
         buffer.write(headerFirstByte);
@@ -459,7 +459,7 @@ public class LongOutputStreamV2
         final int headerFirstByte = EncodingType.DELTA.getOpCode() | encodeBitWidth | tailBits;
 
         // second byte of the header stores the remaining 8 bits of runlength
-        final int headerSecondByte = length & 0xff;
+        final int headerSecondByte = length & 0xFF;
 
         // write header
         buffer.write(headerFirstByte);
@@ -514,7 +514,7 @@ public class LongOutputStreamV2
         final int headerFirstByte = EncodingType.PATCHED_BASE.getOpCode() | efb | tailBits;
 
         // second byte of the header stores the remaining 8 bits of runlength
-        final int headerSecondByte = variableRunLength & 0xff;
+        final int headerSecondByte = variableRunLength & 0xFF;
 
         // if the min value is negative toggle the sign
         final boolean isNegative = min < 0;
@@ -550,7 +550,7 @@ public class LongOutputStreamV2
 
         // write the base value using fixed bytes in big endian order
         for (int i = baseBytes - 1; i >= 0; i--) {
-            byte b = (byte) ((min >>> (i * 8)) & 0xff);
+            byte b = (byte) ((min >>> (i * 8)) & 0xFF);
             buffer.write(b);
         }
 
@@ -787,11 +787,11 @@ public class LongOutputStreamV2
         static void writeVulong(SliceOutput output, long value)
         {
             while (true) {
-                if ((value & ~0x7f) == 0) {
+                if ((value & ~0x7F) == 0) {
                     output.write((byte) value);
                     return;
                 }
-                output.write((byte) (0x80 | (value & 0x7f)));
+                output.write((byte) (0x80 | (value & 0x7F)));
                 value >>>= 7;
             }
         }

@@ -98,10 +98,10 @@ public class TestHiveBucketing
         assertBucketEquals("float", Float.POSITIVE_INFINITY, 2139095040, -292175804);
         assertBucketEquals("float", Float.NEGATIVE_INFINITY, -8388608, -1433270801);
         assertBucketEquals("float", Float.NaN, 2143289344, -480354314);
-        assertBucketEquals("float", intBitsToFloat(0xffc00000), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0x7fc00000), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0x7fc01234), 2143289344, -480354314); // also a NaN
-        assertBucketEquals("float", intBitsToFloat(0xffc01234), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0xFFC00000), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7FC00000), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0x7FC01234), 2143289344, -480354314); // also a NaN
+        assertBucketEquals("float", intBitsToFloat(0xFFC01234), 2143289344, -480354314); // also a NaN
 
         assertBucketEquals("double", null, 0, 0);
         assertBucketEquals("double", 12.34, 986311098, -2070733568);
@@ -110,9 +110,9 @@ public class TestHiveBucketing
         assertBucketEquals("double", Double.POSITIVE_INFINITY, 2146435072, 1614292060);
         assertBucketEquals("double", Double.NEGATIVE_INFINITY, -1048576, 141388605);
         assertBucketEquals("double", Double.NaN, 2146959360, 1138026565);
-        assertBucketEquals("double", longBitsToDouble(0xfff8000000000000L), 2146959360, 1138026565); // also a NaN
-        assertBucketEquals("double", longBitsToDouble(0x7ff8123412341234L), 2146959360, 1138026565); // also a NaN
-        assertBucketEquals("double", longBitsToDouble(0xfff8123412341234L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0xFFF8000000000000L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0x7FF8123412341234L), 2146959360, 1138026565); // also a NaN
+        assertBucketEquals("double", longBitsToDouble(0xFFF8123412341234L), 2146959360, 1138026565); // also a NaN
 
         assertBucketEquals("varchar(15)", null, 0, 0);
         assertBucketEquals("varchar(15)", "", 1, -965378730);

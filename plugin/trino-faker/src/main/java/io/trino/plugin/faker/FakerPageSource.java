@@ -1079,8 +1079,8 @@ class FakerPageSource
             }
 
             byte[] bytes = new byte[16];
-            bytes[10] = (byte) 0xff;
-            bytes[11] = (byte) 0xff;
+            bytes[10] = (byte) 0xFF;
+            bytes[11] = (byte) 0xFF;
             arraycopy(address, 0, bytes, 12, 4);
 
             type.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes, 0, 16));
