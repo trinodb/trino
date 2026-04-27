@@ -641,7 +641,7 @@ public class TestDeltaLakeDeleteCompatibility
         return new Object[][] {
                 {"none"},
                 {"name"},
-                {"id"}
+                {"id"},
         };
     }
 }

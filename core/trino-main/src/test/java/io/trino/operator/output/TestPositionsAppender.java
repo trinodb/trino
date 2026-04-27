@@ -367,7 +367,7 @@ public class TestPositionsAppender
         Block rowBLock = RowBlock.fromFieldBlocks(2, new Block[] {
                 notNullBlock(TestType.BIGINT, 2),
                 dictionaryBlock(TestType.BIGINT, 2, 2, 0.5F),
-                rleBlock(TestType.VARCHAR, 2)
+                rleBlock(TestType.VARCHAR, 2),
         });
 
         UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);

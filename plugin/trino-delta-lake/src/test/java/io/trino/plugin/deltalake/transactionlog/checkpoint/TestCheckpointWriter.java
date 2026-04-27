@@ -255,11 +255,11 @@ public class TestCheckpointWriter
 
         Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
-                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
+                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a")),
         };
         Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
-                nativeValueToBlock(BigintType.BIGINT, 15L)
+                nativeValueToBlock(BigintType.BIGINT, 15L),
         };
         AddFileEntry addFileEntryParquetStats = new AddFileEntry(
                 "addFilePathParquet",
@@ -384,11 +384,11 @@ public class TestCheckpointWriter
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         Block[] minMaxRowFieldBlocks = {
                 nativeValueToBlock(IntegerType.INTEGER, 1L),
-                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a"))
+                nativeValueToBlock(createUnboundedVarcharType(), utf8Slice("a")),
         };
         Block[] nullCountRowFieldBlocks = {
                 nativeValueToBlock(BigintType.BIGINT, 0L),
-                nativeValueToBlock(BigintType.BIGINT, 15L)
+                nativeValueToBlock(BigintType.BIGINT, 15L),
         };
         AddFileEntry addFileEntryParquetStats = new AddFileEntry(
                 "addFilePathParquet",

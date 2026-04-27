@@ -1782,7 +1782,7 @@ public class TestHiveTransactionalTable
         return new Object[][] {
                 {Engine.HIVE, Engine.TRINO},
                 {Engine.TRINO, Engine.TRINO},
-                {Engine.TRINO, Engine.HIVE}
+                {Engine.TRINO, Engine.HIVE},
         };
     }
 

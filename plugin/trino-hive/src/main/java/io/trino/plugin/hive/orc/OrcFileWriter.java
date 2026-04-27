@@ -274,7 +274,7 @@ public final class OrcFileWriter
                 RunLengthEncodedBlock.create(INTEGER, (long) bucketValue, positionCount),
                 buildAcidRowIdsColumn(positionCount),
                 RunLengthEncodedBlock.create(BIGINT, transaction.getWriteId(), positionCount),
-                rowBlock
+                rowBlock,
         };
     }
 

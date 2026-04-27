@@ -259,7 +259,7 @@ public class TestHiveStorageFormats
         return new StorageFormat[] {
                 storageFormat("TEXTFILE"),
                 storageFormat("RCTEXT"),
-                storageFormat("SEQUENCEFILE")
+                storageFormat("SEQUENCEFILE"),
         };
     }
 

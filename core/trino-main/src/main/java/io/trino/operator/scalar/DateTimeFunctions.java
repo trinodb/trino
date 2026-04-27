@@ -94,7 +94,7 @@ public final class DateTimeFunctions
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
             new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
             new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year)
+            new DateTimeFieldProvider("year", ISOChronology::year),
     };
     private static final DateTimeFieldProvider[] TIMESTAMP_FIELDS = {
             new DateTimeFieldProvider("millisecond", ISOChronology::millisOfSecond),
@@ -105,7 +105,7 @@ public final class DateTimeFunctions
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
             new DateTimeFieldProvider("month", ISOChronology::monthOfYear),
             new DateTimeFieldProvider("quarter", QUARTER_OF_YEAR::getField),
-            new DateTimeFieldProvider("year", ISOChronology::year)
+            new DateTimeFieldProvider("year", ISOChronology::year),
     };
 
     private DateTimeFunctions() {}

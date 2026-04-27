@@ -68,7 +68,7 @@ public class TestDeleteAndInsertMergeProcessor
                 makeVarcharArrayBlock(null, "Devon"), // address
                 new ByteArrayBlock(2, Optional.of(new boolean[] {true, false}), new byte[] {0, 1}), // "present" boolean
                 new ByteArrayBlock(2, Optional.of(new boolean[] {true, false}), new byte[] {0, DELETE_OPERATION_NUMBER}), // "present" boolean
-                new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 0})
+                new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 0}),
         };
         Page inputPage = new Page(
                 RowBlock.fromNotNullSuppressedFieldBlocks(2, Optional.empty(), rowIdBlocks),
@@ -189,7 +189,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
     {
         Block[] pageBlocks = {
                 RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),
-                RowBlock.fromFieldBlocks(positionCount, mergeCaseBlocks)
+                RowBlock.fromFieldBlocks(positionCount, mergeCaseBlocks),
         };
         return new Page(pageBlocks);
     }

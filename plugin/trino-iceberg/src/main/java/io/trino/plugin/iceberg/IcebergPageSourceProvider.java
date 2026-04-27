@@ -1774,7 +1774,7 @@ public class IcebergPageSourceProvider
                     rowPosition,
                     RunLengthEncodedBlock.create(partitionSpecId, positionCount),
                     RunLengthEncodedBlock.create(partitionData, positionCount),
-                    sourceRowIdBlock
+                    sourceRowIdBlock,
             };
             return RowBlock.fromFieldBlocks(positionCount, fields);
         }
