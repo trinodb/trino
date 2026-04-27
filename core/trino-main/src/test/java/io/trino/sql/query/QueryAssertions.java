@@ -330,7 +330,7 @@ public class QueryAssertions
 
         public QueryAssert succeeds()
         {
-            MaterializedResult ignored = result.get();
+            var _ = result.get();
             return this;
         }
 
@@ -414,7 +414,7 @@ public class QueryAssertions
             return assertThatThrownBy(result::get)
                     .satisfies(throwable -> {
                         try {
-                            var ignored = assertThatTrinoException(throwable);
+                            var _ = assertThatTrinoException(throwable);
                         }
                         catch (AssertionError expected) {
                             if (!nullToEmpty(expected.getMessage()).startsWith("Expected TrinoException or wrapper, but got: ")) {

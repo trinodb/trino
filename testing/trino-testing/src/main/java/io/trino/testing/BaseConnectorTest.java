@@ -814,7 +814,7 @@ public abstract class BaseConnectorTest
 
         QueryAssert queryAssert = assertThat(queryAssertProvider);
         try {
-            var ignored = queryAssert.result();
+            var _ = queryAssert.result();
         }
         catch (Throwable t) {
             verifyFailure.accept(queryAssert.failure());
