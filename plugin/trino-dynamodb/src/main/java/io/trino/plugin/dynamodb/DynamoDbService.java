@@ -39,6 +39,8 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.TableDescription;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -65,13 +67,32 @@ public class DynamoDbService
         String region = config.getAwsRegion();
         this.scanSegments = config.getScanSegments();
 
-        AwsCredentialsProvider credentialsProvider;
+        AwsCredentialsProvider baseCredentialsProvider;
         if (accessKey.isPresent() && secretKey.isPresent()) {
-            credentialsProvider = StaticCredentialsProvider.create(
+            baseCredentialsProvider = StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(accessKey.get(), secretKey.get()));
         }
         else {
-            credentialsProvider = DefaultCredentialsProvider.create();
+            baseCredentialsProvider = DefaultCredentialsProvider.create();
+        }
+
+        AwsCredentialsProvider credentialsProvider;
+        if (config.getIamRole().isPresent()) {
+            StsClient stsClient = StsClient.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(baseCredentialsProvider)
+                    .build();
+            credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+                    .refreshRequest(request -> request
+                            .roleArn(config.getIamRole().get())
+                            .roleSessionName("trino-dynamodb")
+                            .externalId(config.getExternalId().orElse(null)))
+                    .stsClient(stsClient)
+                    .asyncCredentialUpdateEnabled(true)
+                    .build();
+        }
+        else {
+            credentialsProvider = baseCredentialsProvider;
         }
 
         this.dynamoDbClient = DynamoDbClient.builder()

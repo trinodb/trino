@@ -26,6 +26,8 @@ public class DynamoDbConfig
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
     private String awsRegion;
+    private Optional<String> iamRole = Optional.empty();
+    private Optional<String> externalId = Optional.empty();
     private int scanSegments = 1;
 
     public Optional<String> getAwsAccessKey()
@@ -66,6 +68,32 @@ public class DynamoDbConfig
     public DynamoDbConfig setAwsRegion(String awsRegion)
     {
         this.awsRegion = awsRegion;
+        return this;
+    }
+
+    public Optional<String> getIamRole()
+    {
+        return iamRole;
+    }
+
+    @Config("dynamodb.aws-iam-role")
+    @ConfigDescription("ARN of the IAM role to assume when connecting to DynamoDB")
+    public DynamoDbConfig setIamRole(String iamRole)
+    {
+        this.iamRole = Optional.ofNullable(iamRole);
+        return this;
+    }
+
+    public Optional<String> getExternalId()
+    {
+        return externalId;
+    }
+
+    @Config("dynamodb.aws-external-id")
+    @ConfigDescription("External ID to use when assuming the IAM role (for cross-account access)")
+    public DynamoDbConfig setExternalId(String externalId)
+    {
+        this.externalId = Optional.ofNullable(externalId);
         return this;
     }
 
