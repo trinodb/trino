@@ -182,6 +182,14 @@ public class TestingAccessControlManager
         return new TestingPrivilege(Optional.of(actorName), entityName, Optional.of(branchName), type);
     }
 
+    public static TestingPrivilege allExceptBranchPrivilege(String entityName, String branchName, TestingPrivilegeType type)
+    {
+        return new TestingPrivilege(
+                Optional.empty(),
+                (entity, branch) -> entityName.equals(entity) && !Optional.of(branchName).equals(branch),
+                type);
+    }
+
     public void deny(TestingPrivilege... deniedPrivileges)
     {
         Collections.addAll(this.denyPrivileges, deniedPrivileges);

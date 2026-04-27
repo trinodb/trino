@@ -24,7 +24,6 @@ import io.trino.spi.type.BigintType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
-import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -37,6 +36,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.allExceptBranchPrivilege;
 import static io.trino.testing.TestingAccessControlManager.branchPrivilege;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 
@@ -99,15 +99,16 @@ final class TestBranchingAccessControl
                 "SELECT nationkey FROM mock.tiny.nation FOR VERSION AS OF 'main'",
                 branchPrivilege("nation", "dev", SELECT_COLUMN));
 
+        // only grant on branch allows access
+        assertAccessAllowed(
+                "SELECT nationkey FROM mock.tiny.nation FOR VERSION AS OF 'main'",
+                allExceptBranchPrivilege("nation", "main", SELECT_COLUMN));
+
         // corner case: SELECT * creates a synthetic scope:
         // if branch information is not copied correctly between scopes, it will try to access table with no branch
         assertAccessAllowed(
                 "SELECT * FROM mock.tiny.nation FOR VERSION AS OF 'main'",
-                new TestingPrivilege(
-                        Optional.empty(),
-                        // deny everywhere except main branch
-                        (entity, branch) -> "nation".equals(entity) && !Optional.of("main").equals(branch),
-                        SELECT_COLUMN));
+                allExceptBranchPrivilege("nation", "main", SELECT_COLUMN));
     }
 
     @Test
@@ -138,6 +139,11 @@ final class TestBranchingAccessControl
         assertAccessAllowed(
                 "INSERT INTO mock.tiny.nation @ main VALUES (101, 'POLAND', 0, 'No comment')",
                 branchPrivilege("nation", "dev", INSERT_TABLE));
+
+        // only grant on branch allows access
+        assertAccessAllowed(
+                "INSERT INTO mock.tiny.nation @ main VALUES (101, 'POLAND', 0, 'No comment')",
+                allExceptBranchPrivilege("nation", "main", INSERT_TABLE));
     }
 
     @Test
@@ -168,6 +174,11 @@ final class TestBranchingAccessControl
         assertAccessAllowed(
                 "DELETE FROM mock.tiny.nation @ main WHERE nationkey < 0",
                 branchPrivilege("nation", "dev", DELETE_TABLE));
+
+        // only grant on branch allows access
+        assertAccessAllowed(
+                "DELETE FROM mock.tiny.nation @ main WHERE nationkey < 0",
+                allExceptBranchPrivilege("nation", "main", DELETE_TABLE));
     }
 
     @Test
@@ -198,6 +209,11 @@ final class TestBranchingAccessControl
         assertAccessAllowed(
                 "UPDATE mock.tiny.nation @ main SET regionkey = 0 WHERE nationkey < 0",
                 branchPrivilege("nation", "dev", UPDATE_TABLE));
+
+        // only grant on branch allows access
+        assertAccessAllowed(
+                "UPDATE mock.tiny.nation @ main SET regionkey = 0 WHERE nationkey < 0",
+                allExceptBranchPrivilege("nation", "main", UPDATE_TABLE));
     }
 
     @Test
