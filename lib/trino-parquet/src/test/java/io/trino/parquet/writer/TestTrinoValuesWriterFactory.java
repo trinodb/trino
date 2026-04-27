@@ -13,12 +13,14 @@
  */
 package io.trino.parquet.writer;
 
+import io.airlift.units.DataSize;
 import io.trino.parquet.writer.valuewriter.BloomFilterValuesWriter;
 import io.trino.parquet.writer.valuewriter.DictionaryFallbackValuesWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter;
@@ -52,21 +54,43 @@ public class TestTrinoValuesWriterFactory
     }
 
     @Test
-    public void testBinary()
+    public void testBinaryWithoutDeltaLengthEncoding()
     {
         testValueWriter(
                 PrimitiveTypeName.BINARY,
+                false,
                 PlainBinaryDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
 
     @Test
-    public void testBinaryBloomFilter()
+    public void testBinaryWithDeltaLengthEncoding()
+    {
+        testValueWriter(
+                PrimitiveTypeName.BINARY,
+                true,
+                PlainBinaryDictionaryValuesWriter.class,
+                DeltaLengthByteArrayValuesWriter.class);
+    }
+
+    @Test
+    public void testBinaryBloomFilterWithoutDeltaLengthEncoding()
     {
         testValueWriterBloomFilter(
                 PrimitiveTypeName.BINARY,
+                false,
                 PlainBinaryDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
+    }
+
+    @Test
+    public void testBinaryBloomFilterWithDeltaLengthEncoding()
+    {
+        testValueWriterBloomFilter(
+                PrimitiveTypeName.BINARY,
+                true,
+                PlainBinaryDictionaryValuesWriter.class,
+                DeltaLengthByteArrayValuesWriter.class);
     }
 
     @Test
@@ -74,6 +98,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriter(
                 PrimitiveTypeName.INT32,
+                false,
                 PlainIntegerDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
@@ -83,6 +108,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriter(
                 PrimitiveTypeName.INT64,
+                false,
                 PlainLongDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
@@ -92,6 +118,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriterBloomFilter(
                 PrimitiveTypeName.INT64,
+                false,
                 PlainLongDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
@@ -101,6 +128,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriter(
                 PrimitiveTypeName.INT96,
+                false,
                 PlainFixedLenArrayDictionaryValuesWriter.class,
                 FixedLenByteArrayPlainValuesWriter.class);
     }
@@ -110,6 +138,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriter(
                 PrimitiveTypeName.DOUBLE,
+                false,
                 PlainDoubleDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
@@ -119,6 +148,7 @@ public class TestTrinoValuesWriterFactory
     {
         testValueWriter(
                 PrimitiveTypeName.FLOAT,
+                false,
                 PlainFloatDictionaryValuesWriter.class,
                 PlainValuesWriter.class);
     }
@@ -126,28 +156,46 @@ public class TestTrinoValuesWriterFactory
     private void testValueWriter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> expectedValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
+        TrinoValuesWriterFactory factory = createFactory(false);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.empty());
 
         validateWriterType(writer, expectedValueWriterClass);
     }
 
-    private void testValueWriter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> initialValueWriterClass, Class<? extends ValuesWriter> fallbackValueWriterClass)
+    private void testValueWriter(
+            PrimitiveTypeName typeName,
+            boolean useDeltaLengthByteArrayEncoding,
+            Class<? extends ValuesWriter> initialValueWriterClass,
+            Class<? extends ValuesWriter> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
+        TrinoValuesWriterFactory factory = createFactory(useDeltaLengthByteArrayEncoding);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.empty());
 
         validateFallbackWriter(writer, initialValueWriterClass, fallbackValueWriterClass);
     }
 
-    private void testValueWriterBloomFilter(PrimitiveTypeName typeName, Class<? extends ValuesWriter> initialValueWriterClass, Class<? extends ValuesWriter> fallbackValueWriterClass)
+    private void testValueWriterBloomFilter(
+            PrimitiveTypeName typeName,
+            boolean useDeltaLengthByteArrayEncoding,
+            Class<? extends ValuesWriter> initialValueWriterClass,
+            Class<? extends ValuesWriter> fallbackValueWriterClass)
     {
         ColumnDescriptor mockPath = createColumnDescriptor(typeName);
-        TrinoValuesWriterFactory factory = new TrinoValuesWriterFactory(1024, 1024);
+        TrinoValuesWriterFactory factory = createFactory(useDeltaLengthByteArrayEncoding);
         ValuesWriter writer = factory.newValuesWriter(mockPath, Optional.of(new BlockSplitBloomFilter(1024, 1024)));
 
         validateFallbackWriterBloomFilter(writer, initialValueWriterClass, fallbackValueWriterClass);
+    }
+
+    private static TrinoValuesWriterFactory createFactory(boolean useDeltaLengthByteArrayEncoding)
+    {
+        return new TrinoValuesWriterFactory(
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.ofBytes(1024))
+                        .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
+                        .build(),
+                1024);
     }
 
     private ColumnDescriptor createColumnDescriptor(PrimitiveTypeName typeName)

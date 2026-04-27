@@ -35,7 +35,8 @@ public class TestParquetWriterConfig
                 .setPageSize(DataSize.ofBytes(ParquetProperties.DEFAULT_PAGE_SIZE))
                 .setPageValueCount(ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT)
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
-                .setValidationPercentage(5));
+                .setValidationPercentage(5)
+                .setDeltaLengthByteArrayEncodingEnabled(true));
     }
 
     @Test
@@ -46,14 +47,16 @@ public class TestParquetWriterConfig
                 "parquet.writer.page-size", "6MB",
                 "parquet.writer.page-value-count", "10000",
                 "parquet.writer.batch-size", "100",
-                "parquet.writer.validation-percentage", "10");
+                "parquet.writer.validation-percentage", "10",
+                "parquet.writer.delta-length-byte-array-encoding-enabled", "false");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
                 .setBlockSize(DataSize.of(234, MEGABYTE))
                 .setPageSize(DataSize.of(6, MEGABYTE))
                 .setPageValueCount(10_000)
                 .setBatchSize(100)
-                .setValidationPercentage(10);
+                .setValidationPercentage(10)
+                .setDeltaLengthByteArrayEncodingEnabled(false);
 
         assertFullMapping(properties, expected);
     }

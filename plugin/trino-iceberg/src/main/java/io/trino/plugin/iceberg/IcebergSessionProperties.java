@@ -90,6 +90,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
+    private static final String PARQUET_WRITER_DELTA_LENGTH_BYTE_ARRAY_ENCODING_ENABLED = "parquet_writer_delta_length_byte_array_encoding_enabled";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
@@ -289,6 +290,11 @@ public final class IcebergSessionProperties
                         PARQUET_WRITER_BATCH_SIZE,
                         "Parquet: Maximum number of rows passed to the writer in each batch",
                         parquetWriterConfig.getBatchSize(),
+                        false))
+                .add(booleanProperty(
+                        PARQUET_WRITER_DELTA_LENGTH_BYTE_ARRAY_ENCODING_ENABLED,
+                        "Parquet: Use DELTA_LENGTH_BYTE_ARRAY encoding for binary and string columns",
+                        parquetWriterConfig.isDeltaLengthByteArrayEncodingEnabled(),
                         false))
                 .add(durationProperty(
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
@@ -545,6 +551,11 @@ public final class IcebergSessionProperties
     public static int getParquetWriterBatchSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
+    }
+
+    public static boolean getParquetWriterDeltaLengthByteArrayEncodingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_DELTA_LENGTH_BYTE_ARRAY_ENCODING_ENABLED, Boolean.class);
     }
 
     public static boolean useParquetBloomFilter(ConnectorSession session)
