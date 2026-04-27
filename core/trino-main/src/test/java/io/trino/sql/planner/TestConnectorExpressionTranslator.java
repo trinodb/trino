@@ -74,7 +74,7 @@ import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
@@ -257,7 +257,7 @@ public class TestConnectorExpressionTranslator
             case SUBTRACT -> SUBTRACT_FUNCTION_NAME;
             case MULTIPLY -> MULTIPLY_FUNCTION_NAME;
             case DIVIDE -> DIVIDE_FUNCTION_NAME;
-            case MODULO -> MODULUS_FUNCTION_NAME;
+            case MODULO -> MODULO_FUNCTION_NAME;
             default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
         };
     }
