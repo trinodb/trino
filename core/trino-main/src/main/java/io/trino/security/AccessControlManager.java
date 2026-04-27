@@ -1523,20 +1523,11 @@ public class AccessControlManager
         List<String> name = entityKindAndName.name();
         catalogAuthorizationCheck(name.get(0), securityContext, (control, context) -> {
             switch (ownedKind) {
-                case "SCHEMA":
-                    control.checkCanSetSchemaAuthorization(context, name.get(1), principal);
-                    break;
-                case "TABLE":
-                    control.checkCanSetTableAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                case "VIEW":
-                    control.checkCanSetViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                case "MATERIALIZED VIEW":
-                    control.checkCanSetMaterializedViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
-                    break;
-                default:
-                    denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
+                case "SCHEMA" -> control.checkCanSetSchemaAuthorization(context, name.get(1), principal);
+                case "TABLE" -> control.checkCanSetTableAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                case "VIEW" -> control.checkCanSetViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                case "MATERIALIZED VIEW" -> control.checkCanSetMaterializedViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
+                default -> denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
             }
         });
     }

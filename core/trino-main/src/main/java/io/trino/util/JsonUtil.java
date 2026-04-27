@@ -880,26 +880,20 @@ public final class JsonUtil
     {
         BigDecimal result;
         switch (parser.getCurrentToken()) {
-            case VALUE_NULL:
+            case VALUE_NULL -> {
                 return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
+            }
+            case VALUE_STRING, FIELD_NAME -> {
                 result = new BigDecimal(parser.getText());
                 result = result.setScale(scale, HALF_UP);
-                break;
-            case VALUE_NUMBER_FLOAT:
-            case VALUE_NUMBER_INT:
+            }
+            case VALUE_NUMBER_FLOAT, VALUE_NUMBER_INT -> {
                 result = parser.getDecimalValue();
                 result = result.setScale(scale, HALF_UP);
-                break;
-            case VALUE_TRUE:
-                result = BigDecimal.ONE.setScale(scale, HALF_UP);
-                break;
-            case VALUE_FALSE:
-                result = BigDecimal.ZERO.setScale(scale, HALF_UP);
-                break;
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
+            }
+            case VALUE_TRUE -> result = BigDecimal.ONE.setScale(scale, HALF_UP);
+            case VALUE_FALSE -> result = BigDecimal.ZERO.setScale(scale, HALF_UP);
+            default -> throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
         }
 
         if (result.precision() > precision) {

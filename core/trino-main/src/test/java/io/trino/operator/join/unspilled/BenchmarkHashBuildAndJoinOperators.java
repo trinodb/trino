@@ -121,17 +121,10 @@ public class BenchmarkHashBuildAndJoinOperators
         public void setup()
         {
             switch (hashColumns) {
-                case "varchar":
-                    hashChannels = Ints.asList(0);
-                    break;
-                case "bigint":
-                    hashChannels = Ints.asList(1);
-                    break;
-                case "all":
-                    hashChannels = Ints.asList(0, 1, 2);
-                    break;
-                default:
-                    throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
+                case "varchar" -> hashChannels = Ints.asList(0);
+                case "bigint" -> hashChannels = Ints.asList(1);
+                case "all" -> hashChannels = Ints.asList(0, 1, 2);
+                default -> throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
             }
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
@@ -209,17 +202,10 @@ public class BenchmarkHashBuildAndJoinOperators
             super.setup();
 
             switch (outputColumns) {
-                case "varchar":
-                    outputChannels = Ints.asList(0);
-                    break;
-                case "bigint":
-                    outputChannels = Ints.asList(1);
-                    break;
-                case "all":
-                    outputChannels = Ints.asList(0, 1, 2);
-                    break;
-                default:
-                    throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
+                case "varchar" -> outputChannels = Ints.asList(0);
+                case "bigint" -> outputChannels = Ints.asList(1);
+                case "all" -> outputChannels = Ints.asList(0, 1, 2);
+                default -> throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);

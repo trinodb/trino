@@ -361,17 +361,10 @@ public class TestQueryResource
         int running = 0;
         for (BasicQueryInfo info : infos) {
             switch (info.getState()) {
-                case FINISHED:
-                    finished++;
-                    break;
-                case FAILED:
-                    failed++;
-                    break;
-                case RUNNING:
-                    running++;
-                    break;
-                default:
-                    fail("Unexpected query state " + info.getState());
+                case FINISHED -> finished++;
+                case FAILED -> failed++;
+                case RUNNING -> running++;
+                default -> fail("Unexpected query state " + info.getState());
             }
         }
         assertThat(failed).isEqualTo(expectedFailed);

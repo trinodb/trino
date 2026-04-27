@@ -363,12 +363,12 @@ public final class DomainTranslator
 
             Logical.Operator operator = complement ? node.operator().flip() : node.operator();
             switch (operator) {
-                case AND:
+                case AND -> {
                     return new ExtractionResult(
                             TupleDomain.intersect(tupleDomains),
                             combineConjuncts(residuals));
-
-                case OR:
+                }
+                case OR -> {
                     TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(tupleDomains);
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
@@ -386,6 +386,7 @@ public final class DomainTranslator
                     }
 
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
+                }
             }
             throw new AssertionError("Unknown operator: " + node.operator());
         }
@@ -528,27 +529,24 @@ public final class DomainTranslator
             boolean nullAllowed = false;
 
             switch (operator) {
-                case EQUAL, IDENTICAL:
+                case EQUAL, IDENTICAL -> {
                     valueSet = dateStringRanges(date, sourceType);
                     nullAllowed = operator == IDENTICAL;
-                    break;
-                case NOT_EQUAL:
+                }
+                case NOT_EQUAL -> {
                     if (date.getDayOfMonth() < 10) {
                         // TODO: possible to handle but cumbersome
                         return Optional.empty();
                     }
                     valueSet = ValueSet.all(sourceType).subtract(dateStringRanges(date, sourceType));
-                    break;
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                    valueSet = ValueSet.ofRanges(Range.lessThan(sourceType, utf8Slice(Integer.toString(date.getYear() + 1))));
-                    break;
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                    valueSet = ValueSet.ofRanges(Range.greaterThan(sourceType, utf8Slice(Integer.toString(date.getYear() - 1))));
-                    break;
-                default:
+                }
+                case LESS_THAN, LESS_THAN_OR_EQUAL -> valueSet =
+                        ValueSet.ofRanges(Range.lessThan(sourceType, utf8Slice(Integer.toString(date.getYear() + 1))));
+                case GREATER_THAN, GREATER_THAN_OR_EQUAL -> valueSet =
+                        ValueSet.ofRanges(Range.greaterThan(sourceType, utf8Slice(Integer.toString(date.getYear() - 1))));
+                default -> {
                     return Optional.empty();
+                }
             }
 
             // Date representations starting with whitespace, sign or leading zeroes.
@@ -646,8 +644,8 @@ public final class DomainTranslator
             // Handle comparisons against NaN
             if (isFloatingPointNaN(type, value)) {
                 return switch (comparisonOperator) {
-                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
-                            Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL,
+                         LESS_THAN, LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
                     case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
                     case IDENTICAL -> Optional.empty(); // The Domain should be "NaN". It is currently not supported.
                 };

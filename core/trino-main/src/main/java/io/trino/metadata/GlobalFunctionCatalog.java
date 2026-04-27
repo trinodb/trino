@@ -123,29 +123,25 @@ public class GlobalFunctionCatalog
                 .argumentTypes(Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")));
 
         switch (operatorType) {
-            case EQUAL:
-            case IDENTICAL:
-            case INDETERMINATE:
+            case EQUAL, IDENTICAL, INDETERMINATE -> {
                 expectedSignature.returnType(BOOLEAN);
                 expectedSignature.comparableTypeParameter("T");
-                break;
-            case HASH_CODE:
-            case XX_HASH_64:
+            }
+            case HASH_CODE, XX_HASH_64 -> {
                 expectedSignature.returnType(BIGINT);
                 expectedSignature.comparableTypeParameter("T");
-                break;
-            case COMPARISON_UNORDERED_FIRST:
-            case COMPARISON_UNORDERED_LAST:
+            }
+            case COMPARISON_UNORDERED_FIRST, COMPARISON_UNORDERED_LAST -> {
                 expectedSignature.returnType(INTEGER);
                 expectedSignature.orderableTypeParameter("T");
-                break;
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
+            }
+            case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                 expectedSignature.returnType(BOOLEAN);
                 expectedSignature.orderableTypeParameter("T");
-                break;
-            default:
+            }
+            default -> {
                 return;
+            }
         }
 
         checkArgument(signature.equals(expectedSignature.build()), "Can not register %s functionMetadata: %s", operatorType, signature);

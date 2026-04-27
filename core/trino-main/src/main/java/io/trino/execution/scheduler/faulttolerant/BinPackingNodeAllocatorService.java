@@ -293,7 +293,7 @@ public class BinPackingNodeAllocatorService
             }
 
             switch (result.getStatus()) {
-                case RESERVED:
+                case RESERVED -> {
                     InternalNode reservedNode = result.getNode();
                     fulfilledAcquires.add(pendingAcquire.getLease());
                     pendingAcquire.getFuture().set(reservedNode);
@@ -305,8 +305,8 @@ public class BinPackingNodeAllocatorService
                         wakeupProcessPendingAcquires();
                     }
                     iterator.remove();
-                    break;
-                case NONE_MATCHING:
+                }
+                case NONE_MATCHING -> {
                     Duration noMatchingNodePeriod = pendingAcquire.markNoMatchingNodeFound();
 
                     if (noMatchingNodePeriod.compareTo(allowedNoMatchingNodePeriod) <= 0) {
@@ -316,12 +316,12 @@ public class BinPackingNodeAllocatorService
 
                     pendingAcquire.getFuture().setException(new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query"));
                     iterator.remove();
-                    break;
-                case NOT_ENOUGH_RESOURCES_NOW:
+                }
+                case NOT_ENOUGH_RESOURCES_NOW -> {
                     pendingAcquire.resetNoMatchingNodeFound();
                     break; // nothing to be done
-                default:
-                    throw new IllegalArgumentException("unknown status: " + result.getStatus());
+                }
+                default -> throw new IllegalArgumentException("unknown status: " + result.getStatus());
             }
         }
     }

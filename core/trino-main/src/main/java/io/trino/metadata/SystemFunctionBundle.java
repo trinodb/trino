@@ -763,14 +763,14 @@ public final class SystemFunctionBundle
                 .scalar(CurrentTime.class);
 
         switch (featuresConfig.getRegexLibrary()) {
-            case JONI:
+            case JONI -> {
                 builder.scalars(JoniRegexpFunctions.class);
                 builder.scalar(JoniRegexpReplaceLambdaFunction.class);
-                break;
-            case RE2J:
+            }
+            case RE2J -> {
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
-                break;
+            }
         }
 
         return builder.build();

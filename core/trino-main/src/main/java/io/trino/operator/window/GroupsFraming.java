@@ -103,13 +103,9 @@ public class GroupsFraming
         int endGroupIndex = GroupsFrame.ignoreIndex();
 
         switch (startType) {
-            case UNBOUNDED_PRECEDING:
-                start = 0;
-                break;
-            case CURRENT_ROW:
-                start = peerGroupStart - partitionStart;
-                break;
-            case PRECEDING: {
+            case UNBOUNDED_PRECEDING -> start = 0;
+            case CURRENT_ROW -> start = peerGroupStart - partitionStart;
+            case PRECEDING -> {
                 PositionAndGroup frameStart = seek(
                         currentGroup,
                         -getValue(frameInfo.getStartChannel(), currentPosition),
@@ -119,9 +115,8 @@ public class GroupsFraming
                         _ -> new PositionAndGroup(0, 0));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
-                break;
             }
-            case FOLLOWING: {
+            case FOLLOWING -> {
                 PositionAndGroup frameStart = seek(
                         currentGroup,
                         getValue(frameInfo.getStartChannel(), currentPosition),
@@ -131,20 +126,14 @@ public class GroupsFraming
                         _ -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
-                break;
             }
-            default:
-                throw new UnsupportedOperationException("Unsupported frame start type: " + startType);
+            default -> throw new UnsupportedOperationException("Unsupported frame start type: " + startType);
         }
 
         switch (endType) {
-            case UNBOUNDED_FOLLOWING:
-                end = partitionEnd - partitionStart - 1;
-                break;
-            case CURRENT_ROW:
-                end = peerGroupEnd - partitionStart - 1;
-                break;
-            case PRECEDING: {
+            case UNBOUNDED_FOLLOWING -> end = partitionEnd - partitionStart - 1;
+            case CURRENT_ROW -> end = peerGroupEnd - partitionStart - 1;
+            case PRECEDING -> {
                 PositionAndGroup frameEnd = seek(
                         currentGroup,
                         -getValue(frameInfo.getEndChannel(), currentPosition),
@@ -154,9 +143,8 @@ public class GroupsFraming
                         _ -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
-                break;
             }
-            case FOLLOWING: {
+            case FOLLOWING -> {
                 PositionAndGroup frameEnd = seek(
                         currentGroup,
                         getValue(frameInfo.getEndChannel(), currentPosition),
@@ -166,10 +154,8 @@ public class GroupsFraming
                         _ -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
-                break;
             }
-            default:
-                throw new UnsupportedOperationException("Unsupported frame end type: " + endType);
+            default -> throw new UnsupportedOperationException("Unsupported frame end type: " + endType);
         }
 
         return new GroupsFrame(start, startGroupIndex, end, endGroupIndex);

@@ -82,7 +82,7 @@ public final class RegularWindowPartition
 
             Framing framing;
             switch (frame.getType()) {
-                case RANGE:
+                case RANGE -> {
                     PagesIndexComparator startComparator = frameBoundComparators.get(new FrameBoundKey(i, START));
                     PagesIndexComparator endComparator = frameBoundComparators.get(new FrameBoundKey(i, END));
                     if (frame.getEndType() == UNBOUNDED_FOLLOWING) {
@@ -107,11 +107,9 @@ public final class RegularWindowPartition
                                 peerGroupHashStrategy,
                                 new Framing.Range(0, peerGroupEnd - partitionStart - 1));
                     }
-                    break;
-                case ROWS:
-                    framing = new RowsFraming(frame, partitionStart, partitionEnd, pagesIndex);
-                    break;
-                case GROUPS:
+                }
+                case ROWS -> framing = new RowsFraming(frame, partitionStart, partitionEnd, pagesIndex);
+                case GROUPS -> {
                     framing = new GroupsFraming(
                             frame,
                             partitionStart,
@@ -119,9 +117,8 @@ public final class RegularWindowPartition
                             pagesIndex,
                             peerGroupHashStrategy,
                             peerGroupEnd - partitionStart - 1);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("not yet implemented");
+                }
+                default -> throw new UnsupportedOperationException("not yet implemented");
             }
 
             framings.put(i, framing);

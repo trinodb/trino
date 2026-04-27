@@ -28,30 +28,21 @@ public final class OperatorValidator
 {
     private OperatorValidator() {}
 
+    @SuppressWarnings("RedundantLabeledSwitchRuleCodeBlock")
     public static void validateOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         switch (operatorType) {
-            case ADD:
-            case SUBTRACT:
-            case MULTIPLY:
-            case DIVIDE:
-            case MODULUS:
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                break;
-            case NEGATION:
+            }
+            case NEGATION, CAST, SATURATED_FLOOR_CAST -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case EQUAL:
-            case COMPARISON_UNORDERED_LAST:
-            case COMPARISON_UNORDERED_FIRST:
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
+            }
+            case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
+                 COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST -> {
                 validateComparisonOperatorSignature(operatorType, returnType, argumentTypes, 2);
-                break;
-            case CAST:
-                validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case SUBSCRIPT:
+            }
+            case SUBSCRIPT -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
                 checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP) || argumentTypes.get(0).getBase().equals(StandardTypes.VARIANT), "First argument must be an ARRAY, MAP, or VARIANT");
                 switch (argumentTypes.get(0).getBase()) {
@@ -66,19 +57,14 @@ public final class OperatorValidator
                     }
                     default -> {}
                 }
-                break;
-            case HASH_CODE:
+            }
+            case HASH_CODE -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 checkArgument(returnType.getBase().equals(StandardTypes.BIGINT), "%s operator must return a BIGINT: %s", operatorType, formatSignature(operatorType, returnType, argumentTypes));
-                break;
-            case SATURATED_FLOOR_CAST:
-                validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
-                break;
-            case IDENTICAL:
-            case XX_HASH_64:
-            case INDETERMINATE:
-            case READ_VALUE:
+            }
+            case IDENTICAL, XX_HASH_64, INDETERMINATE, READ_VALUE -> {
                 // TODO
+            }
         }
     }
 

@@ -300,24 +300,24 @@ public final class BytecodeUtils
             }
             else {
                 switch (invocationConvention.getArgumentConvention(realParameterIndex)) {
-                    case NEVER_NULL:
+                    case NEVER_NULL -> {
                         block.append(arguments.get(realParameterIndex));
                         checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
                         block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
-                        break;
-                    case NULL_FLAG:
+                    }
+                    case NULL_FLAG -> {
                         block.append(arguments.get(realParameterIndex));
                         block.append(scope.getVariable("wasNull"));
                         block.append(scope.getVariable("wasNull").set(constantFalse()));
                         stackTypes.add(boolean.class);
                         currentParameterIndex++;
-                        break;
-                    case BOXED_NULLABLE:
+                    }
+                    case BOXED_NULLABLE -> {
                         block.append(arguments.get(realParameterIndex));
                         block.append(boxPrimitiveIfNecessary(scope, type));
                         block.append(scope.getVariable("wasNull").set(constantFalse()));
-                        break;
-                    case BLOCK_POSITION:
+                    }
+                    case BLOCK_POSITION -> {
                         InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
                         block.append(inputReferenceNode.produceBlockAndPosition());
                         stackTypes.add(int.class);
@@ -326,8 +326,8 @@ public final class BytecodeUtils
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
-                        break;
-                    case IN_OUT:
+                    }
+                    case IN_OUT -> {
                         block.append(arguments.get(realParameterIndex));
                         if (!functionNullability.isArgumentNullable(realParameterIndex)) {
                             block.append(arguments.get(realParameterIndex));
@@ -336,14 +336,13 @@ public final class BytecodeUtils
                             block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         }
                         currentParameterIndex++;
-                        break;
-                    case FUNCTION:
+                    }
+                    case FUNCTION -> {
                         Class<?> lambdaInterface = implementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                         block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
                         lambdaArgumentIndex++;
-                        break;
-                    default:
-                        throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
+                    }
+                    default -> throw new UnsupportedOperationException(format("Unsupported argument convention type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
                 }
                 realParameterIndex++;
             }

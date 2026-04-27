@@ -382,15 +382,18 @@ public class HttpRequestSessionContextFactory
         parseProperty(headers, protocolHeaders.requestResourceEstimate()).forEach((name, value) -> {
             try {
                 switch (name.toUpperCase(ENGLISH)) {
-                    case ResourceEstimates.EXECUTION_TIME:
+                    case ResourceEstimates.EXECUTION_TIME -> {
                         builder.setExecutionTime(Duration.valueOf(value));
                         return;
-                    case ResourceEstimates.CPU_TIME:
+                    }
+                    case ResourceEstimates.CPU_TIME -> {
                         builder.setCpuTime(Duration.valueOf(value));
                         return;
-                    case ResourceEstimates.PEAK_MEMORY:
+                    }
+                    case ResourceEstimates.PEAK_MEMORY -> {
                         builder.setPeakMemory(DataSize.valueOf(value));
                         return;
+                    }
                 }
                 throw new BadRequestException(format("Unsupported resource name %s", name));
             }

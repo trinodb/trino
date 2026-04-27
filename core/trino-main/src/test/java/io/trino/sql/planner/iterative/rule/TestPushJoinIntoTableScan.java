@@ -634,22 +634,14 @@ public class TestPushJoinIntoTableScan
 
     private JoinCondition.Operator getConditionOperator(Comparison.Operator operator)
     {
-        switch (operator) {
-            case EQUAL:
-                return JoinCondition.Operator.EQUAL;
-            case NOT_EQUAL:
-                return JoinCondition.Operator.NOT_EQUAL;
-            case LESS_THAN:
-                return JoinCondition.Operator.LESS_THAN;
-            case LESS_THAN_OR_EQUAL:
-                return JoinCondition.Operator.LESS_THAN_OR_EQUAL;
-            case GREATER_THAN:
-                return JoinCondition.Operator.GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL:
-                return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
-            case IDENTICAL:
-                return JoinCondition.Operator.IDENTICAL;
-        }
-        throw new IllegalArgumentException("Unknown operator: " + operator);
+        return switch (operator) {
+            case EQUAL -> JoinCondition.Operator.EQUAL;
+            case NOT_EQUAL -> JoinCondition.Operator.NOT_EQUAL;
+            case LESS_THAN -> JoinCondition.Operator.LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> JoinCondition.Operator.LESS_THAN_OR_EQUAL;
+            case GREATER_THAN -> JoinCondition.Operator.GREATER_THAN;
+            case GREATER_THAN_OR_EQUAL -> JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
+            case IDENTICAL -> JoinCondition.Operator.IDENTICAL;
+        };
     }
 }

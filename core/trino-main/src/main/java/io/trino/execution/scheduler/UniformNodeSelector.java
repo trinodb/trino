@@ -267,7 +267,7 @@ public class UniformNodeSelector
 
         List<InternalNode> freeNodes = getFreeNodesForStage(assignmentStats, candidateNodes);
         switch (splitsBalancingPolicy) {
-            case STAGE:
+            case STAGE -> {
                 for (InternalNode node : freeNodes) {
                     long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
                     if (queuedWeight <= minWeight) {
@@ -275,8 +275,8 @@ public class UniformNodeSelector
                         minWeight = queuedWeight;
                     }
                 }
-                break;
-            case NODE:
+            }
+            case NODE -> {
                 for (InternalNode node : freeNodes) {
                     long totalSplitsWeight = assignmentStats.getTotalSplitsWeight(node);
                     if (totalSplitsWeight <= minWeight) {
@@ -284,9 +284,8 @@ public class UniformNodeSelector
                         minWeight = totalSplitsWeight;
                     }
                 }
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported split balancing policy " + splitsBalancingPolicy);
+            }
+            default -> throw new UnsupportedOperationException("Unsupported split balancing policy " + splitsBalancingPolicy);
         }
 
         return chosenNode;

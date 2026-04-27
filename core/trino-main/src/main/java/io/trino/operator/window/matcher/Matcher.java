@@ -148,7 +148,7 @@ public class Matcher
                 int pointer = runtime.threads.get(threadId);
                 Instruction instruction = program.at(pointer);
                 switch (instruction.type()) {
-                    case MATCH_LABEL:
+                    case MATCH_LABEL -> {
                         int label = ((MatchLabel) instruction).getLabel();
                         // save the label before evaluating the defining condition, because evaluating assumes that the label is tentatively matched
                         // - if the condition is true, the label is already saved
@@ -160,14 +160,13 @@ public class Matcher
                         else {
                             runtime.scheduleKill(threadId);
                         }
-                        break;
-                    case DONE:
+                    }
+                    case DONE -> {
                         matched = true;
                         result = new MatchResult(true, runtime.captures.getLabels(threadId), runtime.captures.getCaptures(threadId));
                         runtime.scheduleKill(threadId);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("not yet implemented");
+                    }
+                    default -> throw new UnsupportedOperationException("not yet implemented");
                 }
                 if (matched) {
                     // do not process the following threads, because they are on less preferred paths than the match found
@@ -228,38 +227,37 @@ public class Matcher
 
         Instruction instruction = program.at(pointer);
         switch (instruction.type()) {
-            case MATCH_START:
+            case MATCH_START -> {
                 if (inputIndex == 0 && runtime.matchingAtPartitionStart) {
                     advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
                 }
                 else {
                     runtime.scheduleKill(threadId);
                 }
-                break;
-            case MATCH_END:
+            }
+            case MATCH_END -> {
                 if (inputIndex == runtime.inputLength) {
                     advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
                 }
                 else {
                     runtime.scheduleKill(threadId);
                 }
-                break;
-            case JUMP:
-                advanceAndSchedule(next, threadId, ((Jump) instruction).getTarget(), inputIndex, runtime);
-                break;
-            case SPLIT:
+            }
+            case JUMP -> advanceAndSchedule(next, threadId, ((Jump) instruction).getTarget(), inputIndex, runtime);
+            case SPLIT -> {
                 int forked = runtime.forkThread(threadId);
                 advanceAndSchedule(next, threadId, ((Split) instruction).getFirst(), inputIndex, runtime);
                 advanceAndSchedule(next, forked, ((Split) instruction).getSecond(), inputIndex, runtime);
-                break;
-            case SAVE:
+            }
+            case SAVE -> {
                 runtime.captures.save(threadId, inputIndex);
                 advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
-                break;
-            default: // MATCH_LABEL or DONE
-                runtime.threads.set(threadId, pointer);
-                next.add(threadId);
-                break;
+            }
+            default -> {
+                 // MATCH_LABEL or DONE
+                                runtime.threads.set(threadId, pointer);
+                                next.add(threadId);
+            }
         }
     }
 }

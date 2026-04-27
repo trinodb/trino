@@ -592,19 +592,17 @@ public class TestHttpRemoteTask
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().failures()).errorCode();
         switch (failureScenario) {
-            case TASK_MISMATCH:
-            case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+            case TASK_MISMATCH, TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                 assertThat(remoteTask.getTaskInfo().taskStatus().state().isDone())
                         .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
                         .isTrue();
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
-                break;
-            case REJECTED_EXECUTION:
+            }
+            case REJECTED_EXECUTION -> {
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
                 assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_ERROR.toErrorCode());
-                break;
-            default:
-                throw new UnsupportedOperationException();
+            }
+            default -> throw new UnsupportedOperationException();
         }
     }
 
@@ -911,17 +909,13 @@ public class TestHttpRemoteTask
             this.taskState = initialTaskStatus.state();
             this.version = initialTaskStatus.version();
             switch (failureScenario) {
-                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                     // Make the initial version large enough.
                     // This way, the version number can't be reached if it is reset to 0.
                     version = 1_000_000;
-                    break;
-                case TASK_MISMATCH:
-                case REJECTED_EXECUTION:
-                case NO_FAILURE:
-                    break; // do nothing
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                case TASK_MISMATCH, REJECTED_EXECUTION, NO_FAILURE -> {}
+                default -> throw new UnsupportedOperationException();
             }
         }
 
@@ -983,23 +977,20 @@ public class TestHttpRemoteTask
             statusFetchCounter++;
             // Change the task instance id after 10th fetch to simulate worker restart
             switch (failureScenario) {
-                case TASK_MISMATCH:
-                case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
+                case TASK_MISMATCH, TASK_MISMATCH_WHEN_VERSION_IS_HIGH -> {
                     if (statusFetchCounter == 10) {
                         taskInstanceId = NEW_TASK_INSTANCE_ID;
                         version = 0;
                     }
-                    break;
-                case REJECTED_EXECUTION:
+                }
+                case REJECTED_EXECUTION -> {
                     if (statusFetchCounter >= 10) {
                         httpClient.get().close();
                         throw new RejectedExecutionException();
                     }
-                    break;
-                case NO_FAILURE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                case NO_FAILURE -> {}
+                default -> throw new UnsupportedOperationException();
             }
 
             return new TaskStatus(

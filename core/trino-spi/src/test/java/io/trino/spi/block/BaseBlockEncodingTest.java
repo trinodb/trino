@@ -96,20 +96,16 @@ abstract class BaseBlockEncodingTest<T>
         Object[] values = new Object[size];
         for (int i = 0; i < size; i++) {
             switch (fill) {
-                case ONLY_NULLS:
-                    values[i] = null;
-                    break;
-                case ONLY_VALUES:
-                    values[i] = randomValue(random);
-                    break;
-                case MIXED:
+                case ONLY_NULLS -> values[i] = null;
+                case ONLY_VALUES -> values[i] = randomValue(random);
+                case MIXED -> {
                     if (random.nextBoolean()) {
                         values[i] = null;
                     }
                     else {
                         values[i] = randomValue(random);
                     }
-                    break;
+                }
             }
         }
         return values;

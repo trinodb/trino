@@ -61,24 +61,15 @@ public class ComparisonExpression
 
         public Operator negate()
         {
-            switch (this) {
-                case EQUAL:
-                    return NOT_EQUAL;
-                case NOT_EQUAL:
-                    return EQUAL;
-                case LESS_THAN:
-                    return GREATER_THAN_OR_EQUAL;
-                case LESS_THAN_OR_EQUAL:
-                    return GREATER_THAN;
-                case GREATER_THAN:
-                    return LESS_THAN_OR_EQUAL;
-                case GREATER_THAN_OR_EQUAL:
-                    return LESS_THAN;
-                case IS_DISTINCT_FROM:
-                    // Cannot negate
-                    break;
-            }
-            throw new IllegalArgumentException("Unsupported comparison: " + this);
+            return switch (this) {
+                case EQUAL -> NOT_EQUAL;
+                case NOT_EQUAL -> EQUAL;
+                case LESS_THAN -> GREATER_THAN_OR_EQUAL;
+                case LESS_THAN_OR_EQUAL -> GREATER_THAN;
+                case GREATER_THAN -> LESS_THAN_OR_EQUAL;
+                case GREATER_THAN_OR_EQUAL -> LESS_THAN;
+                case IS_DISTINCT_FROM -> throw new IllegalArgumentException("Unsupported comparison: " + this);
+            };
         }
     }
 
