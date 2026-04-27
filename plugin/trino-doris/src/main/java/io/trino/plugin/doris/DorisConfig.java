@@ -18,7 +18,6 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
@@ -32,8 +31,6 @@ public class DorisConfig
     private String password;
     // A value of 0 means the connector will discover the BE Flight SQL port later.
     private int flightSqlPort;
-    // LARGEINT defaults to VARCHAR to avoid silently truncating 128-bit values.
-    private DorisLargeintMapping largeintMapping = DorisLargeintMapping.VARCHAR;
     // Maximum number of splits to generate. Helps reduce overhead for small queries.
     private int maxSplitsPerQuery = 64;
     // Minimum number of tablets per split. Helps consolidate small tables into fewer splits.
@@ -102,20 +99,6 @@ public class DorisConfig
     public DorisConfig setFlightSqlPort(int flightSqlPort)
     {
         this.flightSqlPort = flightSqlPort;
-        return this;
-    }
-
-    @NotNull
-    public DorisLargeintMapping getLargeintMapping()
-    {
-        return largeintMapping;
-    }
-
-    @Config("doris.largeint-mapping")
-    @ConfigDescription("How Doris LARGEINT should map into Trino")
-    public DorisConfig setLargeintMapping(DorisLargeintMapping largeintMapping)
-    {
-        this.largeintMapping = largeintMapping;
         return this;
     }
 

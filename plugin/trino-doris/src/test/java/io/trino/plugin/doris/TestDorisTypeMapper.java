@@ -25,6 +25,7 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -37,7 +38,7 @@ final class TestDorisTypeMapper
     @Test
     void testPrimitiveMappings()
     {
-        DorisTypeMapper mapper = new DorisTypeMapper(new DorisConfig());
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
         assertThat(mapper.toTrinoType(column("is_active", "tinyint", 0, null, 1))).isEqualTo(BOOLEAN);
         assertThat(mapper.toTrinoType(column("is_enabled", "tinyint", 1, null, 2))).isEqualTo(BOOLEAN);
@@ -53,24 +54,21 @@ final class TestDorisTypeMapper
     @Test
     void testDecimalAndLargeintMappings()
     {
-        DorisTypeMapper defaultMapper = new DorisTypeMapper(new DorisConfig());
-        DorisTypeMapper decimalLargeintMapper = new DorisTypeMapper(new DorisConfig()
-                .setLargeintMapping(DorisLargeintMapping.DECIMAL));
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
-        assertThat(defaultMapper.toTrinoType(column("amount", "decimal", 18, 4, 1))).isEqualTo(createDecimalType(18, 4));
-        assertThat(defaultMapper.toTrinoType(column("amount32", "decimal32", 9, 2, 2))).isEqualTo(createDecimalType(9, 2));
-        assertThat(defaultMapper.toTrinoType(column("amount_v2", "decimalv2", 18, 6, 3))).isEqualTo(createDecimalType(18, 6));
-        assertThat(defaultMapper.toTrinoType(column("oversized_amount", "decimal256", 76, 18, 4))).isEqualTo(createUnboundedVarcharType());
-        assertThat(defaultMapper.toTrinoType(column("order_key", "largeint", 39, 0, 5))).isEqualTo(createUnboundedVarcharType());
-        assertThat(decimalLargeintMapper.toTrinoType(column("order_key", "largeint", 39, 0, 5))).isEqualTo(createDecimalType(38));
+        assertThat(mapper.toTrinoType(column("amount", "decimal", 18, 4, 1))).isEqualTo(createDecimalType(18, 4));
+        assertThat(mapper.toTrinoType(column("amount32", "decimal32", 9, 2, 2))).isEqualTo(createDecimalType(9, 2));
+        assertThat(mapper.toTrinoType(column("amount_v2", "decimalv2", 18, 6, 3))).isEqualTo(createDecimalType(18, 6));
+        assertThat(mapper.toTrinoType(column("oversized_amount", "decimal256", 76, 18, 4))).isEqualTo(createUnboundedVarcharType());
+        assertThat(mapper.toTrinoType(column("order_key", "largeint", 39, 0, 5))).isEqualTo(NUMBER);
     }
 
     @Test
     void testUsesTypeDefinitionWhenDriverDataTypeIsGeneric()
     {
-        DorisTypeMapper mapper = new DorisTypeMapper(new DorisConfig());
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
-        assertThat(mapper.toTrinoType(column("large_id", "decimal", null, null, 1, "largeint"))).isEqualTo(createUnboundedVarcharType());
+        assertThat(mapper.toTrinoType(column("large_id", "decimal", null, null, 1, "largeint"))).isEqualTo(NUMBER);
         assertThat(mapper.toTrinoType(column("created_at", "datetime", null, null, 2, "datetimev2(3)"))).isEqualTo(createTimestampType(3));
         assertThat(mapper.toTrinoType(column("created_at", "datetime", null, null, 3, "datetime(3)"))).isEqualTo(createTimestampType(3));
         assertThat(mapper.toTrinoType(column("amount", "decimal", null, null, 4, "decimal(18, 4)"))).isEqualTo(createDecimalType(18, 4));
@@ -79,7 +77,7 @@ final class TestDorisTypeMapper
     @Test
     void testCharacterTemporalAndFallbackMappings()
     {
-        DorisTypeMapper mapper = new DorisTypeMapper(new DorisConfig());
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
         assertThat(mapper.toTrinoType(column("code", "char", 8, null, 1))).isEqualTo(createCharType(8));
         assertThat(mapper.toTrinoType(column("oversized_code", "char", CharType.MAX_LENGTH + 1, null, 2))).isEqualTo(createUnboundedVarcharType());
@@ -93,7 +91,7 @@ final class TestDorisTypeMapper
     @Test
     void testComplexTypesFailFastWithNormalizedTypeDefinitions()
     {
-        DorisTypeMapper mapper = new DorisTypeMapper(new DorisConfig());
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
         assertThatThrownBy(() -> mapper.toTrinoType(column("arr_int_col", "array", null, null, 1, "array<decimal(18,2)>")))
                 .isInstanceOf(TrinoException.class)
@@ -108,7 +106,7 @@ final class TestDorisTypeMapper
     @Test
     void testUnsupportedTypeFailsFast()
     {
-        DorisTypeMapper mapper = new DorisTypeMapper(new DorisConfig());
+        DorisTypeMapper mapper = new DorisTypeMapper();
 
         assertThatThrownBy(() -> mapper.toTrinoType(column("mystery", "geography", null, null, 1)))
                 .isInstanceOf(TrinoException.class);

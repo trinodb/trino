@@ -15,11 +15,13 @@ package io.trino.plugin.doris;
 
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import org.junit.jupiter.api.Test;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +50,7 @@ final class TestDorisMetadata
         }
 
         @Override
-        public List<String> listSchemaNames()
+        public List<String> listSchemaNames(ConnectorSession session)
         {
             return tables.keySet().stream()
                     .map(SchemaTableName::getSchemaName)
@@ -57,7 +59,7 @@ final class TestDorisMetadata
         }
 
         @Override
-        public List<SchemaTableName> listTables(Optional<String> schemaName)
+        public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
         {
             return tables.keySet().stream()
                     .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.orElseThrow()))
@@ -65,13 +67,13 @@ final class TestDorisMetadata
         }
 
         @Override
-        public Optional<DorisRemoteTable> getTable(SchemaTableName tableName)
+        public Optional<DorisRemoteTable> getTable(ConnectorSession session, SchemaTableName tableName)
         {
             return Optional.ofNullable(tables.get(tableName));
         }
 
         @Override
-        public OptionalLong getTableRowCount(SchemaTableName tableName)
+        public OptionalLong getTableRowCount(ConnectorSession session, SchemaTableName tableName)
         {
             return tables.containsKey(tableName) ? OptionalLong.of(1000) : OptionalLong.empty();
         }
@@ -93,7 +95,7 @@ final class TestDorisMetadata
 
     private final DorisMetadata metadata = new DorisMetadata(
             new TestingDorisMetadataClient(List.of(ORDERS, EVENTS)),
-            new DorisTypeMapper(new DorisConfig()));
+            new DorisTypeMapper());
 
     @Test
     void testListSchemaNamesAndTables()
@@ -130,7 +132,7 @@ final class TestDorisMetadata
                 ORDERS.columns());
         DorisMetadata mixedCaseMetadata = new DorisMetadata(
                 new TestingDorisMetadataClient(List.of(mixedCaseOrders)),
-                new DorisTypeMapper(new DorisConfig()));
+                new DorisTypeMapper());
 
         DorisTableHandle tableHandle = (DorisTableHandle) mixedCaseMetadata.getTableHandle(SESSION, new SchemaTableName("sales", "orders"), Optional.empty(), Optional.empty());
 
@@ -153,7 +155,7 @@ final class TestDorisMetadata
                         new DorisRemoteColumn("total_revenue", "DECIMAL", Optional.of(15), Optional.of(4), 2)));
         DorisMetadata viewMetadata = new DorisMetadata(
                 new TestingDorisMetadataClient(List.of(revenueView)),
-                new DorisTypeMapper(new DorisConfig()));
+                new DorisTypeMapper());
 
         DorisTableHandle tableHandle = (DorisTableHandle) viewMetadata.getTableHandle(SESSION, revenueView.schemaTableName(), Optional.empty(), Optional.empty());
 
@@ -162,16 +164,17 @@ final class TestDorisMetadata
     }
 
     @Test
-    void testGetColumnHandlesAndListTableColumns()
+    void testGetColumnHandlesAndStreamRelationColumns()
     {
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, new DorisTableHandle("ops", "events"));
         assertThat(columnHandles).isEqualTo(Map.of(
                 "event_id", new DorisColumnHandle("event_id", createDecimalType(20), 0),
                 "details", new DorisColumnHandle("details", createUnboundedVarcharType(), 1)));
 
-        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = metadata.listTableColumns(SESSION, new SchemaTablePrefix("sales"));
-        assertThat(tableColumns).isEqualTo(Map.of(
-                ORDERS.schemaTableName(), List.of(
+        Iterator<RelationColumnsMetadata> relationColumns = metadata.streamRelationColumns(SESSION, Optional.of("sales"), relations -> relations);
+        assertThat(relationColumns).toIterable().containsExactly(RelationColumnsMetadata.forTable(
+                ORDERS.schemaTableName(),
+                List.of(
                         new ColumnMetadata("id", BIGINT),
                         new ColumnMetadata("event_time", createTimestampType(6)),
                         new ColumnMetadata("payload", createUnboundedVarcharType()),

@@ -34,7 +34,6 @@ final class TestDorisConfig
                 .setUsername(null)
                 .setPassword(null)
                 .setFlightSqlPort(0)
-                .setLargeintMapping(DorisLargeintMapping.VARCHAR)
                 .setMaxSplitsPerQuery(64)
                 .setMinTabletsPerSplit(1));
     }
@@ -48,7 +47,6 @@ final class TestDorisConfig
                 Map.entry("doris.username", "trino"),
                 Map.entry("doris.password", "secret"),
                 Map.entry("doris.flight-sql-port", "9090"),
-                Map.entry("doris.largeint-mapping", "DECIMAL"),
                 Map.entry("doris.max-splits-per-query", "32"),
                 Map.entry("doris.min-tablets-per-split", "5"));
 
@@ -58,7 +56,6 @@ final class TestDorisConfig
                 .setUsername("trino")
                 .setPassword("secret")
                 .setFlightSqlPort(9090)
-                .setLargeintMapping(DorisLargeintMapping.DECIMAL)
                 .setMaxSplitsPerQuery(32)
                 .setMinTabletsPerSplit(5);
 

@@ -22,23 +22,24 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
@@ -47,19 +48,12 @@ public class DorisMetadata
 {
     private final DorisMetadataClient metadataClient;
     private final DorisTypeMapper typeMapper;
-    private final Set<DorisQueryEventListener> queryEventListeners;
-
-    public DorisMetadata(DorisMetadataClient metadataClient, DorisTypeMapper typeMapper)
-    {
-        this(metadataClient, typeMapper, Set.of());
-    }
 
     @Inject
-    public DorisMetadata(DorisMetadataClient metadataClient, DorisTypeMapper typeMapper, Set<DorisQueryEventListener> queryEventListeners)
+    public DorisMetadata(DorisMetadataClient metadataClient, DorisTypeMapper typeMapper)
     {
         this.metadataClient = requireNonNull(metadataClient, "metadataClient is null");
         this.typeMapper = requireNonNull(typeMapper, "typeMapper is null");
-        this.queryEventListeners = Set.copyOf(requireNonNull(queryEventListeners, "queryEventListeners is null"));
     }
 
     @Override
@@ -113,17 +107,29 @@ public class DorisMetadata
         return Collections.unmodifiableMap(columnHandles);
     }
 
-    @SuppressWarnings("deprecation")
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
+        requireNonNull(relationFilter, "relationFilter is null");
 
-        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = new LinkedHashMap<>();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
-            getRemoteTable(session, tableName).ifPresent(remoteTable -> tableColumns.put(tableName, toColumnMetadata(remoteTable.columns())));
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new LinkedHashMap<>();
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
+            getRemoteTable(session, tableName).ifPresent(remoteTable -> {
+                List<ColumnMetadata> columns = toColumnMetadata(remoteTable.columns());
+                if (remoteTable.relationType() == DorisRelationType.VIEW) {
+                    relationColumns.put(tableName, RelationColumnsMetadata.forView(tableName, toViewColumns(columns)));
+                }
+                else {
+                    relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columns));
+                }
+            });
         }
-        return Collections.unmodifiableMap(tableColumns);
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override
@@ -144,37 +150,6 @@ public class DorisMetadata
         return TableStatistics.builder()
                 .setRowCount(Estimate.of(rowCount.getAsLong()))
                 .build();
-    }
-
-    @Override
-    public void beginQuery(ConnectorSession session)
-    {
-        onQueryEvent(listener -> listener.beginQuery(session), "Doris query initialization failed");
-    }
-
-    @Override
-    public void cleanupQuery(ConnectorSession session)
-    {
-        onQueryEvent(listener -> listener.cleanupQuery(session), "Doris query cleanup failed");
-    }
-
-    private void onQueryEvent(Consumer<DorisQueryEventListener> listenerConsumer, String errorMessage)
-    {
-        List<RuntimeException> failures = new ArrayList<>();
-        for (DorisQueryEventListener listener : queryEventListeners) {
-            try {
-                listenerConsumer.accept(listener);
-            }
-            catch (RuntimeException failure) {
-                failures.add(failure);
-            }
-        }
-
-        if (!failures.isEmpty()) {
-            TrinoException exception = new TrinoException(GENERIC_INTERNAL_ERROR, errorMessage);
-            failures.forEach(exception::addSuppressed);
-            throw exception;
-        }
     }
 
     private Optional<DorisRemoteTable> getRemoteTable(ConnectorSession session, DorisTableHandle tableHandle)
@@ -201,6 +176,18 @@ public class DorisMetadata
         return List.copyOf(columnMetadata);
     }
 
+    private static List<ConnectorViewDefinition.ViewColumn> toViewColumns(List<ColumnMetadata> columns)
+    {
+        List<ConnectorViewDefinition.ViewColumn> viewColumns = new ArrayList<>(columns.size());
+        for (ColumnMetadata column : columns) {
+            viewColumns.add(new ConnectorViewDefinition.ViewColumn(
+                    column.getName(),
+                    column.getType().getTypeId(),
+                    column.getComment()));
+        }
+        return List.copyOf(viewColumns);
+    }
+
     private List<DorisColumnHandle> toColumnHandles(List<DorisRemoteColumn> columns)
     {
         List<DorisColumnHandle> columnHandles = new ArrayList<>(columns.size());
@@ -211,13 +198,5 @@ public class DorisMetadata
                     Math.max(0, column.ordinalPosition() - 1)));
         }
         return List.copyOf(columnHandles);
-    }
-
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getTable().isPresent()) {
-            return List.of(prefix.toSchemaTableName());
-        }
-        return listTables(session, prefix.getSchema());
     }
 }

@@ -16,7 +16,6 @@ package io.trino.plugin.doris;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -27,8 +26,6 @@ public class DorisModule
     @Override
     public void configure(Binder binder)
     {
-        Multibinder.newSetBinder(binder, DorisQueryEventListener.class);
-
         binder.bind(DorisConnector.class).in(Scopes.SINGLETON);
         binder.bind(DorisJdbcConnectionFactory.class).in(Scopes.SINGLETON);
         binder.bind(DorisMetadataClient.class).to(JdbcDorisMetadataClient.class).in(Scopes.SINGLETON);

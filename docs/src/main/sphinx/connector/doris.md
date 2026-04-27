@@ -77,10 +77,6 @@ The configuration properties are:
   - No
   - Explicit Doris Flight SQL port. The default is `0`, which enables
     automatic discovery from `SHOW FRONTENDS`.
-* - `doris.largeint-mapping`
-  - No
-  - Mapping for Doris `LARGEINT`. Valid values are `VARCHAR` and `DECIMAL`.
-    The default is `VARCHAR`.
 * - `doris.max-splits-per-query`
   - No
   - Maximum number of splits to generate per query. Reduces scheduling overhead
@@ -150,9 +146,8 @@ The connector supports Doris-to-Trino type mapping.
   - `DECIMAL(20, 0)`
   -
 * - `LARGEINT`
-  - `VARCHAR` or `DECIMAL(38, 0)`
-  - Controlled by `doris.largeint-mapping`. `VARCHAR` is the default to avoid
-    truncating 128-bit values.
+  - `NUMBER`
+  -
 * - `DECIMAL`, `DECIMALV2`, `DECIMALV3`, `DECIMAL32`, `DECIMAL64`,
     `DECIMAL128`, `DECIMAL128I`, `DECIMAL256`
   - `DECIMAL(p, s)` or `VARCHAR`

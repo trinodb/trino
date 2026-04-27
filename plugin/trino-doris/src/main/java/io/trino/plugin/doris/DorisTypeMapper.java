@@ -34,6 +34,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -42,20 +43,14 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.util.Objects.requireNonNull;
 
 public class DorisTypeMapper
 {
     private static final int BIGINT_UNSIGNED_PRECISION = 20;
     private static final int MAX_DORIS_DATETIME_PRECISION = 6;
 
-    private final DorisLargeintMapping largeintMapping;
-
     @Inject
-    public DorisTypeMapper(DorisConfig config)
-    {
-        this.largeintMapping = requireNonNull(config, "config is null").getLargeintMapping();
-    }
+    public DorisTypeMapper() {}
 
     public Type toTrinoType(DorisRemoteColumn column)
     {
@@ -68,11 +63,7 @@ public class DorisTypeMapper
             case "INT", "INTEGER" -> INTEGER;
             case "BIGINT" -> BIGINT;
             case "BIGINT_UNSIGNED" -> createDecimalType(BIGINT_UNSIGNED_PRECISION);
-            case "LARGEINT" -> switch (largeintMapping) {
-                // VARCHAR is the safe default because Doris LARGEINT can exceed Trino DECIMAL(38, 0).
-                case VARCHAR -> createUnboundedVarcharType();
-                case DECIMAL -> createDecimalType(MAX_PRECISION);
-            };
+            case "LARGEINT" -> NUMBER;
             case "DECIMAL", "DECIMALV2", "DECIMALV3", "DECIMAL_V3", "DECIMAL32", "DECIMAL64", "DECIMAL128I", "DECIMAL128", "DECIMAL256" -> toDecimalType(column);
             case "FLOAT" -> REAL;
             case "DOUBLE" -> DOUBLE;

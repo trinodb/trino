@@ -24,6 +24,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -63,6 +64,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -82,9 +84,12 @@ public class DorisArrowToPageConverter
     private static final long MAX_MILLIS_MAGNITUDE = 10_000_000_000_000L;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
-            .appendPattern("uuuu-MM-dd HH:mm:ss")
+            .appendPattern("uuuu-MM-dd HH:mm")
+            .optionalStart()
+            .appendPattern(":ss")
             .optionalStart()
             .appendFraction(ChronoField.NANO_OF_SECOND, 1, 9, true)
+            .optionalEnd()
             .optionalEnd()
             .toFormatter();
 
@@ -136,6 +141,9 @@ public class DorisArrowToPageConverter
                 }
                 else if (javaType == Int128.class) {
                     writeLongDecimal(output, (DecimalType) type, vector, index);
+                }
+                else if (javaType == TrinoNumber.class) {
+                    writeNumber(output, type, vector, index);
                 }
                 else {
                     throw unsupportedType(type, vector);
@@ -195,6 +203,15 @@ public class DorisArrowToPageConverter
     {
         requireNonNull(decimalType, "decimalType is null");
         decimalType.writeObject(output, Decimals.encodeScaledValue(coerceDecimalValue(vector.getName(), readDecimalValue(vector, index), decimalType), decimalType.getScale()));
+    }
+
+    private static void writeNumber(BlockBuilder output, Type type, FieldVector vector, int index)
+    {
+        if (type == NUMBER) {
+            type.writeObject(output, TrinoNumber.from(readDecimalValue(vector, index)));
+            return;
+        }
+        throw unsupportedType(type, vector);
     }
 
     private void writeSliceValue(BlockBuilder output, Type type, FieldVector vector, int index)

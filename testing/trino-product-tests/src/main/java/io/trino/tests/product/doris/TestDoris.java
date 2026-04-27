@@ -101,8 +101,8 @@ public class TestDoris
                 assertThat(onTrino().executeQuery("SHOW COLUMNS FROM doris.test.type_mapping"))
                         .contains(row("user_id", "bigint", "", ""))
                         .contains(row("created_at", "timestamp(3)", "", ""))
-                        .contains(row("large_id", "varchar", "", ""));
-                assertThat(onTrino().executeQuery("SELECT CAST(created_at AS VARCHAR), large_id FROM doris.test.type_mapping"))
+                        .contains(row("large_id", "number", "", ""));
+                assertThat(onTrino().executeQuery("SELECT CAST(created_at AS VARCHAR), CAST(large_id AS VARCHAR) FROM doris.test.type_mapping"))
                         .containsOnly(row("2026-03-31 09:15:01.123", "123456789012345678901234567801"));
             });
         }

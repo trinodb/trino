@@ -22,31 +22,11 @@ import java.util.OptionalLong;
 
 public interface DorisMetadataClient
 {
-    default List<String> listSchemaNames(ConnectorSession session)
-    {
-        return listSchemaNames();
-    }
+    List<String> listSchemaNames(ConnectorSession session);
 
-    List<String> listSchemaNames();
+    List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName);
 
-    default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
-    {
-        return listTables(schemaName);
-    }
+    Optional<DorisRemoteTable> getTable(ConnectorSession session, SchemaTableName tableName);
 
-    List<SchemaTableName> listTables(Optional<String> schemaName);
-
-    default Optional<DorisRemoteTable> getTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getTable(tableName);
-    }
-
-    Optional<DorisRemoteTable> getTable(SchemaTableName tableName);
-
-    default OptionalLong getTableRowCount(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getTableRowCount(tableName);
-    }
-
-    OptionalLong getTableRowCount(SchemaTableName tableName);
+    OptionalLong getTableRowCount(ConnectorSession session, SchemaTableName tableName);
 }

@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchRecordSet;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
@@ -34,6 +35,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -46,6 +48,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,7 +57,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -62,6 +64,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -75,7 +78,6 @@ final class TestingDorisEnvironment
     private static final double TPCH_SCALE_FACTOR = TpchMetadata.TINY_SCALE_FACTOR;
 
     private final Map<SchemaTableName, TestingTable> tables;
-    private final AtomicReference<Request> lastRequest = new AtomicReference<>();
 
     public TestingDorisEnvironment()
     {
@@ -91,23 +93,13 @@ final class TestingDorisEnvironment
     {
         TestingDorisMetadataClient metadataClient = new TestingDorisMetadataClient(tables);
         TestingDorisSplitPlanner splitPlanner = new TestingDorisSplitPlanner();
-        TestingDorisFlightSqlClient flightSqlClient = new TestingDorisFlightSqlClient(tables, lastRequest);
+        TestingDorisFlightSqlClient flightSqlClient = new TestingDorisFlightSqlClient(tables);
 
         return binder -> {
             binder.bind(DorisMetadataClient.class).toInstance(metadataClient);
             binder.bind(DorisSplitPlanner.class).toInstance(splitPlanner);
             binder.bind(DorisFlightSqlClient.class).toInstance(flightSqlClient);
         };
-    }
-
-    public void clearLastRequest()
-    {
-        lastRequest.set(null);
-    }
-
-    public Optional<Request> getLastRequest()
-    {
-        return Optional.ofNullable(lastRequest.get());
     }
 
     private static Map<SchemaTableName, TestingTable> createTables(List<TableDefinition> additionalTables)
@@ -186,15 +178,6 @@ final class TestingDorisEnvironment
         throw new IllegalArgumentException("Unsupported TPCH testing column type: " + columnType);
     }
 
-    public record Request(DorisTableHandle tableHandle, List<DorisColumnHandle> requestedColumns)
-    {
-        public Request
-        {
-            requireNonNull(tableHandle, "tableHandle is null");
-            requestedColumns = List.copyOf(requireNonNull(requestedColumns, "requestedColumns is null"));
-        }
-    }
-
     public record TableDefinition(SchemaTableName schemaTableName, List<DorisRemoteColumn> columns, List<Map<String, Object>> rows)
     {
         public TableDefinition
@@ -239,7 +222,7 @@ final class TestingDorisEnvironment
         }
 
         @Override
-        public List<String> listSchemaNames()
+        public List<String> listSchemaNames(ConnectorSession session)
         {
             return tables.keySet().stream()
                     .map(SchemaTableName::getSchemaName)
@@ -248,7 +231,7 @@ final class TestingDorisEnvironment
         }
 
         @Override
-        public List<SchemaTableName> listTables(Optional<String> schemaName)
+        public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
         {
             return tables.keySet().stream()
                     .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
@@ -256,13 +239,13 @@ final class TestingDorisEnvironment
         }
 
         @Override
-        public Optional<DorisRemoteTable> getTable(SchemaTableName tableName)
+        public Optional<DorisRemoteTable> getTable(ConnectorSession session, SchemaTableName tableName)
         {
             return Optional.ofNullable(tables.get(tableName)).map(TestingTable::toRemoteTable);
         }
 
         @Override
-        public OptionalLong getTableRowCount(SchemaTableName tableName)
+        public OptionalLong getTableRowCount(ConnectorSession session, SchemaTableName tableName)
         {
             return Optional.ofNullable(tables.get(tableName))
                     .map(table -> OptionalLong.of(table.rows().size()))
@@ -289,19 +272,15 @@ final class TestingDorisEnvironment
             implements DorisFlightSqlClient
     {
         private final Map<SchemaTableName, TestingTable> tables;
-        private final AtomicReference<Request> lastRequest;
 
-        private TestingDorisFlightSqlClient(Map<SchemaTableName, TestingTable> tables, AtomicReference<Request> lastRequest)
+        private TestingDorisFlightSqlClient(Map<SchemaTableName, TestingTable> tables)
         {
             this.tables = requireNonNull(tables, "tables is null");
-            this.lastRequest = requireNonNull(lastRequest, "lastRequest is null");
         }
 
         @Override
         public DorisFlightSqlResult openStream(DorisTableHandle tableHandle, DorisSplit split, List<DorisColumnHandle> columns)
         {
-            lastRequest.set(new Request(tableHandle, columns));
-
             TestingTable table = tables.get(tableHandle.toSchemaTableName());
             List<Map<String, Object>> rows = table == null ? List.of() : table.rows();
             return createResult(table, columns, rows);
@@ -522,6 +501,21 @@ final class TestingDorisEnvironment
                 vector.setValueCount(rows.size());
                 return vector;
             }
+            if (type == NUMBER) {
+                FixedSizeBinaryVector vector = new FixedSizeBinaryVector(name, allocator, 16);
+                vector.allocateNew(rows.size());
+                for (int i = 0; i < rows.size(); i++) {
+                    Object value = rows.get(i).get(name);
+                    if (value == null) {
+                        vector.setNull(i);
+                    }
+                    else {
+                        vector.setSafe(i, toLittleEndianLargeint(toBigIntegerValue(value)));
+                    }
+                }
+                vector.setValueCount(rows.size());
+                return vector;
+            }
             if (type instanceof VarcharType || type instanceof CharType) {
                 VarCharVector vector = new VarCharVector(name, allocator);
                 vector.allocateNew();
@@ -552,14 +546,6 @@ final class TestingDorisEnvironment
             return Boolean.parseBoolean(value.toString());
         }
 
-        private static long toEpochDay(Object value)
-        {
-            if (value instanceof LocalDate date) {
-                return date.toEpochDay();
-            }
-            return toLong(value);
-        }
-
         private static long toLong(Object value)
         {
             return ((Number) value).longValue();
@@ -580,6 +566,36 @@ final class TestingDorisEnvironment
                 return BigDecimal.valueOf(number.doubleValue());
             }
             return new BigDecimal(value.toString());
+        }
+
+        private static BigInteger toBigIntegerValue(Object value)
+        {
+            if (value instanceof BigInteger integer) {
+                return integer;
+            }
+            if (value instanceof BigDecimal decimal) {
+                return decimal.toBigIntegerExact();
+            }
+            if (value instanceof Number number) {
+                return BigInteger.valueOf(number.longValue());
+            }
+            return new BigInteger(value.toString());
+        }
+
+        private static byte[] toLittleEndianLargeint(BigInteger value)
+        {
+            byte[] bytes = value.toByteArray();
+            byte[] fixedBytes = new byte[16];
+            if (value.signum() < 0) {
+                Arrays.fill(fixedBytes, (byte) 0xFF);
+            }
+            System.arraycopy(bytes, 0, fixedBytes, fixedBytes.length - bytes.length, bytes.length);
+            for (int left = 0, right = fixedBytes.length - 1; left < right; left++, right--) {
+                byte temp = fixedBytes[left];
+                fixedBytes[left] = fixedBytes[right];
+                fixedBytes[right] = temp;
+            }
+            return fixedBytes;
         }
 
         private static byte[] toTextBytes(Object value)

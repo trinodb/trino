@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestJdbcDorisMetadataClient
@@ -44,7 +45,7 @@ final class TestJdbcDorisMetadataClient
                         Map.of("SCHEMA_NAME", "empty_db")),
                 new ArrayList<>()));
 
-        assertThat(client.listSchemaNames()).containsExactly("test", "empty_db");
+        assertThat(client.listSchemaNames(SESSION)).containsExactly("test", "empty_db");
         assertThat(preparedSql.get())
                 .contains("FROM INFORMATION_SCHEMA.SCHEMATA")
                 .contains("LOWER(SCHEMA_NAME) NOT IN ('information_schema', '__internal_schema', 'mysql')")
@@ -63,7 +64,7 @@ final class TestJdbcDorisMetadataClient
                         Map.of("TABLE_SCHEMA", "Test", "TABLE_NAME", "Revenue0", "TABLE_TYPE", "VIEW")),
                 boundParameters));
 
-        assertThat(client.listTables(Optional.of("test")))
+        assertThat(client.listTables(SESSION, Optional.of("test")))
                 .containsExactly(
                         new SchemaTableName("Test", "Nation"),
                         new SchemaTableName("Test", "Revenue0"));
@@ -112,7 +113,7 @@ final class TestJdbcDorisMetadataClient
                                         "COLUMN_TYPE",
                                         "DATETIMEV2(3)")))));
 
-        DorisRemoteTable remoteTable = client.getTable(new SchemaTableName("mixedcase_db", "orderevents_mix")).orElseThrow();
+        DorisRemoteTable remoteTable = client.getTable(SESSION, new SchemaTableName("mixedcase_db", "orderevents_mix")).orElseThrow();
 
         assertThat(remoteTable.remoteSchemaName()).isEqualTo("mixedcase_db");
         assertThat(remoteTable.remoteTableName()).isEqualTo("orderevents_mix");
@@ -162,7 +163,7 @@ final class TestJdbcDorisMetadataClient
                                         "COLUMN_TYPE",
                                         "DECIMAL(15,4)")))));
 
-        DorisRemoteTable remoteTable = client.getTable(new SchemaTableName("tpch", "revenue0")).orElseThrow();
+        DorisRemoteTable remoteTable = client.getTable(SESSION, new SchemaTableName("tpch", "revenue0")).orElseThrow();
 
         assertThat(remoteTable.relationType()).isEqualTo(DorisRelationType.VIEW);
         assertThat(remoteTable.columns()).extracting(DorisRemoteColumn::columnName)

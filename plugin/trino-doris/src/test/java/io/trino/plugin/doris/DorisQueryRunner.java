@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.doris;
 
+import io.airlift.log.Logger;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -76,5 +78,17 @@ public final class DorisQueryRunner
                 throw t;
             }
         }
+    }
+
+    static void main()
+            throws Exception
+    {
+        QueryRunner queryRunner = builder(new TestingDorisEnvironment())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
+
+        Logger log = Logger.get(DorisQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
