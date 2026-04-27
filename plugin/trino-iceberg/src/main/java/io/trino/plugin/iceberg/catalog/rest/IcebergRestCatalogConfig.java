@@ -60,6 +60,7 @@ public class IcebergRestCatalogConfig
     private boolean viewEndpointsEnabled = true;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean dropWithPurgeByCatalogEnabled = true;
 
     @NotNull
     public URI getBaseUri()
@@ -236,6 +237,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public boolean isDropWithPurgeByCatalogEnabled()
+    {
+        return dropWithPurgeByCatalogEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.drop-with-purge-by-catalog-enabled")
+    @ConfigDescription("Enable purge operation by rest catalog")
+    public IcebergRestCatalogConfig setDropWithPurgeByCatalogEnabled(boolean purgeByCatalogEnabled)
+    {
+        this.dropWithPurgeByCatalogEnabled = purgeByCatalogEnabled;
         return this;
     }
 }

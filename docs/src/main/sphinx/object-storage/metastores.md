@@ -536,7 +536,10 @@ following properties:
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
   - [Duration](prop-type-duration) for which case-insensitive namespace, table, 
     and view names are cached. Defaults to `1m`.
-  :::
+* - `iceberg.rest-catalog.drop-with-purge-by-catalog-enabled`
+  - Controls whether REST Catalog should handle drop with purge operation. Defaults to `true`. This property must only be set as a workaround for [this
+    issue](https://github.com/apache/polaris/issues/3695).   
+    :::
 
 The following example shows a minimal catalog configuration using an Iceberg
 REST metadata catalog:
