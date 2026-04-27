@@ -98,7 +98,7 @@ public class TestPreAggregateCaseAggregations
 
         // create table with different column types
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
-                .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                 .withGetColumns(name -> {
                     if (!name.equals(TABLE)) {
                         throw new IllegalArgumentException();

@@ -2089,7 +2089,7 @@ public class LocalExecutionPlanner
 
             Optional<Expression> staticFilters = filterExpression.flatMap(this::getStaticFilter);
             DynamicFilter dynamicFilter = filterExpression
-                    .filter(expression -> sourceNode instanceof TableScanNode)
+                    .filter(_ -> sourceNode instanceof TableScanNode)
                     .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
                     .orElse(DynamicFilter.EMPTY);
 
@@ -2644,18 +2644,18 @@ public class LocalExecutionPlanner
             CatalogSchemaFunctionName functionName = call.function().name();
             if (functionName.equals(builtinFunctionName(ST_CONTAINS))) {
                 if (probeFirst) {
-                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.contains(buildGeometry);
+                    return (buildGeometry, probeGeometry, _) -> probeGeometry.contains(buildGeometry);
                 }
-                return (buildGeometry, probeGeometry, radius) -> buildGeometry.contains(probeGeometry);
+                return (buildGeometry, probeGeometry, _) -> buildGeometry.contains(probeGeometry);
             }
             if (functionName.equals(builtinFunctionName(ST_WITHIN))) {
                 if (probeFirst) {
-                    return (buildGeometry, probeGeometry, radius) -> probeGeometry.within(buildGeometry);
+                    return (buildGeometry, probeGeometry, _) -> probeGeometry.within(buildGeometry);
                 }
-                return (buildGeometry, probeGeometry, radius) -> buildGeometry.within(probeGeometry);
+                return (buildGeometry, probeGeometry, _) -> buildGeometry.within(probeGeometry);
             }
             if (functionName.equals(builtinFunctionName(ST_INTERSECTS))) {
-                return (buildGeometry, probeGeometry, radius) -> buildGeometry.intersects(probeGeometry);
+                return (buildGeometry, probeGeometry, _) -> buildGeometry.intersects(probeGeometry);
             }
             if (functionName.equals(builtinFunctionName(ST_DISTANCE))) {
                 if (comparisonOperator.orElseThrow() == LESS_THAN) {
@@ -3551,7 +3551,7 @@ public class LocalExecutionPlanner
         {
             // Todo: Implement writer scaling for merge. https://github.com/trinodb/trino/issues/14622
             int writerCount = node.getPartitioningScheme()
-                    .map(scheme -> getTaskMaxWriterCount(session))
+                    .map(_ -> getTaskMaxWriterCount(session))
                     .orElseGet(() -> getTaskMinWriterCount(session));
             context.setDriverInstanceCount(writerCount);
 

@@ -959,10 +959,10 @@ public class BinPackingNodeAllocatorService
         {
             nodesRemainingMemoryRuntimeAdjusted.compute(
                     nodeIdentifier,
-                    (key, free) -> max(free - memoryLease, 0));
+                    (_, free) -> max(free - memoryLease, 0));
             nodesRemainingMemory.compute(
                     nodeIdentifier,
-                    (key, free) -> max(free - memoryLease, 0));
+                    (_, free) -> max(free - memoryLease, 0));
             if (nodesRemainingMemory.get(nodeIdentifier) == 0) {
                 nodesWithoutMemory.add(nodeIdentifier);
             }

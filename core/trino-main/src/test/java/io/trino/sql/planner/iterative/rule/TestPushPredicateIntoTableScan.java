@@ -411,7 +411,7 @@ public class TestPushPredicateIntoTableScan
     {
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
         builder
-                .withApplyFilter((session, tableHandle, constraint) -> {
+                .withApplyFilter((_, tableHandle, constraint) -> {
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
                         return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }
@@ -420,7 +420,7 @@ public class TestPushPredicateIntoTableScan
                     }
                     return Optional.empty();
                 })
-                .withGetTableProperties((session, tableHandle) -> {
+                .withGetTableProperties((_, tableHandle) -> {
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE) || tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),

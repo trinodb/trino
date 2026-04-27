@@ -253,7 +253,7 @@ public final class JsonUtil
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
             if (type.equals(UNKNOWN)) {
-                return (block, position) -> null;
+                return (_, _) -> null;
             }
             if (type.equals(BOOLEAN)) {
                 return (block, position) -> BOOLEAN.getBoolean(block, position) ? "true" : "false";

@@ -177,7 +177,7 @@ public final class PolymorphicScalarFunctionBuilder
 
     public static <T> Function<SpecializeContext, List<Object>> constant(T value)
     {
-        return context -> ImmutableList.of(value);
+        return _ -> ImmutableList.of(value);
     }
 
     public static final class SpecializeContext

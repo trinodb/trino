@@ -84,7 +84,7 @@ public class TypeOperators
             if (operator != null) {
                 return operator;
             }
-            return cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+            return cache.computeIfAbsent(operatorConvention, _ -> supplier.get());
         };
     }
 

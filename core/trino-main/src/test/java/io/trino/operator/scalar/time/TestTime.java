@@ -2043,7 +2043,7 @@ public class TestTime
 
     private static BiFunction<Session, QueryRunner, Object> time(int precision, int hour, int minute, int second, long picoOfSecond)
     {
-        return (session, queryRunner) -> {
+        return (_, _) -> {
             long picos = (hour * 3600 + minute * 60 + second) * PICOSECONDS_PER_SECOND + picoOfSecond;
             return SqlTime.newInstance(precision, picos);
         };

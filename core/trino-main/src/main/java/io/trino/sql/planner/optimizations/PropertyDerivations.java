@@ -532,7 +532,7 @@ public final class PropertyDerivations
         @Override
         public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+            return Iterables.getOnlyElement(inputProperties).translate(_ -> Optional.empty());
         }
 
         @Override

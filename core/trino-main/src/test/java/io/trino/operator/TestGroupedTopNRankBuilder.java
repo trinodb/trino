@@ -42,7 +42,7 @@ public class TestGroupedTopNRankBuilder
     {
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 ImmutableList.of(BIGINT),
-                (left, leftPosition, right, rightPosition) -> {
+                (_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 new PageWithPositionEqualsAndHash()

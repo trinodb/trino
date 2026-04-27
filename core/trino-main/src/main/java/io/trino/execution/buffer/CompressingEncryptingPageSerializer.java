@@ -503,8 +503,8 @@ public class CompressingEncryptingPageSerializer
             long size = INSTANCE_SIZE;
             size += sizeOf(compressor, compressor -> instanceSize(compressor.getClass())
                     + compressor.getRetainedSizeInBytes(uncompressedSize));
-            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
-            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
+            size += sizeOf(encryptionKey, _ -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, _ -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (WriteBuffer buffer : buffers) {
                 if (buffer != null) {
                     size += buffer.getRetainedSizeInBytes();

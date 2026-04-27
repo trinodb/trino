@@ -52,7 +52,7 @@ public class TestPruneSemiJoinColumns
     public void testAllColumnsNeeded()
     {
         tester().assertThat(new PruneSemiJoinColumns())
-                .on(p -> buildProjectedSemiJoin(p, symbol -> true))
+                .on(p -> buildProjectedSemiJoin(p, _ -> true))
                 .doesNotFire();
     }
 

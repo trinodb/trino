@@ -67,7 +67,7 @@ public class TestUnaliasSymbolReferences
         String buildTable = "nation";
         assertOptimizedPlan(
                 new UnaliasSymbolReferences(),
-                (p, session, metadata) -> {
+                (p, _, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
                     Symbol buildAlias1 = p.symbol("buildAlias1");
@@ -122,7 +122,7 @@ public class TestUnaliasSymbolReferences
     {
         assertOptimizedPlan(
                 new UnaliasSymbolReferences(),
-                (p, session, metadata) -> {
+                (p, _, _) -> {
                     Symbol symbol = p.symbol("symbol");
                     Symbol alias1 = p.symbol("alias1");
                     Symbol alias2 = p.symbol("alias2");

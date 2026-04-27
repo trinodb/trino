@@ -117,7 +117,7 @@ public class TestPagesSerde
         Iterator<LineItem> iterator = lineItemGenerator.iterator();
         int pageCount = 3;
         List<Page> pages = IntStream.range(0, pageCount)
-                .mapToObj(i -> generatePage(types, rowCount, iterator))
+                .mapToObj(_ -> generatePage(types, rowCount, iterator))
                 .collect(toImmutableList());
         testRoundTrip(types, pages);
     }

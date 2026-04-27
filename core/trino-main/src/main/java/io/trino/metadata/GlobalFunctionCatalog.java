@@ -248,7 +248,7 @@ public class GlobalFunctionCatalog
             this.functionBundlesById = ImmutableMap.<FunctionId, FunctionBundle>builder()
                     .putAll(map.functionBundlesById)
                     .putAll(functionBundle.getFunctions().stream()
-                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, functionMetadata -> functionBundle)))
+                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, _ -> functionBundle)))
                     .buildOrThrow();
 
             this.functionsById = ImmutableMap.<FunctionId, FunctionMetadata>builder()

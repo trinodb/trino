@@ -161,7 +161,7 @@ public class SqlTaskExecution
                     .build();
 
             this.pendingSplitsByPlanNode = this.driverRunnerFactoriesWithSplitLifeCycle.keySet().stream()
-                    .collect(toImmutableMap(identity(), ignore -> new PendingSplitsForPlanNode()));
+                    .collect(toImmutableMap(identity(), _ -> new PendingSplitsForPlanNode()));
             sourceStartOrder = localExecutionPlan.getPartitionedSourceOrder();
 
             checkArgument(this.driverRunnerFactoriesWithSplitLifeCycle.keySet().equals(partitionedSources),

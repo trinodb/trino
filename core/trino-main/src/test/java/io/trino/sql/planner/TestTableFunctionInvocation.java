@@ -78,7 +78,7 @@ public class TestTableFunctionInvocation
                         new DescriptorArgumentFunction(),
                         new TwoTableArgumentsFunction(),
                         new PassThroughFunction()))
-                .withApplyTableFunction((session, handle) -> {
+                .withApplyTableFunction((_, handle) -> {
                     if (handle instanceof TestingTableFunctionPushdownHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                     }

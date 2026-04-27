@@ -630,19 +630,19 @@ public class TestArbitraryDistributionSplitAssigner
 
         List<SplitBatch> batches = new ArrayList<>();
         Map<PlanNodeId, Integer> splitCount = allSources.stream()
-                .collect(Collectors.toMap(Function.identity(), planNodeId -> ThreadLocalRandom.current().nextInt(100)));
+                .collect(Collectors.toMap(Function.identity(), _ -> ThreadLocalRandom.current().nextInt(100)));
 
         AtomicInteger nextSplitId = new AtomicInteger();
         while (!splitCount.isEmpty()) {
             List<PlanNodeId> remainingSources = ImmutableList.copyOf(splitCount.keySet());
             PlanNodeId source = remainingSources.get(ThreadLocalRandom.current().nextInt(remainingSources.size()));
             int batchSize = ThreadLocalRandom.current().nextInt(5);
-            int remaining = splitCount.compute(source, (key, value) -> value - batchSize);
+            int remaining = splitCount.compute(source, (_, value) -> value - batchSize);
             if (remaining <= 0) {
                 splitCount.remove(source);
             }
             List<Split> splits = IntStream.range(0, batchSize)
-                    .mapToObj(value -> generateSplit(nextSplitId, replicatedSources.contains(source), withHostRequirements))
+                    .mapToObj(_ -> generateSplit(nextSplitId, replicatedSources.contains(source), withHostRequirements))
                     .collect(toImmutableList());
             batches.add(new SplitBatch(source, splits, remaining <= 0));
         }
@@ -706,11 +706,11 @@ public class TestArbitraryDistributionSplitAssigner
                     }
                     PartitionAssignment currentAssignment = currentSplitAssignments.get(Map.entry(hostRequirement, remotelyAccessible));
                     if (currentAssignment != null && currentAssignment.getSplits().size() + 1 > partitionedSplitsPerPartition) {
-                        expectedPartitionedSplits.computeIfAbsent(currentAssignment.getPartitionId(), key -> ArrayListMultimap.create()).putAll(currentAssignment.getSplits());
+                        expectedPartitionedSplits.computeIfAbsent(currentAssignment.getPartitionId(), _ -> ArrayListMultimap.create()).putAll(currentAssignment.getSplits());
                         currentSplitAssignments.remove(Map.entry(hostRequirement, remotelyAccessible));
                     }
                     currentSplitAssignments
-                            .computeIfAbsent(Map.entry(hostRequirement, remotelyAccessible), key -> new PartitionAssignment(nextPartitionId.getAndIncrement()))
+                            .computeIfAbsent(Map.entry(hostRequirement, remotelyAccessible), _ -> new PartitionAssignment(nextPartitionId.getAndIncrement()))
                             .getSplits()
                             .put(planNodeId, split);
                 }
@@ -731,7 +731,7 @@ public class TestArbitraryDistributionSplitAssigner
         }
         tester.update(splitAssigner.finish());
         for (PartitionAssignment assignment : currentSplitAssignments.values()) {
-            expectedPartitionedSplits.computeIfAbsent(assignment.getPartitionId(), key -> ArrayListMultimap.create()).putAll(assignment.getSplits());
+            expectedPartitionedSplits.computeIfAbsent(assignment.getPartitionId(), _ -> ArrayListMultimap.create()).putAll(assignment.getSplits());
         }
         List<TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow();
         int expectedPartitionCount = nextPartitionId.get();

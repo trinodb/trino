@@ -138,7 +138,7 @@ public class TestPushJoinIntoTableScan
     @MethodSource("testPushJoinIntoTableScanParams")
     public void testPushJoinIntoTableScan(io.trino.sql.planner.plan.JoinType joinType, Optional<Comparison.Operator> filterComparisonOperator)
     {
-        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, applyJoinType, left, right, joinCondition, leftAssignments, rightAssignments, _) -> {
+        MockConnectorFactory connectorFactory = createMockConnectorFactory((_, applyJoinType, left, right, joinCondition, _, _, _) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
             assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
             assertThat(applyJoinType).isEqualTo(toSpiJoinType(joinType));
@@ -294,7 +294,7 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableScanDoesNotFireForDifferentCatalogs()
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory(
-                (_, _, __, _, _, _, _, _) -> {
+                (_, _, _, _, _, _, _, _) -> {
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
@@ -604,8 +604,8 @@ public class TestPushJoinIntoTableScan
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)
     {
         return MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of(SCHEMA))
-                .withListTables((connectorSession, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME.getTableName(), TABLE_B_SCHEMA_TABLE_NAME.getTableName()) : ImmutableList.of())
+                .withListSchemaNames(_ -> ImmutableList.of(SCHEMA))
+                .withListTables((_, schema) -> SCHEMA.equals(schema) ? ImmutableList.of(TABLE_A_SCHEMA_TABLE_NAME.getTableName(), TABLE_B_SCHEMA_TABLE_NAME.getTableName()) : ImmutableList.of())
                 .withApplyJoin(applyJoin)
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(TABLE_A_SCHEMA_TABLE_NAME)) {

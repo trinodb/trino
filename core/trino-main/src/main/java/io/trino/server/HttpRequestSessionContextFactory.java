@@ -149,7 +149,7 @@ public class HttpRequestSessionContextFactory
                     assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
                     // catalog session properties cannot be validated until the transaction has started
-                    catalogSessionProperties.computeIfAbsent(catalogName.orElseThrow(), id -> new HashMap<>()).put(propertyName, propertyValue);
+                    catalogSessionProperties.computeIfAbsent(catalogName.orElseThrow(), _ -> new HashMap<>()).put(propertyName, propertyValue);
                 }
                 default -> throw new BadRequestException(format("Invalid %s header", protocolHeaders.requestSession()));
             }

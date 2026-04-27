@@ -3331,7 +3331,7 @@ public class TestTimestamp
 
     private static BiFunction<Session, QueryRunner, Object> timestamp(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond)
     {
-        return (session, queryRunner) -> {
+        return (_, _) -> {
             LocalDateTime base = LocalDateTime.of(year, month, day, hour, minute, second);
 
             ZoneOffset offset = ZoneOffset.UTC;

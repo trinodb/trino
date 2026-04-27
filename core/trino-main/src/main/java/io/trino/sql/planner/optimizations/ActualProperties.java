@@ -134,7 +134,7 @@ public class ActualProperties
     public ActualProperties translate(Function<Symbol, Optional<Symbol>> translator)
     {
         return builder()
-                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), expression -> Optional.empty())))
+                .global(global.translate(new Partitioning.Translator(translator, symbol -> Optional.ofNullable(constants.get(symbol)), _ -> Optional.empty())))
                 .local(LocalProperties.translate(localProperties, translator))
                 .constants(translateConstants(translator))
                 .build();

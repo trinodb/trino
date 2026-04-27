@@ -79,7 +79,7 @@ public class ExchangeMetricsCollector
 
     public void register(QueryId queryId, Exchange exchange)
     {
-        registry.computeIfAbsent(queryId, ignored -> Sets.newConcurrentHashSet())
+        registry.computeIfAbsent(queryId, _ -> Sets.newConcurrentHashSet())
                 .add(exchange);
     }
 

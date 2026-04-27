@@ -592,7 +592,7 @@ public class TestMultiSourcePartitionedScheduler
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount)
     {
-        return new FixedSplitSource(IntStream.range(0, splitCount).mapToObj(ix -> new TestingSplit(true, ImmutableList.of())).toList());
+        return new FixedSplitSource(IntStream.range(0, splitCount).mapToObj(_ -> new TestingSplit(true, ImmutableList.of())).toList());
     }
 
     private SplitPlacementPolicy createSplitPlacementPolicies(Session session, StageExecution stage, NodeTaskMap nodeTaskMap, InternalNodeManager nodeManager)
@@ -677,7 +677,7 @@ public class TestMultiSourcePartitionedScheduler
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
             return notEmptyFuture
-                    .thenApply(x -> getBatch(maxSize))
+                    .thenApply(_ -> getBatch(maxSize))
                     .thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
         }
 

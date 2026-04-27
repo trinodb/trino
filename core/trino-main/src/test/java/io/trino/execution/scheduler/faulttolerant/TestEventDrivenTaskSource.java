@@ -354,11 +354,11 @@ public class TestEventDrivenTaskSource
         for (Entry<PlanFragmentId, ExchangeSourceHandle> entry : sourceHandles.entries()) {
             TestingExchangeSourceHandle handle = (TestingExchangeSourceHandle) entry.getValue();
             PlanNodeId planNodeId = remoteSources.get(entry.getKey());
-            expectedHandles.computeIfAbsent(handle.getPartitionId(), key -> HashMultimap.create()).put(planNodeId, handle);
+            expectedHandles.computeIfAbsent(handle.getPartitionId(), _ -> HashMultimap.create()).put(planNodeId, handle);
         }
         for (Entry<PlanNodeId, ConnectorSplit> entry : splits.entries()) {
             TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue();
-            expectedSplits.computeIfAbsent(split.getBucket().orElseThrow(), key -> HashMultimap.create()).put(entry.getKey(), split);
+            expectedSplits.computeIfAbsent(split.getBucket().orElseThrow(), _ -> HashMultimap.create()).put(entry.getKey(), split);
         }
 
         Map<Integer, SetMultimap<PlanNodeId, TestingExchangeSourceHandle>> actualHandles = new HashMap<>();
@@ -371,13 +371,13 @@ public class TestEventDrivenTaskSource
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
                     for (ExchangeSourceHandle handle : input.getExchangeSourceHandles()) {
                         assertThat(handle.getPartitionId()).isEqualTo(partitionId);
-                        actualHandles.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), (TestingExchangeSourceHandle) handle);
+                        actualHandles.computeIfAbsent(partitionId, _ -> HashMultimap.create()).put(entry.getKey(), (TestingExchangeSourceHandle) handle);
                     }
                 }
                 else {
                     TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue().getConnectorSplit();
                     assertThat(split.getBucket().orElseThrow()).isEqualTo(partitionId);
-                    actualSplits.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), split);
+                    actualSplits.computeIfAbsent(partitionId, _ -> HashMultimap.create()).put(entry.getKey(), split);
                 }
             }
         }

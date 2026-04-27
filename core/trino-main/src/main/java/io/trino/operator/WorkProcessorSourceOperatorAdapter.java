@@ -64,7 +64,7 @@ public class WorkProcessorSourceOperatorAdapter
                         operatorContext.getDriverContext().getYieldSignal(),
                         WorkProcessor.create(splitBuffer));
         this.pages = sourceOperator.getOutputPages()
-                .withProcessStateMonitor(state -> updateOperatorStats())
+                .withProcessStateMonitor(_ -> updateOperatorStats())
                 .finishWhen(() -> operatorFinishing);
         operatorContext.setInfoSupplier(() -> sourceOperator.getOperatorInfo().orElse(null));
     }

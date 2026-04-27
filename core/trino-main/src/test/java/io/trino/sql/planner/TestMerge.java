@@ -80,7 +80,7 @@ public class TestMerge
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.installPlugin(
                 new MockConnectorPlugin(MockConnectorFactory.builder()
-                        .withGetTableHandle((session, schemaTableName) -> {
+                        .withGetTableHandle((_, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_merge_target")) {
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
@@ -91,7 +91,7 @@ public class TestMerge
 
                             return null;
                         })
-                        .withGetColumns(name -> ImmutableList.of(
+                        .withGetColumns(_ -> ImmutableList.of(
                                 new ColumnMetadata("column1", INTEGER),
                                 new ColumnMetadata("column2", INTEGER)))
                         .build()));

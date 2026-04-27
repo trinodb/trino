@@ -332,7 +332,7 @@ public class UniformNodeSelector
             }
             for (RemoteTask task : existingTasks) {
                 String nodeId = task.getNodeId();
-                TaskAdjustmentInfo nodeTaskAdjustmentInfo = taskAdjustmentInfos.computeIfAbsent(nodeId, key -> new TaskAdjustmentInfo(minPendingSplitsWeightPerTask));
+                TaskAdjustmentInfo nodeTaskAdjustmentInfo = taskAdjustmentInfos.computeIfAbsent(nodeId, _ -> new TaskAdjustmentInfo(minPendingSplitsWeightPerTask));
                 Optional<Long> lastAdjustmentTime = nodeTaskAdjustmentInfo.getLastAdjustmentNanos();
 
                 if (previousScheduleFullTasks.contains(nodeId) && nodeAssignmentStats.getQueuedSplitsWeightForStage(nodeId) == 0) {

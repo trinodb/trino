@@ -814,7 +814,7 @@ public class TestSourcePartitionedScheduler
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
             return notEmptyFuture
-                    .thenApply(x -> getBatch(maxSize))
+                    .thenApply(_ -> getBatch(maxSize))
                     .thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
         }
 

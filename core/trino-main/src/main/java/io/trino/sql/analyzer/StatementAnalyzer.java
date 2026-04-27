@@ -3790,12 +3790,12 @@ class StatementAnalyzer
             merge.getMergeCases().stream()
                     .filter(mergeCase -> mergeCase instanceof MergeInsert)
                     .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName, mergeBranch));
+                    .ifPresent(_ -> accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName, mergeBranch));
 
             merge.getMergeCases().stream()
                     .filter(mergeCase -> mergeCase instanceof MergeDelete)
                     .findFirst()
-                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName, mergeBranch));
+                    .ifPresent(_ -> accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName, mergeBranch));
 
             Set<String> allUpdateColumnNames = new HashSet<>();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {

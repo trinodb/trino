@@ -245,7 +245,7 @@ public class TestJoinStatsRule
     @Test
     public void testLeftJoinComplementStatsWithNoClauses()
     {
-        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(rowCount -> 0.0));
+        PlanNodeStatsEstimate expected = NORMALIZER.normalize(LEFT_STATS.mapOutputRowCount(_ -> 0.0));
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(),

@@ -238,7 +238,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                 List<Integer> hashChannels,
                 int sumChannel)
         {
-            SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
+            SpillerFactory spillerFactory = (_, _, _) -> null;
 
             NullSafeHashCompiler hashCompiler = new NullSafeHashCompiler(TYPE_OPERATORS);
             return new HashAggregationOperatorFactory(

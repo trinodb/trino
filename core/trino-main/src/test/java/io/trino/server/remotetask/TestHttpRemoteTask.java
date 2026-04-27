@@ -634,7 +634,7 @@ public class TestHttpRemoteTask
                 ImmutableMap.of(),
                 ImmutableMultimap.of(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
+                new NodeTaskMap.PartitionedSplitCountTracker(_ -> {}),
                 outboundDynamicFilterIds,
                 Optional.empty(),
                 true);
@@ -827,7 +827,7 @@ public class TestHttpRemoteTask
                 @Context UriInfo uriInfo)
         {
             for (SplitAssignment splitAssignment : taskUpdateRequest.splitAssignments()) {
-                taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (planNodeId, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
+                taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (_, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
             if (!taskUpdateRequest.dynamicFilterDomains().isEmpty()) {
                 dynamicFiltersSentCounter++;

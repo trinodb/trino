@@ -193,7 +193,7 @@ public final class BytecodeUtils
                 functionNullability,
                 Collections.nCopies(arguments.size(), false),
                 functionImplementationProvider,
-                instanceFactory -> {
+                _ -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
                 },
                 arguments.stream()

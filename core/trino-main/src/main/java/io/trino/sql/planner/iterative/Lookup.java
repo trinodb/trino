@@ -52,7 +52,7 @@ public interface Lookup
      */
     static Lookup noLookup()
     {
-        return node -> {
+        return _ -> {
             throw new UnsupportedOperationException();
         };
     }

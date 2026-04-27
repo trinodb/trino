@@ -108,19 +108,19 @@ public class TestRemoveEmptyUnionBranches
     private MockConnectorFactory createConnectorFactory(String catalogHandle)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (tableName.getSchemaName().equals(SCHEMA_NAME) && tables.contains(tableName.getTableName())) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
                 })
-                .withGetViews((session, schemaName) -> {
+                .withGetViews((_, _) -> {
                     return views;
                 })
-                .withGetColumns(schemaTableName -> columnNames.stream()
+                .withGetColumns(_ -> columnNames.stream()
                         .map(name -> new ColumnMetadata(name, VARCHAR))
                         .collect(toImmutableList()))
-                .withGetTableProperties((session, handle) -> {
+                .withGetTableProperties((_, handle) -> {
                     MockConnectorTableHandle table = (MockConnectorTableHandle) handle;
                     return new ConnectorTableProperties(table.getConstraint(), Optional.empty(), Optional.empty(), emptyList());
                 })
@@ -131,14 +131,14 @@ public class TestRemoveEmptyUnionBranches
 
     private MockConnectorFactory.ApplyFilter applyFilter()
     {
-        return (session, table, constraint) -> {
+        return (_, table, constraint) -> {
             if (table instanceof MockConnectorTableHandle handle) {
                 SchemaTableName schemaTable = handle.getTableName();
                 if (schemaTable.getSchemaName().equals(SCHEMA_NAME) && tables.contains(schemaTable.getTableName())) {
                     Predicate<ColumnHandle> shouldPushdown = columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals(pushdownColumn);
                     TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
                     TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary()
-                            .filter((columnHandle, domain) -> shouldPushdown.test(columnHandle)));
+                            .filter((columnHandle, _) -> shouldPushdown.test(columnHandle)));
 
                     // Check if predicate and constraint lead to Tupledomain.none().
                     boolean nonePredicateOnPushdownColumn = discoveredNonePredicateOnPushdownColumn(newDomain, constraint);
@@ -147,7 +147,7 @@ public class TestRemoveEmptyUnionBranches
                                 new ConstraintApplicationResult<>(
                                         new MockConnectorTableHandle(handle.getTableName(), TupleDomain.none(), Optional.empty()),
                                         constraint.getSummary()
-                                                .filter((ch, domain) -> !shouldPushdown.test(ch)),
+                                                .filter((ch, _) -> !shouldPushdown.test(ch)),
                                         constraint.getExpression(),
                                         false));
                     }
@@ -160,7 +160,7 @@ public class TestRemoveEmptyUnionBranches
                             new ConstraintApplicationResult<>(
                                     new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                                     constraint.getSummary()
-                                            .filter((columnHandle, domain) -> !shouldPushdown.test(columnHandle)),
+                                            .filter((columnHandle, _) -> !shouldPushdown.test(columnHandle)),
                                     constraint.getExpression(),
                                     false));
                 }

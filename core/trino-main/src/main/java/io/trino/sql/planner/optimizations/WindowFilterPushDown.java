@@ -194,7 +194,7 @@ public class WindowFilterPushDown
             }
 
             // Remove the ranking domain because it is absorbed into the node
-            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
+            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
                     extractionResult.getRemainingExpression(),
                     domainTranslator.toPredicate(newTupleDomain));

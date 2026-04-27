@@ -75,10 +75,10 @@ public class TestInformationSchemaMetadata
     {
         queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
-                .withListTables((connectorSession, schemaName) ->
+                .withListSchemaNames(_ -> ImmutableList.of("test_schema"))
+                .withListTables((_, _) ->
                         ImmutableList.of("test_view", "another_table"))
-                .withGetViews((connectorSession, prefix) -> {
+                .withGetViews((_, _) -> {
                     ConnectorViewDefinition definition = new ConnectorViewDefinition(
                             "select 1",
                             Optional.of("test_catalog"),

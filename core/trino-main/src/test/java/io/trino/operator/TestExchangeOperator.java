@@ -96,7 +96,7 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY), scheduler);
 
-        directExchangeClientSupplier = (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
+        directExchangeClientSupplier = (_, _, _, memoryContext, taskFailureListener, _) -> new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),

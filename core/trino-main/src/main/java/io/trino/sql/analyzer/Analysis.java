@@ -537,7 +537,7 @@ public class Analysis
 
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
-        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
+        SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
         subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
         subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
@@ -553,12 +553,12 @@ public class Analysis
 
     public SubqueryAnalysis getSubqueries(Node node)
     {
-        return subqueries.computeIfAbsent(NodeRef.of(node), key -> new SubqueryAnalysis());
+        return subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
     }
 
     public void addWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name, ResolvedWindow window)
     {
-        windowDefinitions.computeIfAbsent(NodeRef.of(query), key -> new LinkedHashMap<>())
+        windowDefinitions.computeIfAbsent(NodeRef.of(query), _ -> new LinkedHashMap<>())
                 .put(name, window);
     }
 
@@ -1019,15 +1019,15 @@ public class Analysis
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<TableAndBranch, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<TableAndBranch, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<TableAndBranch, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, _ -> new LinkedHashMap<>());
         tableColumnMap.asMap()
-                .forEach((tableAndBranch, columns) -> references.computeIfAbsent(tableAndBranch, k -> new HashSet<>()).addAll(columns));
+                .forEach((tableAndBranch, columns) -> references.computeIfAbsent(tableAndBranch, _ -> new HashSet<>()).addAll(columns));
     }
 
     public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table, Optional<String> branch)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(new TableAndBranch(table, branch), k -> new HashSet<>());
+        tableColumnReferences.computeIfAbsent(accessControlInfo, _ -> new LinkedHashMap<>()).computeIfAbsent(new TableAndBranch(table, branch), _ -> new HashSet<>());
     }
 
     public void addLabels(Map<NodeRef<Expression>, Optional<String>> labels)
@@ -1181,13 +1181,13 @@ public class Analysis
 
     public void addRowFilter(Table table, Expression filter)
     {
-        rowFilters.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+        rowFilters.computeIfAbsent(NodeRef.of(table), _ -> new ArrayList<>())
                 .add(filter);
     }
 
     public void addCheckConstraints(Table table, Expression constraint)
     {
-        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+        checkConstraints.computeIfAbsent(NodeRef.of(table), _ -> new ArrayList<>())
                 .add(constraint);
     }
 

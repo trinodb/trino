@@ -106,7 +106,7 @@ public abstract class AbstractGreatestLeast
         MethodHandle compareMethod = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
 
         List<Class<?>> javaTypes = IntStream.range(0, boundSignature.getArity())
-                .mapToObj(i -> wrap(type.getJavaType()))
+                .mapToObj(_ -> wrap(type.getJavaType()))
                 .collect(toImmutableList());
 
         MethodHandle methodHandle = generate(boundSignature.getName().functionName(), javaTypes, compareMethod);

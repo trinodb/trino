@@ -152,7 +152,7 @@ public final class DomainTranslator
         disjuncts.addAll(domain.getValues().getValuesProcessor().transform(
                 ranges -> extractDisjuncts(domain.getType(), ranges, reference),
                 discreteValues -> extractDisjuncts(domain.getType(), discreteValues, reference),
-                allOrNone -> {
+                _ -> {
                     throw new IllegalStateException("Case should not be reachable");
                 }));
 

@@ -264,7 +264,7 @@ public class BenchmarkPartitionedOutputOperator
                         positionCount,
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
-                                .map(type -> {
+                                .map(_ -> {
                                     boolean[] isNull = null;
                                     if (nullRate > 0) {
                                         isNull = new boolean[positionCount];

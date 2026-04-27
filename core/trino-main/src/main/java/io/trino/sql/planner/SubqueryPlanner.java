@@ -164,7 +164,7 @@ class SubqueryPlanner
         Map<ScopeAware<T>, List<T>> sets = new LinkedHashMap<>();
 
         for (T expression : expressions) {
-            sets.computeIfAbsent(scopeAwareKey(expression, analysis, scope), key -> new ArrayList<>())
+            sets.computeIfAbsent(scopeAwareKey(expression, analysis, scope), _ -> new ArrayList<>())
                     .add(expression);
         }
 
@@ -512,8 +512,8 @@ class SubqueryPlanner
         return cluster.getExpressions().stream()
                 .collect(toImmutableMap(
                         expression -> scopeAwareKey(expression, analysis, scope),
-                        expression -> output,
-                        (first, second) -> first));
+                        _ -> output,
+                        (first, _) -> first));
     }
 
     /**

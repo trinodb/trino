@@ -572,7 +572,7 @@ public class HashBuilderOperator
         }
         long unspillStartNanos = System.nanoTime();
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
-        addSuccessCallback(unspillInProgress.get(), ignored -> {
+        addSuccessCallback(unspillInProgress.get(), _ -> {
             indexSpillMetrics.recordUnspillSince(unspillStartNanos, spilledPagesInMemorySize);
             updateMetrics();
         });
@@ -695,7 +695,7 @@ public class HashBuilderOperator
         lookupSourceSupplier = null;
         unspillInProgress = Optional.empty();
         state = State.CLOSED;
-        finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
+        finishMemoryRevoke = finishMemoryRevoke.map(_ -> () -> {});
 
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);

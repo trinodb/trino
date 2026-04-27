@@ -96,7 +96,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
             boolean writerScalingEnabledWithinTask)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (tableName.getTableName().equals("source_table")
                             || tableName.getTableName().equals("system_partitioned_table")
                             || tableName.getTableName().equals("connector_partitioned_table")
@@ -116,7 +116,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
                     }
                     return empty();
                 })
-                .withGetLayoutForTableExecute((session, tableHandle) -> {
+                .withGetLayoutForTableExecute((_, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
                     if (tableExecuteHandle.schemaTableName().getTableName().equals("system_partitioned_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
@@ -127,10 +127,10 @@ public class TestAddLocalExchangesForTaskScaleWriters
                         "OPTIMIZE",
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata("customer", INTEGER),
                         new ColumnMetadata("year", INTEGER)))
-                .withGetInsertLayout((session, tableName) -> {
+                .withGetInsertLayout((_, tableName) -> {
                     if (tableName.getTableName().equals("system_partitioned_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
                     }

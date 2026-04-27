@@ -972,8 +972,8 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         INTEGER,
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
                 .produces(new BindingsBuilder()
                         .setTypeVariable("T", INTEGER)
                         .setTypeVariable("U", VARCHAR)
@@ -982,16 +982,16 @@ public class TestSignatureBinder
         assertThat(applyTwice)
                 .boundTo(
                         // pass function argument to non-function position of a function
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
                 .fails();
         assertThat(applyTwice)
                 .boundTo(
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(INTEGER), VARCHAR).getTypeSignature()),
                         // pass non-function argument to function position of a function
                         INTEGER,
-                        new TypeSignatureProvider(functionArgumentTypes -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
+                        new TypeSignatureProvider(_ -> new FunctionType(ImmutableList.of(VARCHAR), DOUBLE).getTypeSignature()))
                 .fails();
 
         Signature flatMap = functionSignature()

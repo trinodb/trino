@@ -171,7 +171,7 @@ public final class SqlStage
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private void initialize()
     {
-        stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        stateMachine.addStateChangeListener(_ -> checkAllTaskFinal());
     }
 
     public StageId getStageId()

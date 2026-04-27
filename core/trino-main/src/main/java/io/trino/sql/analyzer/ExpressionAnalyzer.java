@@ -393,7 +393,7 @@ public class ExpressionAnalyzer
         this(
                 plannerContext,
                 accessControl,
-                (node, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
+                (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
                         session,
                         warningCollector,
@@ -3825,7 +3825,7 @@ public class ExpressionAnalyzer
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(
                 plannerContext,
                 accessControl,
-                (node, ignored) -> {
+                (node, _) -> {
                     throw semanticException(errorCode, node, "%s", message);
                 },
                 session,
@@ -3963,17 +3963,17 @@ public class ExpressionAnalyzer
         return new ExpressionAnalyzer(
                 plannerContext,
                 accessControl,
-                (node, correlationSupport) -> {
+                (node, _) -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
                 session,
                 parameters,
                 warningCollector,
                 isDescribe,
-                expression -> {
+                _ -> {
                     throw new IllegalStateException("Cannot access preanalyzed types");
                 },
-                functionCall -> {
+                _ -> {
                     throw new IllegalStateException("Cannot access resolved windows");
                 });
     }

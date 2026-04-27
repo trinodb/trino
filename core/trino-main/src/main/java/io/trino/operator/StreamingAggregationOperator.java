@@ -208,7 +208,7 @@ public class StreamingAggregationOperator
             pagesHashStrategy = joinCompiler.compilePagesHashStrategyFactory(sourceTypes, groupByChannels, Optional.empty())
                     .createPagesHashStrategy(
                             sourceTypes.stream()
-                                    .map(type -> new ObjectArrayList<Block>())
+                                    .map(_ -> new ObjectArrayList<Block>())
                                     .collect(toImmutableList()));
             this.aggregationMetrics = requireNonNull(aggregationMetrics, "aggregationMetrics is null");
         }

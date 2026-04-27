@@ -255,8 +255,8 @@ public class QueryContext
                         guaranteedMemory),
                 newRootAggregatedMemoryContext(
                         new QueryMemoryReservationHandler(
-                                (tag, delta) -> updateRevocableMemory(taskId, delta),
-                                (tag, delta) -> tryReserveMemoryNotSupported()),
+                                (_, delta) -> updateRevocableMemory(taskId, delta),
+                                (_, _) -> tryReserveMemoryNotSupported()),
                         0L));
 
         TaskContext taskContext = createTaskContext(

@@ -99,7 +99,7 @@ public class PushdownFilterIntoRowNumber
             return Result.empty();
         }
 
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
                 extractionResult.getRemainingExpression(),
                 domainTranslator.toPredicate(newTupleDomain));

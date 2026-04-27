@@ -116,7 +116,7 @@ public class GroupsFraming
                         recentFrame.getStart(),
                         recentFrame.getStartGroupIndex(),
                         seekGroupStart,
-                        lastGroup -> new PositionAndGroup(0, 0));
+                        _ -> new PositionAndGroup(0, 0));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
                 break;
@@ -128,7 +128,7 @@ public class GroupsFraming
                         recentFrame.getStart(),
                         recentFrame.getStartGroupIndex(),
                         seekGroupStart,
-                        lastGroup -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
+                        _ -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
                 break;
@@ -151,7 +151,7 @@ public class GroupsFraming
                         recentFrame.getEnd(),
                         recentFrame.getEndGroupIndex(),
                         seekGroupEnd,
-                        lastGroup -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
+                        _ -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
                 break;
@@ -163,7 +163,7 @@ public class GroupsFraming
                         recentFrame.getEnd(),
                         recentFrame.getEndGroupIndex(),
                         seekGroupEnd,
-                        lastGroup -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
+                        _ -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
                 break;

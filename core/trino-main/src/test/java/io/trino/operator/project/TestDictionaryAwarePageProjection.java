@@ -154,7 +154,7 @@ public class TestDictionaryAwarePageProjection
     {
         DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
                 new InputPageProjection(0),
-                block -> randomDictionaryId());
+                _ -> randomDictionaryId());
         Block dictionary = createLongsBlock(0, 1);
         Block firstDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {0, 1, 2, 3});
         Block secondDictionaryBlock = DictionaryBlock.create(4, dictionary, new int[] {3, 2, 1, 0});
