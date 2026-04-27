@@ -336,18 +336,14 @@ public class LongOutputStreamV2
         }
 
         switch (encoding) {
-            case SHORT_REPEAT:
+            case SHORT_REPEAT ->
                 writeShortRepeatValues();
-                break;
-            case DIRECT:
+            case DIRECT ->
                 writeDirectValues();
-                break;
-            case PATCHED_BASE:
+            case PATCHED_BASE ->
                 writePatchedBaseValues();
-                break;
-            default:
+            default ->
                 writeDeltaValues();
-                break;
         }
         clearEncoder();
     }
@@ -1014,39 +1010,50 @@ public class LongOutputStreamV2
             checkArgument(bitSize >= 1);
 
             switch (bitSize) {
-                case 1:
+                case 1 -> {
                     unrolledBitPack1(input, offset, length, output);
                     return;
-                case 2:
+                }
+                case 2 -> {
                     unrolledBitPack2(input, offset, length, output);
                     return;
-                case 4:
+                }
+                case 4 -> {
                     unrolledBitPack4(input, offset, length, output);
                     return;
-                case 8:
+                }
+                case 8 -> {
                     unrolledBitPack8(input, offset, length, output);
                     return;
-                case 16:
+                }
+                case 16 -> {
                     unrolledBitPack16(input, offset, length, output);
                     return;
-                case 24:
+                }
+                case 24 -> {
                     unrolledBitPack24(input, offset, length, output);
                     return;
-                case 32:
+                }
+                case 32 -> {
                     unrolledBitPack32(input, offset, length, output);
                     return;
-                case 40:
+                }
+                case 40 -> {
                     unrolledBitPack40(input, offset, length, output);
                     return;
-                case 48:
+                }
+                case 48 -> {
                     unrolledBitPack48(input, offset, length, output);
                     return;
-                case 56:
+                }
+                case 56 -> {
                     unrolledBitPack56(input, offset, length, output);
                     return;
-                case 64:
+                }
+                case 64 -> {
                     unrolledBitPack64(input, offset, length, output);
                     return;
+                }
             }
 
             // this is used by the patch base code
@@ -1229,64 +1236,63 @@ public class LongOutputStreamV2
 
             int idx = 0;
             switch (numBytes) {
-                case 1:
+                case 1 -> {
                     while (remainder > 0) {
                         writeBuffer[idx] = (byte) (input[offset + idx] & 255);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 2:
+                }
+                case 2 -> {
                     while (remainder > 0) {
                         writeLongBE2(input[offset + idx], idx * 2);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 3:
+                }
+                case 3 -> {
                     while (remainder > 0) {
                         writeLongBE3(input[offset + idx], idx * 3);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 4:
+                }
+                case 4 -> {
                     while (remainder > 0) {
                         writeLongBE4(input[offset + idx], idx * 4);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 5:
+                }
+                case 5 -> {
                     while (remainder > 0) {
                         writeLongBE5(input[offset + idx], idx * 5);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 6:
+                }
+                case 6 -> {
                     while (remainder > 0) {
                         writeLongBE6(input[offset + idx], idx * 6);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 7:
+                }
+                case 7 -> {
                     while (remainder > 0) {
                         writeLongBE7(input[offset + idx], idx * 7);
                         remainder--;
                         idx++;
                     }
-                    break;
-                case 8:
+                }
+                case 8 -> {
                     while (remainder > 0) {
                         writeLongBE8(input[offset + idx], idx * 8);
                         remainder--;
                         idx++;
                     }
-                    break;
-                default:
-                    break;
+                }
+                default -> {}
             }
 
             final int toWrite = numHops * numBytes;
@@ -1296,7 +1302,7 @@ public class LongOutputStreamV2
         private void writeLongBE(SliceOutput output, long[] input, int offset, int numHops, int numBytes)
         {
             switch (numBytes) {
-                case 1:
+                case 1 -> {
                     writeBuffer[0] = (byte) (input[offset + 0] & 255);
                     writeBuffer[1] = (byte) (input[offset + 1] & 255);
                     writeBuffer[2] = (byte) (input[offset + 2] & 255);
@@ -1305,8 +1311,8 @@ public class LongOutputStreamV2
                     writeBuffer[5] = (byte) (input[offset + 5] & 255);
                     writeBuffer[6] = (byte) (input[offset + 6] & 255);
                     writeBuffer[7] = (byte) (input[offset + 7] & 255);
-                    break;
-                case 2:
+                }
+                case 2 -> {
                     writeLongBE2(input[offset + 0], 0);
                     writeLongBE2(input[offset + 1], 2);
                     writeLongBE2(input[offset + 2], 4);
@@ -1315,8 +1321,8 @@ public class LongOutputStreamV2
                     writeLongBE2(input[offset + 5], 10);
                     writeLongBE2(input[offset + 6], 12);
                     writeLongBE2(input[offset + 7], 14);
-                    break;
-                case 3:
+                }
+                case 3 -> {
                     writeLongBE3(input[offset + 0], 0);
                     writeLongBE3(input[offset + 1], 3);
                     writeLongBE3(input[offset + 2], 6);
@@ -1325,8 +1331,8 @@ public class LongOutputStreamV2
                     writeLongBE3(input[offset + 5], 15);
                     writeLongBE3(input[offset + 6], 18);
                     writeLongBE3(input[offset + 7], 21);
-                    break;
-                case 4:
+                }
+                case 4 -> {
                     writeLongBE4(input[offset + 0], 0);
                     writeLongBE4(input[offset + 1], 4);
                     writeLongBE4(input[offset + 2], 8);
@@ -1335,8 +1341,8 @@ public class LongOutputStreamV2
                     writeLongBE4(input[offset + 5], 20);
                     writeLongBE4(input[offset + 6], 24);
                     writeLongBE4(input[offset + 7], 28);
-                    break;
-                case 5:
+                }
+                case 5 -> {
                     writeLongBE5(input[offset + 0], 0);
                     writeLongBE5(input[offset + 1], 5);
                     writeLongBE5(input[offset + 2], 10);
@@ -1345,8 +1351,8 @@ public class LongOutputStreamV2
                     writeLongBE5(input[offset + 5], 25);
                     writeLongBE5(input[offset + 6], 30);
                     writeLongBE5(input[offset + 7], 35);
-                    break;
-                case 6:
+                }
+                case 6 -> {
                     writeLongBE6(input[offset + 0], 0);
                     writeLongBE6(input[offset + 1], 6);
                     writeLongBE6(input[offset + 2], 12);
@@ -1355,8 +1361,8 @@ public class LongOutputStreamV2
                     writeLongBE6(input[offset + 5], 30);
                     writeLongBE6(input[offset + 6], 36);
                     writeLongBE6(input[offset + 7], 42);
-                    break;
-                case 7:
+                }
+                case 7 -> {
                     writeLongBE7(input[offset + 0], 0);
                     writeLongBE7(input[offset + 1], 7);
                     writeLongBE7(input[offset + 2], 14);
@@ -1365,8 +1371,8 @@ public class LongOutputStreamV2
                     writeLongBE7(input[offset + 5], 35);
                     writeLongBE7(input[offset + 6], 42);
                     writeLongBE7(input[offset + 7], 49);
-                    break;
-                case 8:
+                }
+                case 8 -> {
                     writeLongBE8(input[offset + 0], 0);
                     writeLongBE8(input[offset + 1], 8);
                     writeLongBE8(input[offset + 2], 16);
@@ -1375,9 +1381,8 @@ public class LongOutputStreamV2
                     writeLongBE8(input[offset + 5], 40);
                     writeLongBE8(input[offset + 6], 48);
                     writeLongBE8(input[offset + 7], 56);
-                    break;
-                default:
-                    break;
+                }
+                default -> {}
             }
 
             final int toWrite = numHops * numBytes;

@@ -70,22 +70,17 @@ public final class BenchmarkParquetFormatUtils
                 TpchColumn<E> column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType().getBase()) {
-                    case IDENTIFIER:
+                    case IDENTIFIER ->
                         BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
-                        break;
-                    case INTEGER:
+                    case INTEGER ->
                         INTEGER.writeLong(blockBuilder, column.getInteger(row));
-                        break;
-                    case DATE:
+                    case DATE ->
                         DATE.writeLong(blockBuilder, column.getDate(row));
-                        break;
-                    case DOUBLE:
+                    case DOUBLE ->
                         DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
-                        break;
-                    case VARCHAR:
+                    case VARCHAR ->
                         createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
-                        break;
-                    default:
+                    default ->
                         throw new IllegalArgumentException("Unsupported type " + column.getType());
                 }
             }

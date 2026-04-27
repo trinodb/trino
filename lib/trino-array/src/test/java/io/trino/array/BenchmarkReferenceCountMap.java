@@ -56,23 +56,19 @@ public class BenchmarkReferenceCountMap
         {
             for (int i = 0; i < NUMBER_OF_BASES; i++) {
                 switch (arrayType) {
-                    case "byte":
-                        bases[i] = new byte[ThreadLocalRandom.current().nextInt(NUMBER_OF_BASES)];
-                        break;
-                    default:
-                        throw new UnsupportedOperationException();
+                    case "byte" -> bases[i] = new byte[ThreadLocalRandom.current().nextInt(NUMBER_OF_BASES)];
+                    default -> throw new UnsupportedOperationException();
                 }
             }
 
             for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
                 Object base = bases[ThreadLocalRandom.current().nextInt(NUMBER_OF_BASES)];
                 switch (arrayType) {
-                    case "byte":
+                    case "byte" -> {
                         byte[] byteBase = (byte[]) base;
                         slices[i] = wrappedBuffer(byteBase, 0, byteBase.length);
-                        break;
-                    default:
-                        throw new UnsupportedOperationException();
+                    }
+                    default -> throw new UnsupportedOperationException();
                 }
             }
         }

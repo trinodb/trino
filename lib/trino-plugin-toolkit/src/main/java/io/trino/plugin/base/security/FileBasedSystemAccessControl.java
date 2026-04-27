@@ -1186,22 +1186,19 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
     {
-        boolean denied;
         String ownedKind = entityKindAndName.entityKind();
         List<String> name = entityKindAndName.name();
-        switch (ownedKind) {
-            case "SCHEMA":
+        boolean denied = switch (ownedKind) {
+            case "SCHEMA" -> {
                 CatalogSchemaName schema = new CatalogSchemaName(name.get(0), name.get(1));
-                denied = !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
-                break;
-            case "TABLE", "VIEW", "MATERIALIZED VIEW":
+                yield !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
+            }
+            case "TABLE", "VIEW", "MATERIALIZED VIEW" -> {
                 CatalogSchemaTableName table = new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2));
-                denied = !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
-                break;
-            default:
-                denied = true;
-                break;
-        }
+                yield !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
+            }
+            default -> true;
+        };
         if (denied) {
             denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
         }

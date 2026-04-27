@@ -576,7 +576,7 @@ public class TestHiveStorageFormats
                 "  dummy varchar) WITH (format='" + format + "')");
 
         switch (writer) {
-            case HIVE:
+            case HIVE -> {
                 ensureDummyExists();
                 writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " SELECT " +
                         "named_struct('a', 42), " +
@@ -584,16 +584,14 @@ public class TestHiveStorageFormats
                         "named_struct('a', array(11, 22, 33)), " +
                         "'dummy value' " +
                         "FROM dummy");
-                break;
-            case TRINO:
+            }
+            case TRINO ->
                 writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " VALUES (" +
                         "row(42), " +
                         "row(row(43)), " +
                         "row(ARRAY[11, 22, 33]), " +
                         "'dummy value')");
-                break;
-            default:
-                throw new IllegalStateException("Unsupported writer: " + writer);
+            default -> throw new IllegalStateException("Unsupported writer: " + writer);
         }
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))

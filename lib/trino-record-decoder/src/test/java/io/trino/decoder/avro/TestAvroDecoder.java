@@ -111,13 +111,9 @@ public class TestAvroDecoder
             Schema fieldSchema = parser.parse(field.getValue());
             GenericDefault<Schema> genericDefault = fieldBuilder.type(fieldSchema);
             switch (fieldSchema.getType()) {
-                case ARRAY:
-                    genericDefault.withDefault(ImmutableList.of());
-                    break;
-                case MAP:
-                    genericDefault.withDefault(ImmutableMap.of());
-                    break;
-                case UNION:
+                case ARRAY -> genericDefault.withDefault(ImmutableList.of());
+                case MAP -> genericDefault.withDefault(ImmutableMap.of());
+                case UNION -> {
                     if (fieldSchema.getTypes().stream()
                             .map(Schema::getType)
                             .anyMatch(Schema.Type.NULL::equals)) {
@@ -126,12 +122,9 @@ public class TestAvroDecoder
                     else {
                         genericDefault.noDefault();
                     }
-                    break;
-                case NULL:
-                    genericDefault.withDefault(null);
-                    break;
-                default:
-                    genericDefault.noDefault();
+                }
+                case NULL -> genericDefault.withDefault(null);
+                default -> genericDefault.noDefault();
             }
         }
         return fieldAssembler.endRecord();

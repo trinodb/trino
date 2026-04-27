@@ -304,39 +304,27 @@ public class TestColumnIndexFilter
         @Override
         public ColumnIndex getColumnIndex(ColumnPath column)
         {
-            switch (column.toDotString()) {
-                case "column1":
-                    return COLUMN1_CI;
-                case "column2":
-                    return COLUMN2_CI;
-                case "column3":
-                    return COLUMN3_CI;
-                case "column4":
-                    return COLUMN4_CI;
-                case "column5":
-                    return COLUMN5_CI;
-                default:
-                    return null;
-            }
+            return switch (column.toDotString()) {
+                case "column1" -> COLUMN1_CI;
+                case "column2" -> COLUMN2_CI;
+                case "column3" -> COLUMN3_CI;
+                case "column4" -> COLUMN4_CI;
+                case "column5" -> COLUMN5_CI;
+                default -> null;
+            };
         }
 
         @Override
         public OffsetIndex getOffsetIndex(ColumnPath column)
         {
-            switch (column.toDotString()) {
-                case "column1":
-                    return COLUMN1_OI;
-                case "column2":
-                    return COLUMN2_OI;
-                case "column3":
-                    return COLUMN3_OI;
-                case "column4":
-                    return COLUMN4_OI;
-                case "column5":
-                    return COLUMN5_OI;
-                default:
-                    throw new MissingOffsetIndexException(column);
-            }
+            return switch (column.toDotString()) {
+                case "column1" -> COLUMN1_OI;
+                case "column2" -> COLUMN2_OI;
+                case "column3" -> COLUMN3_OI;
+                case "column4" -> COLUMN4_OI;
+                case "column5" -> COLUMN5_OI;
+                default -> throw new MissingOffsetIndexException(column);
+            };
         }
     };
 

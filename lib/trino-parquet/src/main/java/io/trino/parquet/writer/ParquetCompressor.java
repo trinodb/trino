@@ -34,28 +34,19 @@ interface ParquetCompressor
 
     static ParquetCompressor getCompressor(CompressionCodec codec)
     {
-        switch (codec) {
-            case GZIP:
-                return new GzipCompressor();
-            case SNAPPY:
-                return new AirLiftCompressor(SnappyCompressor.create());
-            case ZSTD:
-                return new AirLiftCompressor(ZstdCompressor.create());
-            case LZ4:
-                return new AirLiftCompressor(Lz4Compressor.create());
-            case UNCOMPRESSED:
-                return null;
-            case LZO:
-            case LZ4_RAW:
+        return switch (codec) {
+            case GZIP -> new GzipCompressor();
+            case SNAPPY -> new AirLiftCompressor(SnappyCompressor.create());
+            case ZSTD -> new AirLiftCompressor(ZstdCompressor.create());
+            case LZ4 -> new AirLiftCompressor(Lz4Compressor.create());
+            case UNCOMPRESSED -> null;
+            case LZO, LZ4_RAW, BROTLI -> {
                 // TODO Support LZO and LZ4_RAW compression
                 // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW
                 // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
-                break;
-            case BROTLI:
-                // unsupported
-                break;
-        }
-        throw new RuntimeException("Unsupported codec: " + codec);
+                throw new RuntimeException("Unsupported codec: " + codec);
+            }
+        };
     }
 
     class GzipCompressor

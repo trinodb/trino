@@ -231,19 +231,15 @@ public class ConsoleTable
             if (value.length() < length) {
                 int diff = length - value.length();
 
-                switch (alignment) {
-                    case LEFT:
-                        return Strings.padEnd(value, length, ' ');
-
-                    case RIGHT:
-                        return Strings.padStart(value, length, ' ');
-
-                    case CENTER:
+                return switch (alignment) {
+                    case LEFT -> Strings.padEnd(value, length, ' ');
+                    case RIGHT -> Strings.padStart(value, length, ' ');
+                    case CENTER -> {
                         int leftPadding = (diff / 2);
                         int rightPadding = diff - leftPadding;
-
-                        return " ".repeat(leftPadding) + value + " ".repeat(rightPadding);
-                }
+                        yield " ".repeat(leftPadding) + value + " ".repeat(rightPadding);
+                    }
+                };
             }
 
             return value;
