@@ -71,14 +71,14 @@ public class TestGrantOnTable
     {
         queryRunner = DistributedQueryRunner.builder(admin).build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withListTables((_, schemaName) -> "default".equalsIgnoreCase(schemaName)
                         ? ImmutableList.of(table.getTableName(), view.getTableName(), materializedView.getTableName())
                         : ImmutableList.of())
-                .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
+                .withGetTableHandle((_, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .withSchemaGrants(new MutableGrants<>())
                 .withTableGrants(tableGrants)
-                .withGetViews((session, schemaTablePrefix) ->
+                .withGetViews((_, _) ->
                         ImmutableMap.of(
                                 view, new ConnectorViewDefinition(
                                         "SELECT nationkey AS test_column FROM tpch.tiny.nation",
@@ -89,7 +89,7 @@ public class TestGrantOnTable
                                         Optional.empty(),
                                         true,
                                         ImmutableList.of())))
-                .withGetMaterializedViews((connectorSession, prefix) ->
+                .withGetMaterializedViews((_, _) ->
                         ImmutableMap.of(
                                 materializedView, new ConnectorMaterializedViewDefinition(
                                         "SELECT nationkey AS test_column FROM tpch.tiny.nation",

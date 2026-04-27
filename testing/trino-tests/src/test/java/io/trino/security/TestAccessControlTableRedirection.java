@@ -248,17 +248,17 @@ public class TestAccessControlTableRedirection
     private static MockConnectorFactory createMockConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withListTables((session, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
+                .withListTables((_, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
                         .collect(toImmutableList()))
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (SCHEMA_TABLE_MAPPING.getOrDefault(tableName.getSchemaName(), ImmutableSet.of()).contains(tableName.getTableName())
                             && !TABLE_REDIRECTIONS.containsKey(tableName)) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
                 })
-                .withGetViews((connectorSession, prefix) -> ImmutableMap.of())
-                .withRedirectTable((connectorSession, schemaTableName) -> Optional.ofNullable(TABLE_REDIRECTIONS.get(schemaTableName))
+                .withGetViews((_, _) -> ImmutableMap.of())
+                .withRedirectTable((_, schemaTableName) -> Optional.ofNullable(TABLE_REDIRECTIONS.get(schemaTableName))
                         .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target)))
                 .withGetColumns(schemaTableName -> {
                     if (REDIRECTION_TARGET_SCHEMA_TABLE_NAME.equals(schemaTableName)) {

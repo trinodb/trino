@@ -222,7 +222,7 @@ public abstract class BaseConnectorTest
     protected MockConnectorPlugin buildMockConnectorPlugin()
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
+                .withListSchemaNames(_ -> ImmutableList.copyOf(mockTableListings.keySet()))
                 .withListTables((session, schemaName) ->
                         verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
                                 .apply(session))

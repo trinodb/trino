@@ -557,7 +557,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testAssignUniqueId()
     {
         String unionLineitem25Times = range(0, 25)
-                .mapToObj(i -> "SELECT * FROM lineitem")
+                .mapToObj(_ -> "SELECT * FROM lineitem")
                 .collect(joining(" UNION ALL "));
 
         assertQuery(

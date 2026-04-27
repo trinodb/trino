@@ -194,7 +194,7 @@ public class H2QueryRunner
         MaterializedResult materializedRows = new MaterializedResult(
                 Optional.of(session),
                 handle.setSqlParser(new RawSqlParser())
-                        .setTemplateEngine((template, context) -> template)
+                        .setTemplateEngine((template, _) -> template)
                         .createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
@@ -206,7 +206,7 @@ public class H2QueryRunner
 
     private static RowMapper<MaterializedRow> rowMapper(List<? extends Type> types)
     {
-        return (resultSet, context) -> {
+        return (resultSet, _) -> {
             int count = resultSet.getMetaData().getColumnCount();
             checkArgument(types.size() == count, "expected types count (%s) does not match actual column count (%s)", types.size(), count);
             List<Object> row = new ArrayList<>(count);

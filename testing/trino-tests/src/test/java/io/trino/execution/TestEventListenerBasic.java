@@ -149,7 +149,7 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, schemaName) -> {
+                        .withListTables((_, schemaName) -> {
                             return switch (schemaName) {
                                 case "default" -> List.of("tests_table");
                                 case "tiny" -> List.of("nation");
@@ -169,19 +169,19 @@ public class TestEventListenerBasic
                                     new ColumnMetadata("test_varchar_array", new ArrayType(createVarcharType(15))),
                                     new ColumnMetadata("test_bigint_array", new ArrayType(BIGINT)));
                         })
-                        .withGetTableHandle((session, schemaTableName) -> {
+                        .withGetTableHandle((_, schemaTableName) -> {
                             if (!schemaTableName.getTableName().startsWith("create")) {
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
                             return null;
                         })
-                        .withApplyProjection((session, handle, projections, assignments) -> {
+                        .withApplyProjection((_, handle, _, _) -> {
                             if (((MockConnectorTableHandle) handle).getTableName().getTableName().equals("tests_table")) {
                                 throw new RuntimeException("Throw from apply projection");
                             }
                             return Optional.empty();
                         })
-                        .withGetViews((connectorSession, prefix) ->
+                        .withGetViews((_, _) ->
                                 ImmutableMap.of(
                                         new SchemaTableName("default", "test_view"), new ConnectorViewDefinition(
                                                 "SELECT nationkey AS test_column FROM tpch.tiny.nation",
@@ -219,7 +219,7 @@ public class TestEventListenerBasic
                                                 Optional.empty(),
                                                 true,
                                                 ImmutableList.of())))
-                        .withGetMaterializedViews((connectorSession, prefix) -> {
+                        .withGetMaterializedViews((_, _) -> {
                             ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",
                                     Optional.of(new CatalogSchemaTableName("mock", "default", "test_materialized_view_stale$materialized_view_storage")),
@@ -249,7 +249,7 @@ public class TestEventListenerBasic
                                     staleMaterializedViewName, definitionStale,
                                     new SchemaTableName("default", "test_materialized_view_fresh"), definitionFresh);
                         })
-                        .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                        .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
                             if (materializedViewName.equals(staleMaterializedViewName)) {
                                 return new MaterializedViewFreshness(STALE, Optional.empty());
                             }
@@ -295,7 +295,7 @@ public class TestEventListenerBasic
                             }
                             return null;
                         })
-                        .withRedirectTable((session, schemaTableName) -> {
+                        .withRedirectTable((_, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("nation_redirect")) {
                                 return Optional.of(new CatalogSchemaTableName("tpch", "tiny", "nation"));
                             }

@@ -85,7 +85,7 @@ public final class InterfaceTestUtils
                 }
             }
             C forwardingInstance = forwardingInstanceFactory.apply(
-                    newProxy(iface, (proxy, expectedMethod, expectedArguments) -> {
+                    newProxy(iface, (_, expectedMethod, _) -> {
                         Assertions.assertThat(actualMethod.getName()).isEqualTo(expectedMethod.getName());
                         // TODO assert arguments
 

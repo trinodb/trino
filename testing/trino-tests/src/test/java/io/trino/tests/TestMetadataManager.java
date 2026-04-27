@@ -98,16 +98,16 @@ public class TestMetadataManager
                             }
                             return connectorMetadata;
                         })
-                        .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
-                        .withGetTableHandle((session, schemaTableName) -> {
+                        .withListSchemaNames(_ -> ImmutableList.of("UPPER_CASE_SCHEMA"))
+                        .withGetTableHandle((_, schemaTableName) -> {
                             if (schemaTableName.equals(viewTableName)) {
                                 return null;
                             }
 
                             return new MockConnectorTableHandle(schemaTableName);
                         })
-                        .withListTables((session, schemaName) -> ImmutableList.of("UPPER_CASE_TABLE"))
-                        .withGetViews((session, prefix) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
+                        .withListTables((_, _) -> ImmutableList.of("UPPER_CASE_TABLE"))
+                        .withGetViews((_, _) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
