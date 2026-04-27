@@ -1034,7 +1034,7 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        // some databases calculate remainder instead of modulus when one of the values is negative
+        // some databases calculate remainder instead of modulo when one of the values is negative
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
@@ -1042,7 +1042,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
                 .failure().hasMessageContaining("by zero");
 
-        // Expression that evaluates to 0 for some rows on RHS of modulus
+        // Expression that evaluates to 0 for some rows on RHS of modulo
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
                 .failure().hasMessageContaining("by zero");
 
