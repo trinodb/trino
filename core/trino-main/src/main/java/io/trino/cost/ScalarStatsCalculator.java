@@ -38,7 +38,7 @@ import java.util.OptionalDouble;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -125,7 +125,7 @@ public class ScalarStatsCalculator
                     node.function().name().equals(builtinFunctionName(SUBTRACT)) ||
                     node.function().name().equals(builtinFunctionName(MULTIPLY)) ||
                     node.function().name().equals(builtinFunctionName(DIVIDE)) ||
-                    node.function().name().equals(builtinFunctionName(MODULUS))) {
+                    node.function().name().equals(builtinFunctionName(MODULO))) {
                 return processArithmetic(node);
             }
 
@@ -220,7 +220,7 @@ public class ScalarStatsCalculator
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.function().name().equals(builtinFunctionName(MODULUS))) {
+            else if (node.function().name().equals(builtinFunctionName(MODULO))) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -257,7 +257,7 @@ public class ScalarStatsCalculator
                 case CatalogSchemaFunctionName name when name.equals(builtinFunctionName(SUBTRACT)) -> left - right;
                 case CatalogSchemaFunctionName name when name.equals(builtinFunctionName(MULTIPLY)) -> left * right;
                 case CatalogSchemaFunctionName name when name.equals(builtinFunctionName(DIVIDE)) -> left / right;
-                case CatalogSchemaFunctionName name when name.equals(builtinFunctionName(MODULUS)) -> left % right;
+                case CatalogSchemaFunctionName name when name.equals(builtinFunctionName(MODULO)) -> left % right;
                 default -> throw new IllegalStateException("Unsupported binary arithmetic operation: " + function);
             };
         }

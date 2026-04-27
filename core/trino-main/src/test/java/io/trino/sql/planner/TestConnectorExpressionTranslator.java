@@ -82,7 +82,7 @@ import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -238,7 +238,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateArithmeticBinary()
     {
         TestingFunctionResolution resolver = new TestingFunctionResolution();
-        for (OperatorType operator : EnumSet.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS)) {
+        for (OperatorType operator : EnumSet.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO)) {
             assertTranslationRoundTrips(
                     new Call(resolver.resolveOperator(
                             operator,
@@ -257,7 +257,7 @@ public class TestConnectorExpressionTranslator
             case SUBTRACT -> SUBTRACT_FUNCTION_NAME;
             case MULTIPLY -> MULTIPLY_FUNCTION_NAME;
             case DIVIDE -> DIVIDE_FUNCTION_NAME;
-            case MODULUS -> MODULUS_FUNCTION_NAME;
+            case MODULO -> MODULUS_FUNCTION_NAME;
             default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
         };
     }

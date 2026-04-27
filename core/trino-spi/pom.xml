@@ -271,6 +271,11 @@
                                     <justification>Add hasNonDeterministicFunctions parameter to detect stale materialized views</justification>
                                 </item>
                                 <item>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.function.OperatorType.MODULUS</old>
+                                    <justification>Renamed to MODULO</justification>
+                                </item>
+                                <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>
                                     <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</new>

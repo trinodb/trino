@@ -41,7 +41,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -1156,298 +1156,298 @@ public class TestNumberOperators
     }
 
     @Test
-    void testModulus()
+    void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '1'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '10'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '10'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '10.0'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '10.0'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '10.0'", "NUMBER '3.000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '10.0'", "NUMBER '3.000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3.0000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3.0000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.00000000000000000'", "NUMBER '3.00000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.00000000000000000'", "NUMBER '3.00000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.00000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.00000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '.1'", "NUMBER '.03'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '.1'", "NUMBER '.03'"))
                 .isEqualTo(number("0.01"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '.0001'", "NUMBER '.03'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '.0001'", "NUMBER '.03'"))
                 .isEqualTo(number("0.0001"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-10'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-10'", "NUMBER '3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '10'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '10'", "NUMBER '-3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-10'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-10'", "NUMBER '-3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.00000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.00000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7.00000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7.00000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.0000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.0000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7.0000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7.0000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.00000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.00000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.00000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.00000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.0000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.0000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.0000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.0000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.00000000000000000'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.00000000000000000'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '.01'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '.01'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0.01"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7'", "NUMBER '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7'", "NUMBER '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '-3.0000000000000000000000000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '-3.0000000000000000000000000000000000000'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '3.0000000000000000'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '3.0000000000000000'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-99999999999999999999999999999999999997'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-99999999999999999999999999999999999997'", "NUMBER '3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '99999999999999999999999999999999999997'", "NUMBER '-3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-99999999999999999999999999999999999997'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-99999999999999999999999999999999999997'", "NUMBER '-3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '99999999999999999999999999999999999999'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '99999999999999999999999999999999999999'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-99999999999999999999999999999999999999'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-99999999999999999999999999999999999999'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '99999999999999999999999999999999999999'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '99999999999999999999999999999999999999'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-99999999999999999999999999999999999999'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-99999999999999999999999999999999999999'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0.000000000000000000000000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0.000000000000000000000000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0.000000000000000000000000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0.000000000000000000000000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.000000000000000000000000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.000000000000000000000000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7.000000000000000000000000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7.000000000000000000000000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7.000000000000000000000000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7.000000000000000000000000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7.000000000000000000000000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7.000000000000000000000000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.000000000000000000000000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.000000000000000000000000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.000000000000000000000000000000000000'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.000000000000000000000000000000000000'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.000000000000000000000000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.000000000000000000000000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.000000000000000000000000000000000000'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.000000000000000000000000000000000000'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '0'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '0'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7'", "NUMBER '3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '7'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '7'", "NUMBER '-3'"))
                 .isEqualTo(number("1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-7'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-7'", "NUMBER '-3'"))
                 .isEqualTo(number("-1"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9'", "NUMBER '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9'", "NUMBER '-3'"))
                 .isEqualTo(number("0"));
 
         // division by zero tests
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "NUMBER '1'", "NUMBER '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "NUMBER '1.000000000000000000000000000000000000'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "NUMBER '1'", "NUMBER '0.0000000000000000000000000000000000000'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "NUMBER '1'", "NUMBER '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "NUMBER '1'", "NUMBER '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '0'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER '0'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER '1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '-1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER '-1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER 'Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER '-Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-Infinity'", "NUMBER 'NaN'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '0'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER '0'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER '1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '-1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER '-1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER 'Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER '-Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '+Infinity'", "NUMBER 'NaN'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '0'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER '0'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER '1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '-1'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER '-1'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER 'Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER '-Infinity'"))
                 .isEqualTo(number(NaN));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER 'NaN'", "NUMBER 'NaN'"))
+        assertThat(assertions.operator(MODULO, "NUMBER 'NaN'", "NUMBER 'NaN'"))
                 .isEqualTo(number(NaN));
     }
 
@@ -3180,56 +3180,56 @@ public class TestNumberOperators
     }
 
     @Test
-    void testModulusNumberBigint()
+    void testModuloNumberBigint()
     {
         // bigint % number
-        assertThat(assertions.operator(MODULUS, "BIGINT '13'", "NUMBER '9.0'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '13'", "NUMBER '9.0'"))
                 .isEqualTo(number("4"));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '18'", "NUMBER '0.01'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '18'", "NUMBER '0.01'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '9'", "NUMBER '.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '9'", "NUMBER '.1'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '-9'", "NUMBER '.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '-9'", "NUMBER '.1'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '9'", "NUMBER '-.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '9'", "NUMBER '-.1'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "BIGINT '-9'", "NUMBER '-.1'"))
+        assertThat(assertions.operator(MODULO, "BIGINT '-9'", "NUMBER '-.1'"))
                 .isEqualTo(number("0"));
 
         // number % bigint
-        assertThat(assertions.operator(MODULUS, "NUMBER '13.0'", "BIGINT '9'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '13.0'", "BIGINT '9'"))
                 .isEqualTo(number("4"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-13.0'", "BIGINT '9'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-13.0'", "BIGINT '9'"))
                 .isEqualTo(number("-4"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '13.0'", "BIGINT '-9'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '13.0'", "BIGINT '-9'"))
                 .isEqualTo(number("4"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-13.0'", "BIGINT '-9'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-13.0'", "BIGINT '-9'"))
                 .isEqualTo(number("-4"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '18.00'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '18.00'", "BIGINT '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.0'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.0'", "BIGINT '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.0'", "BIGINT '3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.0'", "BIGINT '3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '9.0'", "BIGINT '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '9.0'", "BIGINT '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '-9.0'", "BIGINT '-3'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '-9.0'", "BIGINT '-3'"))
                 .isEqualTo(number("0"));
 
-        assertThat(assertions.operator(MODULUS, "NUMBER '5.128'", "BIGINT '2'"))
+        assertThat(assertions.operator(MODULO, "NUMBER '5.128'", "BIGINT '2'"))
                 .isEqualTo(number("1.128"));
     }
 
@@ -3894,7 +3894,7 @@ public class TestNumberOperators
         SUBTRACT("-", BigDecimal::subtract),
         MULTIPLY("*", BigDecimal::multiply),
         DIVIDE("/", (a, b) -> a.divide(b, max(6, a.stripTrailingZeros().scale() + b.stripTrailingZeros().precision() + 1), HALF_UP)),
-        MODULUS("%", BigDecimal::remainder),
+        MODULO("%", BigDecimal::remainder),
         /**/;
 
         private final String operator;

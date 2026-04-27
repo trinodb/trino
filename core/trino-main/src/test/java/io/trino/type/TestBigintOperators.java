@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -169,18 +169,18 @@ public class TestBigintOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "100000000037", "37"))
+        assertThat(assertions.operator(MODULO, "100000000037", "37"))
                 .isEqualTo(100000000037L % 37L);
 
-        assertThat(assertions.operator(MODULUS, "37", "100000000017"))
+        assertThat(assertions.operator(MODULO, "37", "100000000017"))
                 .isEqualTo(37 % 100000000017L);
 
-        assertThat(assertions.operator(MODULUS, "100000000017", "37"))
+        assertThat(assertions.operator(MODULO, "100000000017", "37"))
                 .isEqualTo(100000000017L % 37L);
 
-        assertThat(assertions.operator(MODULUS, "100000000017", "100000000017"))
+        assertThat(assertions.operator(MODULO, "100000000017", "100000000017"))
                 .isEqualTo(0L);
     }
 

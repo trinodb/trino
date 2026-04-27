@@ -355,7 +355,7 @@ import static io.trino.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.VARIANT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
-import static io.trino.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
+import static io.trino.type.DecimalOperators.DECIMAL_MODULO_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
 import static io.trino.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
 import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_ADD_OPERATOR;
@@ -588,7 +588,7 @@ public final class SystemFunctionBundle
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_SUBTRACT_OPERATOR : DECIMAL_SUBTRACT_OPERATOR)
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_MULTIPLY_OPERATOR : DECIMAL_MULTIPLY_OPERATOR)
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_DIVIDE_OPERATOR : DECIMAL_DIVIDE_OPERATOR)
-                .functions(DECIMAL_MODULUS_OPERATOR)
+                .functions(DECIMAL_MODULO_OPERATOR)
                 .function(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST, BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)

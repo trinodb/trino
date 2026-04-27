@@ -35,7 +35,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -198,30 +198,30 @@ public class TestRealOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "REAL '12.34'", "REAL '56.78'"))
+        assertThat(assertions.operator(MODULO, "REAL '12.34'", "REAL '56.78'"))
                 .isEqualTo(12.34f % 56.78f);
 
-        assertThat(assertions.operator(MODULUS, "REAL '-17.34'", "REAL '-22.891'"))
+        assertThat(assertions.operator(MODULO, "REAL '-17.34'", "REAL '-22.891'"))
                 .isEqualTo(-17.34f % -22.891f);
 
-        assertThat(assertions.operator(MODULUS, "REAL '-89.123'", "REAL '754.0'"))
+        assertThat(assertions.operator(MODULO, "REAL '-89.123'", "REAL '754.0'"))
                 .isEqualTo(-89.123f % 754.0f);
 
-        assertThat(assertions.operator(MODULUS, "REAL '-0.0'", "REAL '0.0'"))
+        assertThat(assertions.operator(MODULO, "REAL '-0.0'", "REAL '0.0'"))
                 .isEqualTo(-0.0f % 0.0f);
 
-        assertThat(assertions.operator(MODULUS, "REAL '-17.71'", "REAL '-1.0'"))
+        assertThat(assertions.operator(MODULO, "REAL '-17.71'", "REAL '-1.0'"))
                 .isEqualTo(-17.71f % -1.0f);
 
-        assertThat(assertions.operator(MODULUS, "REAL 'NaN'", "REAL '1.23'"))
+        assertThat(assertions.operator(MODULO, "REAL 'NaN'", "REAL '1.23'"))
                 .isEqualTo(Float.NaN);
 
-        assertThat(assertions.operator(MODULUS, "REAL '1.23'", "REAL 'NaN'"))
+        assertThat(assertions.operator(MODULO, "REAL '1.23'", "REAL 'NaN'"))
                 .isEqualTo(Float.NaN);
 
-        assertThat(assertions.operator(MODULUS, "REAL 'NaN'", "REAL 'NaN'"))
+        assertThat(assertions.operator(MODULO, "REAL 'NaN'", "REAL 'NaN'"))
                 .isEqualTo(Float.NaN);
     }
 

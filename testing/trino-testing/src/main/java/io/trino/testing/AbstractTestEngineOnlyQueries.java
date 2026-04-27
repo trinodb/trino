@@ -831,7 +831,7 @@ public abstract class AbstractTestEngineOnlyQueries
                     String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
                     String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
                     String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
-                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    String modulo = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
                     List<String> both = List.of(left, right);
                     // There currently is no coercion between number and real/double/decimal
                     boolean unsupported =
@@ -842,14 +842,14 @@ public abstract class AbstractTestEngineOnlyQueries
                         assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
                         assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
                         assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
-                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                        assertThat(query(modulo)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
                     }
                     else {
                         assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
                         assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulo).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
                     }
                 }
                 catch (Throwable e) {

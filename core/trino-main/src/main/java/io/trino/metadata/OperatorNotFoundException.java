@@ -52,7 +52,7 @@ public class OperatorNotFoundException
     private static String formatErrorMessage(OperatorType operatorType, List<? extends Type> argumentTypes, Optional<Type> returnType)
     {
         return switch (operatorType) {
-            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL ->
                     format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
             case NEGATION -> format("Cannot negate %s", argumentTypes.get(0));
             case IDENTICAL -> format("Cannot check if %s is identical to %s", argumentTypes.get(0), argumentTypes.get(1));

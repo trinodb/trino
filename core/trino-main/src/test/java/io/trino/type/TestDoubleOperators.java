@@ -35,7 +35,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -215,27 +215,27 @@ public class TestDoubleOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "37.7E0", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "37.7E0"))
                 .isEqualTo(0.0);
 
-        assertThat(assertions.operator(MODULUS, "37.7E0", "17.1E0"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "17.1E0"))
                 .isEqualTo(37.7 % 17.1);
 
-        assertThat(assertions.operator(MODULUS, "17.1E0", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "17.1E0", "37.7E0"))
                 .isEqualTo(17.1 % 37.7);
 
-        assertThat(assertions.operator(MODULUS, "17.1E0", "17.1E0"))
+        assertThat(assertions.operator(MODULO, "17.1E0", "17.1E0"))
                 .isEqualTo(0.0);
 
-        assertThat(assertions.operator(MODULUS, "DOUBLE 'NaN'", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "DOUBLE 'NaN'", "37.7E0"))
                 .isEqualTo(Double.NaN);
 
-        assertThat(assertions.operator(MODULUS, "37.7E0", "DOUBLE 'NaN'"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
 
-        assertThat(assertions.operator(MODULUS, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
+        assertThat(assertions.operator(MODULO, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
     }
 

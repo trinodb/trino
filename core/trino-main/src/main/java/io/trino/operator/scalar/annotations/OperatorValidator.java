@@ -32,7 +32,7 @@ public final class OperatorValidator
     public static void validateOperator(OperatorType operatorType, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         switch (operatorType) {
-            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS -> {
+            case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
             }
             case NEGATION, CAST, SATURATED_FLOOR_CAST -> {

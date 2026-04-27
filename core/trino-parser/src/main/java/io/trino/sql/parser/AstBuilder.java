@@ -4388,7 +4388,7 @@ class AstBuilder
             case SqlBaseLexer.MINUS -> ArithmeticBinaryExpression.Operator.SUBTRACT;
             case SqlBaseLexer.ASTERISK -> ArithmeticBinaryExpression.Operator.MULTIPLY;
             case SqlBaseLexer.SLASH -> ArithmeticBinaryExpression.Operator.DIVIDE;
-            case SqlBaseLexer.PERCENT -> ArithmeticBinaryExpression.Operator.MODULUS;
+            case SqlBaseLexer.PERCENT -> ArithmeticBinaryExpression.Operator.MODULO;
             default -> throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
         };
     }

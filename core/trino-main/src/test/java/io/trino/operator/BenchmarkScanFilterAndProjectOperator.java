@@ -114,8 +114,8 @@ public class BenchmarkScanFilterAndProjectOperator
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
 
     @State(Thread)
@@ -212,10 +212,10 @@ public class BenchmarkScanFilterAndProjectOperator
         private Expression getFilter(Type type)
         {
             if (type == VARCHAR) {
-                return new Comparison(EQUAL, call(MODULUS_INTEGER, new Cast(new Reference(VARCHAR, "varchar0"), INTEGER), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L));
+                return new Comparison(EQUAL, call(MODULO_INTEGER, new Cast(new Reference(VARCHAR, "varchar0"), INTEGER), new Constant(INTEGER, 2L)), new Constant(INTEGER, 0L));
             }
             if (type == BIGINT) {
-                return new Comparison(EQUAL, call(MODULUS_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
+                return new Comparison(EQUAL, call(MODULO_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
             }
             throw new IllegalArgumentException("filter not supported for type : " + type);
         }

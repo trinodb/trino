@@ -35,7 +35,7 @@ import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -64,7 +64,7 @@ public final class DecimalOperators
     public static final SqlScalarFunction DECIMAL_SUBTRACT_OPERATOR = decimalSubtractOperator(false);
     public static final SqlScalarFunction DECIMAL_MULTIPLY_OPERATOR = decimalMultiplyOperator(false);
     public static final SqlScalarFunction DECIMAL_DIVIDE_OPERATOR = decimalDivideOperator(false);
-    public static final SqlScalarFunction DECIMAL_MODULUS_OPERATOR = decimalModulusOperator();
+    public static final SqlScalarFunction DECIMAL_MODULO_OPERATOR = decimalModuloOperator();
 
     private DecimalOperators() {}
 
@@ -539,17 +539,17 @@ public final class DecimalOperators
         }
     }
 
-    private static SqlScalarFunction decimalModulusOperator()
+    private static SqlScalarFunction decimalModuloOperator()
     {
-        return modulusScalarFunction(new PolymorphicScalarFunctionBuilder(MODULUS, DecimalOperators.class));
+        return moduloScalarFunction(new PolymorphicScalarFunctionBuilder(MODULO, DecimalOperators.class));
     }
 
-    public static SqlScalarFunction modulusScalarFunction()
+    public static SqlScalarFunction moduloScalarFunction()
     {
-        return modulusScalarFunction(new PolymorphicScalarFunctionBuilder("mod", DecimalOperators.class));
+        return moduloScalarFunction(new PolymorphicScalarFunctionBuilder("mod", DecimalOperators.class));
     }
 
-    private static SqlScalarFunction modulusScalarFunction(PolymorphicScalarFunctionBuilder builder)
+    private static SqlScalarFunction moduloScalarFunction(PolymorphicScalarFunctionBuilder builder)
     {
         TypeSignature decimalLeftSignature = new TypeSignature("decimal", typeVariable("a_precision"), typeVariable("a_scale"));
         TypeSignature decimalRightSignature = new TypeSignature("decimal", typeVariable("b_precision"), typeVariable("b_scale"));
@@ -568,13 +568,13 @@ public final class DecimalOperators
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(
-                                        "modulusShortShortShort",
-                                        "modulusLongLongLong",
-                                        "modulusShortLongLong",
-                                        "modulusShortLongShort",
-                                        "modulusLongShortShort",
-                                        "modulusLongShortLong")
-                                .withExtraParameters(DecimalOperators::modulusRescaleParameters)))
+                                        "moduloShortShortShort",
+                                        "moduloLongLongLong",
+                                        "moduloShortLongLong",
+                                        "moduloShortLongShort",
+                                        "moduloLongShortShort",
+                                        "moduloLongShortLong")
+                                .withExtraParameters(DecimalOperators::moduloRescaleParameters)))
                 .build();
     }
 
@@ -619,7 +619,7 @@ public final class DecimalOperators
         return ImmutableList.of(rescale, left, resultRescale);
     }
 
-    private static List<Object> modulusRescaleParameters(PolymorphicScalarFunctionBuilder.SpecializeContext context)
+    private static List<Object> moduloRescaleParameters(PolymorphicScalarFunctionBuilder.SpecializeContext context)
     {
         int dividendScale = toIntExact(requireNonNull(context.getLiteral("a_scale"), "a_scale is null"));
         int divisorScale = toIntExact(requireNonNull(context.getLiteral("b_scale"), "b_scale is null"));
@@ -634,7 +634,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long modulusShortShortShort(long dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static long moduloShortShortShort(long dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
@@ -648,7 +648,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long modulusShortLongShort(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static long moduloShortLongShort(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
@@ -662,7 +662,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static long modulusLongShortShort(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static long moduloLongShortShort(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
@@ -676,7 +676,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 modulusShortLongLong(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static Int128 moduloShortLongLong(long dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
@@ -690,7 +690,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 modulusLongShortLong(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static Int128 moduloLongShortLong(Int128 dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
@@ -704,7 +704,7 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Int128 modulusLongLongLong(Int128 dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
+    public static Int128 moduloLongLongLong(Int128 dividend, Int128 divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor.isZero()) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
