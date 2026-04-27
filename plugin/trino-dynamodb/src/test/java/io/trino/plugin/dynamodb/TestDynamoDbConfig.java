@@ -31,6 +31,8 @@ public class TestDynamoDbConfig
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
                 .setAwsRegion(null)
+                .setIamRole(null)
+                .setExternalId(null)
                 .setScanSegments(1));
     }
 
@@ -41,6 +43,8 @@ public class TestDynamoDbConfig
                 .put("dynamodb.aws-access-key", "AKIAIOSFODNN7EXAMPLE")
                 .put("dynamodb.aws-secret-key", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
                 .put("dynamodb.aws-region", "us-west-2")
+                .put("dynamodb.aws-iam-role", "arn:aws:iam::123456789012:role/trino-dynamodb-role")
+                .put("dynamodb.aws-external-id", "my-external-id")
                 .put("dynamodb.scan-segments", "4")
                 .buildOrThrow();
 
@@ -48,6 +52,8 @@ public class TestDynamoDbConfig
                 .setAwsAccessKey("AKIAIOSFODNN7EXAMPLE")
                 .setAwsSecretKey("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
                 .setAwsRegion("us-west-2")
+                .setIamRole("arn:aws:iam::123456789012:role/trino-dynamodb-role")
+                .setExternalId("my-external-id")
                 .setScanSegments(4);
 
         assertFullMapping(properties, expected);
