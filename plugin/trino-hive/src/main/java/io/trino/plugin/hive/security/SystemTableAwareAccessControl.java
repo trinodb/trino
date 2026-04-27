@@ -101,7 +101,7 @@ public class SystemTableAwareAccessControl
                 return;
             }
             catch (AccessDeniedException e) {
-                denySelectTable(tableName.toString());
+                denySelectTable(tableName.toString(), branch);
             }
         }
 
