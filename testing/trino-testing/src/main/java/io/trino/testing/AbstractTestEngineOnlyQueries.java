@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -6716,6 +6717,19 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isEqualTo(Double.NEGATIVE_INFINITY);
         assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
                 .isEqualTo(Double.NaN);
+    }
+
+    @Test
+    public void testDivisionOverflow()
+    {
+        assertThat(query("SELECT CAST(-0x80 AS tinyint) / TINYINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000 AS smallint) / SMALLINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x80000000 AS integer) / INTEGER '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000000000000000 AS bigint) / BIGINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     private static int getNumberMaxDecimalPrecision()

@@ -84,7 +84,11 @@ public final class SmallintOperators
     public static long divide(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
         try {
-            return left / right;
+            long result = left / right;
+            if (!isLongToShortExact(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint division overflow: %s / %s", left, right));
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);

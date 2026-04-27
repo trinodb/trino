@@ -81,7 +81,11 @@ public final class TinyintOperators
     public static long divide(@SqlType(StandardTypes.TINYINT) long left, @SqlType(StandardTypes.TINYINT) long right)
     {
         try {
-            return left / right;
+            long result = left / right;
+            if (!isLongToByteExact(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint division overflow: %s / %s", left, right));
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);

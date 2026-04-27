@@ -41,6 +41,7 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
+import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class IntegerOperators
@@ -88,7 +89,11 @@ public final class IntegerOperators
     public static long divide(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
         try {
-            return left / right;
+            long result = left / right;
+            if (!isLongToIntExact(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer division overflow: %s / %s", left, right));
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
