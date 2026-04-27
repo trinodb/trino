@@ -605,91 +605,74 @@ public class SqlServerClient
         String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
-        switch (jdbcTypeName) {
-            case "varbinary":
-                return Optional.of(varbinaryColumnMapping());
-            case "datetimeoffset":
-                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
-            case "json":
-                return Optional.of(jsonColumnMapping());
+        Optional<ColumnMapping> typeNameMapping = switch (jdbcTypeName) {
+            case "varbinary" -> Optional.of(varbinaryColumnMapping());
+            case "datetimeoffset" -> Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
+            case "json" -> Optional.of(jsonColumnMapping());
+            default -> Optional.empty();
+        };
+        if (typeNameMapping.isPresent()) {
+            return typeNameMapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-                return Optional.of(booleanColumnMapping());
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT -> Optional.of(booleanColumnMapping());
 
-            case Types.TINYINT:
+            case Types.TINYINT -> {
                 // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
                 // We don't check the range of values, because SQL Server will do it for us, and this behavior has already
                 // been tested in `BaseSqlServerTypeMapping#testUnsupportedTinyint`
-                return Optional.of(smallintColumnMapping());
+                yield Optional.of(smallintColumnMapping());
+            }
 
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
 
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
 
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping());
 
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
-            case Types.NUMERIC:
-            case Types.DECIMAL: {
+            case Types.NUMERIC, Types.DECIMAL -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 // TODO does sql server support negative scale?
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                    yield getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
             }
 
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+            case Types.CHAR, Types.NCHAR -> Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+            case Types.VARCHAR, Types.NVARCHAR -> Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(longVarcharColumnMapping(typeHandle.requiredColumnSize()));
+            case Types.LONGVARCHAR, Types.LONGNVARCHAR -> Optional.of(longVarcharColumnMapping(typeHandle.requiredColumnSize()));
 
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
                         DATE,
                         dateReadFunctionUsingLocalDate(),
                         sqlServerDateWriteFunction()));
 
-            case Types.TIME:
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(ColumnMapping.longMapping(
                         timeType,
                         timeReadFunction(timeType),
                         sqlServerTimeWriteFunction(timeType.getPrecision())));
+            }
 
-            case Types.TIMESTAMP:
+            case Types.TIMESTAMP -> {
                 int precision = typeHandle.requiredDecimalDigits();
-                return Optional.of(timestampColumnMapping(createTimestampType(precision)));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(timestampColumnMapping(createTimestampType(precision)));
+            }
+            default -> getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
+        };
     }
 
     @Override

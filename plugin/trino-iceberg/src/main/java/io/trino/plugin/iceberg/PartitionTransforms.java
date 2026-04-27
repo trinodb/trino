@@ -87,9 +87,10 @@ public final class PartitionTransforms
         String transform = field.transform().toString();
 
         switch (transform) {
-            case "identity":
+            case "identity" -> {
                 return identity(sourceType);
-            case "year":
+            }
+            case "year" -> {
                 if (sourceType.equals(DATE)) {
                     return yearsFromDate();
                 }
@@ -106,7 +107,8 @@ public final class PartitionTransforms
                     return yearsFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
-            case "month":
+            }
+            case "month" -> {
                 if (sourceType.equals(DATE)) {
                     return monthsFromDate();
                 }
@@ -123,7 +125,8 @@ public final class PartitionTransforms
                     return monthsFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
-            case "day":
+            }
+            case "day" -> {
                 if (sourceType.equals(DATE)) {
                     return daysFromDate();
                 }
@@ -140,7 +143,8 @@ public final class PartitionTransforms
                     return daysFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
-            case "hour":
+            }
+            case "hour" -> {
                 if (sourceType.equals(TIMESTAMP_MICROS)) {
                     return hoursFromTimestampMicros();
                 }
@@ -154,8 +158,10 @@ public final class PartitionTransforms
                     return hoursFromTimestampNanosWithTimeZone();
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
-            case "void":
+            }
+            case "void" -> {
                 return voidTransform(sourceType);
+            }
         }
 
         Matcher matcher = BUCKET_PATTERN.matcher(transform);

@@ -234,67 +234,40 @@ public class DruidJdbcClient
         }
 
         // TODO (https://github.com/trinodb/trino/issues/9215) Implement proper type mapping and add test
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.FLOAT:
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
-
-            case Types.VARCHAR:
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT, Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.FLOAT, Types.REAL -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.CHAR, Types.NCHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.VARCHAR -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 if (columnSize == -1) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                    yield Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize, true));
-
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
-
-            case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
-
-            case Types.TIME:
+                yield Optional.of(defaultVarcharColumnMapping(columnSize, true));
+            }
+            case Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
+            case Types.DATE -> Optional.of(dateColumnMappingUsingSqlDate());
+            case Types.TIME -> {
                 // TODO Consider using `StandardColumnMappings.timeColumnMapping`
-                return Optional.of(timeColumnMappingUsingSqlTime());
-
-            case Types.TIMESTAMP:
+                yield Optional.of(timeColumnMappingUsingSqlTime());
+            }
+            case Types.TIMESTAMP -> {
                 // TODO: use `StandardColumnMappings.timestampColumnMapping` when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithFullPushdown(TIMESTAMP_MILLIS));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(timestampColumnMappingUsingSqlTimestampWithFullPushdown(TIMESTAMP_MILLIS));
+            }
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override

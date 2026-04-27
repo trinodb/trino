@@ -704,16 +704,11 @@ public final class ThriftMetastoreUtil
     public static PrincipalType fromMetastoreApiPrincipalType(io.trino.hive.thrift.metastore.PrincipalType principalType)
     {
         requireNonNull(principalType, "principalType is null");
-        switch (principalType) {
-            case USER:
-                return USER;
-            case ROLE:
-                return ROLE;
-            case GROUP:
-                // TODO
-                break;
-        }
-        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+        return switch (principalType) {
+            case USER -> USER;
+            case ROLE -> ROLE;
+            case GROUP -> throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+        };
     }
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
@@ -827,40 +822,18 @@ public final class ThriftMetastoreUtil
     {
         TypeInfo typeInfo = columnType.getTypeInfo();
         checkArgument(typeInfo.getCategory() == PRIMITIVE, "unsupported type: %s", columnType);
-        switch (((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory()) {
-            case BOOLEAN:
-                return createBooleanStatistics(columnName, columnType, statistics);
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-                return createLongStatistics(columnName, columnType, statistics);
-            case TIMESTAMP:
-                return createTimestampStatistics(columnName, columnType, statistics);
-            case FLOAT:
-            case DOUBLE:
-                return createDoubleStatistics(columnName, columnType, statistics);
-            case STRING:
-            case VARCHAR:
-            case CHAR:
-                return createStringStatistics(columnName, columnType, statistics);
-            case DATE:
-                return createDateStatistics(columnName, columnType, statistics);
-            case BINARY:
-                return createBinaryStatistics(columnName, columnType, statistics);
-            case DECIMAL:
-                return createDecimalStatistics(columnName, columnType, statistics);
-
-            case TIMESTAMPLOCALTZ:
-            case INTERVAL_YEAR_MONTH:
-            case INTERVAL_DAY_TIME:
-            case VARIANT:
-                // TODO support these, when we add support for these Hive types
-            case VOID:
-            case UNKNOWN:
-                break;
-        }
-        throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+        return switch (((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory()) {
+            case BOOLEAN -> createBooleanStatistics(columnName, columnType, statistics);
+            case BYTE, SHORT, INT, LONG -> createLongStatistics(columnName, columnType, statistics);
+            case TIMESTAMP -> createTimestampStatistics(columnName, columnType, statistics);
+            case FLOAT, DOUBLE -> createDoubleStatistics(columnName, columnType, statistics);
+            case STRING, VARCHAR, CHAR -> createStringStatistics(columnName, columnType, statistics);
+            case DATE -> createDateStatistics(columnName, columnType, statistics);
+            case BINARY -> createBinaryStatistics(columnName, columnType, statistics);
+            case DECIMAL -> createDecimalStatistics(columnName, columnType, statistics);
+            case TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME,
+                 VARIANT, VOID, UNKNOWN -> throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+        };
     }
 
     private static ColumnStatisticsObj createBooleanStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)

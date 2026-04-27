@@ -188,22 +188,21 @@ public final class DynamicTableBuilder
 
     private static boolean hasAggregate(ExpressionContext expressionContext)
     {
-        switch (expressionContext.getType()) {
-            case IDENTIFIER:
-            case LITERAL:
-                return false;
-            case FUNCTION:
+        return switch (expressionContext.getType()) {
+            case IDENTIFIER, LITERAL -> false;
+            case FUNCTION -> {
                 if (isAggregate(expressionContext)) {
-                    return true;
+                    yield true;
                 }
                 for (ExpressionContext argument : expressionContext.getFunction().getArguments()) {
                     if (hasAggregate(argument)) {
-                        return true;
+                        yield true;
                     }
                 }
-                return false;
-        }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+                yield false;
+            }
+            default -> throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+        };
     }
 
     private static Map<String, PinotColumnNameAndTrinoType> getAggregateTypes(SchemaTableName schemaTableName, QueryContext queryContext, Map<String, ColumnHandle> columnHandles, PinotTypeConverter typeConverter)

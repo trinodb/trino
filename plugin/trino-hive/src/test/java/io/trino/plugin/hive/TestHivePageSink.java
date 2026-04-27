@@ -352,23 +352,24 @@ public class TestHivePageSink
                 LineItemColumn column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType().getBase()) {
-                    case IDENTIFIER:
+                    case IDENTIFIER -> {
                         BIGINT.writeLong(blockBuilder, column.getIdentifier(lineItem));
-                        break;
-                    case INTEGER:
+                    }
+                    case INTEGER -> {
                         INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
-                        break;
-                    case DATE:
+                    }
+                    case DATE -> {
                         DATE.writeLong(blockBuilder, column.getDate(lineItem));
-                        break;
-                    case DOUBLE:
+                    }
+                    case DOUBLE -> {
                         DOUBLE.writeDouble(blockBuilder, column.getDouble(lineItem));
-                        break;
-                    case VARCHAR:
+                    }
+                    case VARCHAR -> {
                         createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(lineItem)));
-                        break;
-                    default:
+                    }
+                    default -> {
                         throw new IllegalArgumentException("Unsupported type " + column.getType());
+                    }
                 }
             }
         }

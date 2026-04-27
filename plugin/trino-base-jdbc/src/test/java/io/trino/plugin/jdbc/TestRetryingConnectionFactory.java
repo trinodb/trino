@@ -207,25 +207,16 @@ public class TestRetryingConnectionFactory
         {
             callCount++;
             Action action = requireNonNull(actions.pollLast(), "actions.pollFirst() is null");
-            switch (action) {
-                case RETURN:
-                    return newProxy(Connection.class, (_, _, _) -> null);
-                case THROW_NPE:
-                    throw new NullPointerException("Testing NPE");
-                case THROW_TRINO_EXCEPTION:
-                    throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing Trino exception");
-                case THROW_SQL_EXCEPTION:
-                    throw new SQLException("Testing sql exception");
-                case THROW_SQL_RECOVERABLE_EXCEPTION:
-                    throw new SQLRecoverableException("Testing sql recoverable exception");
-                case THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION:
-                    throw new RuntimeException(new SQLRecoverableException("Testing sql recoverable exception"));
-                case THROW_SQL_TRANSIENT_EXCEPTION:
-                    throw new SQLTransientException("Testing sql transient exception");
-                case THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION:
-                    throw new RuntimeException(new SQLTransientException("Testing sql transient exception"));
-            }
-            throw new IllegalStateException("Unsupported action:" + action);
+            return switch (action) {
+                case RETURN -> newProxy(Connection.class, (_, _, _) -> null);
+                case THROW_NPE -> throw new NullPointerException("Testing NPE");
+                case THROW_TRINO_EXCEPTION -> throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing Trino exception");
+                case THROW_SQL_EXCEPTION -> throw new SQLException("Testing sql exception");
+                case THROW_SQL_RECOVERABLE_EXCEPTION -> throw new SQLRecoverableException("Testing sql recoverable exception");
+                case THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION -> throw new RuntimeException(new SQLRecoverableException("Testing sql recoverable exception"));
+                case THROW_SQL_TRANSIENT_EXCEPTION -> throw new SQLTransientException("Testing sql transient exception");
+                case THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION -> throw new RuntimeException(new SQLTransientException("Testing sql transient exception"));
+            };
         }
 
         public enum Action

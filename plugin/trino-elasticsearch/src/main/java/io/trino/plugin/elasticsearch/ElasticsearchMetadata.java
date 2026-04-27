@@ -302,29 +302,19 @@ public class ElasticsearchMetadata
 
         IndexMetadata.Type type = field.type();
         if (type instanceof PrimitiveType primitiveType) {
-            switch (primitiveType.name()) {
-                case "float":
-                    return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
-                case "double":
-                    return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
-                case "byte":
-                    return new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
-                case "short":
-                    return new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
-                case "integer":
-                    return new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
-                case "long":
-                    return new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
-                case "text":
-                case "keyword":
-                    return new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
-                case "ip":
-                    return new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
-                case "boolean":
-                    return new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
-                case "binary":
-                    return new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
-            }
+            return switch (primitiveType.name()) {
+                case "float" -> new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
+                case "double" -> new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
+                case "byte" -> new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
+                case "short" -> new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
+                case "integer" -> new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
+                case "long" -> new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
+                case "text", "keyword" -> new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
+                case "ip" -> new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
+                case "boolean" -> new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
+                case "binary" -> new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
+                default -> null;
+            };
         }
         else if (type instanceof ScaledFloatType) {
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
@@ -635,18 +625,17 @@ public class ElasticsearchMetadata
             }
             else {
                 switch (currentChar) {
-                    case '%':
+                    case '%' -> {
                         regex.append(escaped ? "%" : ".*");
                         escaped = false;
-                        break;
-                    case '_':
+                    }
+                    case '_' -> {
                         regex.append(escaped ? "_" : ".");
                         escaped = false;
-                        break;
-                    case '\\':
+                    }
+                    case '\\' ->
                         regex.append("\\\\");
-                        break;
-                    default:
+                    default -> {
                         // escape special regex characters
                         if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {
                             regex.append('\\');
@@ -654,6 +643,7 @@ public class ElasticsearchMetadata
 
                         regex.appendCodePoint(currentChar);
                         escaped = false;
+                    }
                 }
             }
         }

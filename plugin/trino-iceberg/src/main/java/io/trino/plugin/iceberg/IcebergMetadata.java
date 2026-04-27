@@ -2016,8 +2016,13 @@ public class IcebergMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         return switch (executeHandle.procedureId()) {
             case OPTIMIZE -> getColumnHandlesForOptimize(icebergTableHandle);
-            case OPTIMIZE_MANIFESTS, DROP_EXTENDED_STATS, ROLLBACK_TO_SNAPSHOT, EXPIRE_SNAPSHOTS, REMOVE_ORPHAN_FILES, ADD_FILES, ADD_FILES_FROM_TABLE ->
-                    throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+            case OPTIMIZE_MANIFESTS,
+                 DROP_EXTENDED_STATS,
+                 ROLLBACK_TO_SNAPSHOT,
+                 EXPIRE_SNAPSHOTS,
+                 REMOVE_ORPHAN_FILES,
+                 ADD_FILES,
+                 ADD_FILES_FROM_TABLE -> throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         };
     }
 
@@ -2038,19 +2043,19 @@ public class IcebergMetadata
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
-                return getLayoutForOptimize(session, executeHandle);
-            case OPTIMIZE_MANIFESTS:
-            case DROP_EXTENDED_STATS:
-            case ROLLBACK_TO_SNAPSHOT:
-            case EXPIRE_SNAPSHOTS:
-            case REMOVE_ORPHAN_FILES:
-            case ADD_FILES:
-            case ADD_FILES_FROM_TABLE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> getLayoutForOptimize(session, executeHandle);
+            case OPTIMIZE_MANIFESTS,
+                 DROP_EXTENDED_STATS,
+                 ROLLBACK_TO_SNAPSHOT,
+                 EXPIRE_SNAPSHOTS,
+                 REMOVE_ORPHAN_FILES,
+                 ADD_FILES,
+                 ADD_FILES_FROM_TABLE -> {
                 // handled via executeTableExecute
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+                throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+            }
+        };
     }
 
     private Optional<ConnectorTableLayout> getLayoutForOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -2069,19 +2074,19 @@ public class IcebergMetadata
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         IcebergTableHandle table = (IcebergTableHandle) updatedSourceTableHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
-                return beginOptimize(session, executeHandle, table);
-            case OPTIMIZE_MANIFESTS:
-            case DROP_EXTENDED_STATS:
-            case ROLLBACK_TO_SNAPSHOT:
-            case EXPIRE_SNAPSHOTS:
-            case REMOVE_ORPHAN_FILES:
-            case ADD_FILES:
-            case ADD_FILES_FROM_TABLE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> beginOptimize(session, executeHandle, table);
+            case OPTIMIZE_MANIFESTS,
+                 DROP_EXTENDED_STATS,
+                 ROLLBACK_TO_SNAPSHOT,
+                 EXPIRE_SNAPSHOTS,
+                 REMOVE_ORPHAN_FILES,
+                 ADD_FILES,
+                 ADD_FILES_FROM_TABLE -> {
                 // handled via executeTableExecute
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+                throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+            }
+        };
     }
 
     private BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginOptimize(
@@ -2107,19 +2112,19 @@ public class IcebergMetadata
     public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
-                return finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-            case OPTIMIZE_MANIFESTS:
-            case DROP_EXTENDED_STATS:
-            case ROLLBACK_TO_SNAPSHOT:
-            case EXPIRE_SNAPSHOTS:
-            case REMOVE_ORPHAN_FILES:
-            case ADD_FILES:
-            case ADD_FILES_FROM_TABLE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> finishOptimize(session, executeHandle, fragments, splitSourceInfo);
+            case OPTIMIZE_MANIFESTS,
+                 DROP_EXTENDED_STATS,
+                 ROLLBACK_TO_SNAPSHOT,
+                 EXPIRE_SNAPSHOTS,
+                 REMOVE_ORPHAN_FILES,
+                 ADD_FILES,
+                 ADD_FILES_FROM_TABLE -> {
                 // handled via executeTableExecute
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+                throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+            }
+        };
     }
 
     private Map<String, Long> finishOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
@@ -2241,16 +2246,17 @@ public class IcebergMetadata
     public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE_MANIFESTS:
-                return executeOptimizeManifests(session, executeHandle);
-            case DROP_EXTENDED_STATS:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE_MANIFESTS -> executeOptimizeManifests(session, executeHandle);
+            case DROP_EXTENDED_STATS -> {
                 executeDropExtendedStats(session, executeHandle);
-                return ImmutableMap.of();
-            case ROLLBACK_TO_SNAPSHOT:
+                yield ImmutableMap.of();
+            }
+            case ROLLBACK_TO_SNAPSHOT -> {
                 executeRollbackToSnapshot(session, executeHandle);
-                return ImmutableMap.of();
-            case EXPIRE_SNAPSHOTS:
+                yield ImmutableMap.of();
+            }
+            case EXPIRE_SNAPSHOTS -> {
                 IcebergExpireSnapshotsHandle icebergExpireSnapshotsHandle = (IcebergExpireSnapshotsHandle) executeHandle.procedureHandle();
                 executeExpireSnapshots(
                         session,
@@ -2259,16 +2265,13 @@ public class IcebergMetadata
                         getExpireSnapshotMinRetention(session),
                         icebergExpireSnapshotsHandle.retainLast(),
                         icebergExpireSnapshotsHandle.cleanExpiredMetadata());
-                return ImmutableMap.of();
-            case REMOVE_ORPHAN_FILES:
-                return executeRemoveOrphanFiles(session, executeHandle);
-            case ADD_FILES:
-                return executeAddFiles(session, executeHandle);
-            case ADD_FILES_FROM_TABLE:
-                return executeAddFilesFromTable(session, executeHandle);
-            default:
-                throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
-        }
+                yield ImmutableMap.of();
+            }
+            case REMOVE_ORPHAN_FILES -> executeRemoveOrphanFiles(session, executeHandle);
+            case ADD_FILES -> executeAddFiles(session, executeHandle);
+            case ADD_FILES_FROM_TABLE -> executeAddFilesFromTable(session, executeHandle);
+            default -> throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+        };
     }
 
     private Map<String, Long> executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)

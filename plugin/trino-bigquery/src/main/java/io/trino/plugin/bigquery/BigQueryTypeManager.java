@@ -290,36 +290,26 @@ public final class BigQueryTypeManager
 
     public static String convertToString(Type type, StandardSQLTypeName bigqueryType, Object value)
     {
-        switch (bigqueryType) {
-            case BOOL:
-                return simpleToStringConverter(value);
-            case BYTES:
-                return bytesToStringConverter(value);
-            case DATE:
-                return dateToStringConverter(value);
-            case DATETIME:
-                return "'%s'".formatted(datetimeToStringConverter(value));
-            case FLOAT64:
-                return floatToStringConverter(value);
-            case INT64:
-                return simpleToStringConverter(value);
-            case NUMERIC:
-            case BIGNUMERIC:
+        return switch (bigqueryType) {
+            case BOOL -> simpleToStringConverter(value);
+            case BYTES -> bytesToStringConverter(value);
+            case DATE -> dateToStringConverter(value);
+            case DATETIME -> "'%s'".formatted(datetimeToStringConverter(value));
+            case FLOAT64 -> floatToStringConverter(value);
+            case INT64 -> simpleToStringConverter(value);
+            case NUMERIC, BIGNUMERIC -> {
                 String bigqueryTypeName = bigqueryType.name();
                 DecimalType decimalType = (DecimalType) type;
                 if (decimalType.isShort()) {
-                    return format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale()));
+                    yield format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale()));
                 }
-                return format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale()));
-            case STRING:
-                return stringToStringConverter(value);
-            case TIME:
-                return timeToStringConverter(value);
-            case TIMESTAMP:
-                return "'%s'".formatted(timestampToStringConverter(value));
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + bigqueryType);
-        }
+                yield format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale()));
+            }
+            case STRING -> stringToStringConverter(value);
+            case TIME -> timeToStringConverter(value);
+            case TIMESTAMP -> "'%s'".formatted(timestampToStringConverter(value));
+            default -> throw new IllegalArgumentException("Unsupported type: " + bigqueryType);
+        };
     }
 
     public Optional<ColumnMapping> toTrinoType(Field field)
@@ -332,51 +322,40 @@ public final class BigQueryTypeManager
 
     private Optional<ColumnMapping> convertToTrinoType(Field field)
     {
-        switch (field.getType().getStandardType()) {
-            case BOOL:
-                return Optional.of(new ColumnMapping(BooleanType.BOOLEAN, true));
-            case INT64:
-                return Optional.of(new ColumnMapping(BigintType.BIGINT, true));
-            case FLOAT64:
-                return Optional.of(new ColumnMapping(DoubleType.DOUBLE, true));
-            case NUMERIC:
-            case BIGNUMERIC:
+        return switch (field.getType().getStandardType()) {
+            case BOOL -> Optional.of(new ColumnMapping(BooleanType.BOOLEAN, true));
+            case INT64 -> Optional.of(new ColumnMapping(BigintType.BIGINT, true));
+            case FLOAT64 -> Optional.of(new ColumnMapping(DoubleType.DOUBLE, true));
+            case NUMERIC, BIGNUMERIC -> {
                 Long precision = field.getPrecision();
                 Long scale = field.getScale();
                 // Unsupported BIGNUMERIC types (precision > 38) are filtered in BigQueryClient.getColumns
                 if (precision != null && scale != null) {
-                    return Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision), toIntExact(scale)), true));
+                    yield Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision), toIntExact(scale)), true));
                 }
                 if (precision != null) {
-                    return Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision)), true));
+                    yield Optional.of(new ColumnMapping(createDecimalType(toIntExact(precision)), true));
                 }
-                return Optional.of(new ColumnMapping(createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE), true));
-            case STRING:
-                return Optional.of(new ColumnMapping(createUnboundedVarcharType(), true));
-            case BYTES:
-                return Optional.of(new ColumnMapping(VarbinaryType.VARBINARY, true));
-            case DATE:
-                return Optional.of(new ColumnMapping(DateType.DATE, true));
-            case DATETIME:
-                return Optional.of(new ColumnMapping(TimestampType.TIMESTAMP_MICROS, true));
-            case TIME:
-                return Optional.of(new ColumnMapping(TimeType.TIME_MICROS, true));
-            case TIMESTAMP:
-                return Optional.of(new ColumnMapping(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, true));
-            case GEOGRAPHY:
-                return Optional.of(new ColumnMapping(VarcharType.VARCHAR, false));
-            case JSON:
-                return Optional.of(new ColumnMapping(jsonType, false));
-            case STRUCT:
+                yield Optional.of(new ColumnMapping(createDecimalType(DEFAULT_NUMERIC_TYPE_PRECISION, DEFAULT_NUMERIC_TYPE_SCALE), true));
+            }
+            case STRING -> Optional.of(new ColumnMapping(createUnboundedVarcharType(), true));
+            case BYTES -> Optional.of(new ColumnMapping(VarbinaryType.VARBINARY, true));
+            case DATE -> Optional.of(new ColumnMapping(DateType.DATE, true));
+            case DATETIME -> Optional.of(new ColumnMapping(TimestampType.TIMESTAMP_MICROS, true));
+            case TIME -> Optional.of(new ColumnMapping(TimeType.TIME_MICROS, true));
+            case TIMESTAMP -> Optional.of(new ColumnMapping(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, true));
+            case GEOGRAPHY -> Optional.of(new ColumnMapping(VarcharType.VARCHAR, false));
+            case JSON -> Optional.of(new ColumnMapping(jsonType, false));
+            case STRUCT -> {
                 // create the row
                 FieldList subTypes = field.getSubFields();
                 checkArgument(!subTypes.isEmpty(), "a record or struct must have sub-fields");
                 List<RowType.Field> fields = subTypes.stream().map(subField -> toRawTypeField(subField.getName(), subField)).collect(toList());
                 RowType rowType = RowType.from(fields);
-                return Optional.of(new ColumnMapping(rowType, false));
-            default:
-                return Optional.empty();
-        }
+                yield Optional.of(new ColumnMapping(rowType, false));
+            }
+            default -> Optional.empty();
+        };
     }
 
     public BigQueryColumnHandle toColumnHandle(Field field, boolean useStorageApi)

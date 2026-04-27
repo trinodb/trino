@@ -581,24 +581,22 @@ public class PostgreSqlClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        switch (jdbcTypeName) {
-            case "money":
-                return Optional.of(moneyColumnMapping());
-            case "uuid":
-                return Optional.of(uuidColumnMapping());
-            case "jsonb":
-            case "json":
-                return Optional.of(jsonColumnMapping());
-            case "timestamptz":
+        Optional<ColumnMapping> typeNameMapping = switch (jdbcTypeName) {
+            case "money" -> Optional.of(moneyColumnMapping());
+            case "uuid" -> Optional.of(uuidColumnMapping());
+            case "jsonb", "json" -> Optional.of(jsonColumnMapping());
+            case "timestamptz" -> {
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
-            case "hstore":
-                return Optional.of(hstoreColumnMapping());
-            case "vector":
-                return Optional.of(vectorColumnMapping());
-            case "geometry":
-                return Optional.of(geometryColumnMapping());
+                yield Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
+            }
+            case "hstore" -> Optional.of(hstoreColumnMapping());
+            case "vector" -> Optional.of(vectorColumnMapping());
+            case "geometry" -> Optional.of(geometryColumnMapping());
+            default -> Optional.empty();
+        };
+        if (typeNameMapping.isPresent()) {
+            return typeNameMapping;
         }
 
         // Handling of schema-qualified types
@@ -610,33 +608,27 @@ public class PostgreSqlClient
             return Optional.of(geometryColumnMapping());
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-                return Optional.of(booleanColumnMapping());
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT -> Optional.of(booleanColumnMapping());
 
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
 
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
 
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping());
 
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
-            case Types.NUMERIC: {
+            case Types.NUMERIC -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 OptionalInt pgScale = getPostgreSqlDecimalScale(typeHandle);
                 if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE && pgScale.isEmpty()) {
                     // This is impossible in current PostgreSQL. We don't fall back to "overflow" mode,
                     // as that could mean anything (e.g. PostgreSQL changing how decimal metadata is reported)
                     // and we don't want future fix to be backwards incompatible change for connector's users.
-                    break;
+                    yield unsupportedTypeMapping(session, typeHandle);
                 }
                 if (columnSize != UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
                     int scale = pgScale.orElseThrow();
@@ -645,16 +637,12 @@ public class PostgreSqlClient
                     int precision = max(columnSize + max(-scale, 0), scale);
                     scale = max(scale, 0);
                     if (precision <= Decimals.MAX_PRECISION) {
-                        return Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(precision, scale), UNNECESSARY));
                     }
                 }
-                switch (getDecimalRounding(session)) {
-                    case MAP_TO_NUMBER -> {
-                        return Optional.of(numberColumnMapping());
-                    }
-                    case STRICT -> {
-                        // skipped (unhandled type)
-                    }
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> unsupportedTypeMapping(session, typeHandle);
                     case ALLOW_OVERFLOW -> {
                         int scale;
                         if (columnSize == UNCONSTRAINED_NUMERIC_COLUMN_SIZE) {
@@ -663,50 +651,51 @@ public class PostgreSqlClient
                         else {
                             scale = clamp(pgScale.orElseThrow(), 0, getDecimalDefaultScale(session));
                         }
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
-                }
-                break;
+                };
             }
 
-            case Types.CHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize()));
+            case Types.CHAR -> Optional.of(charColumnMapping(typeHandle.requiredColumnSize()));
 
-            case Types.VARCHAR:
+            case Types.VARCHAR -> {
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
-                    return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
+                    yield Optional.of(typedVarcharColumnMapping(jdbcTypeName));
                 }
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize()));
+                yield Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize()));
+            }
 
-            case Types.BINARY:
-                return Optional.of(varbinaryColumnMapping());
+            case Types.BINARY -> Optional.of(varbinaryColumnMapping());
 
-            case Types.DATE:
-                return Optional.of(dateColumnMappingUsingLocalDate());
+            case Types.DATE -> Optional.of(dateColumnMappingUsingLocalDate());
 
-            case Types.TIME:
-                return Optional.of(timeColumnMapping(typeHandle.requiredDecimalDigits()));
+            case Types.TIME -> Optional.of(timeColumnMapping(typeHandle.requiredDecimalDigits()));
 
-            case Types.TIMESTAMP:
+            case Types.TIMESTAMP -> {
                 TimestampType timestampType = createTimestampType(typeHandle.requiredDecimalDigits());
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(ColumnMapping.longMapping(
                         timestampType,
                         timestampReadFunction(timestampType),
                         PostgreSqlClient::shortTimestampWriteFunction));
+            }
 
-            case Types.ARRAY:
+            case Types.ARRAY -> {
                 Optional<ColumnMapping> columnMapping = arrayToTrinoType(session, connection, typeHandle);
                 if (columnMapping.isPresent()) {
-                    return columnMapping;
+                    yield columnMapping;
                 }
-                break;
-        }
+                yield unsupportedTypeMapping(session, typeHandle);
+            }
+            default -> unsupportedTypeMapping(session, typeHandle);
+        };
+    }
 
+    private Optional<ColumnMapping> unsupportedTypeMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return mapToUnboundedVarchar(typeHandle);
         }
-
         return Optional.empty();
     }
 

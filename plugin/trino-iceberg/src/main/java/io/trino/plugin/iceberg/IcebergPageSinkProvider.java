@@ -138,14 +138,14 @@ public class IcebergPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> {
                 IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
                 Schema schema = SchemaParser.fromJson(optimizeHandle.schemaAsJson());
                 PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.partitionSpecAsJson());
                 LocationProvider locationProvider = getLocationProvider(executeHandle.schemaTableName(),
                         executeHandle.tableLocation(), optimizeHandle.tableStorageProperties());
-                return new IcebergPageSink(
+                yield new IcebergPageSink(
                         schema,
                         partitionSpec,
                         locationProvider,
@@ -165,16 +165,12 @@ public class IcebergPageSinkProvider
                         sortingFileWriterLocalStagingPath,
                         typeManager,
                         pageSorter);
-            case OPTIMIZE_MANIFESTS:
-            case DROP_EXTENDED_STATS:
-            case ROLLBACK_TO_SNAPSHOT:
-            case EXPIRE_SNAPSHOTS:
-            case REMOVE_ORPHAN_FILES:
-            case ADD_FILES:
-            case ADD_FILES_FROM_TABLE:
+            }
+            case OPTIMIZE_MANIFESTS, DROP_EXTENDED_STATS, ROLLBACK_TO_SNAPSHOT, EXPIRE_SNAPSHOTS, REMOVE_ORPHAN_FILES, ADD_FILES, ADD_FILES_FROM_TABLE -> {
                 // handled via ConnectorMetadata.executeTableExecute
-        }
-        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
+                throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
+            }
+        };
     }
 
     @Override

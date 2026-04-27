@@ -96,25 +96,30 @@ public final class Statistics
     private static void setColumnStatisticsForEmptyPartition(Type columnType, HiveColumnStatistics.Builder result, HiveColumnStatisticType columnStatisticType)
     {
         switch (columnStatisticType) {
-            case MAX_VALUE_SIZE_IN_BYTES:
+            case MAX_VALUE_SIZE_IN_BYTES -> {
                 result.setMaxValueSizeInBytes(0);
                 return;
-            case TOTAL_SIZE_IN_BYTES:
+            }
+            case TOTAL_SIZE_IN_BYTES -> {
                 result.setAverageColumnLength(0);
                 return;
-            case NUMBER_OF_DISTINCT_VALUES:
+            }
+            case NUMBER_OF_DISTINCT_VALUES -> {
                 result.setDistinctValuesWithNullCount(0);
                 return;
-            case NUMBER_OF_NON_NULL_VALUES:
+            }
+            case NUMBER_OF_NON_NULL_VALUES -> {
                 result.setNullsCount(0);
                 return;
-            case NUMBER_OF_TRUE_VALUES:
+            }
+            case NUMBER_OF_TRUE_VALUES -> {
                 result.setBooleanStatistics(new BooleanStatistics(OptionalLong.of(0L), OptionalLong.of(0L)));
                 return;
-            case MIN_VALUE:
-            case MAX_VALUE:
+            }
+            case MIN_VALUE, MAX_VALUE -> {
                 setMinMaxForEmptyPartition(columnType, result);
                 return;
+            }
         }
         throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
     }

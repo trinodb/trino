@@ -290,21 +290,16 @@ public class TestPostgreSqlClient
                     Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
             switch (operator) {
-                case EQUAL:
-                case NOT_EQUAL:
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
+                case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     assertThat(converted).isPresent();
                     assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                    break;
-                case IDENTICAL:
+                }
+                case IDENTICAL -> {
                     assertThat(converted).isPresent();
                     assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") IS NOT DISTINCT FROM (?)"));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                    break;
+                }
             }
         }
     }

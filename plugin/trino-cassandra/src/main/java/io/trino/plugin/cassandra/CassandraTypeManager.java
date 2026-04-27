@@ -388,104 +388,59 @@ public class CassandraTypeManager
         CassandraType cassandraType = toCassandraType(dataType)
                 .orElseThrow(() -> new IllegalStateException("Unsupported type: " + dataType));
 
-        switch (cassandraType.kind()) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-            case UUID:
-            case TIMEUUID:
-            case TIME:
-            case TIMESTAMP:
-            case DATE:
-            case INET:
-            case VARINT:
-            case TUPLE:
-                return quoteStringLiteralForJson(cassandraValue.toString());
-            case UDT:
-                return quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
-
-            case BLOB:
-            case CUSTOM:
-                return quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) cassandraValue));
-
-            case SMALLINT:
-            case TINYINT:
-            case INT:
-            case BIGINT:
-            case COUNTER:
-            case BOOLEAN:
-            case DOUBLE:
-            case FLOAT:
-            case DECIMAL:
-                return cassandraValue.toString();
-            case LIST:
+        return switch (cassandraType.kind()) {
+            case ASCII, TEXT, VARCHAR, UUID, TIMEUUID, TIME, TIMESTAMP, DATE, INET, VARINT, TUPLE -> quoteStringLiteralForJson(cassandraValue.toString());
+            case UDT -> quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
+            case BLOB, CUSTOM -> quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) cassandraValue));
+            case SMALLINT, TINYINT, INT, BIGINT, COUNTER, BOOLEAN, DOUBLE, FLOAT, DECIMAL -> cassandraValue.toString();
+            case LIST -> {
                 checkArgument(dataType instanceof ListType, "Expected to deal with an instance of %s class, got: %s", ListType.class, dataType);
                 ListType listType = (ListType) dataType;
-                return buildArrayValue((Collection<?>) cassandraValue, listType.getElementType());
-            case SET:
+                yield buildArrayValue((Collection<?>) cassandraValue, listType.getElementType());
+            }
+            case SET -> {
                 checkArgument(dataType instanceof SetType, "Expected to deal with an instance of %s class, got: %s", SetType.class, dataType);
                 SetType setType = (SetType) dataType;
-                return buildArrayValue((Collection<?>) cassandraValue, setType.getElementType());
-            case MAP:
+                yield buildArrayValue((Collection<?>) cassandraValue, setType.getElementType());
+            }
+            case MAP -> {
                 checkArgument(dataType instanceof MapType, "Expected to deal with an instance of %s class, got: %s", MapType.class, dataType);
                 MapType mapType = (MapType) dataType;
-                return buildMapValue((Map<?, ?>) cassandraValue, mapType.getKeyType(), mapType.getValueType());
-        }
-        throw new IllegalStateException("Unsupported type: " + cassandraType);
+                yield buildMapValue((Map<?, ?>) cassandraValue, mapType.getKeyType(), mapType.getValueType());
+            }
+        };
     }
 
     public Object getJavaValue(CassandraType.Kind kind, Object trinoNativeValue)
     {
-        switch (kind) {
-            case ASCII:
-            case TEXT:
-            case VARCHAR:
-                return ((Slice) trinoNativeValue).toStringUtf8();
-            case BIGINT:
-            case BOOLEAN:
-            case DOUBLE:
-            case COUNTER:
-                return trinoNativeValue;
-            case INET:
+        return switch (kind) {
+            case ASCII, TEXT, VARCHAR -> ((Slice) trinoNativeValue).toStringUtf8();
+            case BIGINT, BOOLEAN, DOUBLE, COUNTER -> trinoNativeValue;
+            case INET -> {
                 try {
-                    return InetAddress.getByAddress(((Slice) trinoNativeValue).getBytes());
+                    yield InetAddress.getByAddress(((Slice) trinoNativeValue).getBytes());
                 }
                 catch (UnknownHostException e) {
                     throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + ((Slice) trinoNativeValue).length(), e);
                 }
-            case INT:
-            case SMALLINT:
-            case TINYINT:
-                return ((Long) trinoNativeValue).intValue();
-            case FLOAT:
+            }
+            case INT, SMALLINT, TINYINT -> ((Long) trinoNativeValue).intValue();
+            case FLOAT ->
                 // conversion can result in precision lost
-                return intBitsToFloat(((Long) trinoNativeValue).intValue());
-            case DECIMAL:
+                    intBitsToFloat(((Long) trinoNativeValue).intValue());
+            case DECIMAL ->
                 // conversion can result in precision lost
                 // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
                 // Otherwise partition id doesn't match
-                return new BigDecimal(trinoNativeValue.toString());
-            case TIME:
-                return LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
-            case TIMESTAMP:
-                return Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
-            case DATE:
-                return LocalDate.ofEpochDay((Long) trinoNativeValue);
-            case UUID:
-            case TIMEUUID:
-                return trinoUuidToJavaUuid((Slice) trinoNativeValue);
-            case BLOB:
-            case CUSTOM:
-            case TUPLE:
-            case UDT:
-                return ((Slice) trinoNativeValue).toStringUtf8();
-            case VARINT:
-                return new BigInteger(((Slice) trinoNativeValue).toStringUtf8());
-            case SET:
-            case LIST:
-            case MAP:
-        }
-        throw new IllegalStateException("Back conversion not implemented for " + this);
+                    new BigDecimal(trinoNativeValue.toString());
+            case TIME -> LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
+            case TIMESTAMP -> Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
+            case DATE -> LocalDate.ofEpochDay((Long) trinoNativeValue);
+            case UUID, TIMEUUID -> trinoUuidToJavaUuid((Slice) trinoNativeValue);
+            case BLOB, CUSTOM, TUPLE, UDT -> ((Slice) trinoNativeValue).toStringUtf8();
+            case VARINT -> new BigInteger(((Slice) trinoNativeValue).toStringUtf8());
+            case SET, LIST, MAP -> throw new IllegalStateException("Back conversion not implemented for " + this);
+        };
     }
 
     public boolean isFullySupported(DataType dataType)

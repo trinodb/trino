@@ -347,15 +347,14 @@ public class TestHiveBucketing
             i++;
         }
 
-        switch (bucketingVersion) {
-            case BUCKETING_V1:
+        return switch (bucketingVersion) {
+            case BUCKETING_V1 -> {
                 @SuppressWarnings("deprecation")
                 int hashCodeOld = ObjectInspectorUtils.getBucketHashCodeOld(objects, objectInspectors);
-                return hashCodeOld;
-            case BUCKETING_V2:
-                return ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
-        }
-        throw new IllegalArgumentException("Unsupported bucketing version: " + bucketingVersion);
+                yield hashCodeOld;
+            }
+            case BUCKETING_V2 -> ObjectInspectorUtils.getBucketHashCode(objects, objectInspectors);
+        };
     }
 
     private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)

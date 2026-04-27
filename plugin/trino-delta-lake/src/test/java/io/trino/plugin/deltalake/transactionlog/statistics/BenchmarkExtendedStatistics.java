@@ -91,21 +91,19 @@ public class BenchmarkExtendedStatistics
 
         private DeltaLakeFileStatistics createSingleFileStatistics()
         {
-            switch (type) {
-                case "JSON":
-                    return new DeltaLakeJsonFileStatistics(
+            return switch (type) {
+                case "JSON" -> new DeltaLakeJsonFileStatistics(
                             Optional.of(random.nextLong()),
                             createColumnValueMap(),
                             createColumnValueMap(),
                             createColumnValueMap());
-                case "PARQUET":
-                    return new DeltaLakeParquetFileStatistics(
+                case "PARQUET" -> new DeltaLakeParquetFileStatistics(
                             Optional.of(random.nextLong()),
                             createColumnValueMap(),
                             createColumnValueMap(),
                             createColumnValueMap());
-            }
-            throw new IllegalArgumentException("invalid stats type: " + type);
+                default -> throw new IllegalArgumentException("invalid stats type: " + type);
+            };
         }
 
         private Optional<Map<String, Object>> createColumnValueMap()

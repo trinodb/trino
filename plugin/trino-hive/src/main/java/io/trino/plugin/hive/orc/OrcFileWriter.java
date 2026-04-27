@@ -217,14 +217,15 @@ public final class OrcFileWriter
         int stripeRowCount = orcWriter.getStripeRowCount();
         Map<String, String> userMetadata = new HashMap<>();
         switch (writerKind) {
-            case INSERT:
+            case INSERT -> {
                 userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
-                break;
-            case DELETE:
+            }
+            case DELETE -> {
                 userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
-                break;
-            default:
+            }
+            default -> {
                 throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
+            }
         }
         userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
         userMetadata.put("hive.acid.version", "2");
