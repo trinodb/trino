@@ -119,7 +119,6 @@ public final class DeltaLakeSchemaSupport
         NAME,
         NONE,
         UNKNOWN,
-        /**/;
     }
 
     public enum IsolationLevel

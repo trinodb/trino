@@ -15,7 +15,5 @@ package io.trino.plugin.jdbc;
 
 public enum UnsupportedTypeHandling
 {
-    IGNORE,
-    CONVERT_TO_VARCHAR,
-    /**/;
+    IGNORE, CONVERT_TO_VARCHAR,
 }

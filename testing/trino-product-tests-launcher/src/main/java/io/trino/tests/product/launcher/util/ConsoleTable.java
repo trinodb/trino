@@ -266,8 +266,6 @@ public class ConsoleTable
 
     public enum Alignment
     {
-        LEFT,
-        CENTER,
-        RIGHT;
+        LEFT, CENTER, RIGHT,
     }
 }

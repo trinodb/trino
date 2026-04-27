@@ -15,7 +15,5 @@ package io.trino.plugin.jdbc;
 
 public enum CaseSensitivity
 {
-    CASE_SENSITIVE,
-    CASE_INSENSITIVE,
-    /**/;
+    CASE_SENSITIVE, CASE_INSENSITIVE,
 }

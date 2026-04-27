@@ -1443,7 +1443,6 @@ public class TestDeltaLakeFileOperations
         DATA,
         CDF_DATA,
         DELETION_VECTOR,
-        /**/;
     }
 
     private void registerTable(String name, String resourcePath)

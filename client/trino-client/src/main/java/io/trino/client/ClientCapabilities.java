@@ -47,5 +47,5 @@ public enum ClientCapabilities
     /**
      * Whether clients support the session authorization set/reset feature
      */
-    SESSION_AUTHORIZATION;
+    SESSION_AUTHORIZATION,
 }
