@@ -40,6 +40,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.config.HoodieReaderConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
@@ -53,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -78,6 +80,12 @@ public class HudiSplitSource
     private static final Logger log = Logger.get(HudiSplitSource.class);
 
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
+
+    // Hudi metadata-table read tuning. Bumped well above Hudi's defaults (50 MB / 100 blocks) so
+    // that whole MDT HFiles are downloaded and cached on first read instead of being served via
+    // many small range reads against object storage.
+    private static final int METADATA_FILE_CACHE_MAX_SIZE_MB = 2000;
+    private static final int HFILE_BLOCK_CACHE_SIZE = 1000;
     private final AsyncQueue<ConnectorSplit> queue;
     private final ScheduledFuture splitLoaderFuture;
     private final AtomicReference<TrinoException> trinoException = new AtomicReference<>();
@@ -100,7 +108,11 @@ public class HudiSplitSource
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
         Lazy<HoodieTableMetadata> lazyTableMetadata = Lazy.lazily(() -> {
             HoodieTimer timer = HoodieTimer.start();
+            Properties metadataProperties = new Properties();
+            metadataProperties.setProperty(HoodieMetadataConfig.METADATA_FILE_CACHE_MAX_SIZE_MB.key(), String.valueOf(METADATA_FILE_CACHE_MAX_SIZE_MB));
+            metadataProperties.setProperty(HoodieReaderConfig.HFILE_BLOCK_CACHE_SIZE.key(), String.valueOf(HFILE_BLOCK_CACHE_SIZE));
             HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
+                    .fromProperties(metadataProperties)
                     .enable(enableMetadataTable)
                     .build();
             HoodieTableMetaClient metaClient = tableHandle.getMetaClient();
