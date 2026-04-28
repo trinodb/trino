@@ -14,6 +14,7 @@
 package io.trino.filesystem.cache;
 
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -22,9 +23,9 @@ public final class DefaultCacheKeyProvider
         implements CacheKeyProvider
 {
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile inputFile)
+    public Optional<CacheKey> getCacheKey(TrinoInputFile inputFile)
             throws IOException
     {
-        return Optional.of(inputFile.location().path() + "#" + inputFile.lastModified() + "#" + inputFile.length());
+        return Optional.of(new CacheKey(inputFile.location() + "#" + inputFile.lastModified() + "#" + inputFile.length()));
     }
 }

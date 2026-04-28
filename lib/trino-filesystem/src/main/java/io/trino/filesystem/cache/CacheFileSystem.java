@@ -13,14 +13,15 @@
  */
 package io.trino.filesystem.cache;
 
+import io.airlift.log.Logger;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.spi.cache.BlobCache;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
@@ -32,11 +33,13 @@ import static java.util.Objects.requireNonNull;
 public final class CacheFileSystem
         implements TrinoFileSystem
 {
+    private static final Logger log = Logger.get(CacheFileSystem.class);
+
     private final TrinoFileSystem delegate;
-    private final TrinoFileSystemCache cache;
+    private final BlobCache cache;
     private final CacheKeyProvider keyProvider;
 
-    public CacheFileSystem(TrinoFileSystem delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider)
+    public CacheFileSystem(TrinoFileSystem delegate, BlobCache cache, CacheKeyProvider keyProvider)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");
@@ -64,39 +67,33 @@ public final class CacheFileSystem
     @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        TrinoOutputFile output = delegate.newOutputFile(location);
-        try {
-            cache.expire(location);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return output;
+        invalidate(location);
+        return delegate.newOutputFile(location);
     }
 
     @Override
     public void deleteFile(Location location)
             throws IOException
     {
+        invalidate(location);
         delegate.deleteFile(location);
-        cache.expire(location);
     }
 
     @Override
     public void deleteDirectory(Location location)
             throws IOException
     {
+        invalidateDirectoryEntries(location);
         delegate.deleteDirectory(location);
-        cache.expire(location);
     }
 
     @Override
     public void renameFile(Location source, Location target)
             throws IOException
     {
+        invalidate(source);
+        invalidate(target);
         delegate.renameFile(source, target);
-        cache.expire(source);
-        cache.expire(target);
     }
 
     @Override
@@ -131,6 +128,8 @@ public final class CacheFileSystem
     public void renameDirectory(Location source, Location target)
             throws IOException
     {
+        invalidateDirectoryEntries(source);
+        invalidateDirectoryEntries(target);
         delegate.renameDirectory(source, target);
     }
 
@@ -152,7 +151,31 @@ public final class CacheFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
+        locations.forEach(this::invalidate);
         delegate.deleteFiles(locations);
-        cache.expire(locations);
+    }
+
+    private void invalidate(Location location)
+    {
+        try {
+            keyProvider.getCacheKey(delegate.newInputFile(location))
+                    .ifPresent(cache::invalidate);
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to invalidate cache entry for %s", location);
+        }
+    }
+
+    private void invalidateDirectoryEntries(Location location)
+    {
+        try {
+            FileIterator iterator = delegate.listFiles(location);
+            while (iterator.hasNext()) {
+                invalidate(iterator.next().location());
+            }
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to invalidate cache entries under %s", location);
+        }
     }
 }

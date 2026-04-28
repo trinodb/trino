@@ -27,6 +27,7 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
@@ -108,5 +109,11 @@ public final class TestingConnectorContext
     public FunctionBundleFactory getFunctionBundleFactory()
     {
         return new InternalFunctionBundleFactory();
+    }
+
+    @Override
+    public ConnectorCacheFactory getCacheFactory()
+    {
+        return new TestingConnectorCacheFactory();
     }
 }

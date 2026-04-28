@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.createTrinoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -81,15 +82,24 @@ public class StandardMultinode
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES));
+        builder.configureContainer(COORDINATOR, container -> withFileSystemCaching(container)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("cache-manager-alluxio.properties")), CONTAINER_TRINO_ETC + "/cache-manager-alluxio.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("cache-manager-memory.properties")), CONTAINER_TRINO_ETC + "/cache-manager-memory.properties"));
         builder.addContainers(createTrinoWorker());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker()
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, ipv6, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, WORKER)
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
+        return withFileSystemCaching(createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, ipv6, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, WORKER)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES));
+    }
+
+    private DockerContainer withFileSystemCaching(DockerContainer container)
+    {
+        return container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("cache-manager-alluxio.properties")), CONTAINER_TRINO_ETC + "/cache-manager-alluxio.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("cache-manager-memory.properties")), CONTAINER_TRINO_ETC + "/cache-manager-memory.properties");
     }
 }
