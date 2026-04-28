@@ -1121,14 +1121,7 @@ public class MockConnector
             implements ConnectorPageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(
-                ConnectorTransactionHandle transaction,
-                ConnectorSession session,
-                ConnectorSplit split,
-                ConnectorTableHandle table,
-                Optional<ConnectorTableCredentials> tableCredentials,
-                List<ColumnHandle> columns,
-                DynamicFilter dynamicFilter)
+        public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
         {
             MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
             SchemaTableName tableName = handle.getTableName();
