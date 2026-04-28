@@ -21,7 +21,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordCursor;
@@ -122,14 +121,6 @@ public class ClassLoaderSafeSystemTable
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.splitSource(connectorSession, constraint);
-        }
-    }
-
-    @Override
-    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableCredentials(session);
         }
     }
 }

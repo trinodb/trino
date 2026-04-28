@@ -14,13 +14,11 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.system.files.FilesTableSplitSource;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -162,12 +160,6 @@ public final class FilesTable
                         Map.Entry::getKey,
                         partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
                 partitionColumnType));
-    }
-
-    @Override
-    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session)
-    {
-        return Optional.of(IcebergTableCredentials.forFileIO(icebergTable.io()));
     }
 
     public static Type getColumnType(String columnName, TypeManager typeManager)
