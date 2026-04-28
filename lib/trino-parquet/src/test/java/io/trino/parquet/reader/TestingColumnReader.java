@@ -20,6 +20,7 @@ import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.ParquetEncoding;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
@@ -43,19 +44,8 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
-import org.apache.parquet.bytes.HeapByteBufferAllocator;
-import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainDoubleDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFixedLenArrayDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainFloatDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainIntegerDictionaryValuesWriter;
-import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter.PlainLongDictionaryValuesWriter;
-import org.apache.parquet.column.values.plain.BooleanPlainValuesWriter;
-import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
-import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
@@ -65,11 +55,16 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.IntFunction;
+import java.util.OptionalInt;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.ParquetEncoding.RLE;
+import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ParquetTestUtils.toTrinoDictionaryPage;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -147,24 +142,6 @@ public class TestingColumnReader
             .put(UUID, Int128ArrayBlock.class)
             .buildOrThrow();
 
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_INT_WRITER =
-            _ -> new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    public static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
-            _ -> new PlainLongDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FIXED_LENGTH_WRITER =
-            length -> new PlainFixedLenArrayDictionaryValuesWriter(Integer.MAX_VALUE, length, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FLOAT_WRITER =
-            _ -> new PlainFloatDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_DOUBLE_WRITER =
-            _ -> new PlainDoubleDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_BINARY_WRITER =
-            _ -> new PlainBinaryDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-
-    private static final IntFunction<ValuesWriter> BOOLEAN_WRITER = _ -> new BooleanPlainValuesWriter();
-    private static final IntFunction<ValuesWriter> FIXED_LENGTH_WRITER =
-            length -> new FixedLenByteArrayPlainValuesWriter(length, 1024, 1024, HeapByteBufferAllocator.getInstance());
-    public static final IntFunction<ValuesWriter> PLAIN_WRITER =
-            _ -> new PlainValuesWriter(1024, 1024, HeapByteBufferAllocator.getInstance());
     private static final Writer<Number> WRITE_BOOLEAN = (writer, values) -> {
         Number[] result = new Number[values.length];
         for (int i = 0; i < values.length; i++) {
@@ -673,7 +650,7 @@ public class TestingColumnReader
         return cartesianProduct(
                 Stream.of(DataPageVersion.V1, DataPageVersion.V2).collect(toDataProvider()),
                 Arrays.stream(TestingColumnReader.columnReaders())
-                        .filter(reader -> reader.dictionaryWriterProvider != null)
+                        .filter(ColumnReaderFormat::hasDictionarySupport)
                         .collect(toDataProvider()));
     }
 
@@ -695,98 +672,98 @@ public class TestingColumnReader
     private static ColumnReaderFormat<?>[] columnReaders()
     {
         return new ColumnReaderFormat[] {
-                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BOOLEAN),
-                new ColumnReaderFormat<>(FLOAT, REAL, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_FLOAT),
+                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, PLAIN, RLE, WRITE_BOOLEAN, ASSERT_BOOLEAN),
+                new ColumnReaderFormat<>(FLOAT, REAL, PLAIN, PLAIN, WRITE_FLOAT, ASSERT_FLOAT),
                 // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
-                new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
-                new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN, PLAIN, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
+                new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN, PLAIN, WRITE_DOUBLE, ASSERT_DOUBLE),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
                 // INT32 can be read as a ShortDecimalType in Trino without decimal logical type annotation as well
-                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT32, createDecimalType(8, 2), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertShortDecimal(createDecimalType(8, 2))),
-                new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT32, INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
-                new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
-                new ColumnReaderFormat<>(INT32, TINYINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_BYTE, ASSERT_BYTE),
-                new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY, ASSERT_BINARY),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, null, VARCHAR, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeFixedWidthBinary(8), ASSERT_BINARY),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, INTEGER, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_INT),
-                new ColumnReaderFormat<>(INT64, SMALLINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_SHORT),
-                new ColumnReaderFormat<>(INT64, TINYINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_BYTE),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, assertUuid()),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, assertUuid()),
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 2), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, assertShortDecimal(createDecimalType(8, 2))),
+                new ColumnReaderFormat<>(INT32, BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, INTEGER, PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN, DELTA_BINARY_PACKED, WRITE_SHORT, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT32, TINYINT, PLAIN, DELTA_BINARY_PACKED, WRITE_BYTE, ASSERT_BYTE),
+                new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY, ASSERT_BINARY),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, null, VARCHAR, PLAIN, DELTA_BYTE_ARRAY, writeFixedWidthBinary(8), ASSERT_BINARY),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, INTEGER, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_INT),
+                new ColumnReaderFormat<>(INT64, SMALLINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT64, TINYINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_BYTE),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_LONG),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN, DELTA_BYTE_ARRAY, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, PLAIN, DELTA_BYTE_ARRAY, WRITE_UUID, assertUuid()),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, PLAIN, DELTA_BYTE_ARRAY, WRITE_UUID, assertUuid()),
                 // Trino type precision is irrelevant since the data is always stored as picoseconds
-                new ColumnReaderFormat<>(INT32, timeType(false, MILLIS), TIME_MILLIS, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertTime(TIME_MICROS, 9)),
-                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(TIME_MICROS, 6)),
+                new ColumnReaderFormat<>(INT32, timeType(false, MILLIS), TIME_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_INT, assertTime(TIME_MICROS, 9)),
+                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TIME_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, assertTime(TIME_MICROS, 6)),
                 // Reading a column TimeLogicalTypeAnnotation as a BIGINT
-                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
                 // Short decimals
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
                 // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer
-                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 8), TINYINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_BYTE, ASSERT_BYTE),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_INT),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_SHORT),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 8), TINYINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_BYTE),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), BIGINT, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), INTEGER, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_INT),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), SMALLINT, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_SHORT),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), TINYINT, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_BYTE),
-                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_LONG),
-                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_INT),
-                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_SHORT),
-                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), TINYINT, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_DECIMAL, ASSERT_BYTE),
+                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN, DELTA_BINARY_PACKED, WRITE_INT, ASSERT_INT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN, DELTA_BINARY_PACKED, WRITE_SHORT, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 8), TINYINT, PLAIN, DELTA_BINARY_PACKED, WRITE_BYTE, ASSERT_BYTE),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 8), createDecimalType(8), PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 8), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 8), INTEGER, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_INT),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 8), SMALLINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 8), TINYINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_BYTE),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_LONG),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), BIGINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_LONG),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), INTEGER, PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_INT),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), SMALLINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_SHORT),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), TINYINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, ASSERT_BYTE),
+                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), createDecimalType(8), PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_DECIMAL, ASSERT_LONG),
+                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), BIGINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_DECIMAL, ASSERT_LONG),
+                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), INTEGER, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_DECIMAL, ASSERT_INT),
+                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), SMALLINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_DECIMAL, ASSERT_SHORT),
+                new ColumnReaderFormat<>(BINARY, decimalType(0, 8), TINYINT, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_DECIMAL, ASSERT_BYTE),
                 // Long decimals
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
-                new ColumnReaderFormat<>(BINARY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY_LONG_DECIMAL, new Int128Assertion(createDecimalType(38, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN, DELTA_BYTE_ARRAY, writeLongDecimal(16), new Int128Assertion(createDecimalType(38, 2))),
+                new ColumnReaderFormat<>(BINARY, 16, decimalType(2, 38), createDecimalType(38, 2), PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY_LONG_DECIMAL, new Int128Assertion(createDecimalType(38, 2))),
                 // Rescaled decimals
-                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(8, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertShortDecimal(createDecimalType(8, 1))),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(8, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertShortDecimal(createDecimalType(8, 2))),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(8, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertShortDecimal(createDecimalType(8, 3))),
-                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(30, 1), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, assertLongDecimal(createDecimalType(30, 1))),
-                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(30, 2), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertLongDecimal(createDecimalType(30, 2))),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(30, 3), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, assertLongDecimal(createDecimalType(30, 3))),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(8, 1), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongToShortRescaled(createDecimalType(8, 1))),
-                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(37, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), assertLongRescaled(createDecimalType(37, 2))),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(8, 1), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, assertShortDecimal(createDecimalType(8, 1))),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(8, 2), PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, assertShortDecimal(createDecimalType(8, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(8, 3), PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, assertShortDecimal(createDecimalType(8, 3))),
+                new ColumnReaderFormat<>(INT32, decimalType(0, 7), createDecimalType(30, 1), PLAIN, DELTA_BINARY_PACKED, WRITE_INT, assertLongDecimal(createDecimalType(30, 1))),
+                new ColumnReaderFormat<>(INT64, decimalType(0, 7), createDecimalType(30, 2), PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, assertLongDecimal(createDecimalType(30, 2))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 7), createDecimalType(30, 3), PLAIN, DELTA_BYTE_ARRAY, WRITE_SHORT_DECIMAL, assertLongDecimal(createDecimalType(30, 3))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(8, 1), PLAIN, DELTA_BYTE_ARRAY, writeLongDecimal(16), assertLongToShortRescaled(createDecimalType(8, 1))),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(0, 38), createDecimalType(37, 2), PLAIN, DELTA_BYTE_ARRAY, writeLongDecimal(16), assertLongRescaled(createDecimalType(37, 2))),
                 // Timestamps.
                 //  The `precision` and `rounding` arguments at the end of every assertion may be difficult to understand. They are a direct
                 // consequence of various Trino timestamp representations.
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MILLIS, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_PICOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(9)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(0)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-3, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3, 6)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-6, 3)),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(3)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(6)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(3)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampWithTimeZoneMillis()),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(6)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(9)),
-                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_PICOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertInt96LongTimestampWithTimeZone(12)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MILLIS, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_PICOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampNanos(9)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), TIMESTAMP_TZ_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(0)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_MICROS, 0)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_NANOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampNanos(6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-3, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), TIMESTAMP_TZ_NANOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3, 6)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MICROS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampNanos(3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_MILLIS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-6, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_NANOS, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(3)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MILLIS, PLAIN, PLAIN, WRITE_INT96, assertTimestampMicros(6)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MICROS, PLAIN, PLAIN, WRITE_INT96, assertTimestampMicros(3)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, PLAIN, PLAIN, WRITE_INT96, assertTimestampNanos()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_PICOS, PLAIN, PLAIN, WRITE_INT96, assertTimestampNanos()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MILLIS, PLAIN, PLAIN, WRITE_INT96, assertTimestampWithTimeZoneMillis()),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_MICROS, PLAIN, PLAIN, WRITE_INT96, assertInt96LongTimestampWithTimeZone(6)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_NANOS, PLAIN, PLAIN, WRITE_INT96, assertInt96LongTimestampWithTimeZone(9)),
+                new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_TZ_PICOS, PLAIN, PLAIN, WRITE_INT96, assertInt96LongTimestampWithTimeZone(12)),
                 // timestamps read as bigint
-                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
         };
     }
 
@@ -836,33 +813,32 @@ public class TestingColumnReader
         @Nullable
         private final LogicalTypeAnnotation logicalTypeAnnotation;
         private final Type trinoType;
-        private final IntFunction<ValuesWriter> plainWriterProvider;
-        @Nullable
-        private final IntFunction<DictionaryValuesWriter> dictionaryWriterProvider;
+        private final ParquetEncoding v1Encoding;
+        private final ParquetEncoding v2Encoding;
         private final Writer<T> writerFunction;
         private final Assertion<T> assertion;
 
         public ColumnReaderFormat(
                 PrimitiveTypeName typeName,
                 Type trinoType,
-                IntFunction<ValuesWriter> plainWriterProvider,
-                @Nullable IntFunction<DictionaryValuesWriter> dictionaryWriterProvider,
+                ParquetEncoding v1Encoding,
+                ParquetEncoding v2Encoding,
                 Writer<T> writerFunction,
                 Assertion<T> assertion)
         {
-            this(typeName, null, trinoType, plainWriterProvider, dictionaryWriterProvider, writerFunction, assertion);
+            this(typeName, -1, null, trinoType, v1Encoding, v2Encoding, writerFunction, assertion);
         }
 
         public ColumnReaderFormat(
                 PrimitiveTypeName typeName,
                 @Nullable LogicalTypeAnnotation logicalTypeAnnotation,
                 Type trinoType,
-                IntFunction<ValuesWriter> plainWriterProvider,
-                @Nullable IntFunction<DictionaryValuesWriter> dictionaryWriterProvider,
+                ParquetEncoding v1Encoding,
+                ParquetEncoding v2Encoding,
                 Writer<T> writerFunction,
                 Assertion<T> assertion)
         {
-            this(typeName, -1, logicalTypeAnnotation, trinoType, plainWriterProvider, dictionaryWriterProvider, writerFunction, assertion);
+            this(typeName, -1, logicalTypeAnnotation, trinoType, v1Encoding, v2Encoding, writerFunction, assertion);
         }
 
         public ColumnReaderFormat(
@@ -870,8 +846,8 @@ public class TestingColumnReader
                 int typeLengthInBytes,
                 @Nullable LogicalTypeAnnotation logicalTypeAnnotation,
                 Type trinoType,
-                IntFunction<ValuesWriter> plainWriterProvider,
-                @Nullable IntFunction<DictionaryValuesWriter> dictionaryWriterProvider,
+                ParquetEncoding v1Encoding,
+                ParquetEncoding v2Encoding,
                 Writer<T> writerFunction,
                 Assertion<T> assertion)
         {
@@ -879,8 +855,8 @@ public class TestingColumnReader
             this.typeLengthInBytes = typeLengthInBytes;
             this.logicalTypeAnnotation = logicalTypeAnnotation;
             this.trinoType = requireNonNull(trinoType, "trinoType is null");
-            this.plainWriterProvider = requireNonNull(plainWriterProvider, "plainWriterSupplier is null");
-            this.dictionaryWriterProvider = dictionaryWriterProvider;
+            this.v1Encoding = requireNonNull(v1Encoding, "v1Encoding is null");
+            this.v2Encoding = requireNonNull(v2Encoding, "v2Encoding is null");
             this.writerFunction = requireNonNull(writerFunction, "writerFunction is null");
             this.assertion = requireNonNull(assertion, "assertion is null");
         }
@@ -888,6 +864,11 @@ public class TestingColumnReader
         public PrimitiveTypeName getTypeName()
         {
             return typeName;
+        }
+
+        public boolean hasDictionarySupport()
+        {
+            return typeName != PrimitiveTypeName.BOOLEAN;
         }
 
         public int getTypeLengthInBytes()
@@ -906,14 +887,18 @@ public class TestingColumnReader
             return trinoType;
         }
 
-        public ValuesWriter getPlainWriter()
+        public ValuesWriter getValuesWriter(DataPageVersion version)
         {
-            return plainWriterProvider.apply(typeLengthInBytes);
+            ParquetEncoding encoding = version == DataPageVersion.V2 ? v2Encoding : v1Encoding;
+            return TestingValuesWriters.getValuesWriter(encoding, typeName, typeLengthInBytes < 0 ? OptionalInt.empty() : OptionalInt.of(typeLengthInBytes));
         }
 
         public DictionaryValuesWriter getDictionaryWriter()
         {
-            return requireNonNull(dictionaryWriterProvider, "dictionaryWriterProvider is null").apply(typeLengthInBytes);
+            return (DictionaryValuesWriter) TestingValuesWriters.getValuesWriter(
+                    RLE_DICTIONARY,
+                    typeName,
+                    typeLengthInBytes < 0 ? OptionalInt.empty() : OptionalInt.of(typeLengthInBytes));
         }
 
         @Override
