@@ -49,11 +49,21 @@ public class TestIcebergInputInfo
     }
 
     @Test
+    public void testEmptyTable()
+    {
+        String tableName = "test_input_info_empty_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(nationkey BIGINT, name VARCHAR, regionkey BIGINT)");
+        // trino generates an empty snapshot if creating a table with no data
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1, 0, 0, 0, 0);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testInputWithPartitioning()
     {
         String tableName = "test_input_info_with_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of("regionkey: identity", "name_trunc: truncate[1]"), "PARQUET", 9, 0, 0);
+        assertInputInfo(tableName, ImmutableList.of("regionkey: identity", "name_trunc: truncate[1]"), "PARQUET", 1, 10, 9, 0, 0);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -62,7 +72,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_without_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1, 0, 0);
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1, 10, 1, 0, 0);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -71,7 +81,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_with_orc_file_format_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of(), "ORC", 1, 0, 0);
+        assertInputInfo(tableName, ImmutableList.of(), "ORC", 1, 10, 1, 0, 0);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -82,7 +92,7 @@ public class TestIcebergInputInfo
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 1", 1);
 
-        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1, 1, 0);
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 2, 10, 1, 1, 0);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -97,12 +107,12 @@ public class TestIcebergInputInfo
         BaseTable table = loadTable(tableName, getHiveMetastore(getQueryRunner()), fileSystemFactory, "iceberg", "tpch");
         writeEqualityDeleteForTable(table, fileSystemFactory, Optional.empty(), Optional.empty(), ImmutableMap.of("nationkey", 1L), Optional.empty());
 
-        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1, 0, 1);
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 2, 10, 1, 0, 1);
 
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void assertInputInfo(String tableName, List<String> partitionFields, String expectedFileFormat, long dataFiles, long positionDeleteFiles, long equalityDeleteFiles)
+    private void assertInputInfo(String tableName, List<String> partitionFields, String expectedFileFormat, long totalSnapshots, long totalRecords, long dataFiles, long positionDeleteFiles, long equalityDeleteFiles)
     {
         inTransaction(session -> {
             Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
@@ -120,7 +130,8 @@ public class TestIcebergInputInfo
                     icebergInputInfo.snapshotId(),
                     partitionFields,
                     expectedFileFormat,
-                    Optional.of("10"),
+                    String.valueOf(totalSnapshots),
+                    Optional.of(String.valueOf(totalRecords)),
                     Optional.empty(),
                     Optional.of(String.valueOf(dataFiles)),
                     Optional.of(String.valueOf(positionDeleteFiles + equalityDeleteFiles)),

@@ -2745,9 +2745,11 @@ public class IcebergMetadata
                         .collect(toImmutableList()) : ImmutableList.of();
 
         Map<String, String> summary = ImmutableMap.of();
+        long totalSnapshots = 0;
         if (icebergTableHandle.getSnapshotId().isPresent()) {
             Table table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
             summary = table.snapshot(icebergTableHandle.getSnapshotId().getAsLong()).summary();
+            totalSnapshots = Iterables.size(table.snapshots());
         }
         Optional<String> totalRecords = Optional.ofNullable(summary.get(TOTAL_RECORDS_PROP));
         Optional<String> deletedRecords = Optional.ofNullable(summary.get(DELETED_RECORDS_PROP));
@@ -2761,6 +2763,7 @@ public class IcebergMetadata
                 icebergTableHandle.getSnapshotId(),
                 partitionFields,
                 getFileFormat(icebergTableHandle.getStorageProperties()).name(),
+                String.valueOf(totalSnapshots),
                 totalRecords,
                 deletedRecords,
                 totalDataFiles,

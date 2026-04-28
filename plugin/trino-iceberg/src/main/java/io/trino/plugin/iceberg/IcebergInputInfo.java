@@ -26,6 +26,7 @@ public record IcebergInputInfo(
         OptionalLong snapshotId,
         List<String> partitionFields,
         String tableDefaultFileFormat,
+        String totalSnapshots,
         Optional<String> totalRecords,
         Optional<String> deletedRecords,
         Optional<String> totalDataFiles,
@@ -38,6 +39,7 @@ public record IcebergInputInfo(
         requireNonNull(snapshotId, "snapshotId is null");
         partitionFields = ImmutableList.copyOf(partitionFields);
         requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
+        requireNonNull(totalSnapshots, "totalSnapshots is null");
         requireNonNull(totalRecords, "totalRecords is null");
         requireNonNull(deletedRecords, "deletedRecords is null");
         requireNonNull(totalDataFiles, "totalDataFiles is null");
