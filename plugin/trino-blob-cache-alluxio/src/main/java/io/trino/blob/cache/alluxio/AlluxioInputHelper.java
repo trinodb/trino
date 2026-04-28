@@ -19,6 +19,8 @@ import alluxio.client.file.cache.CacheManager;
 import alluxio.client.file.cache.PageId;
 import alluxio.conf.AlluxioConfiguration;
 import alluxio.conf.PropertyKey;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 import com.google.common.primitives.Ints;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -37,12 +39,15 @@ import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 // Inspired by https://github.com/Alluxio/alluxio/blob/4e39eda0305a0042edaeae649b503b4508623619/dora/core/client/fs/src/main/java/alluxio/client/file/cache/LocalCacheFileInStream.java#L50
 // We implement a variant of this class to enable positioned reads
 public class AlluxioInputHelper
 {
+    private static final HashFunction HASH = Hashing.murmur3_128();
+
     private final Tracer tracer;
     private final URIStatus status;
     private final String cacheKey;
@@ -80,6 +85,11 @@ public class AlluxioInputHelper
         this.bufferSize = pageSize;
         this.readBuffer = new byte[bufferSize];
         this.cacheReadBytes = new AtomicLong();
+    }
+
+    public int pageSize()
+    {
+        return pageSize;
     }
 
     public int doCacheRead(long position, byte[] bytes, int offset, int length)
@@ -175,6 +185,55 @@ public class AlluxioInputHelper
         bufferStartPosition = pageOffset + (pageId.getPageIndex() * pageSize);
         bufferEndPosition = bufferStartPosition + bytesRead;
         return bytesRead;
+    }
+
+    /**
+     * Try to serve a tail-anchored read from cache. Tail bytes are stored under a separate
+     * cache identifier scoped to (file, length) so they do not collide with body pages — and so
+     * they remain valid when the blob's reported length differs from the storage object.
+     * Returns the number of bytes read; 0 indicates a miss and the caller must populate.
+     */
+    public int doTailCacheRead(byte[] buffer, int offset, int length)
+    {
+        if (length == 0 || length > pageSize) {
+            return 0;
+        }
+        Span span = tracer.spanBuilder("Alluxio.readCachedTail")
+                .setAttribute(CACHE_KEY, cacheKey)
+                .setAttribute(CACHE_FILE_LOCATION, location)
+                .setAttribute(CACHE_FILE_READ_SIZE, (long) length)
+                .startSpan();
+        return withTracing(span, () -> {
+            int bytesRead = cacheManager.get(tailPageId(length), 0, length, buffer, offset, status.getCacheContext());
+            int read = max(bytesRead, 0);
+            statistics.recordCacheRead(read);
+            cacheReadBytes.addAndGet(read);
+            return read;
+        });
+    }
+
+    /**
+     * Store a tail-anchored read in the cache under the (file, length) tail identifier.
+     */
+    public void putTailCache(byte[] buffer, int offset, int length)
+    {
+        if (length == 0 || length > pageSize) {
+            return;
+        }
+        Span span = tracer.spanBuilder("Alluxio.writeCacheTail")
+                .setAttribute(CACHE_KEY, cacheKey)
+                .setAttribute(CACHE_FILE_LOCATION, location)
+                .setAttribute(CACHE_FILE_WRITE_SIZE, (long) length)
+                .startSpan();
+        withTracing(span, () -> cacheManager.put(tailPageId(length), ByteBuffer.wrap(buffer, offset, length)));
+    }
+
+    private PageId tailPageId(int length)
+    {
+        // Hash the user-visible cache key plus the tail length so distinct lengths land in
+        // distinct cache entries. The original cacheContext is reused for metrics/eviction.
+        String identifier = HASH.hashString(cacheKey + ":tail:" + length, UTF_8).toString();
+        return new PageId(identifier, 0);
     }
 
     public record PageAlignedRead(long pageStart, long pageEnd, int pageOffset)

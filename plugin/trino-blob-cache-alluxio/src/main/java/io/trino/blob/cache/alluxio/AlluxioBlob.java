@@ -23,6 +23,8 @@ import io.trino.spi.cache.BlobSource;
 import java.io.EOFException;
 import java.io.IOException;
 
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
@@ -74,6 +76,38 @@ final class AlluxioBlob
 
         int bytesRead = helper.doCacheRead(position, buffer, offset, bufferLength);
         doExternalRead(position + bytesRead, buffer, offset + bytesRead, bufferLength - bytesRead);
+    }
+
+    @Override
+    public int readTail(byte[] buffer, int offset, int bufferLength)
+            throws IOException
+    {
+        checkFromIndexSize(offset, bufferLength, buffer.length);
+        if (bufferLength == 0) {
+            return 0;
+        }
+        if (bufferLength > helper.pageSize()) {
+            // Tails larger than a cache page (e.g. whole-file reads of ORC files below the
+            // tiny-stripe threshold) are served through the page cache as a positioned read
+            // anchored at the reported length, so the pages are populated and reused.
+            int readSize = toIntExact(min(bufferLength, length));
+            readFully(length - readSize, buffer, offset, readSize);
+            return readSize;
+        }
+        // Tail bytes are cached under a separate (file, length)-scoped identifier so the lookup
+        // is independent of the blob's reported length — which may not match the storage object.
+        int cached = helper.doTailCacheRead(buffer, offset, bufferLength);
+        if (cached == bufferLength) {
+            return cached;
+        }
+        int read = delegate.readTail(buffer, offset, bufferLength);
+        statistics.recordExternalRead(read);
+        if (read == bufferLength) {
+            // A short read means the storage object holds fewer bytes than the reported length;
+            // skip caching so a lookup scoped to (key, length) never sees a partial entry.
+            helper.putTailCache(buffer, offset, read);
+        }
+        return read;
     }
 
     private void doExternalRead(long position, byte[] buffer, int offset, int bufferLength)

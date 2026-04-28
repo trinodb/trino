@@ -95,9 +95,9 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("Input.readFully", DATA), 2)
-                        .addCopies(new CacheOperation("Alluxio.readCached", DATA), 2)
-                        .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 2)
+                        .addCopies(new CacheOperation("Input.readTail", DATA), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCachedTail", DATA), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCacheTail", DATA), 2)
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("Alluxio.readCached", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
@@ -110,7 +110,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("Alluxio.readCached", DATA), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCachedTail", DATA), 2)
                         .add(new CacheOperation("Alluxio.readCached", METADATA_JSON))
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
@@ -125,9 +125,9 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("Input.readFully", DATA), 3)
-                        .addCopies(new CacheOperation("Alluxio.readCached", DATA), 5)
-                        .addCopies(new CacheOperation("Alluxio.writeCache", DATA), 3)
+                        .addCopies(new CacheOperation("Input.readTail", DATA), 3)
+                        .addCopies(new CacheOperation("Alluxio.readCachedTail", DATA), 5)
+                        .addCopies(new CacheOperation("Alluxio.writeCacheTail", DATA), 3)
                         .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .addCopies(new CacheOperation("Alluxio.readCached", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
@@ -139,7 +139,7 @@ public class TestIcebergAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("Alluxio.readCached", DATA), 5)
+                        .addCopies(new CacheOperation("Alluxio.readCachedTail", DATA), 5)
                         .addCopies(new CacheOperation("Alluxio.readCached", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", MANIFEST), 10)

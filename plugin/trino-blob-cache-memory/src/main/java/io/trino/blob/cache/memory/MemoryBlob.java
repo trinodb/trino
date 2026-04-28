@@ -48,8 +48,11 @@ final class MemoryBlob
         if (position < 0) {
             throw new IOException("Negative seek offset");
         }
-        if (position + length > data.length()) {
-            throw new EOFException("Cannot read %s bytes at %s. Blob size is %s".formatted(length, position, data.length()));
+        // Check bounds without summing position + length (which can overflow long for huge positions)
+        // and so that toIntExact below sees an in-range value rather than throwing ArithmeticException.
+        long blobSize = data.length();
+        if (position > blobSize - length) {
+            throw new EOFException("Cannot read %s bytes at %s. Blob size is %s".formatted(length, position, blobSize));
         }
         data.getBytes(toIntExact(position), buffer, offset, length);
     }

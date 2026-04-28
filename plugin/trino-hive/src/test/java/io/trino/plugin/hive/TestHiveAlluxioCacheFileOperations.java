@@ -83,18 +83,18 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
-                        .add(new CacheOperation("Input.readFully", "key=p1/"))
-                        .add(new CacheOperation("Input.readFully", "key=p2/"))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/"))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p2/"))
+                        .add(new CacheOperation("Input.readTail", "key=p1/"))
+                        .add(new CacheOperation("Input.readTail", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.writeCacheTail", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.writeCacheTail", "key=p2/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p2/"))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('3-xyz', 'p3')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('4-xyz', 'p4')", 1);
@@ -102,26 +102,26 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/"))
-                        .add(new CacheOperation("Input.readFully", "key=p3/"))
-                        .add(new CacheOperation("Input.readFully", "key=p4/"))
-                        .add(new CacheOperation("Input.readFully", "key=p5/"))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/"))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/"))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p5/"))
+                        .add(new CacheOperation("Input.readTail", "key=p3/"))
+                        .add(new CacheOperation("Input.readTail", "key=p4/"))
+                        .add(new CacheOperation("Input.readTail", "key=p5/"))
+                        .add(new CacheOperation("Alluxio.writeCacheTail", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.writeCacheTail", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.writeCacheTail", "key=p5/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/"))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p1/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p2/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p3/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p4/"))
+                        .add(new CacheOperation("Alluxio.readCachedTail", "key=p5/"))
                         .build());
     }
 
