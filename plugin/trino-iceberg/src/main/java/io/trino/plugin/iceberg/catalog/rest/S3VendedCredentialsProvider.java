@@ -48,7 +48,7 @@ final class S3VendedCredentialsProvider
     {
         Credential s3Credential = credentials.stream()
                 .filter(c -> c.prefix().startsWith("s3"))
-                .reduce((a, b) -> {
+                .reduce((_, _) -> {
                     throw new IllegalStateException("Multiple S3 credentials returned");
                 })
                 .orElseThrow(() -> new IllegalStateException("No S3 credentials in refresh response"));
