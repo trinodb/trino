@@ -22,7 +22,9 @@ import org.testcontainers.containers.BindMode;
 import java.time.Duration;
 import java.util.List;
 
+import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 
 public class KafkaSsl
         implements EnvironmentExtender
@@ -57,7 +59,8 @@ public class KafkaSsl
                 .withEnv("KAFKA_SSL_CLIENT_AUTH", "required")
                 .withEnv("KAFKA_SECURITY_INTER_BROKER_PROTOCOL", "SSL")
                 .withEnv("KAFKA_SECURITY_PROTOCOL", "SSL")
-                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/etc/kafka/secrets", BindMode.READ_ONLY));
+                .withClasspathResourceMapping("docker/trino-product-tests/conf/environment/multinode-kafka-ssl/secrets", "/etc/kafka/secrets", BindMode.READ_ONLY)
+                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*Transitioning from RECOVERY to RUNNING.*", 1)));
         builder.configureContainer(Kafka.SCHEMA_REGISTRY, container -> container
                 .withStartupAttempts(3)
                 .withStartupTimeout(Duration.ofMinutes(5))
