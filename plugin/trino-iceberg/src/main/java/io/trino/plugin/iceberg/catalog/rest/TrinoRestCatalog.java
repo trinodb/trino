@@ -130,6 +130,7 @@ public class TrinoRestCatalog
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final boolean viewEndpointsEnabled;
+    private final boolean dropWithPurgeByCatalogEnabled;
 
     private final Cache<SchemaTableName, BaseTable> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -149,7 +150,8 @@ public class TrinoRestCatalog
             boolean caseInsensitiveNameMatching,
             Cache<Namespace, Namespace> remoteNamespaceMappingCache,
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
-            boolean viewEndpointsEnabled)
+            boolean viewEndpointsEnabled,
+            boolean dropWithPurgeByCatalogEnabled)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
@@ -165,6 +167,7 @@ public class TrinoRestCatalog
         this.remoteNamespaceMappingCache = requireNonNull(remoteNamespaceMappingCache, "remoteNamespaceMappingCache is null");
         this.remoteTableMappingCache = requireNonNull(remoteTableMappingCache, "remoteTableMappingCache is null");
         this.viewEndpointsEnabled = viewEndpointsEnabled;
+        this.dropWithPurgeByCatalogEnabled = dropWithPurgeByCatalogEnabled;
     }
 
     @Override
@@ -484,8 +487,8 @@ public class TrinoRestCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        if (security == Security.GOOGLE) {
-            purgeBigLakeTable(session, schemaTableName);
+        if (security == Security.GOOGLE || !dropWithPurgeByCatalogEnabled) {
+            purgeTableInternally(session, schemaTableName);
         }
         else {
             purgeTable(session, schemaTableName);
@@ -494,7 +497,7 @@ public class TrinoRestCatalog
         invalidateTableMappingCache(schemaTableName);
     }
 
-    private void purgeBigLakeTable(ConnectorSession session, SchemaTableName schemaTableName)
+    private void purgeTableInternally(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = loadTable(session, schemaTableName);
         unregisterTable(session, schemaTableName);

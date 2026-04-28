@@ -62,6 +62,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
+    private final boolean dropWithPurgeByCatalogEnabled;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -101,6 +102,7 @@ public class TrinoIcebergRestCatalogFactory
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
+        this.dropWithPurgeByCatalogEnabled = restConfig.isDropWithPurgeByCatalogEnabled();
     }
 
     @Override
@@ -143,6 +145,7 @@ public class TrinoIcebergRestCatalogFactory
                 caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
                 remoteTableMappingCache,
-                viewEndpointsEnabled);
+                viewEndpointsEnabled,
+                dropWithPurgeByCatalogEnabled);
     }
 }
