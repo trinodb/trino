@@ -192,6 +192,32 @@ class TestEmulatedListFilesStartingFromIterator
     }
 
     @Test
+    void testListFilesStartingFromHierarchicalLocationNormalization()
+            throws IOException
+    {
+        // FS canonicalizes `//` to `/`; iterator falls back to slash-collapsed prefix.
+        assertThat(listFilesStartingFrom(
+                Location.of("abfs://container@account.dfs.core.windows.net/dir//sub/_delta_log/"),
+                "00000000000000000000",
+                List.of(
+                        entry("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000000.json"),
+                        entry("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000001.checkpoint.parquet"))))
+                .containsExactly(
+                        Location.of("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000000.json"),
+                        Location.of("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000001.checkpoint.parquet"));
+
+        // startingFrom filtering still applies to the slash-collapsed remainder.
+        assertThat(listFilesStartingFrom(
+                Location.of("abfs://container@account.dfs.core.windows.net/dir//sub/_delta_log/"),
+                "00000000000000000001",
+                List.of(
+                        entry("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000000.json"),
+                        entry("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000001.checkpoint.parquet"))))
+                .containsExactly(
+                        Location.of("abfs://container@account.dfs.core.windows.net/dir/sub/_delta_log/00000000000000000001.checkpoint.parquet"));
+    }
+
+    @Test
     void testListFilesStartingFromIncludesAllNonAsciiFilenames()
             throws IOException
     {
