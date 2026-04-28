@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -99,7 +98,7 @@ public class TestMemoryBlocking
         List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
@@ -107,7 +106,6 @@ public class TestMemoryBlocking
                         .addSequencePage(10, 1)
                         .build()),
                 TEST_TABLE_HANDLE,
-                Optional.empty(),
                 ImmutableList.of());
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);

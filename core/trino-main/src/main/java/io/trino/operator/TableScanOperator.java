@@ -23,7 +23,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -57,7 +56,6 @@ public class TableScanOperator
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
-        private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
         private final List<Type> columnTypes;
         private boolean closed;
@@ -68,7 +66,6 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
-                Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
                 List<Type> columnTypes)
         {
@@ -76,7 +73,6 @@ public class TableScanOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
-            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
@@ -99,7 +95,6 @@ public class TableScanOperator
                     sourceId,
                     pageSourceProvider,
                     table,
-                    tableCredentials,
                     columns);
 
             if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
@@ -122,7 +117,6 @@ public class TableScanOperator
     private final PlanNodeId sourceId;
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
-    private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext memoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
@@ -143,14 +137,12 @@ public class TableScanOperator
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
-        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
     }
@@ -268,7 +260,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, DynamicFilter.EMPTY);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();

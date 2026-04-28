@@ -597,7 +597,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 getSession(icebergConfig),
                 split,
                 tableHandle.connectorHandle(),
-                Optional.empty(),
                 columns,
                 dynamicFilter);
     }

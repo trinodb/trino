@@ -595,9 +595,8 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _) -> pageSource,
+                    _ -> (_, _, _, _, _) -> pageSource,
                     TEST_TABLE_HANDLE,
-                    Optional.empty(),
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     types);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
@@ -618,10 +617,9 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _) -> pageSource,
+                    _ -> (_, _, _, _, _) -> pageSource,
                     _ -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
-                    Optional.empty(),
                     columns.stream().map(ColumnHandle.class::cast).collect(toList()),
                     DynamicFilter.EMPTY,
                     types,

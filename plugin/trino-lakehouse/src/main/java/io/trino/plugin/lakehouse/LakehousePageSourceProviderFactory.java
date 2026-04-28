@@ -29,13 +29,11 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -75,7 +73,6 @@ public class LakehousePageSourceProviderFactory
                     ConnectorSession session,
                     ConnectorSplit split,
                     ConnectorTableHandle table,
-                    Optional<ConnectorTableCredentials> tableCredentials,
                     List<ColumnHandle> columns,
                     DynamicFilter dynamicFilter)
             {
@@ -86,7 +83,7 @@ public class LakehousePageSourceProviderFactory
                         }
                     }
                 }
-                return delegate.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter);
+                return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
             }
 
             @Override

@@ -32,7 +32,6 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -90,7 +89,6 @@ public class ScanFilterAndProjectOperator
             PageSourceProvider pageSourceProvider,
             PageProcessor pageProcessor,
             TableHandle table,
-            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter,
             List<Type> types,
@@ -105,7 +103,6 @@ public class ScanFilterAndProjectOperator
                         pageSourceProvider,
                         pageProcessor,
                         table,
-                        tableCredentials,
                         columns,
                         dynamicFilter,
                         types,
@@ -190,7 +187,6 @@ public class ScanFilterAndProjectOperator
         final PageSourceProvider pageSourceProvider;
         final PageProcessor pageProcessor;
         final TableHandle table;
-        final Optional<ConnectorTableCredentials> tableCredentials;
         final List<ColumnHandle> columns;
         final DynamicFilter dynamicFilter;
         final List<Type> types;
@@ -207,7 +203,6 @@ public class ScanFilterAndProjectOperator
                 PageSourceProvider pageSourceProvider,
                 PageProcessor pageProcessor,
                 TableHandle table,
-                Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
                 List<Type> types,
@@ -220,7 +215,6 @@ public class ScanFilterAndProjectOperator
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.table = requireNonNull(table, "table is null");
-            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -251,7 +245,7 @@ public class ScanFilterAndProjectOperator
                 source = new EmptyPageSource();
             }
             else {
-                source = pageSourceProvider.createPageSource(session, split, table, tableCredentials, columns, dynamicFilter);
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             }
 
             pageSource = source;
@@ -365,7 +359,6 @@ public class ScanFilterAndProjectOperator
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
-        private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
         private final DynamicFilter dynamicFilter;
         private final List<Type> types;
@@ -380,7 +373,6 @@ public class ScanFilterAndProjectOperator
                 PageSourceProviderFactory pageSourceProvider,
                 Function<DynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
-                Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
                 List<Type> types,
@@ -392,7 +384,6 @@ public class ScanFilterAndProjectOperator
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
-            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
@@ -457,7 +448,6 @@ public class ScanFilterAndProjectOperator
                     pageSourceProvider,
                     pageProcessor.apply(dynamicFilter),
                     table,
-                    tableCredentials,
                     columns,
                     dynamicFilter,
                     types,

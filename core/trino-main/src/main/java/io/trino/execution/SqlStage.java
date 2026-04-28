@@ -28,7 +28,6 @@ import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableFunctionHandle;
-import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.metrics.Metrics;
@@ -43,7 +42,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.HashSet;
@@ -496,14 +494,6 @@ public final class SqlStage
                         extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
                 default -> throw new IllegalArgumentException("Unsupported table writer node: " + node.getClass().getSimpleName());
             }
-            return null;
-        }
-
-        @Override
-        public Void visitTableScan(TableScanNode node, Void context)
-        {
-            TableHandle table = node.getTable();
-            extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
             return null;
         }
 

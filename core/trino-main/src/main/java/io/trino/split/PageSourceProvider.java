@@ -18,11 +18,9 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface PageSourceProvider
 {
@@ -30,7 +28,6 @@ public interface PageSourceProvider
             Session session,
             Split split,
             TableHandle table,
-            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
 
