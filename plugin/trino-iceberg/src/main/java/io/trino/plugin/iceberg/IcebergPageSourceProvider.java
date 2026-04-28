@@ -181,7 +181,6 @@ import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredica
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
@@ -259,9 +258,10 @@ public class IcebergPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
+            Map<String, String> fileIoProperties = filesTableSplit.tableCredentials().fileIoProperties();
             return new FilesTablePageSource(
                     typeManager,
-                    fileSystemFactory.create(session.getIdentity(), getFileIoProperties(connectorTableCredentials)),
+                    fileSystemFactory.create(session.getIdentity(), fileIoProperties),
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
@@ -295,7 +295,7 @@ public class IcebergPageSourceProvider
                 split.fileSize(),
                 split.fileRecordCount(),
                 split.fileFormat(),
-                getFileIoProperties(connectorTableCredentials),
+                split.tableCredentials().fileIoProperties(),
                 split.dataSequenceNumber(),
                 split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));

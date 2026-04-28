@@ -746,7 +746,8 @@ public class IcebergSplitSource
                 taskWithDomain.fileStatisticsDomain(),
                 affinityKey,
                 task.file().dataSequenceNumber(),
-                task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
+                task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()),
+                new IcebergTableCredentials(fileIoProperties));
     }
 
     private static List<Block> getPartitionBlockValues(FileScanTask task, TypeManager typeManager)

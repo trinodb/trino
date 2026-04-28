@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.system.files;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.type.Type;
@@ -67,13 +68,15 @@ public final class FilesTableSplitSource
         List<ConnectorSplit> splits = new ArrayList<>();
 
         try (FileIO fileIO = icebergTable.io()) {
+            Map<String, String> fileIoProperties = fileIO.properties();
             for (ManifestFile manifestFile : scan.snapshot().allManifests(fileIO)) {
                 splits.add(new FilesTableSplit(
                         TrinoManifestFile.from(manifestFile),
                         schemaJson,
                         metadataSchemaJson,
                         partitionSpecsByIdJson,
-                        partitionColumnType));
+                        partitionColumnType,
+                        new IcebergTableCredentials(fileIoProperties)));
             }
         }
 

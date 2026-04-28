@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.system.files;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
 
@@ -30,7 +31,8 @@ public record FilesTableSplit(
         String schemaJson,
         String metadataTableJson,
         Map<Integer, String> partitionSpecsByIdJson,
-        Optional<Type> partitionColumnType)
+        Optional<Type> partitionColumnType,
+        IcebergTableCredentials tableCredentials)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(FilesTableSplit.class);
@@ -42,6 +44,7 @@ public record FilesTableSplit(
         requireNonNull(metadataTableJson, "metadataTableJson is null");
         partitionSpecsByIdJson = ImmutableMap.copyOf(partitionSpecsByIdJson);
         requireNonNull(partitionColumnType, "partitionColumnType is null");
+        requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -52,6 +55,7 @@ public record FilesTableSplit(
                 + manifestFile.getRetainedSizeInBytes()
                 + estimatedSizeOf(schemaJson)
                 + estimatedSizeOf(metadataTableJson)
-                + estimatedSizeOf(partitionSpecsByIdJson, SizeOf::sizeOf, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(partitionSpecsByIdJson, SizeOf::sizeOf, SizeOf::estimatedSizeOf)
+                + tableCredentials.retainedSizeInBytes();
     }
 }

@@ -153,7 +153,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     0,
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    new IcebergTableCredentials(ImmutableMap.of()));
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -216,7 +217,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                     Optional.empty(),
                     0,
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    new IcebergTableCredentials(ImmutableMap.of()));
 
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
@@ -327,7 +329,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     0,
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    new IcebergTableCredentials(ImmutableMap.of()));
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -481,7 +484,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     TupleDomain.all(),
                     Optional.empty(),
                     0,
-                    OptionalLong.empty());
+                    OptionalLong.empty(),
+                    new IcebergTableCredentials(ImmutableMap.of()));
 
             String tablePath = inputFile.location().fileName();
             // Simulate the situation where `month` column is added at a later phase as partitioning column

@@ -14,14 +14,20 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+
 public record IcebergTableCredentials(Map<String, String> fileIoProperties)
         implements ConnectorTableCredentials
 {
+    private static final int INSTANCE_SIZE = instanceSize(IcebergTableCredentials.class);
+
     public IcebergTableCredentials
     {
         fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
@@ -30,5 +36,10 @@ public record IcebergTableCredentials(Map<String, String> fileIoProperties)
     public static IcebergTableCredentials forFileIO(FileIO io)
     {
         return new IcebergTableCredentials(io.properties());
+    }
+
+    public long retainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 }
