@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -100,11 +101,25 @@ public class AdbcDorisFlightSqlClient
                 return result;
             }
             catch (RuntimeException e) {
-                failures.add("%s:%s -> %s".formatted(feHost, flightSqlPort, e.getMessage()));
+                failures.add("%s:%s -> %s".formatted(feHost, flightSqlPort, exceptionMessage(e)));
             }
         }
 
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to open Doris Flight SQL stream: " + failures);
+    }
+
+    private static String exceptionMessage(Throwable throwable)
+    {
+        String message = throwable.getMessage();
+        Throwable rootCause = getCausalChain(throwable).getLast();
+        String rootCauseMessage = rootCause.getMessage();
+        if (rootCauseMessage == null || rootCauseMessage.isBlank() || rootCauseMessage.equals(message) || (message != null && message.contains(rootCauseMessage))) {
+            return message;
+        }
+        if (message == null || message.isBlank()) {
+            return rootCauseMessage;
+        }
+        return "%s: %s".formatted(message, rootCauseMessage);
     }
 
     private List<String> prioritizedFeHosts()
@@ -305,7 +320,7 @@ public class AdbcDorisFlightSqlClient
                 closeQuietly(connection);
                 closeQuietly(database);
                 closeQuietly(allocator);
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to initialize Doris Flight SQL executor", e);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to initialize Doris Flight SQL executor: " + exceptionMessage(e), e);
             }
         }
 
@@ -330,7 +345,7 @@ public class AdbcDorisFlightSqlClient
                 closeQuietly(queryResult);
                 closeQuietly(statement);
                 close();
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to execute Doris Flight SQL query", e);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to execute Doris Flight SQL query: " + exceptionMessage(e), e);
             }
         }
 

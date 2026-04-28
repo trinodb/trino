@@ -18,7 +18,8 @@ To connect to Doris, you need:
 
 - A Doris cluster with FE query planning and Arrow Flight SQL enabled.
 - Network access from the Trino coordinator and workers to Doris FE HTTP,
-  JDBC, and Flight SQL endpoints.
+  JDBC, and Flight SQL endpoints, and to the Doris BE Arrow Flight SQL
+  endpoints returned by Doris FE.
 - Doris credentials with permission to read metadata and query data.
 
 ## Connector architecture
@@ -31,6 +32,12 @@ The connector uses three Doris interfaces:
 - Doris FE JDBC from `doris.jdbc-url` for metadata lookup and, when needed,
   Arrow Flight SQL port discovery.
 - Doris Arrow Flight SQL for table reads.
+
+The value of `doris.flight-sql-port` identifies the Doris FE Arrow Flight SQL
+port. Doris BE nodes must also have Arrow Flight SQL enabled. During a Flight
+SQL query, Doris FE can return BE endpoints to the client, and the Trino
+coordinator and workers must be able to connect to those BE host and port
+values directly.
 
 If `doris.flight-sql-port` is not configured, the connector discovers the port
 from `SHOW FRONTENDS`.
@@ -88,6 +95,11 @@ The configuration properties are:
 
 If Flight SQL auto-discovery is not available in your Doris deployment, set
 `doris.flight-sql-port` explicitly.
+
+Configure Doris BE nodes with `arrow_flight_sql_port`. If the BE hosts reported
+by Doris are not directly reachable from Trino, configure Doris BE `public_host`
+and `arrow_flight_sql_proxy_port` according to the Doris Arrow Flight SQL
+deployment requirements.
 
 If your Doris FE HTTP service is exposed over TLS, set `doris.fenodes` with
 explicit `https://` endpoints.
@@ -242,6 +254,23 @@ evaluation, aggregation, `LIMIT`, and `ORDER BY ... LIMIT` execute in Trino
 instead of being pushed into Doris by the connector.
 
 Join pushdown and passthrough SQL are not supported.
+
+## Troubleshooting
+
+Use `SHOW FRONTENDS` and `SHOW BACKENDS` in Doris to inspect the Arrow Flight
+SQL ports that Doris reports.
+
+If a query fails with a message similar to `be arrow_flight_sql_port cannot be
+empty`, verify that every Doris BE node is configured with
+`arrow_flight_sql_port`, has been restarted after the configuration change, and
+reports a positive `ArrowFlightSqlPort` value in `SHOW BACKENDS`.
+
+If a query fails with a connection timeout to a Doris BE host and port, verify
+that the Trino coordinator and workers can connect to the BE endpoint returned
+by Doris FE. This can happen when Doris runs in a private network or container
+network and returns internal BE addresses. In that case, expose the BE Arrow
+Flight SQL service to Trino and configure Doris BE `public_host` and
+`arrow_flight_sql_proxy_port` so Doris returns externally reachable endpoints.
 
 ## Performance
 
