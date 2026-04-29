@@ -85,8 +85,12 @@ public final class StandardFunctions
     /**
      * Arithmetic modulo.
      */
-    // TODO: this should be named MODULO, not MODULUS
-    public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulus");
+    public static final FunctionName MODULO_FUNCTION_NAME = new FunctionName("$modulo");
+    /**
+     * @deprecated Use {@link #MODULO_FUNCTION_NAME} instead.
+     */
+    @Deprecated
+    public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulo");
 
     /**
      * Arithmetic unary minus.

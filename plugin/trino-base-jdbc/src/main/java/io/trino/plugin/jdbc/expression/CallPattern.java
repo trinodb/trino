@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argument;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argumentCount;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
@@ -42,6 +43,7 @@ public class CallPattern
 
     public CallPattern(String functionName, List<ExpressionPattern> parameters, Optional<TypePattern> resultType)
     {
+        checkArgument(!functionName.equals("$modulus"), "Connector expression function `$modulus` was renamed to `$modulo`");
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.resultType = requireNonNull(resultType, "resultType is null");

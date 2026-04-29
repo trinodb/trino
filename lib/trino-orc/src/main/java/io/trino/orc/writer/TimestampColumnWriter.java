@@ -71,7 +71,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 // The ORC encoding erroneously uses normal integer division to compute seconds,
-// rather than floor modulus, which produces the wrong result for negative values
+// rather than floor modulo, which produces the wrong result for negative values
 // (those that are before the epoch). Readers must correct for this. It also makes
 // it impossible to represent values less than one second before the epoch, which
 // must also be handled in OrcWriteValidation.

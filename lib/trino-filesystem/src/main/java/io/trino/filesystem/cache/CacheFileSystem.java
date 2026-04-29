@@ -13,11 +13,14 @@
  */
 package io.trino.filesystem.cache;
 
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -50,9 +53,21 @@ public final class CacheFileSystem
     }
 
     @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, key), cache, keyProvider, OptionalLong.empty(), Optional.empty());
+    }
+
+    @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
         return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, length, key), cache, keyProvider, OptionalLong.of(length), Optional.empty());
     }
 
     @Override
@@ -62,9 +77,28 @@ public final class CacheFileSystem
     }
 
     @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, length, lastModified, key), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified));
+    }
+
+    @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
         TrinoOutputFile output = delegate.newOutputFile(location);
+        try {
+            cache.expire(location);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return output;
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        TrinoOutputFile output = delegate.newEncryptedOutputFile(location, key);
         try {
             cache.expire(location);
         }
@@ -154,5 +188,12 @@ public final class CacheFileSystem
     {
         delegate.deleteFiles(locations);
         cache.expire(locations);
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return delegate.encryptedPreSignedUri(location, ttl, key);
     }
 }
