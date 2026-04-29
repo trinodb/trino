@@ -62,6 +62,7 @@ import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.IcebergManifestUtils;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
@@ -76,6 +77,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
@@ -1341,6 +1343,34 @@ public final class IcebergUtil
             case DATA -> ManifestFiles.read(manifest, fileIO);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
         };
+    }
+
+    public static List<ManifestFile> loadAllManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
+    {
+        if (snapshot == null) {
+            return ImmutableList.of();
+        }
+        try {
+            return snapshot.allManifests(icebergTable.io());
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
+    }
+
+    /**
+     * Use instead of loadAllManifestsFromSnapshot when loading manifests from multiple distinct snapshots
+     * Each BaseSnapshot object caches manifest files separately, so loading manifests from multiple distinct snapshots
+     * results in O(num_snapshots^2) copies of the same manifest file metadata in memory
+     */
+    public static List<ManifestFile> loadAllManifestsFromManifestList(Table icebergTable, String manifestListLocation)
+    {
+        try {
+            return IcebergManifestUtils.read(icebergTable.io(), manifestListLocation);
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
     }
 
     public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
