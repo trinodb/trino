@@ -503,9 +503,9 @@ public class CompressingDecryptingPageDeserializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
-            size += sizeOf(decompressor, compressor -> decompressorRetainedSize);
-            size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
-            size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
+            size += sizeOf(decompressor, _ -> decompressorRetainedSize);
+            size += sizeOf(encryptionKey, _ -> ENCRYPTION_KEY_RETAINED_SIZE);
+            size += sizeOf(cipher, _ -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (ReadBuffer input : buffers) {
                 if (input != null) {
                     size += input.getRetainedSizeInBytes();

@@ -154,7 +154,7 @@ public class OpaHttpClient
             return ImmutableSet.of();
         }
         String dummyMapKey = "filter";
-        return parallelBatchFilterFromOpa(ImmutableMap.of(dummyMapKey, items), (mapKey, mapValue) -> requestBuilder.apply(mapValue), uri, deserializer).getOrDefault(dummyMapKey, ImmutableSet.of());
+        return parallelBatchFilterFromOpa(ImmutableMap.of(dummyMapKey, items), (_, mapValue) -> requestBuilder.apply(mapValue), uri, deserializer).getOrDefault(dummyMapKey, ImmutableSet.of());
     }
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)

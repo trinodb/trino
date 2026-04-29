@@ -156,57 +156,42 @@ class TestingH2JdbcClient
             return mapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
+        return switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
             // both types as both are used by H2 JDBC driver
-            case Types.FLOAT, Types.REAL:
-                return Optional.of(realColumnMapping());
+            case Types.FLOAT, Types.REAL -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.CHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
 
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
-
-            case Types.VARCHAR:
+            case Types.VARCHAR -> {
                 // varchar columns get created as varchar(max_length) in H2
                 if (typeHandle.requiredColumnSize() == MAXIMUM_VARCHAR_LENGTH) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                    yield Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
+                yield Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
+            }
 
-            case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
+            case Types.DATE -> Optional.of(dateColumnMappingUsingSqlDate());
+            case Types.TIME -> Optional.of(timeColumnMapping(TIME_MILLIS));
 
-            case Types.TIME:
-                return Optional.of(timeColumnMapping(TIME_MILLIS));
-
-            case Types.TIMESTAMP:
+            case Types.TIMESTAMP -> {
                 TimestampType timestampType = typeHandle.decimalDigits()
                         .map(TimestampType::createTimestampType)
                         .orElse(TIMESTAMP_MILLIS);
-                return Optional.of(timestampColumnMapping(timestampType));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-
-        return Optional.empty();
+                yield Optional.of(timestampColumnMapping(timestampType));
+            }
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override

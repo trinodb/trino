@@ -210,7 +210,7 @@ public class FunctionResolver
     {
         Map<TypeSignature, Type> dependentTypes = dependencies.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
-                .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, right) -> left));
+                .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, _) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
         for (FunctionDependency functionDependency : dependencies.getFunctionDependencies()) {

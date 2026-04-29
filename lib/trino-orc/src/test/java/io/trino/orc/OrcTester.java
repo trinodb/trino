@@ -268,7 +268,7 @@ public class OrcTester
             assertRoundTrip(
                     type,
                     readValues.stream()
-                            .map(value -> null)
+                            .map(_ -> null)
                             .collect(toList()));
         }
 
@@ -329,7 +329,7 @@ public class OrcTester
             testRoundTripType(
                     rowType,
                     values.stream()
-                            .map(value -> toHiveStruct(null))
+                            .map(_ -> toHiveStruct(null))
                             .collect(toList()));
         }
 
@@ -376,7 +376,7 @@ public class OrcTester
             testRoundTripType(
                     mapType,
                     readValues.stream()
-                            .map(value -> toHiveMap(null, readNullKeyValue))
+                            .map(_ -> toHiveMap(null, readNullKeyValue))
                             .collect(toList()));
         }
     }
@@ -404,7 +404,7 @@ public class OrcTester
             testRoundTripType(
                     arrayType,
                     readValues.stream()
-                            .map(value -> toHiveList(null))
+                            .map(_ -> toHiveList(null))
                             .collect(toList()));
         }
     }
@@ -998,7 +998,7 @@ public class OrcTester
                 ImmutableList.of(type),
                 StreamSupport.stream(
                                 Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
-                        .map(value -> (Function<Integer, Object>) (fieldIndex) -> value)
+                        .map(value -> (Function<Integer, Object>) _ -> value)
                         .iterator());
     }
 

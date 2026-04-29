@@ -173,20 +173,20 @@ public class TestAccessControl
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withGetTableHandle((session1, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().startsWith("new")) {
                         return null;
                     }
                     return new MockConnectorTableHandle(schemaTableName);
                 })
-                .withListSchemaNames(connectorSession -> ImmutableList.of(DEFAULT_SCHEMA))
-                .withListTables((connectorSession, schemaName) -> {
+                .withListSchemaNames(_ -> ImmutableList.of(DEFAULT_SCHEMA))
+                .withListTables((_, schemaName) -> {
                     if (schemaName.equals(DEFAULT_SCHEMA)) {
                         return ImmutableList.of(REDIRECTED_SOURCE);
                     }
                     return ImmutableList.of();
                 })
-                .withGetViews((connectorSession, prefix) -> {
+                .withGetViews((_, _) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
                             "SELECT 1 AS test",
                             Optional.of("mock"),
@@ -235,7 +235,7 @@ public class TestAccessControl
                     }
                     throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
                 })
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .withListRoleGrants((_, _, _, _) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
                 .withAnalyzeProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         integerProperty("integer_analyze_property", "description", 0, false)))
@@ -251,7 +251,7 @@ public class TestAccessControl
                 .withColumnProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         stringProperty("string_column_property", "description", "", false)))
-                .withRedirectTable((connectorSession, schemaTableName) -> {
+                .withRedirectTable((_, schemaTableName) -> {
                     if (schemaTableName.equals(SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_SOURCE))) {
                         return Optional.of(
                                 new CatalogSchemaTableName("mock", SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_TARGET)));
@@ -806,7 +806,7 @@ public class TestAccessControl
                 new TestingPrivilege(Optional.empty(), "mock.function.my_function", EXECUTE_FUNCTION));
 
         // inline and builtin functions are always allowed, and there are no security checks
-        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), name -> true, EXECUTE_FUNCTION);
+        TestingPrivilege denyAllFunctionCalls = new TestingPrivilege(Optional.empty(), _ -> true, EXECUTE_FUNCTION);
         assertAccessAllowed("SELECT abs(42)", denyAllFunctionCalls);
         assertAccessAllowed("WITH FUNCTION foo() RETURNS int RETURN 42 SELECT foo()", denyAllFunctionCalls);
         assertAccessDenied("SELECT my_function(42)", "Cannot execute function my_function", denyAllFunctionCalls);

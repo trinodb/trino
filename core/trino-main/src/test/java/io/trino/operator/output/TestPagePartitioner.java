@@ -761,7 +761,7 @@ public class TestPagePartitioner
 
     private static Block createBlockForType(Type type, int positionsPerPage)
     {
-        return createRandomBlockForType(type, positionsPerPage, 0.2F);
+        return createRandomBlockForType(type, positionsPerPage, 0.2f);
     }
 
     private static void processPages(PagePartitioner pagePartitioner, PartitioningMode partitioningMode, Page... pages)

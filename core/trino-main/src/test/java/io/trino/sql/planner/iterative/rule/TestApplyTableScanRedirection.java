@@ -269,7 +269,7 @@ public class TestApplyTableScanRedirection
 
     private ApplyTableScanRedirect getMockApplyRedirect(Map<ColumnHandle, String> redirectionMapping)
     {
-        return (ConnectorSession session, ConnectorTableHandle handle) -> Optional.of(
+        return (ConnectorSession _, ConnectorTableHandle handle) -> Optional.of(
                 new TableScanRedirectApplicationResult(
                         new CatalogSchemaTableName(TEST_CATALOG_NAME, DESTINATION_TABLE),
                         redirectionMapping,

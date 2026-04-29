@@ -100,20 +100,11 @@ public class BenchmarkArrayIntersect
         {
             Type elementType;
             switch (type) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "BOOLEAN":
-                    elementType = BOOLEAN;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "VARCHAR" -> elementType = VARCHAR;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "BOOLEAN" -> elementType = BOOLEAN;
+                default -> throw new UnsupportedOperationException();
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();

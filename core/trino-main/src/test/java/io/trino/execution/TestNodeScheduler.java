@@ -261,14 +261,9 @@ public class TestNodeScheduler
         for (Split split : unassigned) {
             String rack = topology.locate(split.getAddresses().get(0)).getSegments().get(0);
             switch (rack) {
-                case "rack1":
-                    rack1++;
-                    break;
-                case "rack2":
-                    rack2++;
-                    break;
-                default:
-                    throw new AssertionError("Unexpected rack: " + rack);
+                case "rack1" -> rack1++;
+                case "rack2" -> rack2++;
+                default -> throw new AssertionError("Unexpected rack: " + rack);
             }
         }
         assertThat(rack1).isEqualTo(2);

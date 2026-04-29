@@ -136,7 +136,7 @@ public class SubnetBasedTopology
                     break;
                 }
 
-                mask[i] = (byte) 0xff;
+                mask[i] = (byte) 0xFF;
                 n -= Byte.SIZE;
             }
 

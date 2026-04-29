@@ -420,7 +420,7 @@ public class TransactionLogAccess
                 new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
             return activeAddEntries(checkpointEntries, transactions, fileSystem)
                     .filter(partitionConstraint.isAll()
-                            ? addAction -> true
+                            ? _ -> true
                             : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
         }
         catch (IOException e) {

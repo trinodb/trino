@@ -358,7 +358,7 @@ public class HiveWriterFactory
         else {
             switch (insertExistingPartitionsBehavior) {
                 // Write to: an existing partition in an existing partitioned table
-                case APPEND:
+                case APPEND -> {
                     // Append to an existing partition
                     updateMode = UpdateMode.APPEND;
                     // Check the column types in partition schema match the column types in table schema
@@ -390,8 +390,8 @@ public class HiveWriterFactory
                     schema.putAll(getHiveSchema(partition.get(), table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
-                    break;
-                case OVERWRITE:
+                }
+                case OVERWRITE -> {
                     // Overwrite an existing partition
                     //
                     // The behavior of overwrite considered as if first dropping the partition and inserting a new partition, thus:
@@ -404,11 +404,13 @@ public class HiveWriterFactory
                     schema.putAll(getHiveSchema(table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
-                    break;
-                case ERROR:
+                }
+                case ERROR -> {
                     throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
-                default:
+                }
+                default -> {
                     throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
+                }
             }
         }
 

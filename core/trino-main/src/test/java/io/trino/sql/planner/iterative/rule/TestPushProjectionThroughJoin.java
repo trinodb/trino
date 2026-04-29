@@ -98,10 +98,10 @@ public class TestPushProjectionThroughJoin
                 session,
                 dummyMetadata(),
                 createTestingFunctionManager(),
-                node -> unknown(),
+                _ -> unknown(),
                 new Plan(rewritten.get(), empty()), noLookup(),
                 join(INNER, builder -> builder
-                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "b1"))))
+                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
                                                 "a3", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "a0")))))),

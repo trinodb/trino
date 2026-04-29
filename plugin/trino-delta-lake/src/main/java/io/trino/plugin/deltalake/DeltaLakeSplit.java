@@ -74,7 +74,7 @@ public record DeltaLakeSplit(
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + sizeOf(fileRowCount, value -> LONG_INSTANCE_SIZE)
+                + sizeOf(fileRowCount, _ -> LONG_INSTANCE_SIZE)
                 + sizeOf(deletionVector, DeletionVectorEntry::sizeInBytes)
                 + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + splitWeight.getRetainedSizeInBytes()

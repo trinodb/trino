@@ -2351,7 +2351,7 @@ public class TestTimeWithTimeZone
 
     private static BiFunction<Session, QueryRunner, Object> timeWithTimeZone(int precision, int hour, int minute, int second, long picoOfSecond, int offsetMinutes)
     {
-        return (session, queryRunner) -> {
+        return (_, _) -> {
             long picos = (hour * 3600 + minute * 60 + second) * PICOSECONDS_PER_SECOND + picoOfSecond;
             return SqlTimeWithTimeZone.newInstance(precision, picos, offsetMinutes);
         };

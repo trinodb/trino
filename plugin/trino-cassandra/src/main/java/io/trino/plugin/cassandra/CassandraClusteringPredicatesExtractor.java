@@ -50,7 +50,7 @@ public class CassandraClusteringPredicatesExtractor
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
-        return predicates.filter((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
+        return predicates.filter((columnHandle, _) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
     }
 
     private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates)
@@ -99,7 +99,7 @@ public class CassandraClusteringPredicatesExtractor
                             return CassandraCqlUtils.validColumnName(columnHandle.name()) + " IN (" + inValues + " )";
                         }
                         return null;
-                    }, allOrNone -> null);
+                    }, _ -> null);
 
             if (predicateString == null) {
                 break;

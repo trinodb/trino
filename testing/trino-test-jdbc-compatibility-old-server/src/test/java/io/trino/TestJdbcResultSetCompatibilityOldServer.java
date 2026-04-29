@@ -94,7 +94,7 @@ public class TestJdbcResultSetCompatibilityOldServer
             // Instead we return marker Option.empty() as only parameterization. Then we will fail test run in setupTrinoContainer().
             System.err.println("Could not determine Trino versions to test; " + e.getMessage() + "\n" + getStackTraceAsString(e));
             return new Object[][] {
-                    {Optional.empty()}
+                    {Optional.empty()},
             };
         }
     }

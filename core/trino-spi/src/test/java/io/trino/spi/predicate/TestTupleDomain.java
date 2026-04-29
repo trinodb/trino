@@ -724,7 +724,7 @@ class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        assertThatThrownBy(() -> domain.transformKeys(input -> "x"))
+        assertThatThrownBy(() -> domain.transformKeys(_ -> "x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1]}] ]");
     }

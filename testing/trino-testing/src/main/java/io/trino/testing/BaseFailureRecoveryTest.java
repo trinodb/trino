@@ -146,7 +146,7 @@ public abstract class BaseFailureRecoveryTest
 
     protected void testSelect(String query, Optional<Session> session)
     {
-        testSelect(query, session, queryId -> {});
+        testSelect(query, session, _ -> {});
     }
 
     protected void testSelect(String query, Optional<Session> session, Consumer<QueryId> queryAssertion)

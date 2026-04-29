@@ -32,7 +32,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -84,16 +84,20 @@ public final class SmallintOperators
     public static long divide(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
         try {
-            return left / right;
+            long result = left / right;
+            if (!isLongToShortExact(result)) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint division overflow: %s / %s", left, right));
+            }
+            return result;
         }
         catch (ArithmeticException e) {
             throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
-    @ScalarOperator(MODULUS)
+    @ScalarOperator(MODULO)
     @SqlType(StandardTypes.SMALLINT)
-    public static long modulus(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
+    public static long modulo(@SqlType(StandardTypes.SMALLINT) long left, @SqlType(StandardTypes.SMALLINT) long right)
     {
         try {
             return left % right;

@@ -49,7 +49,7 @@ public class TestRuleTester
                     rule(
                             "testReportWrongMatch rule",
                             Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
+                            (node, _, _) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
                                     Assignments.of(p.symbol("y", INTEGER), new Reference(INTEGER, "x")),
@@ -72,7 +72,7 @@ public class TestRuleTester
                     rule(
                             "testReportNoFire rule",
                             Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.empty()))
+                            (_, _, _) -> Result.empty()))
                     .on(p ->
                             p.values(
                                     List.of(p.symbol("x")),
@@ -93,7 +93,7 @@ public class TestRuleTester
                     rule(
                             "testReportNoFireWithTableScan rule",
                             Pattern.typeOf(PlanNode.class),
-                            (node, captures, context) -> Result.empty()))
+                            (_, _, _) -> Result.empty()))
                     .on(p ->
                             p.tableScan(
                                     new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),

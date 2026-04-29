@@ -300,7 +300,7 @@ public class ImplementTableFunctionSource
 
         Symbol rowNumber = context.getSymbolAllocator().newSymbol(argumentName + "_row_number", BIGINT);
         Map<Symbol, Symbol> rowNumberSymbolMapping = source.getOutputSymbols().stream()
-                .collect(toImmutableMap(identity(), symbol -> rowNumber));
+                .collect(toImmutableMap(identity(), _ -> rowNumber));
 
         Symbol partitionSize = context.getSymbolAllocator().newSymbol(argumentName + "_partition_size", BIGINT);
 

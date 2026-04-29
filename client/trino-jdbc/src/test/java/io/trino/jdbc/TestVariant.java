@@ -57,9 +57,9 @@ public class TestVariant
         Variant falseVariant = spiCompatibleVariant("ofBoolean", false);
         assertThat(falseVariant.getBoolean()).isFalse();
 
-        Variant byteVariant = spiCompatibleVariant("ofByte", (byte) 0x7f);
+        Variant byteVariant = spiCompatibleVariant("ofByte", (byte) 0x7F);
         assertThat(byteVariant.valueType()).isEqualTo(Variant.ValueType.INT8);
-        assertThat(byteVariant.getByte()).isEqualTo((byte) 0x7f);
+        assertThat(byteVariant.getByte()).isEqualTo((byte) 0x7F);
 
         Variant shortVariant = spiCompatibleVariant("ofShort", (short) 0x1234);
         assertThat(shortVariant.valueType()).isEqualTo(Variant.ValueType.INT16);
@@ -149,7 +149,7 @@ public class TestVariant
         assertThat(longString.getString()).isEqualTo(longText);
         assertThat(longString.getValueBytes()).isEqualTo(longStringFixture.getValueBytes());
 
-        byte[] binaryPayload = new byte[] {0x01, 0x02, 0x03, (byte) 0xff};
+        byte[] binaryPayload = new byte[] {0x01, 0x02, 0x03, (byte) 0xFF};
         Variant binaryVariant = spiCompatibleVariant("ofBinary", (Object) binaryPayload);
         assertThat(binaryVariant.valueType()).isEqualTo(Variant.ValueType.BINARY);
         assertThat(binaryVariant.getBinary()).containsExactly(binaryPayload);
@@ -205,7 +205,7 @@ public class TestVariant
         assertJson("ofInt", "123", 123);
         assertJson("ofDecimal", "123.45", new BigDecimal("123.45"));
         assertJson("ofString", "\"hello \\\"variant\\\"\"", "hello \"variant\"");
-        assertJson("ofBinary", "\"AQID/w==\"", (Object) new byte[] {0x01, 0x02, 0x03, (byte) 0xff});
+        assertJson("ofBinary", "\"AQID/w==\"", (Object) new byte[] {0x01, 0x02, 0x03, (byte) 0xFF});
         assertJson("ofDate", "\"2021-05-18\"", LocalDate.of(2021, 5, 18));
         assertJson("ofTimeMicrosNtz", "\"22:23:24.123456\"", 80_604_123_456L);
         assertJson("ofTimestampMicrosUtc", "\"1969-12-31 23:59:59.999999 UTC\"", -1L);

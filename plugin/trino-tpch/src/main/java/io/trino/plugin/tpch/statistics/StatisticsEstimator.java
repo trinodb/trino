@@ -89,7 +89,7 @@ public class StatisticsEstimator
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
         return combine(leftStats.distinctValuesCount(), rightStats.distinctValuesCount(), Long::sum)
-                .filter(v -> columnName.equals(partitionColumn.getColumnName()));
+                .filter(_ -> columnName.equals(partitionColumn.getColumnName()));
     }
 
     @SuppressWarnings("unchecked")
@@ -114,6 +114,6 @@ public class StatisticsEstimator
     {
         return new TableStatisticsData(0, table.getColumns().stream().collect(toImmutableMap(
                 TpchColumn::getColumnName,
-                column -> ColumnStatisticsData.zero())));
+                _ -> ColumnStatisticsData.zero())));
     }
 }

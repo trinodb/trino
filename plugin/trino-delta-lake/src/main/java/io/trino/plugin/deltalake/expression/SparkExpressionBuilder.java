@@ -62,7 +62,7 @@ public class SparkExpressionBuilder
             case SparkExpressionBaseParser.MINUS -> ArithmeticBinaryExpression.Operator.SUBTRACT;
             case SparkExpressionBaseParser.ASTERISK -> ArithmeticBinaryExpression.Operator.MULTIPLY;
             case SparkExpressionBaseParser.SLASH -> ArithmeticBinaryExpression.Operator.DIVIDE;
-            case SparkExpressionBaseParser.PERCENT -> ArithmeticBinaryExpression.Operator.MODULUS;
+            case SparkExpressionBaseParser.PERCENT -> ArithmeticBinaryExpression.Operator.MODULO;
             case SparkExpressionBaseParser.AMPERSAND -> ArithmeticBinaryExpression.Operator.BITWISE_AND;
             case SparkExpressionBaseParser.CIRCUMFLEX -> ArithmeticBinaryExpression.Operator.BITWISE_XOR;
             default -> throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());

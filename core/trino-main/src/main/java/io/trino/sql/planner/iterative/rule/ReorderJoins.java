@@ -460,7 +460,7 @@ public class ReorderJoins
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
         {
-            return getPossibleJoinNodes(joinNode, distributionType, node -> true);
+            return getPossibleJoinNodes(joinNode, distributionType, _ -> true);
         }
 
         private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)

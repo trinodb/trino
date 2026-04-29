@@ -91,10 +91,10 @@ public class TestRefreshMaterializedView
         queryRunner.installPlugin(
                 new MockConnectorPlugin(
                         MockConnectorFactory.builder()
-                                .withListSchemaNames(connectionSession -> ImmutableList.of("default"))
-                                .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("nationkey", BIGINT)))
-                                .withGetTableHandle((connectorSession, tableName) -> new MockConnectorTableHandle(tableName))
-                                .withGetMaterializedViews((connectorSession, schemaTablePrefix) -> ImmutableMap.of(
+                                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                                .withGetColumns(_ -> ImmutableList.of(new ColumnMetadata("nationkey", BIGINT)))
+                                .withGetTableHandle((_, tableName) -> new MockConnectorTableHandle(tableName))
+                                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
                                         new SchemaTableName("default", "delegate_refresh_to_connector"),
                                         new ConnectorMaterializedViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
@@ -107,8 +107,8 @@ public class TestRefreshMaterializedView
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableList.of())))
-                                .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
-                                .withRefreshMaterializedView((connectorSession, schemaTableName) -> {
+                                .withDelegateMaterializedViewRefreshToConnector((_, _) -> true)
+                                .withRefreshMaterializedView((_, _) -> {
                                     startRefreshMaterializedView.set(null);
                                     SettableFuture<Void> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());

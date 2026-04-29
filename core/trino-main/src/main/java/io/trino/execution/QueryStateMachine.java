@@ -591,7 +591,7 @@ public class QueryStateMachine
         boolean finalInfo = state.isDone() && allStages.stream().allMatch(BasicStageInfo::isFinalStageInfo);
 
         BasicStageStats stageStats = stagesInfo
-                .map(stage -> allStages.stream().map(BasicStageInfo::getStageStats).toList())
+                .map(_ -> allStages.stream().map(BasicStageInfo::getStageStats).toList())
                 .map(BasicStageStats::aggregateBasicStageStats)
                 .orElse(EMPTY_STAGE_STATS);
 

@@ -366,7 +366,7 @@ public class FilterStatsCalculator
                 Object literalValue = constant.value();
                 if (literalValue == null) {
                     // Possible when we process `x IN (..., NULL)` case.
-                    return input.mapOutputRowCount(rowCountEstimate -> 0.);
+                    return input.mapOutputRowCount(_ -> 0.);
                 }
                 OptionalDouble literal = toStatsRepresentation(type, literalValue);
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
@@ -396,7 +396,7 @@ public class FilterStatsCalculator
                         SymbolStatsEstimate symbolStats = input.getSymbolStatistics(symbol);
                         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
                         result.setOutputRowCount(input.getOutputRowCount() * (1 - symbolStats.getNullsFraction()));
-                        result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(x -> 0.0));
+                        result.addSymbolStatistics(symbol, symbolStats.mapNullsFraction(_ -> 0.0));
                         return result.build();
                     }
                     return PlanNodeStatsEstimate.unknown();

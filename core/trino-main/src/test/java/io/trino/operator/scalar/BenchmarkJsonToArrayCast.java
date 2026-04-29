@@ -94,17 +94,10 @@ public class BenchmarkJsonToArrayCast
         {
             Type elementType;
             switch (valueTypeName) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "VARCHAR" -> elementType = VARCHAR;
+                default -> throw new UnsupportedOperationException();
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();

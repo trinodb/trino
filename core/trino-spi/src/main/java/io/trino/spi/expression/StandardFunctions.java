@@ -83,8 +83,9 @@ public final class StandardFunctions
     public static final FunctionName DIVIDE_FUNCTION_NAME = new FunctionName("$divide");
 
     /**
-     * Arithmetic modulus.
+     * Arithmetic modulo.
      */
+    // TODO: this should be named MODULO, not MODULUS
     public static final FunctionName MODULUS_FUNCTION_NAME = new FunctionName("$modulus");
 
     /**

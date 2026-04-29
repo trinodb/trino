@@ -65,21 +65,27 @@ public record Comparison(Operator operator, Expression left, Expression right)
         public Operator negate()
         {
             switch (this) {
-                case EQUAL:
+                case EQUAL -> {
                     return NOT_EQUAL;
-                case NOT_EQUAL:
+                }
+                case NOT_EQUAL -> {
                     return EQUAL;
-                case LESS_THAN:
+                }
+                case LESS_THAN -> {
                     return GREATER_THAN_OR_EQUAL;
-                case LESS_THAN_OR_EQUAL:
+                }
+                case LESS_THAN_OR_EQUAL -> {
                     return GREATER_THAN;
-                case GREATER_THAN:
+                }
+                case GREATER_THAN -> {
                     return LESS_THAN_OR_EQUAL;
-                case GREATER_THAN_OR_EQUAL:
+                }
+                case GREATER_THAN_OR_EQUAL -> {
                     return LESS_THAN;
-                case IDENTICAL:
+                }
+                case IDENTICAL -> {
                     // Cannot negate
-                    break;
+                }
             }
             throw new IllegalArgumentException("Unsupported comparison: " + this);
         }

@@ -492,7 +492,7 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskStatus(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskStatus(), directExecutor());
     }
 
     public synchronized ListenableFuture<TaskInfo> getTaskInfo(long callersCurrentVersion)
@@ -504,7 +504,7 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(

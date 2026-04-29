@@ -65,7 +65,7 @@ import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.TrinoNumber.BigDecimalValue;
 import static io.trino.spi.type.TrinoNumber.Infinity;
 import static io.trino.spi.type.TrinoNumber.NotANumber;
-import static io.trino.type.DecimalOperators.modulusScalarFunction;
+import static io.trino.type.DecimalOperators.moduloScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Character.MIN_RADIX;
@@ -79,7 +79,7 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 
 public final class MathFunctions
 {
-    public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = modulusScalarFunction();
+    public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = moduloScalarFunction();
 
     private static final Int128[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
     private static final Int128[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
@@ -599,7 +599,7 @@ public final class MathFunctions
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber mod(@SqlType(StandardTypes.NUMBER) TrinoNumber num1, @SqlType(StandardTypes.NUMBER) TrinoNumber num2)
     {
-        return NumberOperators.modulus(num1, num2);
+        return NumberOperators.modulo(num1, num2);
     }
 
     @Description("The constant Pi")

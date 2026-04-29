@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -557,7 +558,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testAssignUniqueId()
     {
         String unionLineitem25Times = range(0, 25)
-                .mapToObj(i -> "SELECT * FROM lineitem")
+                .mapToObj(_ -> "SELECT * FROM lineitem")
                 .collect(joining(" UNION ALL "));
 
         assertQuery(
@@ -830,7 +831,7 @@ public abstract class AbstractTestEngineOnlyQueries
                     String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
                     String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
                     String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
-                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    String modulo = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
                     List<String> both = List.of(left, right);
                     // There currently is no coercion between number and real/double/decimal
                     boolean unsupported =
@@ -841,14 +842,14 @@ public abstract class AbstractTestEngineOnlyQueries
                         assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
                         assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
                         assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
-                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                        assertThat(query(modulo)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
                     }
                     else {
                         assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
                         assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulo).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
                     }
                 }
                 catch (Throwable e) {
@@ -6721,6 +6722,19 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isEqualTo(Double.NEGATIVE_INFINITY);
         assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
                 .isEqualTo(Double.NaN);
+    }
+
+    @Test
+    public void testDivisionOverflow()
+    {
+        assertThat(query("SELECT CAST(-0x80 AS tinyint) / TINYINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000 AS smallint) / SMALLINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x80000000 AS integer) / INTEGER '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000000000000000 AS bigint) / BIGINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
 
     private static int getNumberMaxDecimalPrecision()

@@ -617,7 +617,7 @@ public class TranslationMap
             case SUBTRACT -> OperatorType.SUBTRACT;
             case MULTIPLY -> OperatorType.MULTIPLY;
             case DIVIDE -> OperatorType.DIVIDE;
-            case MODULUS -> OperatorType.MODULUS;
+            case MODULO -> OperatorType.MODULO;
         };
 
         return new Call(

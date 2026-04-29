@@ -205,7 +205,7 @@ public class S3FileSystemExchangeStorage
                             protected void handle(RequestType requestType, CompletableFuture<?> responseFuture)
                             {
                                 stats.requestStarted(requestType);
-                                responseFuture.whenComplete((result, failure) -> {
+                                responseFuture.whenComplete((_, failure) -> {
                                     if (failure != null && failure.getMessage() != null && failure.getMessage().contains("Maximum pending connection acquisitions exceeded")) {
                                         log.error(failure, "Encountered 'Maximum pending connection acquisitions exceeded' error. Active requests: %s", stats.getActiveRequestsSummary());
                                     }

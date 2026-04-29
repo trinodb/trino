@@ -589,8 +589,8 @@ public abstract class BaseTestHiveCoercion
                         "127",
                         "-128"))
                 .put("tinyint_to_double", Arrays.asList(
-                        -4D,
-                        4D))
+                        -4d,
+                        4d))
                 .put("tinyint_to_shortdecimal", Arrays.asList(
                         new BigDecimal(-5),
                         new BigDecimal(5)))
@@ -610,8 +610,8 @@ public abstract class BaseTestHiveCoercion
                         "32767",
                         "-32768"))
                 .put("smallint_to_double", ImmutableList.of(
-                        -1024D,
-                        1024D))
+                        -1024d,
+                        1024d))
                 .put("smallint_to_shortdecimal", Arrays.asList(
                         new BigDecimal(-2048),
                         new BigDecimal(-2048)))
@@ -628,8 +628,8 @@ public abstract class BaseTestHiveCoercion
                         "2147483647",
                         "-2147483648"))
                 .put("int_to_double", ImmutableList.of(
-                        -16384D,
-                        16384D))
+                        -16384d,
+                        16384d))
                 .put("int_to_shortdecimal", Arrays.asList(
                         new BigDecimal(-16385),
                         new BigDecimal(16385)))
@@ -637,8 +637,8 @@ public abstract class BaseTestHiveCoercion
                         new BigDecimal(-16386),
                         new BigDecimal(16386)))
                 .put("bigint_to_double", ImmutableList.of(
-                        -1234567890D,
-                        1234567890D))
+                        -1234567890d,
+                        1234567890d))
                 .put("bigint_to_varchar", ImmutableList.of(
                         "12345",
                         "-12345"))
@@ -767,7 +767,7 @@ public abstract class BaseTestHiveCoercion
                         -12345.6789))
                 .put("string_to_double", ImmutableList.of(
                         1234.01234,
-                        0D))
+                        0d))
                 .put("varchar_to_double_infinity", ImmutableList.of(
                         Double.POSITIVE_INFINITY,
                         Double.NEGATIVE_INFINITY))

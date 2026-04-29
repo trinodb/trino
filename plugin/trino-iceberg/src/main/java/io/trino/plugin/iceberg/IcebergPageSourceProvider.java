@@ -438,7 +438,7 @@ public class IcebergPageSourceProvider
                 })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, ignored -> new DeleteManager(typeManager));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
@@ -1774,7 +1774,7 @@ public class IcebergPageSourceProvider
                     rowPosition,
                     RunLengthEncodedBlock.create(partitionSpecId, positionCount),
                     RunLengthEncodedBlock.create(partitionData, positionCount),
-                    sourceRowIdBlock
+                    sourceRowIdBlock,
             };
             return RowBlock.fromFieldBlocks(positionCount, fields);
         }

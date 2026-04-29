@@ -92,7 +92,7 @@ public class TestTaskExecutorStuckSplits
                     .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, SECONDS))
                     .setInterruptStuckSplitTasksTimeout(new Duration(10, SECONDS));
 
-            try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, taskManagementExecutor, stackTraceElements -> true)) {
+            try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, taskManagementExecutor, _ -> true)) {
                 sqlTaskManager.addStateChangeListener(taskId, (state) -> {
                     if (state.isTerminatingOrDone() && !taskHandle.isDestroyed()) {
                         taskExecutor.removeTask(taskHandle);

@@ -91,7 +91,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.DIVIDE;
-import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULUS;
+import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULO;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
@@ -176,7 +176,7 @@ class JsonPathTranslator
                 case SUBTRACT -> SUBTRACT;
                 case MULTIPLY -> MULTIPLY;
                 case DIVIDE -> DIVIDE;
-                case MODULUS -> MODULUS;
+                case MODULO -> MODULO;
             };
         }
 

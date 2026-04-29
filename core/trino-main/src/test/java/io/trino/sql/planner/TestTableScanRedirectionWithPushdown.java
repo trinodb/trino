@@ -334,7 +334,7 @@ public class TestTableScanRedirectionWithPushdown
     {
         PlanTester planTester = PlanTester.create(MOCK_SESSION);
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
-                .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                 .withGetColumns(name -> {
                     if (name.equals(SOURCE_TABLE)) {
                         return ImmutableList.of(
@@ -426,12 +426,12 @@ public class TestTableScanRedirectionWithPushdown
     private ApplyFilter getMockApplyFilter(Set<ColumnHandle> pushdownColumns)
     {
         // returns a mock implementation of applyFilter which allows predicate pushdown only for pushdownColumns
-        return (session, table, constraint) -> {
+        return (_, table, constraint) -> {
             MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
 
             TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
             TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary()
-                    .filter((columnHandle, domain) -> pushdownColumns.contains(columnHandle)));
+                    .filter((columnHandle, _) -> pushdownColumns.contains(columnHandle)));
             if (oldDomain.equals(newDomain)) {
                 return Optional.empty();
             }
@@ -440,7 +440,7 @@ public class TestTableScanRedirectionWithPushdown
                     new ConstraintApplicationResult<>(
                             new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                             constraint.getSummary()
-                                    .filter((columnHandle, domain) -> !pushdownColumns.contains(columnHandle)),
+                                    .filter((columnHandle, _) -> !pushdownColumns.contains(columnHandle)),
                             constraint.getExpression(),
                             false));
         };
@@ -465,7 +465,7 @@ public class TestTableScanRedirectionWithPushdown
             Optional<Set<ColumnHandle>> requiredProjections,
             boolean requirePredicatePushdown)
     {
-        return (session, handle) -> {
+        return (_, handle) -> {
             MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
             // make sure we do redirection after predicate is pushed down
             if (requirePredicatePushdown && mockConnectorTable.getConstraint().isAll()) {
@@ -482,7 +482,7 @@ public class TestTableScanRedirectionWithPushdown
                             redirectionMapping,
                             mockConnectorTable.getConstraint()
                                     .transformKeys(MockConnectorColumnHandle.class::cast)
-                                    .filter((columnHandle, domain) -> redirectionMapping.containsKey(columnHandle))
+                                    .filter((columnHandle, _) -> redirectionMapping.containsKey(columnHandle))
                                     .transformKeys(redirectionMapping::get)));
         };
     }

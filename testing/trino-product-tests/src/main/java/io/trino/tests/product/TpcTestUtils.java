@@ -33,7 +33,7 @@ public final class TpcTestUtils
     // Do not increase this value without examination and multiple local runs.
     // 1E-10 fails roughly once every 100 - 1000 runs.
     // 1.1E-10 should be orders of magnitude safer.
-    private static final Percentage DOUBLE_COMPARISON_ACCURACY = withPercentage(1.1E-10);
+    private static final Percentage DOUBLE_COMPARISON_ACCURACY = withPercentage(1.1e-10);
 
     private static final String[] TPCDS_TABLES = {
             "call_center",

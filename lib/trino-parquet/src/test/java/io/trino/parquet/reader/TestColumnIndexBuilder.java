@@ -1613,27 +1613,19 @@ public class TestColumnIndexBuilder
                     continue;
                 }
                 switch (type.getPrimitiveTypeName()) {
-                    case BINARY:
-                    case FIXED_LEN_BYTE_ARRAY:
-                    case INT96:
+                    case BINARY, FIXED_LEN_BYTE_ARRAY, INT96 ->
                         stats.updateStats((Binary) value);
-                        break;
-                    case BOOLEAN:
+                    case BOOLEAN ->
                         stats.updateStats((boolean) value);
-                        break;
-                    case DOUBLE:
+                    case DOUBLE ->
                         stats.updateStats((double) value);
-                        break;
-                    case FLOAT:
+                    case FLOAT ->
                         stats.updateStats((float) value);
-                        break;
-                    case INT32:
+                    case INT32 ->
                         stats.updateStats((int) value);
-                        break;
-                    case INT64:
+                    case INT64 ->
                         stats.updateStats((long) value);
-                        break;
-                    default:
+                    default ->
                         fail("Unsupported value type for stats: " + value.getClass());
                 }
             }

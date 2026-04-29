@@ -103,24 +103,23 @@ public class BenchmarkMapConcat
             List<String> leftKeys;
             List<String> rightKeys;
             switch (mapConfig) {
-                case "left_empty":
+                case "left_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of("a", "b", "c");
-                    break;
-                case "right_empty":
+                }
+                case "right_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of();
-                    break;
-                case "both_empty":
+                }
+                case "both_empty" -> {
                     leftKeys = ImmutableList.of();
                     rightKeys = ImmutableList.of();
-                    break;
-                case "non_empty":
+                }
+                case "non_empty" -> {
                     leftKeys = ImmutableList.of("a", "b", "c");
                     rightKeys = ImmutableList.of("d", "b", "c");
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             MapType mapType = mapType(createUnboundedVarcharType(), DOUBLE);

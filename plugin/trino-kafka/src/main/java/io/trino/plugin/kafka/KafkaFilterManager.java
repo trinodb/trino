@@ -113,9 +113,9 @@ public class KafkaFilterManager
             if (offsetRanged.isPresent()) {
                 Range range = offsetRanged.get();
                 partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
-                        partition -> (range.begin() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.begin()) : Optional.empty());
+                        _ -> (range.begin() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.begin()) : Optional.empty());
                 partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
-                        partition -> (range.end() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.end()) : Optional.empty());
+                        _ -> (range.end() != INVALID_KAFKA_RANGE_INDEX) ? Optional.of(range.end()) : Optional.empty());
             }
 
             // push down timestamp if possible

@@ -117,7 +117,7 @@ public final class EqualityDeleteFilter
             // ensure only one thread loads the file
             ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
                     deleteFile.path(),
-                    key -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
+                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
             futureTask.run();
             return Futures.nonCancellationPropagating(futureTask);
         }

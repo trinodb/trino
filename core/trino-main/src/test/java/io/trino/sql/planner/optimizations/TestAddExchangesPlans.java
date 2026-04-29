@@ -112,7 +112,7 @@ public class TestAddExchangesPlans
         extends BasePlanTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
 
     @Override
     protected PlanTester createPlanTester()
@@ -712,7 +712,7 @@ public class TestAddExchangesPlans
                                                                                 Optional.empty(),
                                                                                 PARTIAL,
                                                                                 project(
-                                                                                        ImmutableMap.of("partkey_expr", expression(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "partkey"), new Constant(BIGINT, 10L))))),
+                                                                                        ImmutableMap.of("partkey_expr", expression(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "partkey"), new Constant(BIGINT, 10L))))),
                                                                                         tableScan("lineitem", ImmutableMap.of(
                                                                                                 "partkey", "partkey",
                                                                                                 "suppkey", "suppkey"))))))))))))));
@@ -744,7 +744,7 @@ public class TestAddExchangesPlans
                                                         Optional.empty(),
                                                         Step.PARTIAL,
                                                         project(
-                                                                ImmutableMap.of("orderkey_expr", expression(new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 10000L))))),
+                                                                ImmutableMap.of("orderkey_expr", expression(new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 10000L))))),
                                                                 tableScan("lineitem", ImmutableMap.of(
                                                                         "partkey", "partkey",
                                                                         "orderkey", "orderkey",

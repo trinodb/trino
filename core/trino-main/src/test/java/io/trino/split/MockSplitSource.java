@@ -94,16 +94,10 @@ public class MockSplitSource
         }
         if (splitsProduced == totalSplits) {
             switch (atSplitDepletion) {
-                case FAIL:
-                    nextBatchFuture.setException(new IllegalStateException("Mock failure"));
-                    break;
-                case FINISH:
-                    nextBatchFuture.set(ImmutableList.of());
-                    break;
-                case DO_NOTHING:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case FAIL -> nextBatchFuture.setException(new IllegalStateException("Mock failure"));
+                case FINISH -> nextBatchFuture.set(ImmutableList.of());
+                case DO_NOTHING -> {}
+                default -> throw new UnsupportedOperationException();
             }
         }
         int splits = Math.min(Math.min(batchSize, nextBatchMaxSize), totalSplits - splitsProduced);

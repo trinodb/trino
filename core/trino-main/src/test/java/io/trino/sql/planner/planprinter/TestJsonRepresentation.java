@@ -216,7 +216,7 @@ public class TestJsonRepresentation
             ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), transactionSession);
             String jsonRenderedNode = new PlanPrinter(
                     sourceNodeSupplier.apply(planBuilder),
-                    scanNode -> TABLE_INFO,
+                    _ -> TABLE_INFO,
                     ImmutableMap.of(),
                     valuePrinter,
                     StatsAndCosts.empty(),

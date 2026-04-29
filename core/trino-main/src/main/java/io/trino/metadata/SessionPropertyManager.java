@@ -73,7 +73,7 @@ public final class SessionPropertyManager
 
     public SessionPropertyManager(SystemSessionPropertiesProvider systemSessionPropertiesProvider)
     {
-        this(ImmutableSet.of(systemSessionPropertiesProvider), connectorName -> ImmutableMap.of());
+        this(ImmutableSet.of(systemSessionPropertiesProvider), _ -> ImmutableMap.of());
     }
 
     public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties)

@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class Constraint
 {
     private static final Constraint ALWAYS_TRUE = new Constraint(TupleDomain.all());
-    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), _ -> false, Set.of());
 
     private final TupleDomain<ColumnHandle> summary;
     private final ConnectorExpression expression;

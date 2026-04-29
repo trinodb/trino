@@ -546,7 +546,7 @@ public class PinotClient
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
         String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.query()));
-        return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
+        return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), _ -> {
             HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.table()));
             URI queryPathUri = httpUriBuilder
                     .scheme(scheme)

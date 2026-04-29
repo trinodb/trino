@@ -283,7 +283,7 @@ public class QueuedStatementResource
             Duration elapsedTime,
             Duration queuedTime)
     {
-        QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
+        QueryState state = queryError.map(_ -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),

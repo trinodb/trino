@@ -455,16 +455,12 @@ public class TestHiveBucketedTables
 
     private String getExpectedBucketVersion(BucketingType bucketingType)
     {
-        switch (bucketingType) {
-            case BUCKETED_DEFAULT:
-                return "2";
-            case BUCKETED_V1:
-                return "1";
-            case BUCKETED_V2:
-                return "2";
-            default:
-                throw new UnsupportedOperationException("Not supported for " + bucketingType);
-        }
+        return switch (bucketingType) {
+            case BUCKETED_DEFAULT -> "2";
+            case BUCKETED_V1 -> "1";
+            case BUCKETED_V2 -> "2";
+            default -> throw new UnsupportedOperationException("Not supported for " + bucketingType);
+        };
     }
 
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)

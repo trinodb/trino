@@ -185,7 +185,7 @@ public class QueryMonitor
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
     {
         BasicQueryStats queryStats = queryInfo.getQueryStats();
-        eventListenerManager.queryCompleted(requiresAnonymizedPlan -> new QueryCompletedEvent(
+        eventListenerManager.queryCompleted(_ -> new QueryCompletedEvent(
                 new QueryMetadata(
                         queryInfo.getQueryId().toString(),
                         queryInfo.getSession().getTransactionId().map(TransactionId::toString),

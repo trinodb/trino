@@ -297,7 +297,7 @@ public class TestServer
             // This query is designed to cause a compile failure, and hopefully not run too long.
             // The exact query is not important, just that it causes a failure.
             String array = IntStream.range(0, 254)
-                    .mapToObj(columnNumber -> "foo")
+                    .mapToObj(_ -> "foo")
                     .collect(joining(", ", "ARRAY[", "]"));
             String query = "SELECT " +
                     String.join(" || ", Collections.nCopies(10, array)) +
@@ -439,7 +439,7 @@ public class TestServer
      */
     private static <T> Collector<T, ?, T> last()
     {
-        return Collectors.collectingAndThen(Collectors.reducing((a, b) -> b), Optional::get);
+        return Collectors.collectingAndThen(Collectors.reducing((_, b) -> b), Optional::get);
     }
 
     private static class QueryResultsIterator

@@ -110,7 +110,7 @@ public class BenchmarkBinaryColumnReader
 
     public enum FieldType
     {
-        UNBOUNDED(range -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
+        UNBOUNDED(_ -> VARBINARY, (size, range) -> randomBinaryData(size, range.from(), range.to())),
         VARCHAR_ASCII_BOUND_EXACT(range -> VarcharType.createVarcharType(max(1, range.to)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
         CHAR_ASCII_BOUND_HALF(range -> CharType.createCharType(max(1, range.to / 2)), (size, range) -> randomAsciiData(size, range.from(), range.to())),
         CHAR_BOUND_HALF_PADDING_SOMETIMES(range -> CharType.createCharType(max(1, range.to / 2)), (length, range) -> randomAsciiDataWithPadding(length, range, .01)),

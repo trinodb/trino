@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,8 +23,12 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -59,6 +64,7 @@ public class IcebergRestCatalogConfig
     private boolean vendedCredentialsEnabled;
     private boolean viewEndpointsEnabled = true;
     private boolean caseInsensitiveNameMatching;
+    private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @NotNull
@@ -221,6 +227,27 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    public Map<String, String> getHttpHeaders()
+    {
+        return httpHeaders;
+    }
+
+    @Config("iceberg.rest-catalog.http-headers")
+    @ConfigDescription("Additional HTTP headers to attach to REST catalog requests")
+    public IcebergRestCatalogConfig setHttpHeaders(List<String> httpHeaders)
+    {
+        try {
+            this.httpHeaders = httpHeaders.stream()
+                    .collect(toImmutableMap(kvs -> kvs.split(":", 2)[0], kvs -> kvs.split(":", 2)[1]));
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(format(
+                    "Cannot parse http headers from property iceberg.rest-catalog.http-headers; value provided was %s, expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"",
+                    String.join(", ", httpHeaders)), e);
+        }
         return this;
     }
 

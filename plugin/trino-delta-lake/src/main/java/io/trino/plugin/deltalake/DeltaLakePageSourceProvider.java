@@ -400,16 +400,16 @@ public class DeltaLakePageSourceProvider
 
     public static Optional<HiveColumnHandle> toHiveColumnHandle(DeltaLakeColumnHandle deltaLakeColumnHandle, ColumnMappingMode columnMapping, Map<Integer, String> fieldIdToName)
     {
-        switch (columnMapping) {
-            case ID:
+        return switch (columnMapping) {
+            case ID -> {
                 Integer fieldId = deltaLakeColumnHandle.baseFieldId().orElseThrow(() -> new IllegalArgumentException("Field ID must exist"));
                 if (!fieldIdToName.containsKey(fieldId)) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
                 String fieldName = fieldIdToName.get(fieldId);
                 Optional<HiveColumnProjectionInfo> hiveColumnProjectionInfo = deltaLakeColumnHandle.projectionInfo()
                         .map(DeltaLakeColumnProjectionInfo::toHiveColumnProjectionInfo);
-                return Optional.of(new HiveColumnHandle(
+                yield Optional.of(new HiveColumnHandle(
                         fieldName,
                         0,
                         toHiveType(deltaLakeColumnHandle.basePhysicalType()),
@@ -417,14 +417,13 @@ public class DeltaLakePageSourceProvider
                         hiveColumnProjectionInfo,
                         deltaLakeColumnHandle.columnType().toHiveColumnType(),
                         Optional.empty()));
-            case NAME:
-            case NONE:
+            }
+            case NAME, NONE -> {
                 checkArgument(fieldIdToName.isEmpty(), "Mapping between field id and name must be empty: %s", fieldIdToName);
-                return Optional.of(deltaLakeColumnHandle.toHiveColumnHandle());
-            case UNKNOWN:
-            default:
-                throw new IllegalArgumentException("Unsupported column mapping: " + columnMapping);
-        }
+                yield Optional.of(deltaLakeColumnHandle.toHiveColumnHandle());
+            }
+            case UNKNOWN -> throw new IllegalArgumentException("Unsupported column mapping: " + columnMapping);
+        };
     }
 
     private static boolean onlyRowIdColumn(List<DeltaLakeColumnHandle> columns)

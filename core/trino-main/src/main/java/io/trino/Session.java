@@ -415,7 +415,7 @@ public final class Session
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
         for (Entry<String, Map<String, String>> catalogEntry : this.catalogProperties.entrySet()) {
-            catalogProperties.computeIfAbsent(catalogEntry.getKey(), id -> new HashMap<>())
+            catalogProperties.computeIfAbsent(catalogEntry.getKey(), _ -> new HashMap<>())
                     .putAll(catalogEntry.getValue());
         }
 
@@ -968,7 +968,7 @@ public final class Session
         public SessionBuilder setCatalogSessionProperty(String catalogName, String propertyName, String propertyValue)
         {
             checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
-            catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
+            catalogSessionProperties.computeIfAbsent(catalogName, _ -> new HashMap<>()).put(propertyName, propertyValue);
             return this;
         }
 

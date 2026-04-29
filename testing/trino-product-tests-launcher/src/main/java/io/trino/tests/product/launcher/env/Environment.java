@@ -630,7 +630,7 @@ public final class Environment
                 }
             }
 
-            containers.forEach((name, container) -> {
+            containers.forEach((_, container) -> {
                 container
                         .addContainerListener(listener)
                         .withCreateContainerCmdModifier(createContainerCmd -> {
@@ -680,7 +680,7 @@ public final class Environment
         private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
         {
             // Discard log frames
-            return outputFrame -> {};
+            return _ -> {};
         }
 
         private void addConfiguredFeaturesConfig()

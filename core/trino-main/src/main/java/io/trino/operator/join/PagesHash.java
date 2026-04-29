@@ -42,9 +42,9 @@ public interface PagesHash
         //
 
         rawHash ^= rawHash >>> 33;
-        rawHash *= 0xff51afd7ed558ccdL;
+        rawHash *= 0xFF51AFD7ED558CCDL;
         rawHash ^= rawHash >>> 33;
-        rawHash *= 0xc4ceb9fe1a85ec53L;
+        rawHash *= 0xC4CEB9FE1A85EC53L;
         rawHash ^= rawHash >>> 33;
 
         return (int) (rawHash & mask);

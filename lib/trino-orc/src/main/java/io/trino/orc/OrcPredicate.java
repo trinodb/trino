@@ -18,7 +18,7 @@ import io.trino.orc.metadata.statistics.ColumnStatistics;
 
 public interface OrcPredicate
 {
-    OrcPredicate TRUE = (numberOfRows, statisticsByColumnIndex) -> true;
+    OrcPredicate TRUE = (_, _) -> true;
 
     /**
      * Should the ORC reader process a file section with the specified statistics.

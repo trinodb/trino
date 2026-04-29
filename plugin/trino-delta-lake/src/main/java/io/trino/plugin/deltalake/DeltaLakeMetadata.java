@@ -894,7 +894,7 @@ public class DeltaLakeMetadata
     public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
     {
         return streamTables(session, schemaName)
-                .collect(toImmutableMap(TableInfo::tableName, this::resolveRelationType, (ignore, second) -> second));
+                .collect(toImmutableMap(TableInfo::tableName, this::resolveRelationType, (_, second) -> second));
     }
 
     private Stream<TableInfo> streamTables(ConnectorSession session, Optional<String> optionalSchemaName)
@@ -2941,12 +2941,13 @@ public class DeltaLakeMetadata
     public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> {
                 finishOptimize(session, executeHandle, fragments, splitSourceInfo);
-                return ImmutableMap.of();
-        }
-        throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+                yield ImmutableMap.of();
+            }
+            default -> throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
+        };
     }
 
     private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)

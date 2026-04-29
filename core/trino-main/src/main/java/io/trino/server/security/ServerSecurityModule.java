@@ -70,7 +70,7 @@ public class ServerSecurityModule
             configBinder(certificateBinder).bindConfig(CertificateConfig.class);
         }));
         installAuthenticator(securityConfig, "kerberos", KerberosAuthenticator.class, KerberosConfig.class);
-        install(authenticatorModule(securityConfig, "password", PasswordAuthenticator.class, used -> {
+        install(authenticatorModule(securityConfig, "password", PasswordAuthenticator.class, _ -> {
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));

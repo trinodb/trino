@@ -326,7 +326,7 @@ public class DbResourceGroupConfigurationManager
                 resourceGroupIdTemplateMap.put(record.getId(), new ResourceGroupIdTemplate(record.getNameTemplate().toString()));
             }
             else {
-                subGroupIdsToBuild.computeIfAbsent(record.getParentId().get(), k -> new HashSet<>()).add(record.getId());
+                subGroupIdsToBuild.computeIfAbsent(record.getParentId().get(), _ -> new HashSet<>()).add(record.getId());
             }
         }
     }
@@ -349,7 +349,7 @@ public class DbResourceGroupConfigurationManager
         // Build up resource group specs from leaf to root
         for (LinkedList<Long> queue = new LinkedList<>(rootGroupIds); !queue.isEmpty(); ) {
             Long id = queue.pollFirst();
-            resourceGroupIdTemplateMap.computeIfAbsent(id, k -> {
+            resourceGroupIdTemplateMap.computeIfAbsent(id, _ -> {
                 ResourceGroupSpecBuilder builder = recordMap.get(id);
                 return ResourceGroupIdTemplate.forSubGroupNamed(
                         resourceGroupIdTemplateMap.get(builder.getParentId().get()),

@@ -371,68 +371,57 @@ public class MariaDbClient
             return unsignedMapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.REAL:
+        Optional<ColumnMapping> jdbcTypeMapping = switch (typeHandle.jdbcType()) {
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.REAL ->
                 // Disable pushdown because floating-point values are approximate and not stored as exact values,
                 // attempts to treat them as exact in comparisons may lead to problems
-                return Optional.of(ColumnMapping.longMapping(
+                Optional.of(ColumnMapping.longMapping(
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                         realWriteFunction(),
                         DISABLE_PUSHDOWN));
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.NUMERIC:
-            case Types.DECIMAL:
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision <= Decimals.MAX_PRECISION) {
-                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
                 // precision > MAX_PRECISION
-                switch (getDecimalRounding(session)) {
-                    case MAP_TO_NUMBER -> {
-                        return Optional.of(numberColumnMapping());
-                    }
-                    case STRICT -> {
-                        // skipped (unhandled type)
-                    }
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> Optional.empty();
                     case ALLOW_OVERFLOW -> {
                         int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
-                }
-                break;
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
+                };
+            }
+            case Types.CHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.VARCHAR, Types.LONGVARCHAR -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
                         DATE,
                         dateReadFunctionUsingLocalDate(),
                         dateWriteFunction()));
-            case Types.TIME:
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(timeColumnMapping(timeType));
-            case Types.TIMESTAMP:
+                yield Optional.of(timeColumnMapping(timeType));
+            }
+            case Types.TIMESTAMP -> {
                 // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
-                return Optional.of(mariaDbTimestampColumnMapping(timestampType));
+                yield Optional.of(mariaDbTimestampColumnMapping(timestampType));
+            }
+            default -> Optional.empty();
+        };
+        if (jdbcTypeMapping.isPresent()) {
+            return jdbcTypeMapping;
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

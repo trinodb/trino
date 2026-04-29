@@ -218,13 +218,13 @@ public class DeltaLakeJsonFileStatistics
     {
         long totalSize = INSTANCE_SIZE;
         if (minValues.isPresent()) {
-            totalSize += estimatedSizeOf(minValues.get(), CanonicalColumnName::getRetainedSize, value -> SizeOf.sizeOfObjectArray(1));
+            totalSize += estimatedSizeOf(minValues.get(), CanonicalColumnName::getRetainedSize, _ -> SizeOf.sizeOfObjectArray(1));
         }
         if (maxValues.isPresent()) {
-            totalSize += estimatedSizeOf(maxValues.get(), CanonicalColumnName::getRetainedSize, value -> SizeOf.sizeOfObjectArray(1));
+            totalSize += estimatedSizeOf(maxValues.get(), CanonicalColumnName::getRetainedSize, _ -> SizeOf.sizeOfObjectArray(1));
         }
         if (nullCount.isPresent()) {
-            totalSize += estimatedSizeOf(nullCount.get(), CanonicalColumnName::getRetainedSize, value -> SizeOf.sizeOfLongArray(1));
+            totalSize += estimatedSizeOf(nullCount.get(), CanonicalColumnName::getRetainedSize, _ -> SizeOf.sizeOfLongArray(1));
         }
         return totalSize;
     }

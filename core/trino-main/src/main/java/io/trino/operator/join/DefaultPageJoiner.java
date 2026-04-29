@@ -346,7 +346,7 @@ public class DefaultPageJoiner
                 spilledRows.merge(
                         currentRowPartition,
                         new SavedRow(probe.getPage(), probe.getPosition(), getJoinPositionWithinPartition(), currentProbePositionProducedRow, joinSourcePositions),
-                        (oldValue, newValue) -> {
+                        (_, _) -> {
                             throw new IllegalStateException(format("Partition %s is already spilled", currentRowPartition));
                         });
                 Page remaining = pageTail(probe.getPage(), probe.getPosition() + 1);
@@ -490,6 +490,6 @@ public class DefaultPageJoiner
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 }

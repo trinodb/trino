@@ -128,8 +128,8 @@ public class CountingMockConnector
     {
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                 .withMetadataWrapper(connectorMetadata -> new TracingConnectorMetadata(tracerProvider.get("test"), "mock", connectorMetadata))
-                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema1", "test_schema2", "test_schema3_empty", "test_schema4_empty"))
-                .withListTables((connectorSession, schemaName) -> {
+                .withListSchemaNames(_ -> ImmutableList.of("test_schema1", "test_schema2", "test_schema3_empty", "test_schema4_empty"))
+                .withListTables((_, schemaName) -> {
                     if (schemaName.equals("test_schema1")) {
                         return ImmutableList.copyOf(tablesTestSchema1);
                     }
@@ -158,7 +158,7 @@ public class CountingMockConnector
                 })
                 .withGetColumns(schemaTableName -> defaultGetColumns().apply(schemaTableName))
                 .withGetComment(schemaTableName -> Optional.of("comment for " + schemaTableName))
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> roleGrants)
+                .withListRoleGrants((_, _, _, _) -> roleGrants)
                 .build();
 
         return mockConnectorFactory;

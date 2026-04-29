@@ -92,7 +92,7 @@ public class TestRowFilter
                 ImmutableList.of());
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withGetViews((s, prefix) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))
+                .withGetViews((_, _) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
@@ -123,7 +123,7 @@ public class TestRowFilter
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("mockmissingcolumns")
-                .withGetViews((s, prefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {

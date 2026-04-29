@@ -64,7 +64,7 @@ public class MockPinotClient
         super(
                 pinotConfig,
                 new IdentityPinotHostMapper(),
-                new TestingHttpClient(request -> null),
+                new TestingHttpClient(_ -> null),
                 newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,

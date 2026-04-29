@@ -46,7 +46,7 @@ public class TestVarcharToFloatCoercer
         assertVarcharToFloatCoercion("123", Float.parseFloat("123"));
         assertVarcharToFloatCoercion("1.17549435E-38f", MIN_NORMAL); // Value where Float.intBitsToFloat(0x00800000)
         assertVarcharToFloatCoercion("3.4028235e+38f", MAX_VALUE); // largest positive value
-        assertVarcharToFloatCoercion("-3.4028235e+38f", -3.4028235E38f); // largest negative value
+        assertVarcharToFloatCoercion("-3.4028235e+38f", -3.4028235e38f); // largest negative value
         assertVarcharToFloatCoercion("4.4028235e+39f", POSITIVE_INFINITY); // Value above max positive value
         assertVarcharToFloatCoercion("-3.4028235e+39f", NEGATIVE_INFINITY); // Value below max negative value
         assertVarcharToFloatCoercion("1.4e-45f", MIN_VALUE); // smallest positive nonzero value

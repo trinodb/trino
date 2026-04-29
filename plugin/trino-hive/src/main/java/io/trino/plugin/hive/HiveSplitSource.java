@@ -251,18 +251,21 @@ class HiveSplitSource
         boolean noMoreSplits;
         State state = stateReference.get();
         switch (state.getKind()) {
-            case INITIAL:
+            case INITIAL -> {
                 noMoreSplits = false;
-                break;
-            case NO_MORE_SPLITS:
+            }
+            case NO_MORE_SPLITS -> {
                 noMoreSplits = true;
-                break;
-            case FAILED:
+            }
+            case FAILED -> {
                 return failedFuture(state.getThrowable());
-            case CLOSED:
+            }
+            case CLOSED -> {
                 throw new IllegalStateException("HiveSplitSource is already closed");
-            default:
+            }
+            default -> {
                 throw new UnsupportedOperationException();
+            }
         }
 
         ListenableFuture<List<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {

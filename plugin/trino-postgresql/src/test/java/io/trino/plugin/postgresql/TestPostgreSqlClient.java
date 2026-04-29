@@ -62,7 +62,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -118,7 +118,7 @@ public class TestPostgreSqlClient
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
             new JdbcStatisticsConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new TestingPostgreSqlConnectorContext().getTypeManager(),
             new DefaultIdentifierMapping(),
@@ -290,21 +290,16 @@ public class TestPostgreSqlClient
                     Map.of("c_bigint_symbol", BIGINT_COLUMN));
 
             switch (operator) {
-                case EQUAL:
-                case NOT_EQUAL:
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
+                case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     assertThat(converted).isPresent();
                     assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") %s (?)", operator.getValue()));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                    break;
-                case IDENTICAL:
+                }
+                case IDENTICAL -> {
                     assertThat(converted).isPresent();
                     assertThat(converted.get().expression()).isEqualTo(format("(\"c_bigint\") IS NOT DISTINCT FROM (?)"));
                     assertThat(converted.get().parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
-                    break;
+                }
             }
         }
     }
@@ -314,7 +309,7 @@ public class TestPostgreSqlClient
     {
         TestingFunctionResolution resolver = new TestingFunctionResolution();
 
-        for (OperatorType operator : EnumSet.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS)) {
+        for (OperatorType operator : EnumSet.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO)) {
             ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                             SESSION,
                             translateToConnectorExpression(

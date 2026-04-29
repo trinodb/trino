@@ -619,14 +619,14 @@ public class TestCostCalculator
         new CostAssertionBuilder(calculateCost(
                 costCalculatorUsingExchanges,
                 node,
-                planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown()))
+                _ -> PlanCostEstimate.unknown(),
+                _ -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
         new CostAssertionBuilder(calculateCost(
                 costCalculatorWithEstimatedExchanges,
                 node,
-                planNode -> PlanCostEstimate.unknown(),
-                planNode -> PlanNodeStatsEstimate.unknown()))
+                _ -> PlanCostEstimate.unknown(),
+                _ -> PlanNodeStatsEstimate.unknown()))
                 .hasUnknownComponents();
     }
 
@@ -640,7 +640,7 @@ public class TestCostCalculator
 
     private StatsCalculator statsCalculator(Map<String, PlanNodeStatsEstimate> stats)
     {
-        return (node, context) -> requireNonNull(stats.get(node.getId().toString()), "no stats for node");
+        return (node, _) -> requireNonNull(stats.get(node.getId().toString()), "no stats for node");
     }
 
     private PlanCostEstimate calculateCost(

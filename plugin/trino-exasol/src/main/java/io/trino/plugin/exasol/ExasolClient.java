@@ -226,35 +226,31 @@ public class ExasolClient
         if (isHashType(typeHandle)) {
             return Optional.of(hashTypeColumnMapping());
         }
-        switch (typeHandle.jdbcType()) {
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.DECIMAL:
+        return switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int columnSize = typeHandle.requiredColumnSize();
-                return Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
-            case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
-            case Types.VARCHAR:
+                yield Optional.of(decimalColumnMapping(createDecimalType(columnSize, decimalDigits)));
+            }
+            case Types.CHAR -> Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
+            case Types.VARCHAR -> {
                 // String data is sorted by its binary representation.
                 // https://docs.exasol.com/db/latest/sql/select.htm#UsageNotes
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
-            case Types.DATE:
-                return Optional.of(dateColumnMapping());
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
+            }
+            case Types.DATE -> Optional.of(dateColumnMapping());
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     private boolean isHashType(JdbcTypeHandle typeHandle)

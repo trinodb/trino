@@ -448,7 +448,7 @@ public class TestJoinNodeFlattener
                 testSessionBuilder().build(),
                 dummyMetadata(),
                 queryRunner.getPlannerContext().getFunctionManager(),
-                node -> unknown(),
+                _ -> unknown(),
                 new Plan(actual, empty()), noLookup(),
                 pattern);
     }

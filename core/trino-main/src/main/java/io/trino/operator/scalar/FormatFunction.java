@@ -183,7 +183,7 @@ public final class FormatFunction
     private static BiFunction<Block, Integer, Object> valueConverter(FunctionDependencies functionDependencies, Type type)
     {
         if (type.equals(UNKNOWN)) {
-            return (block, position) -> null;
+            return (_, _) -> null;
         }
         if (type.equals(BOOLEAN)) {
             return BOOLEAN::getBoolean;

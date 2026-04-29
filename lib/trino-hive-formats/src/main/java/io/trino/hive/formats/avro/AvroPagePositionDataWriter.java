@@ -558,7 +558,7 @@ public class AvroPagePositionDataWriter
                 channelEncoders[i].setBlock(sqlRow.getRawFieldBlock(i));
             }
             int rawIndex = sqlRow.getRawIndex();
-            encodeInternal(i -> rawIndex, encoder);
+            encodeInternal(_ -> rawIndex, encoder);
         }
 
         public void setChannelBlocksFromPage(Page page)
@@ -572,7 +572,7 @@ public class AvroPagePositionDataWriter
         public void encodePositionInEachChannel(int position, Encoder encoder)
                 throws IOException
         {
-            encodeInternal(ignore -> position, encoder);
+            encodeInternal(_ -> position, encoder);
         }
 
         private void encodeInternal(IntFunction<Integer> channelToPosition, Encoder encoder)

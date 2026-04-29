@@ -74,7 +74,7 @@ public class TestJwkService
     @Test
     public void testSuccess()
     {
-        HttpClient httpClient = new TestingHttpClient(request -> mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
+        HttpClient httpClient = new TestingHttpClient(_ -> mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
         JwkService service = new JwkService(URI.create("http://example.com"), httpClient, new Duration(1, DAYS));
         assertTestKeys(service);
     }
@@ -83,7 +83,7 @@ public class TestJwkService
     public void testReload()
     {
         AtomicReference<Response> response = new AtomicReference<>(mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(request -> response.get()), new Duration(1, DAYS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS));
         assertEmptyKeys(service);
 
         response.set(mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
@@ -108,7 +108,7 @@ public class TestJwkService
             throws InterruptedException
     {
         AtomicReference<Supplier<Response>> response = new AtomicReference<>(() -> mockResponse(HttpStatus.OK, JSON_UTF_8, EMPTY_KEYS));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(request -> response.get().get()), new Duration(1, MILLISECONDS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get().get()), new Duration(1, MILLISECONDS));
         assertEmptyKeys(service);
 
         try {
@@ -138,7 +138,7 @@ public class TestJwkService
         AtomicReference<Response> response = new AtomicReference<>(mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
         JwkService service = new JwkService(
                 URI.create("http://example.com"),
-                new TestingHttpClient(request -> {
+                new TestingHttpClient(_ -> {
                     Response value = response.get();
                     if (value == null) {
                         throw new IllegalArgumentException("test");
@@ -165,7 +165,7 @@ public class TestJwkService
     public void testBadResponse()
     {
         AtomicReference<Response> response = new AtomicReference<>(mockResponse(HttpStatus.OK, JSON_UTF_8, TEST_JWK_RESPONSE));
-        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(request -> response.get()), new Duration(1, DAYS));
+        JwkService service = new JwkService(URI.create("http://example.com"), new TestingHttpClient(_ -> response.get()), new Duration(1, DAYS));
         assertTestKeys(service);
 
         // bad response code document

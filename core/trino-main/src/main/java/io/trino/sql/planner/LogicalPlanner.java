@@ -576,7 +576,7 @@ public class LogicalPlanner
                 table,
                 plan,
                 failIfPredicateIsNotMet(metadata, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
-                node -> {
+                _ -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
                     return Scope.builder()
@@ -588,7 +588,7 @@ public class LogicalPlanner
                 analysis.getCheckConstraints(table),
                 table,
                 plan,
-                node -> {
+                _ -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
                     return Scope.builder()

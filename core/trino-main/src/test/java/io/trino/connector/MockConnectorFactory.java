@@ -436,7 +436,7 @@ public class MockConnectorFactory
     {
         private String name = "mock";
         private final List<PropertyMetadata<?>> sessionProperties = new ArrayList<>();
-        private Consumer<ConnectorSession> cleanupQuery = session -> {};
+        private Consumer<ConnectorSession> cleanupQuery = _ -> {};
         private Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper = identity();
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<String>> listTables = defaultListTables();
@@ -446,34 +446,34 @@ public class MockConnectorFactory
         private Supplier<List<PropertyMetadata<?>>> getViewProperties = defaultGetViewProperties();
         private Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties = defaultGetMaterializedViewProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
-        private BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector = (session, viewName) -> false;
-        private BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView = (session, viewName) -> CompletableFuture.completedFuture(null);
+        private BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector = (_, _) -> false;
+        private BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView = (_, _) -> CompletableFuture.completedFuture(null);
         private BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness = (_, _) -> {
             throw new UnsupportedOperationException("getMaterializedViewFreshness is not implemented");
         };
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
-        private Function<SchemaTableName, Optional<String>> getComment = schemaTableName -> Optional.empty();
-        private Function<SchemaTableName, TableStatistics> getTableStatistics = schemaTableName -> empty();
-        private Function<SchemaTableName, List<String>> checkConstraints = schemaTableName -> ImmutableList.of();
-        private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
-        private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
+        private Function<SchemaTableName, Optional<String>> getComment = _ -> Optional.empty();
+        private Function<SchemaTableName, TableStatistics> getTableStatistics = _ -> empty();
+        private Function<SchemaTableName, List<String>> checkConstraints = _ -> ImmutableList.of();
+        private ApplyProjection applyProjection = (_, _, _, _) -> Optional.empty();
+        private ApplyAggregation applyAggregation = (_, _, _, _, _) -> Optional.empty();
         private ApplyJoin applyJoin = (_, _, _, _, _, _, _, _) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
-        private BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType = (session, type) -> Optional.empty();
+        private BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType = (_, _) -> Optional.empty();
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
         private BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges = defaultListTablePrivileges();
         private Collection<FunctionMetadata> functions = ImmutableList.of();
         private Collection<String> branches = ImmutableList.of();
-        private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
-        private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
-        private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
-        private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
-        private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
-        private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
-        private Function<SchemaTableName, Metrics> metrics = schemaTableName -> EMPTY;
-        private Function<SchemaTableName, Metrics> splitSourceMetrics = schemaTableName -> EMPTY;
+        private ApplyTopN applyTopN = (_, _, _, _, _) -> Optional.empty();
+        private ApplyFilter applyFilter = (_, _, _) -> Optional.empty();
+        private ApplyTableFunction applyTableFunction = (_, _) -> Optional.empty();
+        private ApplyTableScanRedirect applyTableScanRedirect = (_, _) -> Optional.empty();
+        private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (_, _) -> Optional.empty();
+        private Function<SchemaTableName, List<List<?>>> data = _ -> ImmutableList.of();
+        private Function<SchemaTableName, Metrics> metrics = _ -> EMPTY;
+        private Function<SchemaTableName, Metrics> splitSourceMetrics = _ -> EMPTY;
         private Set<Procedure> procedures = ImmutableSet.of();
         private Set<TableProcedureMetadata> tableProcedures = ImmutableSet.of();
         private Set<ConnectorTableFunction> tableFunctions = ImmutableSet.of();
@@ -483,18 +483,18 @@ public class MockConnectorFactory
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> columnProperties = ImmutableList::of;
         private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
-        private Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources = handle -> null;
+        private Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources = _ -> null;
 
         // access control
         private boolean provideAccessControl;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
-        private Function<SchemaTableName, ViewExpression> rowFilter = tableName -> null;
-        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+        private Function<SchemaTableName, ViewExpression> rowFilter = _ -> null;
+        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (_, _) -> null;
         private boolean allowMissingColumnsOnInsert;
         private OptionalInt maxWriterTasks = OptionalInt.empty();
-        private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
+        private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (_, _) -> Optional.empty();
         private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
         private Supplier<Set<ConnectorCapabilities>> capabilities = ImmutableSet::of;
         private boolean allowSplittingReadIntoMultipleSubQueries;
@@ -938,22 +938,22 @@ public class MockConnectorFactory
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
         {
-            return session -> ImmutableList.of();
+            return _ -> ImmutableList.of();
         }
 
         public static ListRoleGrants defaultRoleAuthorizations()
         {
-            return (session, roles, grantees, limit) -> ImmutableSet.of();
+            return (_, _, _, _) -> ImmutableSet.of();
         }
 
         public static BiFunction<ConnectorSession, String, List<String>> defaultListTables()
         {
-            return (session, schemaName) -> ImmutableList.of();
+            return (_, _) -> ImmutableList.of();
         }
 
         public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> defaultGetViews()
         {
-            return (session, schemaTablePrefix) -> ImmutableMap.of();
+            return (_, _) -> ImmutableMap.of();
         }
 
         public static Supplier<List<PropertyMetadata<?>>> defaultGetViewProperties()
@@ -968,37 +968,37 @@ public class MockConnectorFactory
 
         public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> defaultGetMaterializedViews()
         {
-            return (session, schemaTablePrefix) -> ImmutableMap.of();
+            return (_, _) -> ImmutableMap.of();
         }
 
         public static BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> defaultGetTableHandle()
         {
-            return (session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName);
+            return (_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName);
         }
 
         public static BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> defaultGetInsertLayout()
         {
-            return (session, schemaTableName) -> Optional.empty();
+            return (_, _) -> Optional.empty();
         }
 
         public static BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> defaultGetNewTableLayout()
         {
-            return (session, tableMetadata) -> Optional.empty();
+            return (_, _) -> Optional.empty();
         }
 
         public static BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> defaultGetTableProperties()
         {
-            return (session, tableHandle) -> new ConnectorTableProperties();
+            return (_, _) -> new ConnectorTableProperties();
         }
 
         public static BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> defaultListTablePrivileges()
         {
-            return (session, tableHandle) -> ImmutableList.of();
+            return (_, _) -> ImmutableList.of();
         }
 
         public static Function<SchemaTableName, List<ColumnMetadata>> defaultGetColumns()
         {
-            return table -> IntStream.range(0, 100)
+            return _ -> IntStream.range(0, 100)
                     .boxed()
                     .map(i -> new ColumnMetadata("column_" + i, createUnboundedVarcharType()))
                     .collect(toImmutableList());

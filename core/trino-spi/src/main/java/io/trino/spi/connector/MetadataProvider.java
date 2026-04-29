@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public interface MetadataProvider
 {
-    MetadataProvider NOOP_METADATA_PROVIDER = (session, tableName) -> Optional.empty();
+    MetadataProvider NOOP_METADATA_PROVIDER = (_, _) -> Optional.empty();
 
     /**
      * Return relation schema or empty if relation does not exist.

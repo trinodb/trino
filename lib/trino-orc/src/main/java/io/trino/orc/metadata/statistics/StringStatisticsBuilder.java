@@ -145,10 +145,10 @@ public class StringStatisticsBuilder
     public ColumnStatistics buildColumnStatistics()
     {
         Optional<StringStatistics> stringStatistics = buildStringStatistics();
-        stringStatistics.ifPresent(s -> verify(nonNullValueCount > 0));
+        stringStatistics.ifPresent(_ -> verify(nonNullValueCount > 0));
         return new ColumnStatistics(
                 nonNullValueCount,
-                stringStatistics.map(s -> STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
+                stringStatistics.map(_ -> STRING_VALUE_BYTES_OVERHEAD + sum / nonNullValueCount).orElse(0L),
                 null,
                 null,
                 null,

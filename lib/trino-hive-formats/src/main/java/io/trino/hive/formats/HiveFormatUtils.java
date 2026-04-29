@@ -340,7 +340,7 @@ public final class HiveFormatUtils
                 DateTimeFieldType.hourOfDay(),
                 DateTimeFieldType.minuteOfHour(),
                 DateTimeFieldType.secondOfMinute(),
-                DateTimeFieldType.millisOfSecond()
+                DateTimeFieldType.millisOfSecond(),
         };
 
         @Override

@@ -52,7 +52,7 @@ public class TrinoNumber
     static short header(boolean negated, int scale)
     {
         checkArgument(MIN_SCALE <= scale && scale <= MAX_SCALE, "Scale out of range: %s", scale);
-        short header = (short) ((scale + SCALE_BASE) & 0x7fff);
+        short header = (short) ((scale + SCALE_BASE) & 0x7FFF);
         if (negated) {
             header = (short) (header | 0x8000);
         }
@@ -62,7 +62,7 @@ public class TrinoNumber
     // visible for testing
     static short scaleFromHeader(short header)
     {
-        return (short) ((header & 0x7fff) - SCALE_BASE);
+        return (short) ((header & 0x7FFF) - SCALE_BASE);
     }
 
     // visible for testing

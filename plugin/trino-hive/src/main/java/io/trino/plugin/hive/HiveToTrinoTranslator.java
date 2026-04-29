@@ -61,16 +61,15 @@ public final class HiveToTrinoTranslator
         while (input.hasNext()) {
             char c = input.next();
             switch (c) {
-                case '"':
-                case '\'':
+                case '"', '\'' -> {
                     translateString(c);
-                    break;
-                case '`':
+                }
+                case '`' -> {
                     translateQuotedIdentifier();
-                    break;
-                default:
+                }
+                default -> {
                     output.append(c);
-                    break;
+                }
             }
         }
         return output.toString();

@@ -1094,11 +1094,11 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "DECIMAL '-1234567890123456789012345678'"))
-                .isEqualTo(-1.2345678901234569E27);
+                .isEqualTo(-1.2345678901234569e27);
 
         assertThat(assertions.expression("cast(a as DOUBLE)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
-                .isEqualTo(1.0E38);
+                .isEqualTo(1.0e38);
     }
 
     @Test
@@ -1313,11 +1313,11 @@ public class TestDecimalCasts
 
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "DECIMAL '-1234567890123456789012345678'"))
-                .isEqualTo(-1.2345678901234569E27f);
+                .isEqualTo(-1.2345678901234569e27f);
 
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "DECIMAL '99999999999999999999999999999999999999'"))
-                .isEqualTo(1.0E38f);
+                .isEqualTo(1.0e38f);
     }
 
     @Test

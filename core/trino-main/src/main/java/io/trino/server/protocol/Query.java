@@ -638,23 +638,29 @@ class Query
     private static long estimateJsonSize(Block block)
     {
         switch (block) {
-            case RunLengthEncodedBlock rleBlock:
+            case RunLengthEncodedBlock rleBlock -> {
                 return estimateJsonSize(rleBlock.getValue()) * rleBlock.getPositionCount();
-            case DictionaryBlock dictionaryBlock:
+            }
+            case DictionaryBlock dictionaryBlock -> {
                 ValueBlock dictionary = dictionaryBlock.getDictionary();
                 double averageSizePerEntry = (double) estimateJsonSize(dictionary) / dictionary.getPositionCount();
                 return (long) (averageSizePerEntry * block.getPositionCount());
-            case RowBlock rowBlock:
+            }
+            case RowBlock rowBlock -> {
                 return rowBlock.getFieldBlocks().stream()
                         .mapToLong(Query::estimateJsonSize)
                         .sum();
-            case ArrayBlock arrayBlock:
+            }
+            case ArrayBlock arrayBlock -> {
                 return estimateJsonSize(arrayBlock.getElementsBlock());
-            case MapBlock mapBlock:
+            }
+            case MapBlock mapBlock -> {
                 return estimateJsonSize(mapBlock.getKeyBlock()) +
                         estimateJsonSize(mapBlock.getValueBlock());
-            default:
-                return block.getSizeInBytes();
+            }
+            default -> {
+                                return block.getSizeInBytes();
+            }
         }
     }
 

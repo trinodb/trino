@@ -394,27 +394,14 @@ public class Verifier
     private static String getLiteral(String type, Optional<String> value)
     {
         String baseType = getBaseType(type);
-        switch (baseType) {
-            case "TINYINT":
-            case "SMALLINT":
-            case "INTEGER":
-            case "BIGINT":
-            case "DECIMAL":
-            case "DATE":
-            case "TIME":
-            case "REAL":
-            case "DOUBLE":
-                return value.map(v -> baseType + " '" + v + "'").orElse("NULL");
-            case "CHAR":
-            case "VARCHAR":
-                return value.map(v -> baseType + " '" + v.replaceAll("'", "''") + "'").orElse("NULL");
-            case "VARBINARY":
-                return value.map(v -> "X'" + v + "'").orElse("NULL");
-            case "UNKNOWN":
-                return "NULL";
-            default:
-                throw new IllegalArgumentException(format("Unexpected type: %s", type));
-        }
+        return switch (baseType) {
+            case "TINYINT", "SMALLINT", "INTEGER", "BIGINT", "DECIMAL",
+                 "DATE", "TIME", "REAL", "DOUBLE" -> value.map(v -> baseType + " '" + v + "'").orElse("NULL");
+            case "CHAR", "VARCHAR" -> value.map(v -> baseType + " '" + v.replaceAll("'", "''") + "'").orElse("NULL");
+            case "VARBINARY" -> value.map(v -> "X'" + v + "'").orElse("NULL");
+            case "UNKNOWN" -> "NULL";
+            default -> throw new IllegalArgumentException(format("Unexpected type: %s", type));
+        };
     }
 
     private static String getBaseType(String type)

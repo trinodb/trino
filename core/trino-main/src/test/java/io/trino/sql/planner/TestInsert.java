@@ -63,7 +63,7 @@ public class TestInsert
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.installPlugin(
                 new MockConnectorPlugin(MockConnectorFactory.builder()
-                        .withGetTableHandle((session, schemaTableName) -> {
+                        .withGetTableHandle((_, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
@@ -74,10 +74,10 @@ public class TestInsert
 
                             return null;
                         })
-                        .withGetColumns(name -> ImmutableList.of(
+                        .withGetColumns(_ -> ImmutableList.of(
                                 new ColumnMetadata("column1", INTEGER),
                                 new ColumnMetadata("column2", INTEGER)))
-                        .withGetInsertLayout((session, tableName) -> {
+                        .withGetInsertLayout((_, tableName) -> {
                             if (tableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }
@@ -88,7 +88,7 @@ public class TestInsert
 
                             return Optional.empty();
                         })
-                        .withGetNewTableLayout((session, tableMetadata) -> {
+                        .withGetNewTableLayout((_, tableMetadata) -> {
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorTableLayout(ImmutableList.of("column1")));
                             }

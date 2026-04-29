@@ -66,7 +66,7 @@ public final class SelectedPortWaitStrategy
         Failsafe.with(RetryPolicy.builder()
                         .withMaxDuration(startupTimeout)
                         .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                        .abortOn(e -> getExitCode().isPresent())
+                        .abortOn(_ -> getExitCode().isPresent())
                         .build())
                 .run(() -> {
                     // Note: This condition requires a dependency on org.rnorth.duct-tape:duct-tape

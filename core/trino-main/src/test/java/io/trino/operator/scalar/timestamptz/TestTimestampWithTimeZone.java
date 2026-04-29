@@ -2873,7 +2873,7 @@ public class TestTimestampWithTimeZone
 
     private BiFunction<Session, QueryRunner, Object> timestampWithTimeZone(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond, TimeZoneKey timeZoneKey)
     {
-        return (session, queryRunner) -> {
+        return (_, _) -> {
             ZonedDateTime base = ZonedDateTime.of(year, month, day, hour, minute, second, 0, timeZoneKey.getZoneId());
 
             long epochMillis = base.toEpochSecond() * MILLISECONDS_PER_SECOND + picoOfSecond / PICOSECONDS_PER_MILLISECOND;

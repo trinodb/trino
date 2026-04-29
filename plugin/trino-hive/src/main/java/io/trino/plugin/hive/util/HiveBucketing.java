@@ -332,25 +332,23 @@ public final class HiveBucketing
 
     private static boolean isTypeSupportedForBucketing(TypeInfo type)
     {
-        switch (type.getCategory()) {
-            case PRIMITIVE:
+        return switch (type.getCategory()) {
+            case PRIMITIVE -> {
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                return switch (primitiveCategory) {
+                yield switch (primitiveCategory) {
                     case BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, STRING, VARCHAR, DATE -> true;
                     case BINARY, TIMESTAMP, DECIMAL, CHAR -> false;
                     default -> throw new UnsupportedOperationException("Unknown type " + type);
                 };
-            case LIST:
-                return isTypeSupportedForBucketing(((ListTypeInfo) type).getListElementTypeInfo());
-            case MAP:
+            }
+            case LIST -> isTypeSupportedForBucketing(((ListTypeInfo) type).getListElementTypeInfo());
+            case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
-                return isTypeSupportedForBucketing(mapTypeInfo.getMapKeyTypeInfo()) && isTypeSupportedForBucketing(mapTypeInfo.getMapValueTypeInfo());
-            case STRUCT:
-            case UNION:
-                return false;
-        }
-        throw new UnsupportedOperationException("Unknown type " + type);
+                yield isTypeSupportedForBucketing(mapTypeInfo.getMapKeyTypeInfo()) && isTypeSupportedForBucketing(mapTypeInfo.getMapValueTypeInfo());
+            }
+            case STRUCT, UNION -> false;
+        };
     }
 
     public record HiveBucketFilter(Set<Integer> bucketsToKeep) {}

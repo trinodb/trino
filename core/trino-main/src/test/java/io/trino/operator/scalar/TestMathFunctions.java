@@ -57,7 +57,7 @@ public class TestMathFunctions
     private static final int[] intRights = {3, -3};
     private static final double[] doubleLefts = {9, 10, 11, -9, -10, -11, 9.1, 10.1, 11.1, -9.1, -10.1, -11.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
     private static final double[] doubleRights = {3, -3, 3.1, -3.1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NaN};
-    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.fffffffffffffp-2;
+    private static final double GREATEST_DOUBLE_LESS_THAN_HALF = 0x1.FFFFFFFFFFFFFp-2;
 
     private QueryAssertions assertions;
 
@@ -1863,10 +1863,10 @@ public class TestMathFunctions
 
         // 1.8E292*10^16 is infinity.
         assertThat(assertions.function("round", "DOUBLE '1.8E292'", "16"))
-                .isEqualTo(1.8E292);
+                .isEqualTo(1.8e292);
 
         assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
-                .isEqualTo(-1.8E292);
+                .isEqualTo(-1.8e292);
 
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
@@ -3911,7 +3911,7 @@ public class TestMathFunctions
                 .isEqualTo(0.9999999999999999);
 
         assertThat(assertions.function("t_pdf", "8", "3"))
-                .isEqualTo(7.369065209469264E-4);
+                .isEqualTo(7.369065209469264e-4);
         assertThat(assertions.function("t_pdf", "1", "10"))
                 .isEqualTo(0.2303619892291386);
 

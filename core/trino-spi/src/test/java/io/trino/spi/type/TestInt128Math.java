@@ -347,41 +347,41 @@ final class TestInt128Math
         // overflow after multiplyAndSubtract
         assertDivideAllSigns(new int[] {0x00000003, 0x00000000, 0x80000000, 0}, new int[] {0x00000001, 0x00000000, 0x20000000, 0});
         assertDivideAllSigns(new int[] {0x00000003, 0x00000000, 0x00008000, 0}, new int[] {0x00000001, 0x00000000, 0x00002000, 0});
-        assertDivideAllSigns(new int[] {0, 0, 0x00008000, 0x00007fff}, new int[] {1, 0, 0x00008000, 0});
+        assertDivideAllSigns(new int[] {0, 0, 0x00008000, 0x00007FFF}, new int[] {1, 0, 0x00008000, 0});
 
         // test cases from http://www.hackersdelight.org/hdcodetxt/divmnu64.c.txt
         // license: http://www.hackersdelight.org/permissions.htm
         assertDivideAllSigns(new int[] {3, 0, 0, 0}, new int[] {2, 0, 0, 0});
         assertDivideAllSigns(new int[] {3, 0, 0, 0}, new int[] {3, 0, 0, 0});
         assertDivideAllSigns(new int[] {3, 0, 0, 0}, new int[] {4, 0, 0, 0});
-        assertDivideAllSigns(new int[] {3, 0, 0, 0}, new int[] {0xffffffff, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0, 0, 0}, new int[] {1, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0, 0, 0}, new int[] {0xffffffff, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0, 0, 0}, new int[] {3, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0xffffffff, 0, 0}, new int[] {1, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0xffffffff, 0, 0}, new int[] {0xffffffff, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0xffffffff, 0xfffffffe, 0, 0}, new int[] {0xffffffff, 0, 0, 0});
-        assertDivideAllSigns(new int[] {0x00005678, 0x00001234, 0, 0}, new int[] {0x00009abc, 0, 0, 0});
+        assertDivideAllSigns(new int[] {3, 0, 0, 0}, new int[] {0xFFFFFFFF, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0, 0, 0}, new int[] {1, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0, 0, 0}, new int[] {0xFFFFFFFF, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0, 0, 0}, new int[] {3, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0xFFFFFFFF, 0, 0}, new int[] {1, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0xFFFFFFFF, 0, 0}, new int[] {0xFFFFFFFF, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0xFFFFFFFF, 0xFFFFFFFE, 0, 0}, new int[] {0xFFFFFFFF, 0, 0, 0});
+        assertDivideAllSigns(new int[] {0x00005678, 0x00001234, 0, 0}, new int[] {0x00009ABC, 0, 0, 0});
         assertDivideAllSigns(new int[] {0, 0, 0, 0}, new int[] {0, 1, 0, 0});
         assertDivideAllSigns(new int[] {0, 7, 0, 0}, new int[] {0, 3, 0, 0});
         assertDivideAllSigns(new int[] {5, 7, 0, 0}, new int[] {0, 3, 0, 0});
         assertDivideAllSigns(new int[] {0, 6, 0, 0}, new int[] {0, 2, 0, 0});
         assertDivideAllSigns(new int[] {0x00000000, 0x80000000, 0, 0}, new int[] {0x40000001, 0, 0, 0});
         assertDivideAllSigns(new int[] {0x00000000, 0x80000000, 0, 0}, new int[] {0x00000001, 0x40000000, 0, 0});
-        assertDivideAllSigns(new int[] {0x0000789a, 0x0000bcde, 0, 0}, new int[] {0x0000789a, 0x0000bcde, 0, 0});
-        assertDivideAllSigns(new int[] {0x0000789b, 0x0000bcde, 0, 0}, new int[] {0x0000789a, 0x0000bcde, 0, 0});
-        assertDivideAllSigns(new int[] {0x00007899, 0x0000bcde, 0, 0}, new int[] {0x0000789a, 0x0000bcde, 0, 0});
-        assertDivideAllSigns(new int[] {0x0000ffff, 0x0000ffff, 0, 0}, new int[] {0x0000ffff, 0x0000ffff, 0, 0});
-        assertDivideAllSigns(new int[] {0x0000ffff, 0x0000ffff, 0, 0}, new int[] {0x00000000, 0x0000ffff, 0, 0});
-        assertDivideAllSigns(new int[] {0x000089ab, 0x00004567, 0x00000123, 0}, new int[] {0x00000000, 0x00000001, 0, 0});
-        assertDivideAllSigns(new int[] {0x000089ab, 0x00004567, 0x00000123, 0}, new int[] {0x00000000, 0x00000001, 0, 0});
-        assertDivideAllSigns(new int[] {0x00000000, 0x0000fffe, 0x00008000, 0}, new int[] {0x0000ffff, 0x00008000, 0, 0});
+        assertDivideAllSigns(new int[] {0x0000789A, 0x0000BCDE, 0, 0}, new int[] {0x0000789A, 0x0000BCDE, 0, 0});
+        assertDivideAllSigns(new int[] {0x0000789B, 0x0000BCDE, 0, 0}, new int[] {0x0000789A, 0x0000BCDE, 0, 0});
+        assertDivideAllSigns(new int[] {0x00007899, 0x0000BCDE, 0, 0}, new int[] {0x0000789A, 0x0000BCDE, 0, 0});
+        assertDivideAllSigns(new int[] {0x0000FFFF, 0x0000FFFF, 0, 0}, new int[] {0x0000FFFF, 0x0000FFFF, 0, 0});
+        assertDivideAllSigns(new int[] {0x0000FFFF, 0x0000FFFF, 0, 0}, new int[] {0x00000000, 0x0000FFFF, 0, 0});
+        assertDivideAllSigns(new int[] {0x000089AB, 0x00004567, 0x00000123, 0}, new int[] {0x00000000, 0x00000001, 0, 0});
+        assertDivideAllSigns(new int[] {0x000089AB, 0x00004567, 0x00000123, 0}, new int[] {0x00000000, 0x00000001, 0, 0});
+        assertDivideAllSigns(new int[] {0x00000000, 0x0000FFFE, 0x00008000, 0}, new int[] {0x0000FFFF, 0x00008000, 0, 0});
         assertDivideAllSigns(new int[] {0x00000003, 0x00000000, 0x80000000, 0}, new int[] {0x00000001, 0x00000000, 0x20000000, 0});
         assertDivideAllSigns(new int[] {0x00000003, 0x00000000, 0x00008000, 0}, new int[] {0x00000001, 0x00000000, 0x00002000, 0});
-        assertDivideAllSigns(new int[] {0, 0, 0x00008000, 0x00007fff}, new int[] {1, 0, 0x00008000, 0});
-        assertDivideAllSigns(new int[] {0, 0x0000fffe, 0, 0x00008000}, new int[] {0x0000ffff, 0, 0x00008000, 0});
-        assertDivideAllSigns(new int[] {0, 0xfffffffe, 0, 0x80000000}, new int[] {0x0000ffff, 0, 0x80000000, 0});
-        assertDivideAllSigns(new int[] {0, 0xfffffffe, 0, 0x80000000}, new int[] {0xffffffff, 0, 0x80000000, 0});
+        assertDivideAllSigns(new int[] {0, 0, 0x00008000, 0x00007FFF}, new int[] {1, 0, 0x00008000, 0});
+        assertDivideAllSigns(new int[] {0, 0x0000FFFE, 0, 0x00008000}, new int[] {0x0000FFFF, 0, 0x00008000, 0});
+        assertDivideAllSigns(new int[] {0, 0xFFFFFFFE, 0, 0x80000000}, new int[] {0x0000FFFF, 0, 0x80000000, 0});
+        assertDivideAllSigns(new int[] {0, 0xFFFFFFFE, 0, 0x80000000}, new int[] {0xFFFFFFFF, 0, 0x80000000, 0});
 
         // with rescale
         assertDivideAllSigns("100000000000000000000000", 10, "111111111111111111111111", 10);

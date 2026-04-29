@@ -99,7 +99,7 @@ public class TestAddExchangesScaledWriters
     private MockConnectorFactory createMergeConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, schemaTableName) -> {
+                .withGetTableHandle((_, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("source_table")) {
                         return new MockConnectorTableHandle(schemaTableName);
                     }
@@ -108,7 +108,7 @@ public class TestAddExchangesScaledWriters
                     }
                     return null;
                 })
-                .withGetLayoutForTableExecute((session, tableHandle) -> {
+                .withGetLayoutForTableExecute((_, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
                     if (tableExecuteHandle.schemaTableName().getTableName().equals("target_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
@@ -119,10 +119,10 @@ public class TestAddExchangesScaledWriters
                         "OPTIMIZE",
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata("customer", INTEGER),
                         new ColumnMetadata("year", INTEGER)))
-                .withGetInsertLayout((session, tableName) -> {
+                .withGetInsertLayout((_, tableName) -> {
                     if (tableName.getTableName().equals("source_table") || tableName.getTableName().equals("target_table")) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
                     }
@@ -137,7 +137,7 @@ public class TestAddExchangesScaledWriters
     private MockConnectorFactory createConnectorFactory(String name, boolean writerScalingEnabledAcrossTasks)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, schemaTableName) -> null)
+                .withGetTableHandle((_, _) -> null)
                 .withName(name)
                 .withWriterScalingOptions(new WriterScalingOptions(writerScalingEnabledAcrossTasks, true))
                 .build();

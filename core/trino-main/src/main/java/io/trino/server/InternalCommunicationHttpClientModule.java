@@ -101,7 +101,7 @@ public class InternalCommunicationHttpClientModule
     {
         private final String clientName;
         private final Class<? extends Annotation> annotation;
-        private Consumer<HttpClientConfig> configDefaults = config -> {};
+        private Consumer<HttpClientConfig> configDefaults = _ -> {};
         private final List<Class<? extends HttpRequestFilter>> filters = new ArrayList<>();
 
         private Builder(String clientName, Class<? extends Annotation> annotation)

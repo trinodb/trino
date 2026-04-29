@@ -103,7 +103,7 @@ public class GcsInputStream
             if (bytesRead == 1) {
                 currentPosition++;
                 nextPosition++;
-                return readBuffer.get(0) & 0xff;
+                return readBuffer.get(0) & 0xFF;
             }
             return -1;
         }

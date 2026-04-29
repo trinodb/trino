@@ -150,7 +150,7 @@ public final class ComparisonStatsCalculator
                             .setStatisticsRange(intersectRange)
                             .setNullsFraction(0.0)
                             .build();
-            estimate = estimate.mapSymbolColumnStatistics(expressionSymbol.get(), oldStats -> symbolNewEstimate);
+            estimate = estimate.mapSymbolColumnStatistics(expressionSymbol.get(), _ -> symbolNewEstimate);
         }
         return estimate;
     }
@@ -224,8 +224,8 @@ public final class ComparisonStatsCalculator
     {
         double nullsFilterFactor = (1 - leftExpressionStatistics.getNullsFraction()) * (1 - rightExpressionStatistics.getNullsFraction());
         PlanNodeStatsEstimate inputNullsFiltered = inputStatistics.mapOutputRowCount(size -> size * nullsFilterFactor);
-        SymbolStatsEstimate leftNullsFiltered = leftExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0);
-        SymbolStatsEstimate rightNullsFiltered = rightExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0);
+        SymbolStatsEstimate leftNullsFiltered = leftExpressionStatistics.mapNullsFraction(_ -> 0.0);
+        SymbolStatsEstimate rightNullsFiltered = rightExpressionStatistics.mapNullsFraction(_ -> 0.0);
         PlanNodeStatsEstimate equalityStats = estimateExpressionEqualToExpression(
                 inputNullsFiltered,
                 leftNullsFiltered,
@@ -262,7 +262,7 @@ public final class ComparisonStatsCalculator
             return PlanNodeStatsEstimate.unknown();
         }
         if (leftExpressionStatistics.statisticRange().isEmpty() || rightExpressionStatistics.statisticRange().isEmpty()) {
-            return inputStatistics.mapOutputRowCount(rowCount -> 0.0);
+            return inputStatistics.mapOutputRowCount(_ -> 0.0);
         }
 
         // We don't know the correlation between NULLs, so we take the max nullsFraction from the expression statistics
@@ -299,17 +299,17 @@ public final class ComparisonStatsCalculator
         StatisticRange rightRange = StatisticRange.from(rightExpressionStatistics);
         // left is always greater than right, no overlap
         if (leftRange.getLow() > rightRange.getHigh()) {
-            return inputStatistics.mapOutputRowCount(rowCount -> 0.0);
+            return inputStatistics.mapOutputRowCount(_ -> 0.0);
         }
         // left is always lesser than right
         if (leftRange.getHigh() < rightRange.getLow()) {
             PlanNodeStatsEstimate.Builder estimate = PlanNodeStatsEstimate.buildFrom(inputStatistics);
             leftExpressionSymbol.ifPresent(symbol -> estimate.addSymbolStatistics(
                     symbol,
-                    leftExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0)));
+                    leftExpressionStatistics.mapNullsFraction(_ -> 0.0)));
             rightExpressionSymbol.ifPresent(symbol -> estimate.addSymbolStatistics(
                     symbol,
-                    rightExpressionStatistics.mapNullsFraction(nullsFraction -> 0.0)));
+                    rightExpressionStatistics.mapNullsFraction(_ -> 0.0)));
             return estimate.setOutputRowCount(inputStatistics.getOutputRowCount() * nullsFilterFactor)
                     .build();
         }

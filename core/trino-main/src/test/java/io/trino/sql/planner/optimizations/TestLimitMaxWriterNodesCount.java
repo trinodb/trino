@@ -93,14 +93,14 @@ public class TestLimitMaxWriterNodesCount
     private MockConnectorFactory prepareConnectorFactory(String catalogName, OptionalInt maxWriterTasks, List<String> tables)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (tables.contains(tableName.getTableName())) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
                 })
                 .withWriterScalingOptions(WriterScalingOptions.ENABLED)
-                .withGetInsertLayout((session, tableMetadata) -> {
+                .withGetInsertLayout((_, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
@@ -109,7 +109,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return Optional.empty();
                 })
-                .withGetNewTableLayout((session, tableMetadata) -> {
+                .withGetNewTableLayout((_, tableMetadata) -> {
                     if (tableMetadata.getTable().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
@@ -118,7 +118,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return Optional.empty();
                 })
-                .withGetLayoutForTableExecute((session, tableHandle) -> {
+                .withGetLayoutForTableExecute((_, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
                     if (tableExecuteHandle.schemaTableName().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
@@ -131,7 +131,7 @@ public class TestLimitMaxWriterNodesCount
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
                 .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider())
                 .withMaxWriterTasks(maxWriterTasks)
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),
                         new ColumnMetadata("column_b", VARCHAR)))
                 .withName(catalogName)

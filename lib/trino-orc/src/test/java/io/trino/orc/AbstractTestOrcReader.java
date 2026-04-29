@@ -533,7 +533,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(
                 UUID,
                 intsBetween(0, 30_000).stream()
-                        .map(i -> randomUUID())
+                        .map(_ -> randomUUID())
                         .collect(toList()));
     }
 

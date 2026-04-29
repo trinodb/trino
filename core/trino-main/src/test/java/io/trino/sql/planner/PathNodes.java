@@ -51,7 +51,7 @@ import java.util.Optional;
 
 import static io.trino.json.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.DIVIDE;
-import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULUS;
+import static io.trino.json.ir.IrArithmeticBinary.Operator.MODULO;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.MULTIPLY;
 import static io.trino.json.ir.IrArithmeticBinary.Operator.SUBTRACT;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
@@ -100,9 +100,9 @@ public class PathNodes
         return new IrArithmeticBinary(DIVIDE, left, right, Optional.empty());
     }
 
-    public static IrPathNode modulus(IrPathNode left, IrPathNode right)
+    public static IrPathNode modulo(IrPathNode left, IrPathNode right)
     {
-        return new IrArithmeticBinary(MODULUS, left, right, Optional.empty());
+        return new IrArithmeticBinary(MODULO, left, right, Optional.empty());
     }
 
     public static IrPathNode plus(IrPathNode base)

@@ -289,7 +289,7 @@ public class InformationSchemaMetadata
             Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
                     .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
                     .flatMap(prefix -> prefix.getSchemaName()
-                            .map(schemaName -> Stream.of(prefix))
+                            .map(_ -> Stream.of(prefix))
                             .orElseGet(() -> listSchemaNames(session)))
                     .flatMap(prefix -> tables.get().stream()
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table, Optional.empty())))

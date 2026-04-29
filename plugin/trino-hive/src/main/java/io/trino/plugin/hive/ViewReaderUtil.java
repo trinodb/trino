@@ -277,39 +277,29 @@ public final class ViewReaderUtil
         // We add custom code here to make it work. Goal is for calcite/coral to handle this
         private static String getTypeString(RelDataType type, HiveTimestampPrecision timestampPrecision)
         {
-            switch (type.getSqlTypeName()) {
-                case ROW: {
+            return switch (type.getSqlTypeName()) {
+                case ROW -> {
                     verify(type.isStruct(), "expected ROW type to be a struct: %s", type);
                     // There is no API in RelDataType for Coral to add quotes for rowType.
                     // We add the Coral function here to parse data types successfully.
                     // Goal is to use data type mapping instead of translating to strings
-                    return type.getFieldList().stream()
+                    yield type.getFieldList().stream()
                             .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType(), timestampPrecision))
                             .collect(joining(",", "row(", ")"));
                 }
-                case CHAR:
-                    return "char(" + type.getPrecision() + ")";
-                case FLOAT:
-                    return "real";
-                case BINARY:
-                case VARBINARY:
-                    return "varbinary";
-                case MAP: {
+                case CHAR -> "char(" + type.getPrecision() + ")";
+                case FLOAT -> "real";
+                case BINARY, VARBINARY -> "varbinary";
+                case MAP -> {
                     RelDataType keyType = type.getKeyType();
                     RelDataType valueType = type.getValueType();
-                    return "map(" + getTypeString(keyType, timestampPrecision) + "," + getTypeString(valueType, timestampPrecision) + ")";
+                    yield "map(" + getTypeString(keyType, timestampPrecision) + "," + getTypeString(valueType, timestampPrecision) + ")";
                 }
-                case ARRAY: {
-                    return "array(" + getTypeString(type.getComponentType(), timestampPrecision) + ")";
-                }
-                case DECIMAL: {
-                    return "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
-                }
-                case TIMESTAMP:
-                    return "timestamp(" + timestampPrecision.getPrecision() + ")";
-                default:
-                    return type.getSqlTypeName().toString();
-            }
+                case ARRAY -> "array(" + getTypeString(type.getComponentType(), timestampPrecision) + ")";
+                case DECIMAL -> "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
+                case TIMESTAMP -> "timestamp(" + timestampPrecision.getPrecision() + ")";
+                default -> type.getSqlTypeName().toString();
+            };
         }
     }
 }

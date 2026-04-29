@@ -626,7 +626,7 @@ public class TestJdbcConnection
         }
 
         // With an expired token, isValid returns true if validateConnection is not enabled
-        try (Connection conn = createConnectionUsingAccessToken(validAccessToken, "validateConnection=false");) {
+        try (Connection conn = createConnectionUsingAccessToken(validAccessToken, "validateConnection=false")) {
             assertThat(conn.isValid(10)).isTrue();
         }
     }

@@ -107,16 +107,15 @@ public class BenchmarkTransformKey
             Type elementType;
             Object increment;
             switch (type) {
-                case "BIGINT":
+                case "BIGINT" -> {
                     elementType = BIGINT;
                     increment = 1L;
-                    break;
-                case "DOUBLE":
+                }
+                case "DOUBLE" -> {
                     elementType = DOUBLE;
                     increment = 1.0d;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
             ResolvedFunction resolvedFunction = functionResolution.resolveFunction(

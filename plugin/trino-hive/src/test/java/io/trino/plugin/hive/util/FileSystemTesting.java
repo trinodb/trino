@@ -176,7 +176,7 @@ public class FileSystemTesting
                 throws IOException
         {
             if (offset < file.length) {
-                int i = file.content[offset] & 0xff;
+                int i = file.content[offset] & 0xFF;
                 offset++;
                 return i;
             }

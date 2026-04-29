@@ -168,11 +168,11 @@ public class DeltaLakePageSinkProvider
             ConnectorPageSinkId pageSinkId)
     {
         DeltaLakeTableExecuteHandle executeHandle = (DeltaLakeTableExecuteHandle) tableExecuteHandle;
-        switch (executeHandle.procedureId()) {
-            case OPTIMIZE:
+        return switch (executeHandle.procedureId()) {
+            case OPTIMIZE -> {
                 DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
                 DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry(), typeManager);
-                return new DeltaLakePageSink(
+                yield new DeltaLakePageSink(
                         typeManager.getTypeOperators(),
                         optimizeHandle.getTableColumns(),
                         optimizeHandle.getOriginalPartitionColumns(),
@@ -186,9 +186,9 @@ public class DeltaLakePageSinkProvider
                         stats,
                         trinoVersion,
                         parquetSchemaMapping);
-        }
-
-        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
+            }
+            default -> throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
+        };
     }
 
     @Override

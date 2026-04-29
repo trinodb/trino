@@ -24,7 +24,7 @@ public class TestHeapTraversal
     {
         HeapTraversal heapTraversal = new HeapTraversal();
 
-        /**
+        /*
          * Node indexing scheme:
          *             Node1
          *          /        \

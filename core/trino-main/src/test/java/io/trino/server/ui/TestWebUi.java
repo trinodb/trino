@@ -608,7 +608,7 @@ public class TestWebUi
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -644,7 +644,7 @@ public class TestWebUi
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();

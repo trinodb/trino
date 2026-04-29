@@ -75,7 +75,7 @@ public final class EncodedPolylineFunctions
                 result += bytes << shift;
                 shift += 5;
             }
-            while (bytes >= 0x1f);
+            while (bytes >= 0x1F);
             latitude += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
             result = 1;
@@ -85,7 +85,7 @@ public final class EncodedPolylineFunctions
                 result += bytes << shift;
                 shift += 5;
             }
-            while (bytes >= 0x1f);
+            while (bytes >= 0x1F);
             longitude += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
             coordinates.add(new Coordinate(longitude * 1e-5, latitude * 1e-5));
@@ -141,7 +141,7 @@ public final class EncodedPolylineFunctions
     {
         value = value < 0 ? ~(value << 1) : value << 1;
         while (value >= 0x20) {
-            output.appendByte((byte) ((0x20 | (value & 0x1f)) + 63));
+            output.appendByte((byte) ((0x20 | (value & 0x1F)) + 63));
             value >>= 5;
         }
         output.appendByte((byte) (value + 63));

@@ -226,41 +226,37 @@ public class FunctionManager
             Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
             InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
             switch (argumentConvention) {
-                case NEVER_NULL:
+                case NEVER_NULL -> {
                     verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
                             "Expected argument type to be %s, but is %s", argumentType, parameterType);
-                    break;
-                case NULL_FLAG:
+                }
+                case NULL_FLAG -> {
                     verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
                             "Expected argument type to be %s, but is %s", argumentType.getJavaType(), parameterType);
                     verifyFunctionSignature(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
                             "Expected null flag parameter to be followed by a boolean parameter");
-                    break;
-                case BOXED_NULLABLE:
+                }
+                case BOXED_NULLABLE -> {
                     verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
                             "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
-                    break;
-                case BLOCK_POSITION_NOT_NULL:
-                case BLOCK_POSITION:
+                }
+                case BLOCK_POSITION_NOT_NULL, BLOCK_POSITION -> {
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
                             "Expected %s argument types to be Block and int", argumentConvention);
-                    break;
-                case VALUE_BLOCK_POSITION:
-                case VALUE_BLOCK_POSITION_NOT_NULL:
+                }
+                case VALUE_BLOCK_POSITION, VALUE_BLOCK_POSITION_NOT_NULL -> {
                     verifyFunctionSignature(ValueBlock.class.isAssignableFrom(parameterType) && methodType.parameterType(parameterIndex + 1).equals(int.class),
                             "Expected %s argument types to be ValueBlock and int", argumentConvention);
-                    break;
-                case FLAT:
+                }
+                case FLAT -> {
                     verifyFunctionSignature(parameterType.equals(byte[].class) &&
                                     methodType.parameterType(parameterIndex + 1).equals(int.class) &&
                                     methodType.parameterType(parameterIndex + 2).equals(byte[].class) &&
                                     methodType.parameterType(parameterIndex + 3).equals(int.class),
                             "Expected FLAT argument types to be byte[], int, byte[], int");
-                    break;
-                case IN_OUT:
-                    verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
-                    break;
-                case FUNCTION:
+                }
+                case IN_OUT -> verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
+                case FUNCTION -> {
                     verifyFunctionSignature(lambdaArgumentIndex < scalarFunctionImplementation.getLambdaInterfaces().size(),
                             "Expected %d lambdaInterface(s) in ScalarFunctionImplementation but %s interfaces are declared",
                             lambdaArgumentIndex + 1, scalarFunctionImplementation.getLambdaInterfaces().size());
@@ -268,39 +264,37 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.equals(lambdaInterface),
                             "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
                     lambdaArgumentIndex++;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+                }
+                default -> throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }
             parameterIndex += argumentConvention.getParameterCount();
         }
 
         Type returnType = boundSignature.getReturnType();
         switch (convention.getReturnConvention()) {
-            case DEFAULT_ON_NULL, FAIL_ON_NULL:
+            case DEFAULT_ON_NULL, FAIL_ON_NULL -> {
                 verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
                         "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
-                break;
-            case NULLABLE_RETURN:
+            }
+            case NULLABLE_RETURN -> {
                 verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
                         "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
-                break;
-            case BLOCK_BUILDER:
+            }
+            case BLOCK_BUILDER -> {
                 verifyFunctionSignature(methodType.lastParameterType().equals(BlockBuilder.class),
                         "Expected last argument type to be BlockBuilder, but is %s", methodType.lastParameterType());
                 verifyFunctionSignature(methodType.returnType().equals(void.class),
                         "Expected return type to be void, but is %s", methodType.returnType());
-                break;
-            case FLAT_RETURN:
+            }
+            case FLAT_RETURN -> {
                 List<Class<?>> parameters = methodType.parameterList();
                 parameters = parameters.subList(parameters.size() - 4, parameters.size());
                 verifyFunctionSignature(parameters.equals(List.of(byte[].class, int.class, byte[].class, int.class)),
                         "Expected last argument types to be (byte[], int, byte[], int), but is %s", methodType);
                 verifyFunctionSignature(methodType.returnType().equals(void.class),
                         "Expected return type to be void, but is %s", methodType.returnType());
-                break;
-            default:
-                throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
+            }
+            default -> throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
         }
     }
 

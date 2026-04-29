@@ -37,43 +37,43 @@ public class TestIntegerNumberToDoubleCoercer
     @Test
     public void testTinyintToDoubleCoercion()
     {
-        assertDoubleCoercion(TINYINT, 0L, 0D);
-        assertDoubleCoercion(TINYINT, 12L, 12D);
-        assertDoubleCoercion(TINYINT, -12L, -12D);
-        assertDoubleCoercion(TINYINT, (long) Byte.MAX_VALUE, 127D);
-        assertDoubleCoercion(TINYINT, (long) Byte.MIN_VALUE, -128D);
+        assertDoubleCoercion(TINYINT, 0L, 0d);
+        assertDoubleCoercion(TINYINT, 12L, 12d);
+        assertDoubleCoercion(TINYINT, -12L, -12d);
+        assertDoubleCoercion(TINYINT, (long) Byte.MAX_VALUE, 127d);
+        assertDoubleCoercion(TINYINT, (long) Byte.MIN_VALUE, -128d);
     }
 
     @Test
     public void testSmallintToDoubleCoercion()
     {
-        assertDoubleCoercion(SMALLINT, 0L, 0D);
-        assertDoubleCoercion(SMALLINT, 128L, 128D);
-        assertDoubleCoercion(SMALLINT, -128L, -128D);
-        assertDoubleCoercion(SMALLINT, (long) Short.MAX_VALUE, 32767D);
-        assertDoubleCoercion(SMALLINT, (long) Short.MIN_VALUE, -32768D);
+        assertDoubleCoercion(SMALLINT, 0L, 0d);
+        assertDoubleCoercion(SMALLINT, 128L, 128d);
+        assertDoubleCoercion(SMALLINT, -128L, -128d);
+        assertDoubleCoercion(SMALLINT, (long) Short.MAX_VALUE, 32767d);
+        assertDoubleCoercion(SMALLINT, (long) Short.MIN_VALUE, -32768d);
     }
 
     @Test
     public void testIntToDoubleCoercion()
     {
-        assertDoubleCoercion(INTEGER, 0L, 0D);
-        assertDoubleCoercion(INTEGER, 128L, 128D);
-        assertDoubleCoercion(INTEGER, -128L, -128D);
-        assertDoubleCoercion(INTEGER, (long) Integer.MAX_VALUE, 2147483647D);
-        assertDoubleCoercion(INTEGER, (long) Integer.MIN_VALUE, -2147483648D);
+        assertDoubleCoercion(INTEGER, 0L, 0d);
+        assertDoubleCoercion(INTEGER, 128L, 128d);
+        assertDoubleCoercion(INTEGER, -128L, -128d);
+        assertDoubleCoercion(INTEGER, (long) Integer.MAX_VALUE, 2147483647d);
+        assertDoubleCoercion(INTEGER, (long) Integer.MIN_VALUE, -2147483648d);
     }
 
     @Test
     public void testBigintToDoubleCoercion()
     {
-        assertDoubleCoercion(BIGINT, 0L, 0D);
-        assertDoubleCoercion(BIGINT, 128L, 128D);
-        assertDoubleCoercion(BIGINT, -128L, -128D);
-        assertDoubleCoercion(BIGINT, (long) Integer.MAX_VALUE, 2147483647D);
-        assertDoubleCoercion(BIGINT, (long) Integer.MIN_VALUE, -2147483648D);
-        assertDoubleCoercion(BIGINT, 4503599627370495L, 4503599627370495D);
-        assertDoubleCoercion(BIGINT, -4503599627370496L, -4503599627370496D);
+        assertDoubleCoercion(BIGINT, 0L, 0d);
+        assertDoubleCoercion(BIGINT, 128L, 128d);
+        assertDoubleCoercion(BIGINT, -128L, -128d);
+        assertDoubleCoercion(BIGINT, (long) Integer.MAX_VALUE, 2147483647d);
+        assertDoubleCoercion(BIGINT, (long) Integer.MIN_VALUE, -2147483648d);
+        assertDoubleCoercion(BIGINT, 4503599627370495L, 4503599627370495d);
+        assertDoubleCoercion(BIGINT, -4503599627370496L, -4503599627370496d);
 
         assertDoubleCoercionFailure(BIGINT, 4503599627370496L);
         assertDoubleCoercionFailure(BIGINT, -4503599627370497L);
