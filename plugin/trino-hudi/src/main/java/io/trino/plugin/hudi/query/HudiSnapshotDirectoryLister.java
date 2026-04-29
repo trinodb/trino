@@ -21,6 +21,7 @@ import io.trino.plugin.hudi.query.index.HudiIndexSupport;
 import io.trino.plugin.hudi.query.index.IndexSupportFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
@@ -95,13 +96,22 @@ public class HudiSnapshotDirectoryLister
                 false);
 
         if (!useIndex) {
-            return slices;
+            return slices.peek(slice -> log.info("File slice [%s] processed", sliceFileName(slice)));
         }
 
         return slices
-                .filter(slice -> indexSupportOpt
-                        .map(indexSupport -> !indexSupport.shouldSkipFileSlice(slice))
-                        .orElse(true));
+                .filter(slice -> {
+                    boolean keep = indexSupportOpt
+                            .map(indexSupport -> !indexSupport.shouldSkipFileSlice(slice))
+                            .orElse(true);
+                    log.info("File slice [%s] %s", sliceFileName(slice), keep ? "processed" : "skipped");
+                    return keep;
+                });
+    }
+
+    private static String sliceFileName(FileSlice slice)
+    {
+        return slice.getBaseFile().map(BaseFile::getFileName).orElse("<no-base-file>");
     }
 
     @Override
