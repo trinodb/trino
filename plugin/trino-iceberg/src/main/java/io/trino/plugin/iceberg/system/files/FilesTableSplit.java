@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.system.files;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.type.Type;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.util.Objects.requireNonNull;
 
 public record FilesTableSplit(
         TrinoManifestFile manifestFile,
@@ -32,6 +34,15 @@ public record FilesTableSplit(
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(FilesTableSplit.class);
+
+    public FilesTableSplit
+    {
+        requireNonNull(manifestFile, "manifestFile is null");
+        requireNonNull(schemaJson, "schemaJson is null");
+        requireNonNull(metadataTableJson, "metadataTableJson is null");
+        partitionSpecsByIdJson = ImmutableMap.copyOf(partitionSpecsByIdJson);
+        requireNonNull(partitionColumnType, "partitionColumnType is null");
+    }
 
     @Override
     public long getRetainedSizeInBytes()
