@@ -195,6 +195,9 @@ public final class NumberOperators
     public static long castToTinyint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
+        if (asBigDecimal instanceof NotANumber) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to TINYINT", asBigDecimal));
+        }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
                 long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -214,6 +217,9 @@ public final class NumberOperators
     public static long castToSmallint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
+        if (asBigDecimal instanceof NotANumber) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to SMALLINT", asBigDecimal));
+        }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
                 long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -233,6 +239,9 @@ public final class NumberOperators
     public static long castToInteger(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
+        if (asBigDecimal instanceof NotANumber) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to INTEGER", asBigDecimal));
+        }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
                 long valueAsLong = bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();
@@ -252,6 +261,9 @@ public final class NumberOperators
     public static long castToBigint(@SqlType(StandardTypes.NUMBER) TrinoNumber value)
     {
         AsBigDecimal asBigDecimal = value.toBigDecimal();
+        if (asBigDecimal instanceof NotANumber) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to BIGINT", asBigDecimal));
+        }
         try {
             if (asBigDecimal instanceof BigDecimalValue(BigDecimal bigDecimal)) {
                 return bigDecimal.setScale(0, RoundingMode.HALF_UP).longValueExact();

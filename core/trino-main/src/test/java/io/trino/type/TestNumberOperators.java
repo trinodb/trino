@@ -33,6 +33,7 @@ import java.util.function.BiPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
@@ -3516,7 +3517,7 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
                 .binding("a", "NUMBER 'NaN'")::evaluate)
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Cannot cast NUMBER 'NaN' to TINYINT");
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as tinyint)")
@@ -3576,7 +3577,7 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
                 .binding("a", "NUMBER 'NaN'")::evaluate)
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Cannot cast NUMBER 'NaN' to SMALLINT");
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as smallint)")
@@ -3636,7 +3637,7 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
                 .binding("a", "NUMBER 'NaN'")::evaluate)
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Cannot cast NUMBER 'NaN' to INTEGER");
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as integer)")
@@ -3701,7 +3702,7 @@ public class TestNumberOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as bigint)")
                 .binding("a", "NUMBER 'NaN'")::evaluate)
-                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage("Cannot cast NUMBER 'NaN' to BIGINT");
 
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as bigint)")

@@ -61,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -6730,6 +6731,71 @@ public abstract class AbstractTestEngineOnlyQueries
                 .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
         assertThat(query("SELECT CAST(-0x8000000000000000 AS bigint) / BIGINT '-1'"))
                 .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testCastNumericOutOfRange()
+    {
+        // Rule:
+        //   NaN cast to a target type that has no NaN representation -> INVALID_CAST_ARGUMENT.
+        //   Any other "value cannot be represented in target type"  -> NUMERIC_VALUE_OUT_OF_RANGE.
+        // Targets without NaN/Infinity are: TINYINT, SMALLINT, INTEGER, BIGINT and DECIMAL (any precision/scale).
+
+        // Short decimal: precision <= 18; long decimal: precision > 18.
+        List<String> targetTypesWithoutNan = List.of(
+                "tinyint",
+                "smallint",
+                "integer",
+                "bigint",
+                "decimal(2, 0)",
+                "decimal(20, 0)");
+
+        // Sources that can produce NaN, +/-Infinity, and finite-but-out-of-range values.
+        // Each row: source label, NaN literal, +Infinity literal, -Infinity literal, large positive finite, large negative finite.
+        List<List<String>> floatingSources = List.of(
+                List.of("DOUBLE", "nan()", "infinity()", "-infinity()", "DOUBLE '1e300'", "DOUBLE '-1e300'"),
+                List.of("REAL", "CAST(nan() AS REAL)", "CAST(infinity() AS REAL)", "CAST(-infinity() AS REAL)", "REAL '1e30'", "REAL '-1e30'"),
+                List.of("NUMBER", "NUMBER 'NaN'", "NUMBER '+Infinity'", "NUMBER '-Infinity'", "NUMBER '1e300'", "NUMBER '-1e300'"));
+
+        for (List<String> source : floatingSources) {
+            String nan = source.get(1);
+            String positiveInfinity = source.get(2);
+            String negativeInfinity = source.get(3);
+            String largePositive = source.get(4);
+            String largeNegative = source.get(5);
+            for (String target : targetTypesWithoutNan) {
+                assertThat(query("SELECT CAST(" + nan + " AS " + target + ")"))
+                        .failure().hasErrorCode(INVALID_CAST_ARGUMENT);
+                assertThat(query("SELECT CAST(" + positiveInfinity + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + negativeInfinity + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + largePositive + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + largeNegative + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+            }
+        }
+
+        // Sources without NaN/Infinity, only finite overflow.
+        // Each row: source expression that is too large for the targets that follow it.
+        List<List<String>> finiteOverflowCases = List.of(
+                List.of("BIGINT '9223372036854775807'", "tinyint", "smallint", "integer", "decimal(2, 0)"),
+                List.of("INTEGER '2147483647'", "tinyint", "smallint", "decimal(2, 0)"),
+                List.of("SMALLINT '32767'", "tinyint", "decimal(2, 0)"),
+                List.of(
+                        "DECIMAL '99999999999999999999999999999999999999'", // DECIMAL(38, 0) max
+                        "tinyint", "smallint", "integer", "bigint", "decimal(2, 0)", "decimal(20, 0)"),
+                List.of(
+                        "DECIMAL '99999999999999999999'", // DECIMAL(20, 0) max — long decimal source
+                        "tinyint", "smallint", "integer", "bigint", "decimal(2, 0)"));
+        for (List<String> finiteCase : finiteOverflowCases) {
+            String sourceExpression = finiteCase.get(0);
+            for (String target : finiteCase.subList(1, finiteCase.size())) {
+                assertThat(query("SELECT CAST(" + sourceExpression + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+            }
+        }
     }
 
     private static int getNumberMaxDecimalPrecision()
