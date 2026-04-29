@@ -360,9 +360,9 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         // with implicit coercions
         assertQuery("SELECT * FROM (VALUES" +
-                "   CAST(NULL AS char(3)), " +
-                "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))",
+                        "   CAST(NULL AS char(3)), " +
+                        "   CAST('   ' AS char(3))) t(x) " +
+                        "WHERE x = CAST('  ' AS varchar(2))",
                 // H2 returns '' on CAST char(3) to varchar(2)
                 "SELECT '   '");
 
@@ -836,7 +836,7 @@ public abstract class AbstractTestEngineOnlyQueries
                     // There currently is no coercion between number and real/double/decimal
                     boolean unsupported =
                             both.contains("number") &&
-                            (both.contains("real") || both.contains("double"));
+                                    (both.contains("real") || both.contains("double"));
                     if (unsupported) {
                         assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
                         assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
