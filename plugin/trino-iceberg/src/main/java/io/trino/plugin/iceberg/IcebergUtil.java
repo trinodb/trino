@@ -1358,6 +1358,19 @@ public final class IcebergUtil
         }
     }
 
+    public static List<ManifestFile> loadDataManifestsFromSnapshot(Table icebergTable, @Nullable Snapshot snapshot)
+    {
+        if (snapshot == null) {
+            return ImmutableList.of();
+        }
+        try {
+            return snapshot.dataManifests(icebergTable.io());
+        }
+        catch (NotFoundException | UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
+        }
+    }
+
     /**
      * Use instead of loadAllManifestsFromSnapshot when loading manifests from multiple distinct snapshots
      * Each BaseSnapshot object caches manifest files separately, so loading manifests from multiple distinct snapshots
