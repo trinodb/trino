@@ -8,11 +8,11 @@ export default defineConfig((mode: ConfigEnv) => {
   const env = loadEnv(mode.mode, process.cwd());
   const baseUrl = env.VITE_BASE_URL
   return {
-    base: '/ui/preview',
+    base: '/ui',
     plugins: [react()],
     server: {
       proxy: {
-        ['/ui/preview/auth']: {
+        ['/ui/auth']: {
           target: baseUrl,
           changeOrigin: true,
         },
