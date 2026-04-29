@@ -58,17 +58,16 @@ public class FormWebUiAuthenticationFilter
     private static final String TRINO_UI_AUDIENCE = "trino-ui";
     private static final String TRINO_UI_COOKIE = "Trino-UI-Token";
     static final String TRINO_FORM_LOGIN = "Trino-Form-Login";
-    static final String LOGIN_FORM = "/ui/login.html";
-    static final String DISABLED_LOCATION = "/ui/disabled.html";
     public static final String UI_LOCATION = "/ui/";
-    static final String UI_LOGIN = "/ui/login";
-    static final String UI_LOGOUT = "/ui/logout";
+    static final String LEGACY_LOGIN_FORM = "/ui/legacy/login.html";
+    static final String LEGACY_UI_LOGIN = "/ui/legacy/login";
+    static final String LEGACY_UI_LOGOUT = "/ui/legacy/logout";
 
-    static final String UI_PREVIEW_BASE = "/ui/preview/";
-
-    static final String UI_PREVIEW_AUTH_INFO = UI_PREVIEW_BASE + "auth/info";
-    static final String UI_PREVIEW_LOGIN_FORM = UI_PREVIEW_BASE + "auth/login";
-    static final String UI_PREVIEW_LOGOUT = UI_PREVIEW_BASE + "auth/logout";
+    static final String UI_DISABLED = UI_LOCATION + "static/disabled.html";
+    static final String UI_AUTH_INFO = UI_LOCATION + "auth/info";
+    static final String UI_LOGIN_FORM = UI_LOCATION + "auth/login";
+    static final String UI_LOGOUT = UI_LOCATION + "auth/logout";
+    static final String UI_OAUTH2_LOGOUT = UI_LOCATION + "logout";
 
     private final JwtParser jwtParser;
     private final Function<String, String> jwtGenerator;
@@ -76,14 +75,12 @@ public class FormWebUiAuthenticationFilter
     private final Optional<Authenticator> authenticator;
 
     private static final MultipartUiCookie MULTIPART_COOKIE = new MultipartUiCookie(TRINO_UI_COOKIE, "/ui");
-    private final boolean previewEnabled;
 
     @Inject
     public FormWebUiAuthenticationFilter(
             FormWebUiConfig config,
             FormAuthenticator formAuthenticator,
-            @ForWebUi Optional<Authenticator> authenticator,
-            WebUiConfig webUiConfig)
+            @ForWebUi Optional<Authenticator> authenticator)
     {
         byte[] hmacBytes;
         if (config.getSharedSecret().isPresent()) {
@@ -105,7 +102,6 @@ public class FormWebUiAuthenticationFilter
 
         this.formAuthenticator = requireNonNull(formAuthenticator, "formAuthenticator is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
-        this.previewEnabled = requireNonNull(webUiConfig, "webUiConfig is null").isPreviewEnabled();
     }
 
     @Override
@@ -114,7 +110,7 @@ public class FormWebUiAuthenticationFilter
         String path = request.getUriInfo().getRequestUri().getPath();
 
         // disabled page is always visible
-        if (path.equals(DISABLED_LOCATION)) {
+        if (path.equals(UI_DISABLED)) {
             return;
         }
 
@@ -133,7 +129,7 @@ public class FormWebUiAuthenticationFilter
         Optional<String> username = getAuthenticatedUsername(request);
         if (username.isPresent()) {
             // if the authenticated user is requesting the login page, send them directly to the ui
-            if (path.equals(LOGIN_FORM)) {
+            if (path.equals(LEGACY_LOGIN_FORM)) {
                 request.abortWith(redirectFromSuccessfulLoginResponse(ExternalUriInfo.from(request), request.getUriInfo().getRequestUri().getQuery()).build());
                 return;
             }
@@ -148,15 +144,15 @@ public class FormWebUiAuthenticationFilter
         }
 
         if (!isAuthenticationEnabled(request.getSecurityContext().isSecure())) {
-            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_DISABLED)).build());
             return;
         }
 
-        if (path.equals(LOGIN_FORM)) {
+        if (path.equals(LEGACY_LOGIN_FORM)) {
             return;
         }
 
-        if (previewEnabled && path.equals(UI_PREVIEW_BASE)) {
+        if (path.equals(UI_LOCATION)) {
             return;
         }
 
@@ -167,7 +163,7 @@ public class FormWebUiAuthenticationFilter
     private static URI buildLoginFormURI(ContainerRequestContext request)
     {
         ExternalUriBuilder builder = ExternalUriInfo.from(request).baseUriBuilder()
-                .path(LOGIN_FORM);
+                .path(LEGACY_LOGIN_FORM);
 
         URI requestUri = request.getUriInfo().getRequestUri();
         String path = requestUri.getPath();
@@ -186,7 +182,15 @@ public class FormWebUiAuthenticationFilter
 
     private boolean isLoginResource(String path, String method)
     {
-        if (path.equals(UI_LOGIN) && method.equals("POST")) {
+        if (path.equals(LEGACY_UI_LOGIN) && method.equals("POST")) {
+            return true;
+        }
+
+        if (path.equals(LEGACY_UI_LOGOUT)) {
+            return true;
+        }
+
+        if (path.equals(UI_LOGIN_FORM) && method.equals("POST")) {
             return true;
         }
 
@@ -194,19 +198,7 @@ public class FormWebUiAuthenticationFilter
             return true;
         }
 
-        if (!previewEnabled) {
-            return false;
-        }
-
-        if (path.equals(UI_PREVIEW_LOGIN_FORM) && method.equals("POST")) {
-            return true;
-        }
-
-        if (path.equals(UI_PREVIEW_LOGOUT)) {
-            return true;
-        }
-
-        return path.equals(UI_PREVIEW_AUTH_INFO) && method.equals("GET");
+        return path.equals(UI_AUTH_INFO) && method.equals("GET");
     }
 
     private static void handleProtocolLoginRequest(Authenticator authenticator, ContainerRequestContext request)
@@ -235,7 +227,7 @@ public class FormWebUiAuthenticationFilter
     {
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back to the main UI page.
         String path = request.getUriInfo().getRequestUri().getPath();
-        if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
+        if (path.equals(LEGACY_LOGIN_FORM) || path.equals(LEGACY_UI_LOGIN) || path.equals(LEGACY_UI_LOGOUT)) {
             request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_LOCATION)).build());
             return true;
         }
@@ -320,7 +312,7 @@ public class FormWebUiAuthenticationFilter
     {
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back ot the main UI page.
         String path = request.getUriInfo().getRequestUri().getPath();
-        if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
+        if (path.equals(LEGACY_LOGIN_FORM) || path.equals(LEGACY_UI_LOGIN) || path.equals(LEGACY_UI_LOGOUT)) {
             request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_LOCATION)).build());
             return true;
         }

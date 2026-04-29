@@ -21,7 +21,7 @@ import io.trino.server.security.oauth2.OAuth2ServiceModule;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
-public class OAuth2WebUiModule
+public class OAuth2WebUiLegacyModule
         extends AbstractConfigurationAwareModule
 {
     @Override

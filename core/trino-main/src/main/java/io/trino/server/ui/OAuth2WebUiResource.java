@@ -33,9 +33,9 @@ import java.util.Optional;
 
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_AUTH_INFO;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_PREVIEW_AUTH_INFO;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_PREVIEW_LOGOUT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_OAUTH2_LOGOUT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookies;
 import static io.trino.server.ui.OAuthWebUiCookie.delete;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -43,18 +43,18 @@ import static java.util.Objects.requireNonNull;
 
 @Path("")
 @ResourceSecurity(WEB_UI)
-public class OAuth2WebUiPreviewResource
+public class OAuth2WebUiResource
 {
     private final OAuth2Client oAuth2Client;
 
     @Inject
-    public OAuth2WebUiPreviewResource(OAuth2Client oAuth2Client)
+    public OAuth2WebUiResource(OAuth2Client oAuth2Client)
     {
         this.oAuth2Client = requireNonNull(oAuth2Client, "oAuth2Client is null");
     }
 
     @GET
-    @Path(UI_PREVIEW_AUTH_INFO)
+    @Path(UI_AUTH_INFO)
     @Produces(APPLICATION_JSON)
     public AuthInfo getAuthInfo(ContainerRequestContext request)
     {
@@ -63,12 +63,12 @@ public class OAuth2WebUiPreviewResource
     }
 
     @GET
-    @Path(UI_PREVIEW_LOGOUT)
+    @Path(UI_LOGOUT)
     @Produces(APPLICATION_JSON)
     public Response logout(@Context HttpHeaders httpHeaders, @BeanParam ExternalUriInfo uriInfo, @Context SecurityContext securityContext)
     {
         Optional<String> idToken = OAuthIdTokenCookie.read(httpHeaders.getCookies());
-        URI callbackUri = uriInfo.absolutePath(UI_LOGOUT + "/logout.html");
+        URI callbackUri = uriInfo.absolutePath(UI_OAUTH2_LOGOUT + "/logout.html");
         return Response.seeOther(oAuth2Client.getLogoutEndpoint(idToken, callbackUri)
                         .orElse(callbackUri))
                 .cookie(OAuthIdTokenCookie.delete(httpHeaders.getCookies()))
