@@ -30,6 +30,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
+import io.trino.plugin.iceberg.UpdateMode;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -1013,6 +1014,20 @@ public final class IcebergUtil
             }
             propertiesBuilder.put(WRITE_DATA_LOCATION, location);
         });
+
+        // Write mode properties (copy-on-write vs merge-on-read)
+        UpdateMode writeDeleteMode = IcebergTableProperties.getWriteDeleteMode(tableMetadata.getProperties());
+        if (writeDeleteMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.DELETE_MODE, writeDeleteMode.getIcebergProperty());
+        }
+        UpdateMode writeUpdateMode = IcebergTableProperties.getWriteUpdateMode(tableMetadata.getProperties());
+        if (writeUpdateMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.UPDATE_MODE, writeUpdateMode.getIcebergProperty());
+        }
+        UpdateMode writeMergeMode = IcebergTableProperties.getWriteMergeMode(tableMetadata.getProperties());
+        if (writeMergeMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.MERGE_MODE, writeMergeMode.getIcebergProperty());
+        }
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());

@@ -215,11 +215,24 @@ public class IcebergMergeSink
     private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)
     {
         try {
-            // PositionDeleteWriter.write() already commits the writer internally
-            // Calling commit() again would cause "Cannot commit transaction: last operation has not committed" error
             CommitTaskData task = writer.write(rowsToDelete);
             writtenBytes += task.fileSizeInBytes();
-            return wrappedBuffer(jsonCodec.toJsonBytes(task));
+            // Include serialized deletion vector for copy-on-write support.
+            // This allows finishCopyOnWrite to know which positions were deleted
+            // without having to re-read the position delete file.
+            CommitTaskData taskWithVector = new CommitTaskData(
+                    task.path(),
+                    task.fileFormat(),
+                    task.fileSizeInBytes(),
+                    task.metrics(),
+                    task.partitionSpecJson(),
+                    task.partitionDataJson(),
+                    task.content(),
+                    task.referencedDataFile(),
+                    task.fileSplitOffsets(),
+                    task.sortOrderId(),
+                    Optional.of(rowsToDelete.serialize().getBytes()));
+            return wrappedBuffer(jsonCodec.toJsonBytes(taskWithVector));
         }
         catch (Throwable t) {
             closeAllSuppress(t, writer::abort);

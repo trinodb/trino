@@ -49,9 +49,11 @@ import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.iceberg.UpdateMode;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter.DeletionVectorInfo;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
@@ -79,6 +81,7 @@ import io.trino.plugin.iceberg.system.RefsTable;
 import io.trino.plugin.iceberg.system.SnapshotsTable;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.Page;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -96,6 +99,7 @@ import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
@@ -110,6 +114,7 @@ import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -177,6 +182,7 @@ import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -212,6 +218,8 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.metrics.CommitMetricsResult;
 import org.apache.iceberg.metrics.CommitReport;
 import org.apache.iceberg.metrics.MetricsReporters;
@@ -237,6 +245,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -356,6 +365,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_CO
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_DELETE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_MERGE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_UPDATE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
@@ -448,6 +460,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.IcebergManifestUtils.liveEntries;
@@ -508,6 +521,9 @@ public class IcebergMetadata
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(WRITE_DELETE_MODE)
+            .add(WRITE_UPDATE_MODE)
+            .add(WRITE_MERGE_MODE)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
 
@@ -2882,6 +2898,24 @@ public class IcebergMetadata
             updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(maxCommitRetry));
         }
 
+        if (properties.containsKey(WRITE_DELETE_MODE)) {
+            UpdateMode mode = (UpdateMode) properties.get(WRITE_DELETE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_delete_mode property cannot be empty"));
+            updateProperties.set(TableProperties.DELETE_MODE, mode.getIcebergProperty());
+        }
+
+        if (properties.containsKey(WRITE_UPDATE_MODE)) {
+            UpdateMode mode = (UpdateMode) properties.get(WRITE_UPDATE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_update_mode property cannot be empty"));
+            updateProperties.set(TableProperties.UPDATE_MODE, mode.getIcebergProperty());
+        }
+
+        if (properties.containsKey(WRITE_MERGE_MODE)) {
+            UpdateMode mode = (UpdateMode) properties.get(WRITE_MERGE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_merge_mode property cannot be empty"));
+            updateProperties.set(TableProperties.MERGE_MODE, mode.getIcebergProperty());
+        }
+
         if (properties.containsKey(DELETE_AFTER_COMMIT_ENABLED)) {
             boolean deleteAfterCommitEnabled = (boolean) properties.get(DELETE_AFTER_COMMIT_ENABLED)
                     .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(DELETE_AFTER_COMMIT_ENABLED)));
@@ -3606,6 +3640,24 @@ public class IcebergMetadata
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
 
+        List<CommitTaskData> dataTasks = new ArrayList<>();
+        List<CommitTaskData> deleteTasks = new ArrayList<>();
+
+        for (CommitTaskData task : commitTasks) {
+            switch (task.content()) {
+                case DATA -> dataTasks.add(task);
+                case POSITION_DELETES -> deleteTasks.add(task);
+                case EQUALITY_DELETES -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
+            }
+        }
+
+        // Check if copy-on-write mode is active for this operation
+        if (!deleteTasks.isEmpty() && isCopyOnWriteMode(icebergTable)) {
+            finishCopyOnWrite(session, table, icebergTable, dataTasks, deleteTasks, schema);
+            return;
+        }
+
+        // Merge-on-read path: use RowDelta to add data files and position delete files
         RowDelta rowDelta = transaction.newRowDelta();
         OptionalLong baseSnapshotId = table.getSnapshotId();
         if (baseSnapshotId.isPresent()) {
@@ -3628,17 +3680,6 @@ public class IcebergMetadata
         rowDelta.validateDeletedFiles();
         rowDelta.validateNoConflictingDeleteFiles();
         rowDelta.scanManifestsWith(icebergScanExecutor);
-
-        List<CommitTaskData> dataTasks = new ArrayList<>();
-        List<CommitTaskData> deleteTasks = new ArrayList<>();
-
-        for (CommitTaskData task : commitTasks) {
-            switch (task.content()) {
-                case DATA -> dataTasks.add(task);
-                case POSITION_DELETES -> deleteTasks.add(task);
-                case EQUALITY_DELETES -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
-            }
-        }
 
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : dataTasks) {
@@ -3723,6 +3764,232 @@ public class IcebergMetadata
                 partitionSpec.fields().stream()
                         .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                         .toArray(Type[]::new)));
+    }
+
+    private static boolean isCopyOnWriteMode(Table icebergTable)
+    {
+        Map<String, String> properties = icebergTable.properties();
+        // Check all three write mode properties. Since all row-level operations go through
+        // the merge pipeline in Trino, use CoW if any mode property is set to copy-on-write.
+        return UpdateMode.fromIcebergProperty(properties.getOrDefault(TableProperties.DELETE_MODE, "merge-on-read")) == UpdateMode.COPY_ON_WRITE
+                || UpdateMode.fromIcebergProperty(properties.getOrDefault(TableProperties.UPDATE_MODE, "merge-on-read")) == UpdateMode.COPY_ON_WRITE
+                || UpdateMode.fromIcebergProperty(properties.getOrDefault(TableProperties.MERGE_MODE, "merge-on-read")) == UpdateMode.COPY_ON_WRITE;
+    }
+
+    /**
+     * Copy-on-write commit path: instead of creating position delete files (merge-on-read),
+     * this method rewrites affected data files to exclude deleted rows and uses RewriteFiles
+     * to atomically swap old files for new ones.
+     *
+     * <p>Note: This implementation reads and rewrites data files on the coordinator, which is
+     * suitable for small-to-medium tables. For large tables, the rewriting should be moved
+     * to workers (similar to the OPTIMIZE flow).
+     */
+    private void finishCopyOnWrite(
+            ConnectorSession session,
+            IcebergTableHandle table,
+            Table icebergTable,
+            List<CommitTaskData> dataTasks,
+            List<CommitTaskData> deleteTasks,
+            Schema schema)
+    {
+        OptionalLong baseSnapshotId = table.getSnapshotId();
+        if (baseSnapshotId.isEmpty()) {
+            throw new VerifyException("Cannot perform copy-on-write without a base snapshot");
+        }
+
+        // Step 1: Build map of {data file path -> DeletionVector} from delete tasks
+        Map<String, DeletionVector> deletionsByFile = new HashMap<>();
+        Map<String, CommitTaskData> deleteTaskByFile = new HashMap<>();
+        for (CommitTaskData deleteTask : deleteTasks) {
+            String dataFilePath = deleteTask.referencedDataFile()
+                    .orElseThrow(() -> new VerifyException("Position delete task missing referencedDataFile"));
+            byte[] serializedDV = deleteTask.serializedDeletionVector()
+                    .orElseThrow(() -> new VerifyException("Copy-on-write requires serialized deletion vector in delete tasks"));
+            DeletionVector dv = DeletionVector.builder()
+                    .deserialize(Slices.wrappedBuffer(serializedDV))
+                    .build()
+                    .orElseThrow(() -> new VerifyException("Empty deletion vector"));
+            deletionsByFile.merge(dataFilePath, dv, (existing, newDv) ->
+                    DeletionVector.builder().addAll(existing).addAll(newDv).build()
+                            .orElseThrow(() -> new VerifyException("Empty merged deletion vector")));
+            deleteTaskByFile.putIfAbsent(dataFilePath, deleteTask);
+        }
+
+        // Step 2: Find original DataFile objects by scanning manifests
+        Set<String> affectedPaths = deletionsByFile.keySet();
+        Map<String, DataFile> originalFiles = new HashMap<>();
+        try (CloseableIterable<FileScanTask> tasks = icebergTable.newScan()
+                .useSnapshot(baseSnapshotId.getAsLong())
+                .planFiles()) {
+            for (FileScanTask task : tasks) {
+                String path = task.file().path().toString();
+                if (affectedPaths.contains(path)) {
+                    originalFiles.put(path, task.file().copy());
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Failed to scan table manifests for copy-on-write", e);
+        }
+
+        for (String path : affectedPaths) {
+            if (!originalFiles.containsKey(path)) {
+                throw new TrinoException(ICEBERG_BAD_DATA, "Data file not found in table manifests: " + path);
+            }
+        }
+
+        // Step 3: Read each affected file, filter deleted positions, write new file
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.properties());
+        LocationProvider locationProvider = icebergTable.locationProvider();
+        IcebergFileFormat outputFormat = getFileFormat(icebergTable);
+        MetricsConfig metricsConfig = MetricsConfig.forTable(icebergTable);
+
+        List<IcebergColumnHandle> allColumns = schema.columns().stream()
+                .map(field -> getColumnHandle(field, typeManager))
+                .collect(toImmutableList());
+
+        Set<DataFile> newFiles = new HashSet<>();
+
+        for (Map.Entry<String, DataFile> entry : originalFiles.entrySet()) {
+            String dataFilePath = entry.getKey();
+            DataFile originalFile = entry.getValue();
+            DeletionVector deletionVector = deletionsByFile.get(dataFilePath);
+            CommitTaskData deleteTask = deleteTaskByFile.get(dataFilePath);
+
+            PartitionSpec filePartitionSpec = icebergTable.specs().get(originalFile.specId());
+            IcebergFileFormat sourceFormat = IcebergFileFormat.fromIceberg(originalFile.format());
+
+            // Build partition data from the delete task's partition info
+            Type[] partitionColumnTypes = filePartitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            String partitionDataJson = deleteTask.partitionDataJson().orElse("{}");
+            PartitionData partitionData = PartitionData.fromJson(partitionDataJson, partitionColumnTypes);
+
+            // Create output file path
+            String fileName = outputFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
+            String outputPath = filePartitionSpec.isPartitioned()
+                    ? locationProvider.newDataLocation(filePartitionSpec, partitionData, fileName)
+                    : locationProvider.newDataLocation(fileName);
+
+            IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
+                    fileSystem, Location.of(outputPath), schema, session, outputFormat,
+                    metricsConfig, icebergTable.properties());
+
+            try {
+                // Read original file and write surviving rows to new file
+                ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                        session,
+                        allColumns,
+                        schema,
+                        filePartitionSpec,
+                        partitionData,
+                        List.of(),  // no delete files - we handle deletes ourselves
+                        DynamicFilter.EMPTY,
+                        TupleDomain.all(),
+                        TupleDomain.all(),
+                        dataFilePath,
+                        0,
+                        originalFile.fileSizeInBytes(),
+                        originalFile.fileSizeInBytes(),
+                        originalFile.recordCount(),
+                        sourceFormat,
+                        icebergTable.properties(),
+                        originalFile.dataSequenceNumber(),
+                        OptionalLong.empty(),
+                        table.getNameMappingJson().map(NameMappingParser::fromJson));
+
+                try {
+                    long filePosition = 0;
+                    while (!pageSource.isFinished()) {
+                        Page page = pageSource.getNextPage();
+                        if (page == null) {
+                            continue;
+                        }
+
+                        // Filter out deleted positions
+                        int[] keepPositions = new int[page.getPositionCount()];
+                        int keepCount = 0;
+                        for (int i = 0; i < page.getPositionCount(); i++) {
+                            if (!deletionVector.isRowDeleted(filePosition + i)) {
+                                keepPositions[keepCount++] = i;
+                            }
+                        }
+
+                        if (keepCount > 0) {
+                            Page filteredPage = page.getPositions(Arrays.copyOf(keepPositions, keepCount), 0, keepCount);
+                            writer.appendRows(filteredPage);
+                        }
+
+                        filePosition += page.getPositionCount();
+                    }
+                }
+                finally {
+                    pageSource.close();
+                }
+
+                writer.commit();
+            }
+            catch (Throwable t) {
+                try {
+                    writer.rollback();
+                }
+                catch (RuntimeException e) {
+                    t.addSuppressed(e);
+                }
+                throw t;
+            }
+
+            // Build DataFile for the rewritten file
+            DataFiles.Builder fileBuilder = DataFiles.builder(filePartitionSpec)
+                    .withPath(outputPath)
+                    .withFormat(outputFormat.toIceberg())
+                    .withFileSizeInBytes(writer.getWrittenBytes())
+                    .withMetrics(writer.getFileMetrics().metrics());
+            writer.getFileMetrics().splitOffsets().ifPresent(fileBuilder::withSplitOffsets);
+
+            if (filePartitionSpec.isPartitioned()) {
+                fileBuilder.withPartition(partitionData);
+            }
+
+            newFiles.add(fileBuilder.build());
+        }
+
+        // Step 4: Build DataFile objects for data tasks (inserts/updates from the merge sink)
+        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        for (CommitTaskData task : dataTasks) {
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                    .withPath(task.path())
+                    .withFormat(task.fileFormat().toIceberg())
+                    .withFileSizeInBytes(task.fileSizeInBytes())
+                    .withMetrics(task.metrics().metrics())
+                    .withSortOrder(sortOrders.get(task.sortOrderId()));
+            task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+
+            if (!partitionSpec.fields().isEmpty()) {
+                String partitionDataJson = task.partitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+            newFiles.add(builder.build());
+        }
+
+        // Step 5: Commit with RewriteFiles - atomically swap old files for new ones
+        RewriteFiles rewriteFiles = transaction.newRewrite();
+        originalFiles.values().forEach(rewriteFiles::deleteFile);
+        newFiles.forEach(rewriteFiles::addFile);
+
+        Snapshot snapshot = requireNonNull(icebergTable.snapshot(baseSnapshotId.getAsLong()), "snapshot is null");
+        rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
+        rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
+        rewriteFiles.scanManifestsWith(icebergScanExecutor);
+        commitUpdateAndTransaction(rewriteFiles, session, transaction, "write");
     }
 
     static TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks, TypeManager typeManager)
