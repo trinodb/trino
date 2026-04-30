@@ -1043,7 +1043,9 @@ public abstract class BaseIcebergConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_partitioned_table$partitions' "))
                 .skippingTypesCheck()
-                .matches("VALUES 'partition', 'record_count', 'file_count', 'total_size'");
+                .matches("VALUES 'partition', 'record_count', 'file_count', 'total_size', " +
+                        "'position_delete_record_count', 'position_delete_file_count', " +
+                        "'equality_delete_record_count', 'equality_delete_file_count'");
         assertThat(query("SELECT " +
                 "  record_count," +
                 "  file_count, " +
@@ -4495,7 +4497,7 @@ public abstract class BaseIcebergConnectorTest
                             "    file_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
                             "    total_size row(min integer, max integer, null_count bigint, nan_count bigint) " +
                             "  )" +
-                            ")");
+                            "), BIGINT '0', BIGINT '0', BIGINT '0', BIGINT '0'");
         }
         else {
             assertThat(query("SELECT * FROM \"test_partitions_with_conflict$partitions\""))
@@ -4520,7 +4522,7 @@ public abstract class BaseIcebergConnectorTest
                             "    file_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
                             "    total_size row(min integer, max integer, null_count bigint, nan_count bigint) " +
                             "  )" +
-                            ")");
+                            "), BIGINT '0', BIGINT '0', BIGINT '0', BIGINT '0'");
         }
 
         assertUpdate("DROP TABLE test_partitions_with_conflict");
@@ -5124,7 +5126,9 @@ public abstract class BaseIcebergConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_all_types$partitions' "))
                 .skippingTypesCheck()
-                .matches("VALUES 'record_count', 'file_count', 'total_size', 'data'");
+                .matches("VALUES 'record_count', 'file_count', 'total_size', 'data', " +
+                        "'position_delete_record_count', 'position_delete_file_count', " +
+                        "'equality_delete_record_count', 'equality_delete_file_count'");
         if (format != AVRO) {
             assertThat(query("SELECT " +
                     "  record_count," +

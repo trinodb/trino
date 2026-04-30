@@ -19,17 +19,20 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -45,6 +48,10 @@ public record IcebergStatistics(
         long recordCount,
         long fileCount,
         long size,
+        long positionDeleteRecordCount,
+        long positionDeleteFileCount,
+        long equalityDeleteRecordCount,
+        long equalityDeleteFileCount,
         Map<Integer, Object> minValues,
         Map<Integer, Object> maxValues,
         Map<Integer, Long> nullCounts,
@@ -68,6 +75,14 @@ public record IcebergStatistics(
         private long recordCount;
         private long fileCount;
         private long size;
+        private long positionDeleteRecordCount;
+        private long positionDeleteFileCount;
+        private long equalityDeleteRecordCount;
+        private long equalityDeleteFileCount;
+        // The same delete file (and the same DV within a Puffin file) can apply to multiple data
+        // files in a partition, so it appears in multiple FileScanTask.deletes() lists. Dedup by
+        // (location, referencedDataFile) so each logical delete entry counts once per partition.
+        private final Set<DeleteFileKey> seenDeleteFiles = new HashSet<>();
         private final Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
         private final Map<Integer, Long> nullCounts = new HashMap<>();
         private final Map<Integer, Long> nanCounts = new HashMap<>();
@@ -133,6 +148,27 @@ public record IcebergStatistics(
             }
         }
 
+        public void acceptDeleteFile(DeleteFile deleteFile)
+        {
+            if (!seenDeleteFiles.add(new DeleteFileKey(deleteFile.location(), deleteFile.referencedDataFile()))) {
+                return;
+            }
+            long records = deleteFile.recordCount();
+            switch (deleteFile.content()) {
+                case POSITION_DELETES -> {
+                    positionDeleteFileCount++;
+                    positionDeleteRecordCount += records;
+                }
+                case EQUALITY_DELETES -> {
+                    equalityDeleteFileCount++;
+                    equalityDeleteRecordCount += records;
+                }
+                case DATA -> throw new IllegalStateException("Unexpected data file in deletes: " + deleteFile);
+            }
+        }
+
+        private record DeleteFileKey(String location, @Nullable String referencedDataFile) {}
+
         public IcebergStatistics build()
         {
             ImmutableMap.Builder<Integer, Object> minValues = ImmutableMap.builder();
@@ -147,6 +183,10 @@ public record IcebergStatistics(
                     recordCount,
                     fileCount,
                     size,
+                    positionDeleteRecordCount,
+                    positionDeleteFileCount,
+                    equalityDeleteRecordCount,
+                    equalityDeleteFileCount,
                     minValues.buildOrThrow(),
                     maxValues.buildOrThrow(),
                     ImmutableMap.copyOf(nullCounts),

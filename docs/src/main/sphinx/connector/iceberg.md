@@ -1475,6 +1475,22 @@ The output of the query has the following columns:
 * - `data`
   - `ROW(... ROW (min ..., max ... , null_count BIGINT, nan_count BIGINT))`
   - Partition range metadata.
+* - `position_delete_record_count`
+  - `BIGINT`
+  - The number of records in positional delete files (or deletion vectors)
+    associated with the partition. Useful for identifying partitions with
+    accumulated merge-on-read deletes that may benefit from `OPTIMIZE`.
+* - `position_delete_file_count`
+  - `BIGINT`
+  - The number of positional delete files (or deletion vectors) associated
+    with the partition.
+* - `equality_delete_record_count`
+  - `BIGINT`
+  - The number of records in equality delete files associated with the
+    partition.
+* - `equality_delete_file_count`
+  - `BIGINT`
+  - The number of equality delete files associated with the partition.
 :::
 
 ##### `$files` table

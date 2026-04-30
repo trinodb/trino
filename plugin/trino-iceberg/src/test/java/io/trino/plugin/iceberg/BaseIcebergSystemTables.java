@@ -146,7 +146,11 @@ public abstract class BaseIcebergSystemTables
                         "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
-                        "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint, \"nan_count\" bigint))', '', '')");
+                        "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint, \"nan_count\" bigint))', '', '')," +
+                        "('position_delete_record_count', 'bigint', '', '')," +
+                        "('position_delete_file_count', 'bigint', '', '')," +
+                        "('equality_delete_record_count', 'bigint', '', '')," +
+                        "('equality_delete_file_count', 'bigint', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertThat(result.getRowCount()).isEqualTo(3);
@@ -163,6 +167,15 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
+
+        // Without v2 deletes, all delete metric columns are zero.
+        assertQuery("SELECT" +
+                        "  sum(position_delete_record_count)," +
+                        "  sum(position_delete_file_count)," +
+                        "  sum(equality_delete_record_count)," +
+                        "  sum(equality_delete_file_count)" +
+                        " FROM test_schema.\"test_table$partitions\"",
+                "VALUES (0, 0, 0, 0)");
     }
 
     @Test
@@ -226,6 +239,86 @@ public abstract class BaseIcebergSystemTables
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
         assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
+    }
+
+    @Test
+    public void testPartitionsTablePositionDeleteMetrics()
+    {
+        // test_table_with_dml has a DELETE on partition '2022-02-02' and an UPDATE on '2022-01-01'.
+        // Both produce position deletes in the affected partitions (or deletion vectors in v3),
+        // and untouched partitions should remain at zero.
+        MaterializedResult result = computeActual("" +
+                "SELECT partition._date," +
+                "       position_delete_record_count," +
+                "       position_delete_file_count," +
+                "       equality_delete_record_count," +
+                "       equality_delete_file_count" +
+                " FROM test_schema.\"test_table_with_dml$partitions\"");
+
+        Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
+
+        // DELETE FROM ... WHERE _date = '2022-02-02' AND _varchar = 'b2' removes one row.
+        assertThat((Long) rowsByPartition.get(LocalDate.parse("2022-02-02")).getField(1)).isPositive();
+        assertThat((Long) rowsByPartition.get(LocalDate.parse("2022-02-02")).getField(2)).isPositive();
+        // UPDATE on _date = '2022-01-01' rewrites one row, producing position deletes for the prior copy.
+        assertThat((Long) rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(1)).isPositive();
+        assertThat((Long) rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(2)).isPositive();
+        // Equality deletes are not produced by DML on Iceberg tables — they are written by external
+        // engines (e.g. Flink) — so the equality columns stay at zero here.
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(3)).isEqualTo(0L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(0L);
+        // Untouched partitions ('2022-03-03', '2022-04-04') remain at zero across the board.
+        for (LocalDate untouched : List.of(LocalDate.parse("2022-03-03"), LocalDate.parse("2022-04-04"))) {
+            assertThat(rowsByPartition.get(untouched).getField(1)).isEqualTo(0L);
+            assertThat(rowsByPartition.get(untouched).getField(2)).isEqualTo(0L);
+            assertThat(rowsByPartition.get(untouched).getField(3)).isEqualTo(0L);
+            assertThat(rowsByPartition.get(untouched).getField(4)).isEqualTo(0L);
+        }
+    }
+
+    @Test
+    public void testPartitionsTableEqualityDeleteMetrics()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable(
+                "test_partitions_eq_deletes_",
+                "(regionkey BIGINT, name VARCHAR) WITH (format_version = 2, partitioning = ARRAY['regionkey'])")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 'a'), (1, 'b'), (2, 'c'), (2, 'd'), (3, 'e')", 5);
+            Table icebergTable = loadTable(testTable.getName());
+
+            // Trino DML does not produce equality deletes; an external engine writes them.
+            // Write one equality delete for regionkey=2 and verify it surfaces on that partition only.
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Long[] {2L})),
+                    ImmutableMap.of("name", "c"),
+                    Optional.empty());
+
+            MaterializedResult result = computeActual("" +
+                    "SELECT partition.regionkey," +
+                    "       position_delete_record_count," +
+                    "       position_delete_file_count," +
+                    "       equality_delete_record_count," +
+                    "       equality_delete_file_count" +
+                    " FROM \"" + testTable.getName() + "$partitions\"");
+
+            Map<Long, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
+                    .collect(toImmutableMap(row -> (Long) row.getField(0), Function.identity()));
+
+            assertThat(rowsByPartition.get(2L).getField(3)).isEqualTo(1L);
+            assertThat(rowsByPartition.get(2L).getField(4)).isEqualTo(1L);
+            for (long untouched : List.of(1L, 3L)) {
+                assertThat(rowsByPartition.get(untouched).getField(3)).isEqualTo(0L);
+                assertThat(rowsByPartition.get(untouched).getField(4)).isEqualTo(0L);
+            }
+            for (long partition : List.of(1L, 2L, 3L)) {
+                assertThat(rowsByPartition.get(partition).getField(1)).isEqualTo(0L);
+                assertThat(rowsByPartition.get(partition).getField(2)).isEqualTo(0L);
+            }
+        }
     }
 
     @Test

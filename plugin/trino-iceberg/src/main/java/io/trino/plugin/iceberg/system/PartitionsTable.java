@@ -29,6 +29,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
@@ -121,6 +122,11 @@ public class PartitionsTable
             this.columnMetricTypes = ImmutableList.of();
         }
 
+        columnMetadataBuilder.add(new ColumnMetadata("position_delete_record_count", BIGINT));
+        columnMetadataBuilder.add(new ColumnMetadata("position_delete_file_count", BIGINT));
+        columnMetadataBuilder.add(new ColumnMetadata("equality_delete_record_count", BIGINT));
+        columnMetadataBuilder.add(new ColumnMetadata("equality_delete_file_count", BIGINT));
+
         List<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
@@ -180,10 +186,13 @@ public class PartitionsTable
                 DataFile dataFile = fileScanTask.file();
                 StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
 
-                partitions.computeIfAbsent(
+                IcebergStatistics.Builder builder = partitions.computeIfAbsent(
                         structLikeWrapperWithFieldIdToIndex,
-                        _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
-                        .acceptDataFile(dataFile, fileScanTask.spec());
+                        _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager));
+                builder.acceptDataFile(dataFile, fileScanTask.spec());
+                for (DeleteFile deleteFile : fileScanTask.deletes()) {
+                    builder.acceptDeleteFile(deleteFile);
+                }
             }
 
             return partitions.entrySet().stream()
@@ -252,6 +261,12 @@ public class PartitionsTable
                     }
                 }));
             });
+
+            // add delete file metrics
+            row.add(icebergStatistics.positionDeleteRecordCount());
+            row.add(icebergStatistics.positionDeleteFileCount());
+            row.add(icebergStatistics.equalityDeleteRecordCount());
+            row.add(icebergStatistics.equalityDeleteFileCount());
 
             records.add(row);
         }

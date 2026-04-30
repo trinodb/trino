@@ -83,7 +83,11 @@ public class TestIcebergPartitionEvolution
                         row("data", "row(" +
                                 // A/B is now partitioning column in the first partitioning spec, and non-partitioning in new one
                                 (dropFirst ? "\"a\"" : "\"b\"") + " row(\"min\" varchar, \"max\" varchar, \"null_count\" bigint, \"nan_count\" bigint), " +
-                                "\"c\" row(\"min\" varchar, \"max\" varchar, \"null_count\" bigint, \"nan_count\" bigint))"));
+                                "\"c\" row(\"min\" varchar, \"max\" varchar, \"null_count\" bigint, \"nan_count\" bigint))"),
+                        row("position_delete_record_count", "bigint"),
+                        row("position_delete_file_count", "bigint"),
+                        row("equality_delete_record_count", "bigint"),
+                        row("equality_delete_file_count", "bigint"));
         assertThat(onTrino().executeQuery("SELECT partition, record_count, file_count, data FROM \"test_dropped_partition_field$partitions\""))
                 .containsOnly(
                         row(
