@@ -316,6 +316,10 @@ public class BenchmarkDateExtraction
 
     // ---- Neri-Schneider reference (impl in NeriSchneiderDate; cited in the PR algorithm-choice discussion) ----
 
+    // Day-of-year prefix tables (algorithm-independent — same lookup as FastDate uses internally).
+    private static final int[] DOY_PREFIX_NON_LEAP = {0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    private static final int[] DOY_PREFIX_LEAP = {0, 0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335};
+
     @Benchmark
     public long nsYear(BenchmarkData data)
     {
@@ -342,6 +346,45 @@ public class BenchmarkDateExtraction
         long sum = 0;
         for (int d : data.dates) {
             sum += (int) (NeriSchneiderDate.ymdFromEpochDay(d) & 0xFF);
+        }
+        return sum;
+    }
+
+    @Benchmark
+    public long nsDayOfYear(BenchmarkData data)
+    {
+        long sum = 0;
+        for (int d : data.dates) {
+            long ymd = NeriSchneiderDate.ymdFromEpochDay(d);
+            int year = (int) (ymd >> 32);
+            int month = (int) ((ymd >> 8) & 0xFF);
+            int day = (int) (ymd & 0xFF);
+            sum += (FastDate.isLeap(year) ? DOY_PREFIX_LEAP : DOY_PREFIX_NON_LEAP)[month] + day;
+        }
+        return sum;
+    }
+
+    @Benchmark
+    public long nsQuarter(BenchmarkData data)
+    {
+        long sum = 0;
+        for (int d : data.dates) {
+            int month = (int) ((NeriSchneiderDate.ymdFromEpochDay(d) >> 8) & 0xFF);
+            sum += (month - 1) / 3 + 1;
+        }
+        return sum;
+    }
+
+    @Benchmark
+    public long nsLastDayOfMonth(BenchmarkData data)
+    {
+        long sum = 0;
+        for (int d : data.dates) {
+            long ymd = NeriSchneiderDate.ymdFromEpochDay(d);
+            int year = (int) (ymd >> 32);
+            int month = (int) ((ymd >> 8) & 0xFF);
+            int dayOfMonth = (int) (ymd & 0xFF);
+            sum += (long) d - dayOfMonth + FastDate.daysInMonth(year, month);
         }
         return sum;
     }
