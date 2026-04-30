@@ -13,252 +13,170 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import org.apache.iceberg.ManifestContent;
-import org.apache.iceberg.ManifestFile;
-import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.StructLike;
-import org.apache.iceberg.io.LocationProvider;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for Copy-on-Write DELETE operations API compatibility.
- * This test specifically addresses compilation errors related to abstract method implementations.
+ * Functional tests for Copy-on-Write DELETE operations in the Iceberg connector.
+ * Complements TestIcebergCopyOnWriteOperations with focused DELETE and MERGE-DELETE scenarios.
  */
 public class TestIcebergCopyOnWriteDeleteOperations
+        extends AbstractTestQueryFramework
 {
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return IcebergQueryRunner.builder().build();
+    }
+
     @Test
-    public void testApiCompatibility()
+    public void testCowDeleteWithVariousPredicates()
     {
-        // Simple test to verify that abstract methods are properly implemented
-        TestingManifestFile manifestFile = new TestingManifestFile();
-        TestingLocationProvider locationProvider = new TestingLocationProvider();
-        TestingIcebergFileIO fileIO = new TestingIcebergFileIO();
+        String tableName = "test_cow_delete_predicates_" + randomNameSuffix();
 
-        // Verify that the copy method exists and can be called
-        assertThat(manifestFile.copy()).isNotNull();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, name VARCHAR, value INT) " +
+                "WITH (format_version = 2, write_delete_mode = 'COPY_ON_WRITE')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(1, 'Alice', 10), (2, 'Bob', 20), (3, 'Charlie', 30), (4, 'Dave', 40), (5, 'Eve', 50)", 5);
 
-        // Verify that the new newDataLocation method exists and can be called
-        PartitionSpec spec = PartitionSpec.unpartitioned();
-        StructLike data = new TestingStructLike();
-        assertThat(locationProvider.newDataLocation(spec, data, "test.parquet")).isNotNull();
+        // Equality predicate: delete single row
+        assertUpdate("DELETE FROM " + tableName + " WHERE id = 3", 1);
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
-        // Verify that deleteFile method exists and can be called
-        fileIO.deleteFile("test-path");
+        // Range predicate: delete rows where value > 30 (Dave=40, Eve=50 already remaining after id=3 delete)
+        assertUpdate("DELETE FROM " + tableName + " WHERE value > 30", 2);
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
+        assertQuery("SELECT name FROM " + tableName + " ORDER BY id", "VALUES 'Alice', 'Bob'");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
+
+        // LIKE predicate (case-insensitive via lower()): 'Alice' and 'Bob' both remain — 'Bob' contains 'b'
+        assertUpdate("DELETE FROM " + tableName + " WHERE lower(name) LIKE '%b%'", 1);
+        assertQuery("SELECT name FROM " + tableName, "VALUES 'Alice'");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
-    /**
-     * A minimal test implementation of ManifestFile that implements the copy() method.
-     */
-    private static class TestingManifestFile
-            implements ManifestFile
+    @Test
+    public void testCowDeleteAllRows()
     {
-        @Override
-        public String path()
-        {
-            return "test-manifest.avro";
-        }
+        String tableName = "test_cow_delete_all_" + randomNameSuffix();
 
-        @Override
-        public ManifestContent content()
-        {
-            return ManifestContent.DATA;
-        }
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, name VARCHAR) " +
+                "WITH (format_version = 2, write_delete_mode = 'COPY_ON_WRITE')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
 
-        @Override
-        public ManifestFile copy()
-        {
-            return new TestingManifestFile();
-        }
+        Set<String> filesBeforeDelete = getDataFilePaths(tableName);
+        assertThat(filesBeforeDelete).isNotEmpty();
 
-        @Override
-        public long length()
-        {
-            return 1024L;
-        }
+        // Delete all rows
+        assertUpdate("DELETE FROM " + tableName, 3);
 
-        @Override
-        public int partitionSpecId()
-        {
-            return 0;
-        }
+        // Table should be empty
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
 
-        @Override
-        public long sequenceNumber()
-        {
-            return 1L;
-        }
+        // No delete files should exist (CoW rewrites data rather than leaving position deletes)
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
-        @Override
-        public long minSequenceNumber()
-        {
-            return 1L;
-        }
-
-        @Override
-        public Long snapshotId()
-        {
-            return 1L;
-        }
-
-        @Override
-        public Integer addedFilesCount()
-        {
-            return 1;
-        }
-
-        @Override
-        public Integer existingFilesCount()
-        {
-            return 0;
-        }
-
-        @Override
-        public Integer deletedFilesCount()
-        {
-            return 0;
-        }
-
-        @Override
-        public Long addedRowsCount()
-        {
-            return 10L;
-        }
-
-        @Override
-        public Long existingRowsCount()
-        {
-            return 0L;
-        }
-
-        @Override
-        public Long deletedRowsCount()
-        {
-            return 0L;
-        }
-
-        @Override
-        public List<PartitionFieldSummary> partitions()
-        {
-            return ImmutableList.of();
-        }
-
-        @Override
-        public boolean hasAddedFiles()
-        {
-            return true;
-        }
-
-        @Override
-        public boolean hasExistingFiles()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean hasDeletedFiles()
-        {
-            return false;
-        }
-
-        @Override
-        public Long firstRowId()
-        {
-            return null;
-        }
+        assertUpdate("DROP TABLE " + tableName);
     }
 
-    /**
-     * A minimal test implementation of LocationProvider that implements the new newDataLocation method.
-     */
-    private static class TestingLocationProvider
-            implements LocationProvider
+    @Test
+    public void testCowDeleteAndReinsert()
     {
-        @Override
-        public String newDataLocation(String filename)
-        {
-            return "data/" + filename;
-        }
+        String tableName = "test_cow_delete_reinsert_" + randomNameSuffix();
 
-        @Override
-        @SuppressWarnings("unused")
-        public String newDataLocation(PartitionSpec spec, StructLike data, String filename)
-        {
-            return "data/" + filename;
-        }
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, name VARCHAR) " +
+                "WITH (format_version = 2, write_delete_mode = 'COPY_ON_WRITE')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie'), (4, 'Dave')", 4);
+
+        Set<String> initialFilePaths = getDataFilePaths(tableName);
+        assertThat(initialFilePaths).isNotEmpty();
+
+        // Delete 2 rows
+        assertUpdate("DELETE FROM " + tableName + " WHERE id IN (2, 4)", 2);
+
+        // Insert 2 new rows
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'Eve'), (6, 'Frank')", 2);
+
+        // Verify correct rows exist
+        assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 'Alice'), (3, 'Charlie'), (5, 'Eve'), (6, 'Frank')");
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+
+        // No delete files
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
+
+        // File paths should have changed (data was rewritten by CoW)
+        Set<String> finalFilePaths = getDataFilePaths(tableName);
+        assertThat(finalFilePaths)
+                .as("CoW DELETE should rewrite data files; original file paths should not appear in final state")
+                .doesNotContainAnyElementsOf(initialFilePaths);
+        assertThat(finalFilePaths).isNotEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
-    /**
-     * A minimal test implementation of FileIO that implements the deleteFile method.
-     */
-    private static class TestingIcebergFileIO
-            implements org.apache.iceberg.io.FileIO
+    @Test
+    public void testCowMergeDeleteOnly()
     {
-        @Override
-        public org.apache.iceberg.io.InputFile newInputFile(String path)
-        {
-            throw new UnsupportedOperationException("Not implemented");
-        }
+        String targetTable = "test_cow_merge_del_target_" + randomNameSuffix();
+        String sourceTable = "test_cow_merge_del_source_" + randomNameSuffix();
 
-        @Override
-        public org.apache.iceberg.io.OutputFile newOutputFile(String path)
-        {
-            throw new UnsupportedOperationException("Not implemented");
-        }
+        assertUpdate("CREATE TABLE " + targetTable + " (id INT, name VARCHAR) " +
+                "WITH (format_version = 2, write_merge_mode = 'COPY_ON_WRITE')");
+        assertUpdate("INSERT INTO " + targetTable + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie'), (4, 'Dave')", 4);
 
-        @Override
-        public void deleteFile(String path)
-        {
-            // Do nothing for testing
-        }
+        assertUpdate("CREATE TABLE " + sourceTable + " (id INT, name VARCHAR) WITH (format_version = 2)");
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES (2, 'Bob'), (3, 'Charlie')", 2);
 
-        @Override
-        public Map<String, String> properties()
-        {
-            return ImmutableMap.of();
-        }
+        Set<String> filesBeforeMerge = getDataFilePaths(targetTable);
+        assertThat(filesBeforeMerge).isNotEmpty();
 
-        @Override
-        public void initialize(Map<String, String> properties)
-        {
-            // Do nothing for testing
-        }
+        // MERGE: delete matched rows
+        assertUpdate(
+                "MERGE INTO " + targetTable + " t USING " + sourceTable + " s ON (t.id = s.id) " +
+                        "WHEN MATCHED THEN DELETE",
+                2);
 
-        @Override
-        public void close()
-        {
-            // Do nothing for testing
-        }
+        // Rows 2 and 3 should be gone; rows 1 and 4 remain
+        assertQuery("SELECT * FROM " + targetTable + " ORDER BY id",
+                "VALUES (1, 'Alice'), (4, 'Dave')");
+        assertQuery("SELECT count(*) FROM " + targetTable, "SELECT 2");
+
+        // No delete files in target table
+        assertQuery("SELECT count(*) FROM \"" + targetTable + "$files\" WHERE content != 0", "VALUES 0");
+
+        // File paths in target should have changed (data was rewritten by CoW)
+        Set<String> filesAfterMerge = getDataFilePaths(targetTable);
+        assertThat(filesAfterMerge)
+                .as("CoW MERGE should rewrite data files; original file paths should not appear after merge")
+                .doesNotContainAnyElementsOf(filesBeforeMerge);
+        assertThat(filesAfterMerge).isNotEmpty();
+
+        assertUpdate("DROP TABLE " + targetTable);
+        assertUpdate("DROP TABLE " + sourceTable);
     }
 
-    /**
-     * A minimal test implementation of StructLike.
-     */
-    private static class TestingStructLike
-            implements StructLike
+    private Set<String> getDataFilePaths(String tableName)
     {
-        @Override
-        public int size()
-        {
-            return 0;
-        }
+        return computeActual("SELECT file_path FROM \"" + tableName + "$files\" WHERE content = 0")
+                .getOnlyColumnAsSet().stream()
+                .map(String.class::cast)
+                .collect(java.util.stream.Collectors.toSet());
+    }
 
-        @Override
-        public <T> T get(int pos, Class<T> javaClass)
-        {
-            return null;
-        }
-
-        @Override
-        public <T> void set(int pos, T value)
-        {
-            // Do nothing
-        }
+    private static String randomNameSuffix()
+    {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 }

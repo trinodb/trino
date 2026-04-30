@@ -177,6 +177,44 @@ public class TestIcebergCopyOnWriteOperations
     }
 
     @Test
+    public void testMergeWithCopyOnWritePartitioned()
+    {
+        String tableName = "test_merge_cow_partitioned_" + randomNameSuffix();
+        String sourceTable = "test_merge_cow_part_src_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, region VARCHAR, value INT) " +
+                "WITH (format_version = 2, partitioning = ARRAY['region'], write_merge_mode = 'COPY_ON_WRITE')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                "(1, 'US', 100), (2, 'US', 200), (3, 'EU', 300), (4, 'EU', 400), (5, 'ASIA', 500)", 5);
+
+        assertUpdate("CREATE TABLE " + sourceTable + " (id INT, region VARCHAR, value INT) WITH (format_version = 2)");
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES (2, 'US', 999), (5, 'ASIA', 888), (6, 'US', 600)", 3);
+
+        Set<String> filesBeforeMerge = getDataFilePaths(tableName);
+        assertThat(filesBeforeMerge).isNotEmpty();
+
+        // MERGE: update matched rows, insert unmatched
+        assertUpdate(
+                "MERGE INTO " + tableName + " t USING " + sourceTable + " s ON (t.id = s.id) " +
+                        "WHEN MATCHED THEN UPDATE SET value = s.value " +
+                        "WHEN NOT MATCHED THEN INSERT (id, region, value) VALUES (s.id, s.region, s.value)",
+                3);  // 2 updates + 1 insert
+
+        assertQuery("SELECT id, region, value FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 'US', 100), (2, 'US', 999), (3, 'EU', 300), (4, 'EU', 400), (5, 'ASIA', 888), (6, 'US', 600)");
+
+        // CoW: no delete files, data files replaced
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
+        Set<String> filesAfterMerge = getDataFilePaths(tableName);
+        assertThat(filesAfterMerge)
+                .as("CoW MERGE on partitioned table should rewrite affected data files")
+                .doesNotContainAnyElementsOf(filesBeforeMerge);
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertUpdate("DROP TABLE " + sourceTable);
+    }
+
+    @Test
     public void testCompareDeleteModes()
     {
         String morTableName = "test_delete_mor_" + randomNameSuffix();
@@ -386,6 +424,9 @@ public class TestIcebergCopyOnWriteOperations
         // Verify partition pruning still works
         assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE region = 'ASIA'", "SELECT 2");
         assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE region = 'EU'", "SELECT 0");
+
+        // Verify no delete files were created across all operations (CoW invariant)
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -606,6 +647,9 @@ public class TestIcebergCopyOnWriteOperations
         assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE region = 'EU'", "SELECT " + rowsPerPartition);
         assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE region = 'ASIA'", "SELECT " + rowsPerPartition);
         assertQuery("SELECT MIN(value) FROM " + tableName + " WHERE region = 'EU'", "SELECT 5010");
+
+        // Verify no delete files were created (CoW invariant on partitioned large batch)
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != 0", "VALUES 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -931,6 +975,77 @@ public class TestIcebergCopyOnWriteOperations
 
         assertUpdate("DROP TABLE " + cowTableName);
         assertUpdate("DROP TABLE " + morTableName);
+    }
+
+    @Test
+    public void testCompareUpdateModes()
+    {
+        String morTable = "test_update_mor_" + randomNameSuffix();
+        String cowTable = "test_update_cow_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + morTable + " (id INT, name VARCHAR, value INT) WITH (format_version = 2)");
+        assertUpdate("CREATE TABLE " + cowTable + " (id INT, name VARCHAR, value INT) WITH (format_version = 2)");
+
+        assertUpdate("INSERT INTO " + morTable + " VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)", 3);
+        assertUpdate("INSERT INTO " + cowTable + " VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)", 3);
+
+        assertUpdate("ALTER TABLE " + morTable + " SET PROPERTIES write_update_mode = 'MERGE_ON_READ'");
+        assertUpdate("ALTER TABLE " + cowTable + " SET PROPERTIES write_update_mode = 'COPY_ON_WRITE'");
+
+        assertUpdate("UPDATE " + morTable + " SET value = 999 WHERE id = 2", 1);
+        assertUpdate("UPDATE " + cowTable + " SET value = 999 WHERE id = 2", 1);
+
+        // Both modes produce identical results
+        assertQuery("SELECT * FROM " + morTable + " ORDER BY id", "VALUES (1, 'Alice', 100), (2, 'Bob', 999), (3, 'Charlie', 300)");
+        assertQuery("SELECT * FROM " + cowTable + " ORDER BY id", "VALUES (1, 'Alice', 100), (2, 'Bob', 999), (3, 'Charlie', 300)");
+
+        // File-level difference: MoR creates delete files, CoW does not
+        long morDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + morTable + "$files\" WHERE content != 0");
+        long cowDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + cowTable + "$files\" WHERE content != 0");
+        assertThat(morDeleteFileCount).as("MoR UPDATE should create delete files").isGreaterThan(0);
+        assertThat(cowDeleteFileCount).as("CoW UPDATE should not create delete files").isEqualTo(0);
+
+        assertUpdate("DROP TABLE " + morTable);
+        assertUpdate("DROP TABLE " + cowTable);
+    }
+
+    @Test
+    public void testCompareMergeModes()
+    {
+        String morTable = "test_merge_mor_" + randomNameSuffix();
+        String cowTable = "test_merge_cow_cmp_" + randomNameSuffix();
+        String sourceTable = "test_merge_cmp_src_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + morTable + " (id INT, name VARCHAR) WITH (format_version = 2)");
+        assertUpdate("CREATE TABLE " + cowTable + " (id INT, name VARCHAR) WITH (format_version = 2)");
+        assertUpdate("CREATE TABLE " + sourceTable + " (id INT, name VARCHAR) WITH (format_version = 2)");
+
+        assertUpdate("INSERT INTO " + morTable + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
+        assertUpdate("INSERT INTO " + cowTable + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
+        assertUpdate("INSERT INTO " + sourceTable + " VALUES (2, 'Robert'), (4, 'Dave')", 2);
+
+        assertUpdate("ALTER TABLE " + morTable + " SET PROPERTIES write_merge_mode = 'MERGE_ON_READ'");
+        assertUpdate("ALTER TABLE " + cowTable + " SET PROPERTIES write_merge_mode = 'COPY_ON_WRITE'");
+
+        String mergeStmt = "MERGE INTO %s t USING " + sourceTable + " s ON (t.id = s.id) " +
+                "WHEN MATCHED THEN UPDATE SET name = s.name " +
+                "WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)";
+        assertUpdate(mergeStmt.formatted(morTable), 2);
+        assertUpdate(mergeStmt.formatted(cowTable), 2);
+
+        // Both produce identical results
+        assertQuery("SELECT * FROM " + morTable + " ORDER BY id", "VALUES (1, 'Alice'), (2, 'Robert'), (3, 'Charlie'), (4, 'Dave')");
+        assertQuery("SELECT * FROM " + cowTable + " ORDER BY id", "VALUES (1, 'Alice'), (2, 'Robert'), (3, 'Charlie'), (4, 'Dave')");
+
+        // File-level difference
+        long morDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + morTable + "$files\" WHERE content != 0");
+        long cowDeleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + cowTable + "$files\" WHERE content != 0");
+        assertThat(morDeleteFileCount).as("MoR MERGE should create delete files").isGreaterThan(0);
+        assertThat(cowDeleteFileCount).as("CoW MERGE should not create delete files").isEqualTo(0);
+
+        assertUpdate("DROP TABLE " + morTable);
+        assertUpdate("DROP TABLE " + cowTable);
+        assertUpdate("DROP TABLE " + sourceTable);
     }
 
     // ========== Helper Methods for Metrics Collection ==========
