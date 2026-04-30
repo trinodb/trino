@@ -3902,6 +3902,7 @@ public class IcebergMetadata
 
                 try {
                     long filePosition = 0;
+                    boolean anyRowsWritten = false;
                     while (!pageSource.isFinished()) {
                         Page page = pageSource.getNextPage();
                         if (page == null) {
@@ -3920,16 +3921,35 @@ public class IcebergMetadata
                         if (keepCount > 0) {
                             Page filteredPage = page.getPositions(Arrays.copyOf(keepPositions, keepCount), 0, keepCount);
                             writer.appendRows(filteredPage);
+                            anyRowsWritten = true;
                         }
 
                         filePosition += page.getPositionCount();
+                    }
+
+                    if (anyRowsWritten) {
+                        writer.commit();
+
+                        DataFiles.Builder fileBuilder = DataFiles.builder(filePartitionSpec)
+                                .withPath(outputPath)
+                                .withFormat(outputFormat.toIceberg())
+                                .withFileSizeInBytes(writer.getWrittenBytes())
+                                .withMetrics(writer.getFileMetrics().metrics());
+                        writer.getFileMetrics().splitOffsets().ifPresent(fileBuilder::withSplitOffsets);
+                        if (filePartitionSpec.isPartitioned()) {
+                            fileBuilder.withPartition(partitionData);
+                        }
+                        newFiles.add(fileBuilder.build());
+                    }
+                    else {
+                        // All rows in this file were deleted — don't write an empty replacement.
+                        // The original file will still be removed via rewriteFiles.deleteFile().
+                        writer.rollback();
                     }
                 }
                 finally {
                     pageSource.close();
                 }
-
-                writer.commit();
             }
             catch (Throwable t) {
                 try {
@@ -3940,20 +3960,6 @@ public class IcebergMetadata
                 }
                 throw t;
             }
-
-            // Build DataFile for the rewritten file
-            DataFiles.Builder fileBuilder = DataFiles.builder(filePartitionSpec)
-                    .withPath(outputPath)
-                    .withFormat(outputFormat.toIceberg())
-                    .withFileSizeInBytes(writer.getWrittenBytes())
-                    .withMetrics(writer.getFileMetrics().metrics());
-            writer.getFileMetrics().splitOffsets().ifPresent(fileBuilder::withSplitOffsets);
-
-            if (filePartitionSpec.isPartitioned()) {
-                fileBuilder.withPartition(partitionData);
-            }
-
-            newFiles.add(fileBuilder.build());
         }
 
         // Step 4: Build DataFile objects for data tasks (inserts/updates from the merge sink)
