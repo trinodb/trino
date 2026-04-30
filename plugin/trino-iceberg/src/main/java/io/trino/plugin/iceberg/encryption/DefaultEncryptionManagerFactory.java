@@ -37,7 +37,9 @@ public class DefaultEncryptionManagerFactory
     @Inject
     public DefaultEncryptionManagerFactory(IcebergEncryptionConfig encryptionConfig)
     {
-        this.keyManagementClient = createKeyManagementClient(requireNonNull(encryptionConfig, "encryptionConfig is null"));
+        requireNonNull(encryptionConfig, "encryptionConfig is null");
+        this.keyManagementClient = encryptionConfig.getKmsType()
+                .map(kmsType -> createKeyManagementClient(kmsType.getKmsClientClassName()));
     }
 
     public DefaultEncryptionManagerFactory(Optional<KeyManagementClient> keyManagementClient)
@@ -59,14 +61,8 @@ public class DefaultEncryptionManagerFactory
         return EncryptionUtil.createEncryptionManager(tableProperties, kmsClient);
     }
 
-    private static Optional<KeyManagementClient> createKeyManagementClient(IcebergEncryptionConfig encryptionConfig)
+    private static KeyManagementClient createKeyManagementClient(String kmsClientClassName)
     {
-        if (encryptionConfig.getKmsType().isEmpty()) {
-            return Optional.empty();
-        }
-
-        Map<String, String> catalogProperties = ImmutableMap.of(
-                ENCRYPTION_KMS_IMPL, encryptionConfig.getKmsType().orElseThrow().getKmsClientClassName());
-        return Optional.of(EncryptionUtil.createKmsClient(catalogProperties));
+        return EncryptionUtil.createKmsClient(ImmutableMap.of(ENCRYPTION_KMS_IMPL, kmsClientClassName));
     }
 }

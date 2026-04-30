@@ -2458,12 +2458,18 @@ public class TestIcebergSparkCompatibility
 
         onSpark().executeQuery(format(
                 "CREATE TABLE %s (id INT, name STRING) USING ICEBERG " +
-                        "TBLPROPERTIES ('write.format.default'='PARQUET', 'encryption.key-id'='%s')",
+                        "TBLPROPERTIES ('write.format.default'='PARQUET', 'format-version'='3', 'encryption.key-id'='%s')",
                 sparkTableName, keyId));
         onSpark().executeQuery(format("INSERT INTO %s VALUES (1, 'alice'), (2, 'bob'), (3, 'charlie')", sparkTableName));
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName + " ORDER BY id"))
                 .containsOnly(row(1, "alice"), row(2, "bob"), row(3, "charlie"));
+
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName + " ORDER BY id"))
+                .containsOnly(row(1, "alice"), row(2, "bob"), row(3, "charlie"));
+
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName("\"" + baseTableName + "$files\"") + " WHERE key_metadata IS NULL"))
+                .containsOnly(row(0L));
 
         assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (4, 'dave')"))
                 .hasMessageContaining("Writing to encrypted Iceberg tables is not supported");

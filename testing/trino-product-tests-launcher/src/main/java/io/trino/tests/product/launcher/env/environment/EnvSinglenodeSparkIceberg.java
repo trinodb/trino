@@ -51,8 +51,10 @@ public class EnvSinglenodeSparkIceberg
     private static final String AWS_REGION = "us-east-1";
     private static final String AWS_ACCESS_KEY_ID = "test";
     private static final String AWS_SECRET_ACCESS_KEY = "test";
-    // Must be kept in sync with dep.iceberg.version in the root pom.xml
-    private static final String ICEBERG_VERSION = "1.10.1";
+    // Spark engages Iceberg encryption only with the 1.11.0+ catalog wiring
+    // (iceberg/apache#13066, #15272). Replace with 1.11.0 once released.
+    private static final String ICEBERG_SNAPSHOT_VERSION = "1.11.0-SNAPSHOT";
+    private static final String ICEBERG_SNAPSHOT_REPO = "https://repository.apache.org/content/repositories/snapshots/";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -132,13 +134,32 @@ public class EnvSinglenodeSparkIceberg
                         forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")),
                         "/spark/conf/log4j2.properties")
                 .withCommand(
-                        "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1,org.apache.iceberg:iceberg-aws-bundle:" + ICEBERG_VERSION,
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                        "spark-internal")
+                        "bash", "-c",
+                        // The bundled iceberg-spark-runtime in the spark4-iceberg image is too old
+                        // to engage encryption (see ICEBERG_SNAPSHOT_VERSION). Replace it (and add
+                        // a matching iceberg-aws-bundle) by fetching the latest SNAPSHOT directly
+                        // into /spark/jars so they are on the driver classpath at startup.
+                        // --packages alone is not enough: the Thrift server's catalog plugin loader
+                        // doesn't see jars added via spark.jars at session init time.
+                        "set -e; "
+                                + "REPO=" + ICEBERG_SNAPSHOT_REPO + "org/apache/iceberg; "
+                                + "fetch_latest() { "
+                                + "  local artifact=$1; "
+                                + "  local version=$(curl -sSL \"$REPO/$artifact/" + ICEBERG_SNAPSHOT_VERSION + "/maven-metadata.xml\" "
+                                + "    | grep -oE '<value>1\\.11\\.0-[0-9.-]+</value>' | head -1 | sed -E 's|</?value>||g'); "
+                                + "  curl -sSL --fail -o \"/spark/jars/$artifact-" + ICEBERG_SNAPSHOT_VERSION + ".jar\" "
+                                + "    \"$REPO/$artifact/" + ICEBERG_SNAPSHOT_VERSION + "/$artifact-${version}.jar\"; "
+                                + "}; "
+                                + "rm -f /spark/jars/iceberg-spark-runtime-*.jar /spark/jars/iceberg-aws-bundle-*.jar; "
+                                + "fetch_latest iceberg-spark-runtime-4.0_2.13; "
+                                + "fetch_latest iceberg-aws-bundle; "
+                                + "exec spark-submit"
+                                + " --master local[*]"
+                                + " --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2"
+                                + " --name 'Thrift JDBC/ODBC Server'"
+                                + " --packages org.apache.spark:spark-avro_2.12:3.2.1"
+                                + " --conf spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT
+                                + " spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
