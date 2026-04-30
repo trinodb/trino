@@ -493,7 +493,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_MONTH.get(DAYS.toMillis(date));
+        return DateTimeUtils.FastDate.dayOf((int) date);
     }
 
     @Description("Day of the month of the given interval")
@@ -509,8 +509,8 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(DAYS.toMillis(date) + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        int days = (int) date;
+        return (long) days - DateTimeUtils.FastDate.dayOf(days) + DateTimeUtils.FastDate.daysInMonthOf(days);
     }
 
     @Description("Day of the year of the given date")
@@ -518,7 +518,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return DAY_OF_YEAR.get(DAYS.toMillis(date));
+        return DateTimeUtils.FastDate.dayOfYearOf((int) date);
     }
 
     @Description("Week of the year of the given date")
@@ -542,7 +542,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return MONTH_OF_YEAR.get(DAYS.toMillis(date));
+        return DateTimeUtils.FastDate.monthOf((int) date);
     }
 
     @Description("Month of the year of the given interval")
@@ -558,7 +558,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return QUARTER.get(DAYS.toMillis(date));
+        return DateTimeUtils.FastDate.quarterOf((int) date);
     }
 
     @Description("Year of the given date")
@@ -566,7 +566,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
-        return YEAR.get(DAYS.toMillis(date));
+        return DateTimeUtils.FastDate.yearOf((int) date);
     }
 
     @Description("Year of the given interval")
