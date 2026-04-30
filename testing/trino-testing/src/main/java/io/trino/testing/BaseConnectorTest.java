@@ -7993,18 +7993,24 @@ public abstract class BaseConnectorTest
         String defaultBranch = getDefaultBranchName();
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "'");
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
 
         assertUpdate("CREATE BRANCH another_branch IN TABLE " + tableName);
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch', VARCHAR 'another_branch'");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -8087,11 +8093,15 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch'");
 
         assertUpdate("DROP BRANCH test_branch IN TABLE " + tableName);
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "'");
 
         // Dropping an already-dropped branch fails
@@ -8132,6 +8142,8 @@ public abstract class BaseConnectorTest
         String defaultBranch = getDefaultBranchName();
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR '" + defaultBranch + "', VARCHAR 'test_branch', VARCHAR 'TEST_BRANCH'");
 
         assertUpdate("DROP TABLE " + tableName);

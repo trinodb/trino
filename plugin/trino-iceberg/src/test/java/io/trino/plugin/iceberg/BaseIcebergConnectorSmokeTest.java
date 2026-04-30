@@ -969,12 +969,16 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR 'main'");
 
         assertUpdate("CREATE BRANCH test_branch IN TABLE " + tableName);
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR 'main', VARCHAR 'test_branch'");
 
         assertUpdate("INSERT INTO " + tableName + "@test_branch VALUES (2, 'b')", 1);
@@ -988,6 +992,8 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         assertThat(query("SHOW BRANCHES IN TABLE " + tableName))
                 .skippingTypesCheck()
+                .result()
+                .hasColumnNames("Branch")
                 .matches("VALUES VARCHAR 'main'");
 
         assertUpdate("DROP TABLE " + tableName);
