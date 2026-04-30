@@ -76,13 +76,8 @@ public final class DateTimeFunctions
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final DateTimeField DAY_OF_WEEK = UTC_CHRONOLOGY.dayOfWeek();
-    private static final DateTimeField DAY_OF_MONTH = UTC_CHRONOLOGY.dayOfMonth();
-    private static final DateTimeField DAY_OF_YEAR = UTC_CHRONOLOGY.dayOfYear();
     private static final DateTimeField WEEK_OF_YEAR = UTC_CHRONOLOGY.weekOfWeekyear();
     private static final DateTimeField YEAR_OF_WEEK = UTC_CHRONOLOGY.weekyear();
-    private static final DateTimeField MONTH_OF_YEAR = UTC_CHRONOLOGY.monthOfYear();
-    private static final DateTimeField QUARTER = QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY);
-    private static final DateTimeField YEAR = UTC_CHRONOLOGY.year();
     private static final int MILLISECONDS_IN_SECOND = 1000;
     private static final int MILLISECONDS_IN_MINUTE = 60 * MILLISECONDS_IN_SECOND;
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
