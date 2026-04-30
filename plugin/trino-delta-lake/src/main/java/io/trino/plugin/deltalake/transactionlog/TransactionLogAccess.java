@@ -78,6 +78,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -90,6 +91,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -108,6 +110,8 @@ public class TransactionLogAccess
     private static final Pattern MULTI_PART_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.(\\d*)\\.(\\d*)\\.parquet");
     private static final Pattern V2_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.(json|parquet)");
 
+    private static final long DESCRIPTOR_CACHE_MAX_SIZE = 1000;
+
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -121,6 +125,7 @@ public class TransactionLogAccess
     private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
+    private final Cache<TableDescriptorCacheKey, Optional<DeltaLakeTableDescriptor>> tableDescriptors;
 
     @Inject
     public TransactionLogAccess(
@@ -152,6 +157,12 @@ public class TransactionLogAccess
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
+        tableDescriptors = EvictableCacheBuilder.newBuilder()
+                .maximumSize(DESCRIPTOR_CACHE_MAX_SIZE)
+                .expireAfterWrite(deltaLakeConfig.getMetadataCacheTtl().toMillis(), TimeUnit.MILLISECONDS)
+                .shareNothingWhenDisabled()
+                .recordStats()
+                .build();
     }
 
     @Managed
@@ -161,16 +172,44 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
+    @Managed
+    @Nested
+    public CacheStatsMBean getDescriptorCacheStats()
+    {
+        return new CacheStatsMBean(tableDescriptors);
+    }
+
+    public Optional<DeltaLakeTableDescriptor> loadDescriptor(
+            SchemaTableName tableName,
+            String tableLocation,
+            long version,
+            Supplier<Optional<DeltaLakeTableDescriptor>> loader)
+    {
+        return uncheckedCacheGet(tableDescriptors, new TableDescriptorCacheKey(tableName, tableLocation, version), loader);
+    }
+
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, VendedCredentialsHandle.of(table));
+        return loadSnapshot(session, table, endVersion, readLastCheckpoint(fileSystemFactory.create(session, table), table.location()));
+    }
+
+    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
+            throws IOException
+    {
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, VendedCredentialsHandle.of(table), lastCheckpoint);
     }
 
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableHandle.toCredentialsHandle());
+        return loadSnapshot(session, tableHandle, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableHandle), tableHandle.getLocation()));
+    }
+
+    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
+            throws IOException
+    {
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableHandle.toCredentialsHandle(), lastCheckpoint);
     }
 
     /**
@@ -191,9 +230,22 @@ public class TransactionLogAccess
             VendedCredentialsHandle credentialsHandle)
             throws IOException
     {
+        return loadSnapshot(session, transactionLogReader, table, tableLocation, endVersion, credentialsHandle, readLastCheckpoint(fileSystemFactory.create(session, credentialsHandle), tableLocation));
+    }
+
+    public TableSnapshot loadSnapshot(
+            ConnectorSession session,
+            TransactionLogReader transactionLogReader,
+            SchemaTableName table,
+            String tableLocation,
+            Optional<Long> endVersion,
+            VendedCredentialsHandle credentialsHandle,
+            Optional<LastCheckpoint> lastCheckpoint)
+            throws IOException
+    {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
         if (endVersion.isPresent()) {
-            return loadSnapshotForTimeTravel(session, transactionLogReader, fileSystem, table, tableLocation, endVersion.get());
+            return loadSnapshotForTimeTravel(session, transactionLogReader, fileSystem, table, tableLocation, endVersion.get(), lastCheckpoint);
         }
 
         TableLocation cacheKey = new TableLocation(table, tableLocation);
@@ -201,7 +253,6 @@ public class TransactionLogAccess
         TableSnapshot snapshot;
         if (cachedSnapshot == null) {
             try {
-                Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
                 snapshot = tableSnapshots.get(cacheKey, () ->
                         TableSnapshot.load(
                                 session,
@@ -221,7 +272,7 @@ public class TransactionLogAccess
             }
         }
         else {
-            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(session, transactionLogReader, fileSystem, Optional.empty());
+            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(session, transactionLogReader, fileSystem, Optional.empty(), lastCheckpoint);
             if (updatedSnapshot.isPresent()) {
                 snapshot = updatedSnapshot.get();
                 tableSnapshots.asMap().replace(cacheKey, cachedSnapshot, snapshot);
@@ -233,14 +284,14 @@ public class TransactionLogAccess
         return snapshot;
     }
 
-    private TableSnapshot loadSnapshotForTimeTravel(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, SchemaTableName table, String tableLocation, long endVersion)
+    private TableSnapshot loadSnapshotForTimeTravel(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, SchemaTableName table, String tableLocation, long endVersion, Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
         return TableSnapshot.load(
                 session,
                 transactionLogReader,
                 table,
-                findCheckpoint(fileSystem, tableLocation, endVersion),
+                findCheckpoint(fileSystem, tableLocation, endVersion, lastCheckpoint),
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
@@ -249,9 +300,8 @@ public class TransactionLogAccess
                 Optional.of(endVersion));
     }
 
-    private static Optional<LastCheckpoint> findCheckpoint(TrinoFileSystem fileSystem, String tableLocation, long endVersion)
+    private static Optional<LastCheckpoint> findCheckpoint(TrinoFileSystem fileSystem, String tableLocation, long endVersion, Optional<LastCheckpoint> lastCheckpoint)
     {
-        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
         if (lastCheckpoint.isPresent() && lastCheckpoint.get().version() <= endVersion) {
             return lastCheckpoint;
         }
@@ -312,16 +362,20 @@ public class TransactionLogAccess
     public void flushCache()
     {
         tableSnapshots.invalidateAll();
+        tableDescriptors.invalidateAll();
     }
 
     public void invalidateCache(SchemaTableName schemaTableName, Optional<String> tableLocation)
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
-        // Invalidate by location in case one table (location) unregistered and re-register under different name
-        tableLocation.ifPresent(location -> {
-            invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.location().equals(location));
-        });
-        invalidateAllIf(tableSnapshots, cacheKey -> cacheKey.tableName().equals(schemaTableName));
+        // Invalidate by location in case one table (location) unregistered and re-registered under a different name
+        invalidateAllIf(tableSnapshots, key -> matchesNameOrLocation(key.tableName(), key.location(), schemaTableName, tableLocation));
+        invalidateAllIf(tableDescriptors, key -> matchesNameOrLocation(key.tableName(), key.location(), schemaTableName, tableLocation));
+    }
+
+    private static boolean matchesNameOrLocation(SchemaTableName name, String location, SchemaTableName matchName, Optional<String> matchLocation)
+    {
+        return name.equals(matchName) || matchLocation.map(location::equals).orElse(false);
     }
 
     public MetadataEntry getMetadataEntry(ConnectorSession session, TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
@@ -683,6 +737,15 @@ public class TransactionLogAccess
             return INSTANCE_SIZE +
                     tableName.getRetainedSizeInBytes() +
                     estimatedSizeOf(location);
+        }
+    }
+
+    private record TableDescriptorCacheKey(SchemaTableName tableName, String location, long version)
+    {
+        TableDescriptorCacheKey
+        {
+            requireNonNull(tableName, "tableName is null");
+            requireNonNull(location, "location is null");
         }
     }
 }

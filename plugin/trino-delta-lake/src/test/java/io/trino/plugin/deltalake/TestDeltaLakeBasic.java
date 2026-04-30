@@ -2037,36 +2037,37 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
 
         // Assert queries fail cleanly
-        assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("DESCRIBE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW COLUMNS FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SHOW STATS FOR " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ANALYZE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in transaction log for tpch." + tableName);
+        String corruptedTableMessageRegex = "(Metadata not found in transaction log for tpch\\." + tableName + "|Delta table tpch\\." + tableName + " has no commits)";
+        assertQueryFails("TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$partitions\"", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM " + tableName + " WHERE false", corruptedTableMessageRegex);
+        assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", corruptedTableMessageRegex);
+        assertQueryFails("SHOW CREATE TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", corruptedTableMessageRegex);
+        assertQueryFails("DESCRIBE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SHOW COLUMNS FROM " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("SHOW STATS FOR " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("ANALYZE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", corruptedTableMessageRegex);
         // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("DELETE FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("TRUNCATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))", "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INTEGER)", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", corruptedTableMessageRegex);
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", corruptedTableMessageRegex);
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", corruptedTableMessageRegex);
+        assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", corruptedTableMessageRegex);
+        assertQueryFails("DELETE FROM " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", corruptedTableMessageRegex);
+        assertQueryFails("TRUNCATE TABLE " + tableName, corruptedTableMessageRegex);
+        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", corruptedTableMessageRegex);
+        assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", corruptedTableMessageRegex);
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", corruptedTableMessageRegex);
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))", corruptedTableMessageRegex);
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " (id INTEGER)", corruptedTableMessageRegex);
         assertQuerySucceeds("CALL system.drop_extended_stats(CURRENT_SCHEMA, '" + tableName + "')");
 
         // Avoid failing metadata queries
