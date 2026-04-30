@@ -154,13 +154,29 @@ public class TestTrinoGlueCatalog
                     .contains(trinoSchemaName);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            io.trino.plugin.base.metrics.FileFormatDataSourceStats fileFormatDataSourceStats = new io.trino.plugin.base.metrics.FileFormatDataSourceStats();
+            io.trino.plugin.iceberg.IcebergFileSystemFactory icebergFileSystemFactory = (connectorIdentity, fileIoProperties) -> {
+                throw new UnsupportedOperationException();
+            };
+            io.trino.plugin.iceberg.IcebergPageSourceProvider pageSourceProvider = new io.trino.plugin.iceberg.IcebergPageSourceProvider(
+                    icebergFileSystemFactory,
+                    FILE_IO_FACTORY,
+                    fileFormatDataSourceStats,
+                    new io.trino.orc.OrcReaderOptions(),
+                    io.trino.parquet.ParquetReaderOptions.defaultOptions(),
+                    TESTING_TYPE_MANAGER);
+
+            io.trino.plugin.iceberg.IcebergFileWriterFactory fileWriterFactory = new io.trino.plugin.iceberg.IcebergFileWriterFactory(
+                    TESTING_TYPE_MANAGER,
+                    new NodeVersion("test-version"),
+                    fileFormatDataSourceStats,
+                    new IcebergConfig(),
+                    new io.trino.plugin.hive.orc.OrcWriterConfig());
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
+                    icebergFileSystemFactory,
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
@@ -172,7 +188,9 @@ public class TestTrinoGlueCatalog
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    pageSourceProvider,
+                    fileWriterFactory);
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

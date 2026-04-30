@@ -35,6 +35,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
 
@@ -159,11 +160,33 @@ public class IcebergMergeSink
         }
         else if (formatVersion == 2) {
             fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
-                PositionDeleteWriter writer = createPositionDeleteWriter(
-                        dataFilePath.toStringUtf8(),
-                        partitionsSpecs.get(deletion.partitionSpecId()),
-                        deletion.partitionDataJson());
-                fragments.add(writePositionDeletes(writer, deletionVector));
+                PartitionSpec partitionSpec = partitionsSpecs.get(deletion.partitionSpecId());
+                if (isCopyOnWriteMode()) {
+                    // In CoW mode, don't write a physical delete file. Pass the deletion vector
+                    // directly to the coordinator so finishCopyOnWrite can rewrite the data file
+                    // without creating any orphaned position delete files.
+                    Optional<PartitionData> partitionData = createPartitionData(partitionSpec, deletion.partitionDataJson());
+                    CommitTaskData task = new CommitTaskData(
+                            "",
+                            fileFormat,
+                            0,
+                            new MetricsWrapper(new Metrics(deletionVector.cardinality())),
+                            PartitionSpecParser.toJson(partitionSpec),
+                            partitionData.map(PartitionData::toJson),
+                            FileContent.POSITION_DELETES,
+                            Optional.of(dataFilePath.toStringUtf8()),
+                            Optional.empty(),
+                            SortOrder.unsorted().orderId(),
+                            Optional.of(deletionVector.serialize().getBytes()));
+                    fragments.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+                }
+                else {
+                    PositionDeleteWriter writer = createPositionDeleteWriter(
+                            dataFilePath.toStringUtf8(),
+                            partitionSpec,
+                            deletion.partitionDataJson());
+                    fragments.add(writePositionDeletes(writer, deletionVector));
+                }
             }));
         }
         else if (formatVersion == 3) {
@@ -198,6 +221,13 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
+    private boolean isCopyOnWriteMode()
+    {
+        return "copy-on-write".equalsIgnoreCase(storageProperties.getOrDefault(TableProperties.DELETE_MODE, "merge-on-read"))
+                || "copy-on-write".equalsIgnoreCase(storageProperties.getOrDefault(TableProperties.UPDATE_MODE, "merge-on-read"))
+                || "copy-on-write".equalsIgnoreCase(storageProperties.getOrDefault(TableProperties.MERGE_MODE, "merge-on-read"));
+    }
+
     private PositionDeleteWriter createPositionDeleteWriter(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
         return new PositionDeleteWriter(
@@ -215,6 +245,7 @@ public class IcebergMergeSink
     private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)
     {
         try {
+            // PositionDeleteWriter.write() commits the writer internally
             CommitTaskData task = writer.write(rowsToDelete);
             writtenBytes += task.fileSizeInBytes();
             return wrappedBuffer(jsonCodec.toJsonBytes(task));

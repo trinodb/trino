@@ -30,6 +30,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
+import io.trino.plugin.iceberg.UpdateMode;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -153,6 +154,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_DELETE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_MERGE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_UPDATE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -400,6 +404,21 @@ public final class IcebergUtil
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
         dataLocation.ifPresent(location -> properties.put(DATA_LOCATION_PROPERTY, location));
+
+        // Read write mode properties from Iceberg table properties
+        Map<String, String> icebergProperties = icebergTable.properties();
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.DELETE_MODE)) {
+            UpdateMode deleteMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.DELETE_MODE));
+            properties.put(WRITE_DELETE_MODE, deleteMode);
+        }
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.UPDATE_MODE)) {
+            UpdateMode updateMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.UPDATE_MODE));
+            properties.put(WRITE_UPDATE_MODE, updateMode);
+        }
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.MERGE_MODE)) {
+            UpdateMode mergeMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.MERGE_MODE));
+            properties.put(WRITE_MERGE_MODE, mergeMode);
+        }
 
         return properties.buildOrThrow();
     }
@@ -995,6 +1014,20 @@ public final class IcebergUtil
             }
             propertiesBuilder.put(WRITE_DATA_LOCATION, location);
         });
+
+        // Write mode properties (copy-on-write vs merge-on-read)
+        UpdateMode writeDeleteMode = IcebergTableProperties.getWriteDeleteMode(tableMetadata.getProperties());
+        if (writeDeleteMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.DELETE_MODE, writeDeleteMode.getIcebergProperty());
+        }
+        UpdateMode writeUpdateMode = IcebergTableProperties.getWriteUpdateMode(tableMetadata.getProperties());
+        if (writeUpdateMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.UPDATE_MODE, writeUpdateMode.getIcebergProperty());
+        }
+        UpdateMode writeMergeMode = IcebergTableProperties.getWriteMergeMode(tableMetadata.getProperties());
+        if (writeMergeMode != UpdateMode.MERGE_ON_READ) {
+            propertiesBuilder.put(org.apache.iceberg.TableProperties.MERGE_MODE, writeMergeMode.getIcebergProperty());
+        }
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
