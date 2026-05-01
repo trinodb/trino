@@ -17,12 +17,24 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.trino.spi.security.Identity;
 
+import java.util.Set;
+
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 
 @JsonInclude(NON_NULL)
 public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
 {
+    public static TrinoUser createUser(String user)
+    {
+        return new TrinoUser(user, null);
+    }
+
+    public static TrinoUser createUser(Identity identity, Set<String> allowedExtraCredentialsKeys)
+    {
+        return new TrinoUser(null, TrinoIdentity.fromTrinoIdentity(identity, allowedExtraCredentialsKeys));
+    }
+
     public TrinoUser
     {
         if (identity == null) {
@@ -31,15 +43,5 @@ public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
         if (user != null && identity != null) {
             throw new IllegalArgumentException("user and identity may not both be set");
         }
-    }
-
-    public TrinoUser(String name)
-    {
-        this(name, null);
-    }
-
-    public TrinoUser(Identity identity)
-    {
-        this(null, TrinoIdentity.fromTrinoIdentity(identity));
     }
 }
