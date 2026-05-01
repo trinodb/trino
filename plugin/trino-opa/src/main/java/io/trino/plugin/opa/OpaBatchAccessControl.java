@@ -27,7 +27,6 @@ import io.trino.plugin.opa.schema.OpaQueryInputResource;
 import io.trino.plugin.opa.schema.TrinoFunction;
 import io.trino.plugin.opa.schema.TrinoSchema;
 import io.trino.plugin.opa.schema.TrinoTable;
-import io.trino.plugin.opa.schema.TrinoUser;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
@@ -42,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.opa.schema.TrinoUser.createUser;
 import static java.util.Objects.requireNonNull;
 
 public final class OpaBatchAccessControl
@@ -50,6 +50,7 @@ public final class OpaBatchAccessControl
     private final JsonCodec<OpaBatchQueryResult> batchResultCodec;
     private final URI opaBatchedPolicyUri;
     private final OpaHttpClient opaHttpClient;
+    private final Set<String> extraCredentialsKeys;
 
     @Inject
     public OpaBatchAccessControl(
@@ -64,6 +65,7 @@ public final class OpaBatchAccessControl
         this.opaBatchedPolicyUri = config.getOpaBatchUri().orElseThrow();
         this.batchResultCodec = requireNonNull(batchResultCodec, "batchResultCodec is null");
         this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");
+        this.extraCredentialsKeys = ImmutableSet.copyOf(config.getExtraCredentialsKeys());
     }
 
     @Override
@@ -74,7 +76,7 @@ public final class OpaBatchAccessControl
                 "FilterViewQueryOwnedBy",
                 queryOwners,
                 queryOwner -> OpaQueryInputResource.builder()
-                        .user(new TrinoUser(queryOwner))
+                        .user(createUser(queryOwner, extraCredentialsKeys))
                         .build());
     }
 
