@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.trino.spi.security.Identity;
 
+import java.util.Set;
+
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
 
@@ -38,8 +40,8 @@ public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
         this(name, null);
     }
 
-    public TrinoUser(Identity identity)
+    public TrinoUser(Identity identity, Set<String> allowedExtraCredentialsKeys)
     {
-        this(null, TrinoIdentity.fromTrinoIdentity(identity));
+        this(null, TrinoIdentity.fromTrinoIdentity(identity, allowedExtraCredentialsKeys));
     }
 }
