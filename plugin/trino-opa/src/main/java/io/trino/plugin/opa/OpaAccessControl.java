@@ -92,6 +92,7 @@ public sealed class OpaAccessControl
     private final OpaHighLevelClient opaHighLevelClient;
     private final boolean allowPermissionManagementOperations;
     private final OpaPluginContext pluginContext;
+    final Set<String> extraCredentialsKeys;
 
     @Inject
     public OpaAccessControl(LifeCycleManager lifeCycleManager, OpaHighLevelClient opaHighLevelClient, OpaConfig config, OpaPluginContext pluginContext)
@@ -100,6 +101,7 @@ public sealed class OpaAccessControl
         this.opaHighLevelClient = requireNonNull(opaHighLevelClient, "opaHighLevelClient is null");
         this.allowPermissionManagementOperations = config.getAllowPermissionManagementOperations();
         this.pluginContext = requireNonNull(pluginContext, "pluginContext is null");
+        this.extraCredentialsKeys = ImmutableSet.copyOf(config.getExtraCredentialsKeys());
     }
 
     @Override
@@ -124,7 +126,7 @@ public sealed class OpaAccessControl
     @Override
     public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "ViewQueryOwnedBy", AccessDeniedException::denyViewQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build());
+        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "ViewQueryOwnedBy", AccessDeniedException::denyViewQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner, extraCredentialsKeys)).build());
     }
 
     @Override
@@ -135,13 +137,13 @@ public sealed class OpaAccessControl
                 queryOwner -> buildQueryInputForSimpleResource(
                         buildQueryContext(identity),
                         "FilterViewQueryOwnedBy",
-                        OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build()));
+                        OpaQueryInputResource.builder().user(new TrinoUser(queryOwner, extraCredentialsKeys)).build()));
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
-        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "KillQueryOwnedBy", AccessDeniedException::denyKillQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner)).build());
+        opaHighLevelClient.queryAndEnforce(buildQueryContext(identity), "KillQueryOwnedBy", AccessDeniedException::denyKillQuery, OpaQueryInputResource.builder().user(new TrinoUser(queryOwner, extraCredentialsKeys)).build());
     }
 
     @Override
@@ -802,11 +804,11 @@ public sealed class OpaAccessControl
 
     OpaQueryContext buildQueryContext(Identity trinoIdentity)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity, extraCredentialsKeys), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
     }
 
     OpaQueryContext buildQueryContext(SystemSecurityContext securityContext)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity(), extraCredentialsKeys), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
     }
 }
