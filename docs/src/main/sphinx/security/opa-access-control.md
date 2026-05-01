@@ -69,6 +69,10 @@ The following table lists the configuration properties for the OPA access contro
   - Optional properties file, containing user defined properties
     (e.g. tenant namespace, tier or cluster) to be included in
     the OPA query context.
+* - `opa.identity.extra-credentials-keys`
+  - Optional comma-separated list of extra credential keys from the client
+    connection to forward to OPA as `extraCredentials` in the identity context.
+    Defaults to empty, so no extra credentials are forwarded.
 :::
 
 ### Logging
@@ -79,6 +83,13 @@ configuration must be updated to include this class, to ensure log entries are
 created.
 
 Note that enabling these options produces very large amounts of log data.
+
+:::{warning}
+Any extra credentials forwarded with `opa.identity.extra-credentials-keys` are
+part of the request body, and are therefore written to the logs when
+`opa.log-requests` is enabled. Only forward credential keys whose values are
+safe to appear in logs.
+:::
 
 (opa-permission-management)=
 ### Permission management
@@ -131,9 +142,13 @@ A query from the OPA access control in Trino to OPA contains a `context` and an
 The `context` object contains all other contextual information about the query:
 
 - `identity`: The identity of the user performing the operation, containing the
-  following two fields:
+  following fields:
   - `user`: username
   - `groups`: list of groups this user belongs to
+  - `extraCredentials`: map of extra credentials from the client connection,
+    restricted to the keys listed in `opa.identity.extra-credentials-keys`. The
+    field is omitted if that property is not configured, or if the connection
+    supplies none of the listed keys.
 - `queryId`: Query id
 - `softwareStack`: Information about the software stack issuing the request to
   OPA. The following information is included:
