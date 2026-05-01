@@ -13,6 +13,7 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
@@ -134,9 +135,16 @@ public class ExpressionBytecodeCompiler
         return new Reference(type, TEMP_PREFIX + variable.getName());
     }
 
-    private class Visitor
+    @VisibleForTesting
+    class Visitor
             extends IrVisitor<BytecodeNode, Context>
     {
+        @Override
+        public BytecodeNode process(Expression node)
+        {
+            throw new UnsupportedOperationException("Process without context should not be called");
+        }
+
         @Override
         protected BytecodeNode visitExpression(Expression node, Context context)
         {
@@ -360,5 +368,6 @@ public class ExpressionBytecodeCompiler
         }
     }
 
-    private record Context(Scope scope, Optional<Class<?>> lambdaInterface) {}
+    @VisibleForTesting
+    record Context(Scope scope, Optional<Class<?>> lambdaInterface) {}
 }

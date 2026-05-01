@@ -73,6 +73,12 @@ public final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitExpression(Expression node, Expression context)
+    {
+        throw new UnsupportedOperationException("visit not implemented for " + node.getClass().getSimpleName());
+    }
+
+    @Override
     protected Boolean visitArray(Array actual, Expression expectedExpression)
     {
         if (!(expectedExpression instanceof Array expected)) {
