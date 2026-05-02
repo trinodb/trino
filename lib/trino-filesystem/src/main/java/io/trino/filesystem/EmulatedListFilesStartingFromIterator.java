@@ -15,15 +15,19 @@ package io.trino.filesystem;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class EmulatedListFilesStartingFromIterator
         implements FileIterator
 {
+    private static final Pattern CONSECUTIVE_SLASHES = Pattern.compile("/+");
+
     private final FileIterator delegate;
     private final String locationPath;
+    private final String collapsedLocationPath;
     private final String startingFrom;
     private FileEntry nextEntry;
 
@@ -33,6 +37,7 @@ public final class EmulatedListFilesStartingFromIterator
 
         String locationPath = location.path();
         this.locationPath = (locationPath.isEmpty() || locationPath.endsWith("/")) ? locationPath : locationPath + "/";
+        this.collapsedLocationPath = CONSECUTIVE_SLASHES.matcher(this.locationPath).replaceAll("/");
 
         this.startingFrom = requireNonNull(startingFrom, "startingFrom is null");
     }
@@ -69,9 +74,22 @@ public final class EmulatedListFilesStartingFromIterator
         while (delegate.hasNext()) {
             FileEntry entry = delegate.next();
             String entryPath = entry.location().path();
-            checkState(entryPath.startsWith(locationPath), "Expected listed file to start with directory path '%s': %s", locationPath, entry.location());
 
-            String entryTail = entryPath.substring(locationPath.length());
+            // LocalFileSystem, AlluxioFileSystem, and ADLS Gen2 hierarchical canonicalize runs of
+            // slashes in returned paths. Try the original prefix first to preserve blob-store keys
+            // where `//` is meaningful; fall back to the slash-collapsed form.
+            String prefix;
+            if (entryPath.startsWith(locationPath)) {
+                prefix = locationPath;
+            }
+            else if (entryPath.startsWith(collapsedLocationPath)) {
+                prefix = collapsedLocationPath;
+            }
+            else {
+                throw new IllegalStateException(format("Expected listed file to start with directory path '%s': %s", locationPath, entry.location()));
+            }
+
+            String entryTail = entryPath.substring(prefix.length());
             if (entryTail.compareTo(startingFrom) >= 0) {
                 nextEntry = entry;
                 return;

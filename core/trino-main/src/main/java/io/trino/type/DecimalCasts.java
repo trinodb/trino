@@ -41,10 +41,10 @@ import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -237,7 +237,7 @@ public final class DecimalCasts
             return rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact();
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -247,12 +247,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -262,12 +262,12 @@ public final class DecimalCasts
         try {
             Int128 result = multiply(tenToScale, value);
             if (overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -281,7 +281,7 @@ public final class DecimalCasts
         }
 
         if (!isLongToIntExact(longResult)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", longResult));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to INTEGER", longResult));
         }
         return (int) longResult;
     }
@@ -293,7 +293,7 @@ public final class DecimalCasts
             return toIntExact(rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact());
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -303,12 +303,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -318,12 +318,12 @@ public final class DecimalCasts
         try {
             Int128 result = multiply(tenToScale, value);
             if (overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -337,7 +337,7 @@ public final class DecimalCasts
         }
 
         if (!isLongToShortExact(longResult)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", longResult));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to SMALLINT", longResult));
         }
         return (short) longResult;
     }
@@ -350,7 +350,7 @@ public final class DecimalCasts
             return Shorts.checkedCast(decimal1.toLongExact());
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -360,12 +360,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -375,12 +375,12 @@ public final class DecimalCasts
         try {
             Int128 result = multiply(tenToScale, value);
             if (overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -394,7 +394,7 @@ public final class DecimalCasts
         }
 
         if (!isLongToByteExact(longResult)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", longResult));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to TINYINT", longResult));
         }
         return (byte) longResult;
     }
@@ -406,7 +406,7 @@ public final class DecimalCasts
             return SignedBytes.checkedCast(rescale(decimal, DecimalConversions.intScale(-scale)).toLongExact());
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -416,12 +416,12 @@ public final class DecimalCasts
         try {
             long decimal = multiplyExact(value, tenToScale);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -431,12 +431,12 @@ public final class DecimalCasts
         try {
             Int128 result = multiply(tenToScale, value);
             if (overflows(result, (int) precision)) {
-                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return result;
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -505,18 +505,21 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long numberToShortDecimal(TrinoNumber value, long precision, long scale, long tenToScale)
     {
-        BigDecimal bigDecimal = numberToBigDecimal(value)
-                .orElseThrow(() -> new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale)));
+        BigDecimal bigDecimal = switch (value.toBigDecimal()) {
+            case TrinoNumber.NotANumber _ -> throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.Infinity _ -> throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.BigDecimalValue(BigDecimal v) -> v;
+        };
         BigDecimal result;
         try {
             result = bigDecimal.setScale(DecimalConversions.intScale(scale), HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
         }
 
         if (overflows(result, precision)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
         }
 
         return result.unscaledValue().longValue();
@@ -525,29 +528,24 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Int128 numberToLongDecimal(TrinoNumber value, long precision, long scale, Int128 tenToScale)
     {
-        BigDecimal bigDecimal = numberToBigDecimal(value)
-                .orElseThrow(() -> new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale)));
+        BigDecimal bigDecimal = switch (value.toBigDecimal()) {
+            case TrinoNumber.NotANumber _ -> throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.Infinity _ -> throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            case TrinoNumber.BigDecimalValue(BigDecimal v) -> v;
+        };
         BigDecimal result;
         try {
             result = bigDecimal.setScale(DecimalConversions.intScale(scale), HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
         }
 
         if (overflows(result, precision)) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast NUMBER '%s' to DECIMAL(%s, %s)", bigDecimal, precision, scale));
         }
 
         return Int128.valueOf(result.unscaledValue());
-    }
-
-    private static Optional<BigDecimal> numberToBigDecimal(TrinoNumber value)
-    {
-        return switch (value.toBigDecimal()) {
-            case TrinoNumber.NotANumber _, TrinoNumber.Infinity _ -> Optional.empty();
-            case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> Optional.of(bigDecimal);
-        };
     }
 
     @UsedByGeneratedCode

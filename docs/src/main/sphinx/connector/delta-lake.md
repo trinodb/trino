@@ -201,6 +201,13 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving checkpoint files of each table. Currently, only 
     retrievals of V2 Checkpoint's sidecar files are parallelized.
   - `4`
+* - `delta.load-metadata-from-checksum-file`
+  - Speed up query planning by reading table metadata and protocol
+    entries from the Delta version checksum file (`<version>.crc`) when
+    available. Falls back to scanning the transaction log if the checksum
+    file is missing, incomplete, or malformed. The equivalent catalog
+    session property is `load_metadata_from_checksum_file`.
+  - `true`
 :::
 
 ### Catalog session properties
@@ -233,6 +240,12 @@ The following table describes {ref}`catalog session properties
 * - `projection_pushdown_enabled`
   - Read only projected fields from row columns while performing `SELECT`
     queries.
+  - `true`
+* - `load_metadata_from_checksum_file`
+  - Speed up query planning by reading table metadata and protocol
+    entries from the Delta version checksum file (`<version>.crc`) when
+    available. Falls back to scanning the transaction log if the checksum
+    file is missing, incomplete, or malformed.
   - `true`
 :::
 

@@ -37,7 +37,7 @@ public class DataFileRecord
     @SuppressWarnings("unchecked")
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
-        assertThat(row.getFieldCount()).isEqualTo(25);
+        assertThat(row.getFieldCount()).isEqualTo(26);
         return new DataFileRecord(
                 (int) row.getField(0),
                 (String) row.getField(1),

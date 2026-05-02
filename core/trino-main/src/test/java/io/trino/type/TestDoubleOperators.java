@@ -25,6 +25,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -655,15 +656,15 @@ public class TestDoubleOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(0x1.0p63))
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(Math.nextUp(0x1.0p63))).evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(Math.nextDown(-0x1.0p63))).evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(-0x1.0p63)))
@@ -676,22 +677,22 @@ public class TestDoubleOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "9.3E18")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "-9.3E18")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "infinity()")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "-infinity()")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "nan()")

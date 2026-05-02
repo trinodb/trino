@@ -158,11 +158,14 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to bigint");
+        }
         try {
             return DoubleMath.roundToLong(value, HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + value, e);
         }
     }
 
