@@ -93,7 +93,8 @@ public class PinotExpressionRewriter
     public static ExpressionContext rewriteExpression(SchemaTableName schemaTableName, ExpressionContext expressionContext, Map<String, ColumnHandle> columnHandles)
     {
         requireNonNull(expressionContext, "expressionContext is null");
-        Context context = new Context() {
+        Context context = new Context()
+        {
             @Override
             public SchemaTableName getSchemaTableName()
             {

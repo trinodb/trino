@@ -147,7 +147,8 @@ public class TestPagePartitionerPool
         // one split fit in the buffer but 2 do not
         DataSize maxPagePartitioningBufferSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
         RuntimeException exception = new RuntimeException();
-        OutputBufferMock outputBuffer = new OutputBufferMock() {
+        OutputBufferMock outputBuffer = new OutputBufferMock()
+        {
             @Override
             public void enqueue(int partition, List<Slice> pages)
             {

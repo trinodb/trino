@@ -705,7 +705,8 @@ public class AzureBlobFileSystemExchangeStorage
                     Futures.allAsList(multiPartUploadFutures),
                     _ -> toListenableFuture(blockBlobAsyncClient.commitBlockList(blockIds).toFuture()),
                     directExecutor()));
-            Futures.addCallback(finishFuture, new FutureCallback<>() {
+            Futures.addCallback(finishFuture, new FutureCallback<>()
+            {
                 @Override
                 public void onSuccess(Void result)
                 {

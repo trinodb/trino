@@ -828,7 +828,8 @@ public class S3FileSystemExchangeStorage
                     Futures.allAsList(multiPartUploadFutures),
                     completedParts -> completeMultipartUpload(getFutureValue(multiPartUploadIdFuture), completedParts),
                     directExecutor()));
-            Futures.addCallback(finishFuture, new FutureCallback<>() {
+            Futures.addCallback(finishFuture, new FutureCallback<>()
+            {
                 @Override
                 public void onSuccess(Void result)
                 {

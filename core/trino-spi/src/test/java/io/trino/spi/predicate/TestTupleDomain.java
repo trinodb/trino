@@ -670,7 +670,8 @@ class TestTupleDomain
                 .withJsonDeserializers(Map.of(
                         Type.class, new TestingTypeDeserializer(new TestingTypeManager()),
                         Block.class, new TestingBlockJsonSerde.Deserializer(new TestingBlockEncodingSerde()),
-                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>() {
+                        ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        {
                             @Override
                             public ColumnHandle deserialize(JsonParser parser, DeserializationContext context)
                                     throws IOException

@@ -22,7 +22,8 @@ import java.util.List;
 
 public interface LineDeserializer
 {
-    LineDeserializer EMPTY_LINE_DESERIALIZER = new LineDeserializer() {
+    LineDeserializer EMPTY_LINE_DESERIALIZER = new LineDeserializer()
+    {
         @Override
         public List<? extends Type> getTypes()
         {

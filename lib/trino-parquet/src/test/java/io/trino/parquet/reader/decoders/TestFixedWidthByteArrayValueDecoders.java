@@ -208,7 +208,8 @@ public final class TestFixedWidthByteArrayValueDecoders
 
     private static InputDataProvider createShortDecimalInputDataProvider(int typeLength, int precision)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
@@ -230,7 +231,8 @@ public final class TestFixedWidthByteArrayValueDecoders
 
     private static InputDataProvider createLongDecimalInputDataProvider(int typeLength)
     {
-        return new InputDataProvider() {
+        return new InputDataProvider()
+        {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
