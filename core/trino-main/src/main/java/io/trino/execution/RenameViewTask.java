@@ -67,7 +67,9 @@ public class RenameViewTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME TO ...?", viewName, viewName);
+                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME TO ...?",
+                    viewName,
+                    viewName);
         }
 
         if (!metadata.isView(session, viewName)) {
@@ -75,7 +77,9 @@ public class RenameViewTask
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", viewName, viewName);
+                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?",
+                        viewName,
+                        viewName);
             }
 
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);

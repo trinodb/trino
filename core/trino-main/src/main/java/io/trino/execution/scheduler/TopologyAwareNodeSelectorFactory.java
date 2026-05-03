@@ -127,7 +127,8 @@ public class TopologyAwareNodeSelectorFactory
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
                 this::createNodeMap,
-                5, TimeUnit.SECONDS);
+                5,
+                TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
                 currentNode,

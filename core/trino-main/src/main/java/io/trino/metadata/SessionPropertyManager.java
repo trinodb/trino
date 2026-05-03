@@ -95,7 +95,8 @@ public final class SessionPropertyManager
     {
         requireNonNull(sessionProperty, "sessionProperty is null");
         checkState(systemSessionProperties.put(sessionProperty.getName(), sessionProperty) == null,
-                "System session property '%s' are already registered", sessionProperty.getName());
+                "System session property '%s' are already registered",
+                sessionProperty.getName());
     }
 
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
@@ -205,7 +206,9 @@ public final class SessionPropertyManager
     private static <T> T decodePropertyValue(String fullPropertyName, @Nullable String propertyValue, Class<T> type, PropertyMetadata<?> metadata)
     {
         if (metadata.getJavaType() != type) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property '%s' has type '%s', but requested type was %s", fullPropertyName,
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format(
+                    "Session property '%s' has type '%s', but requested type was %s",
+                    fullPropertyName,
                     metadata.getJavaType().getName(),
                     type.getName()));
         }

@@ -542,7 +542,10 @@ public class SignatureBinder
             if (variableBinder.containsLongVariable(variableName)) {
                 Long currentValue = variableBinder.getLongVariable(variableName);
                 checkState(Objects.equals(currentValue, calculatedValue),
-                        "variable '%s' is already set to %s when trying to set %s", variableName, currentValue, calculatedValue);
+                        "variable '%s' is already set to %s when trying to set %s",
+                        variableName,
+                        currentValue,
+                        calculatedValue);
             }
             variableBinder.setLongVariable(variableName, calculatedValue);
         }
@@ -561,7 +564,8 @@ public class SignatureBinder
             case TypeParameter.Variable(String variable) -> {
                 checkState(
                         typeVariables.containsLongVariable(variable),
-                        "Variable is not bound: %s", variable);
+                        "Variable is not bound: %s",
+                        variable);
                 Long variableValue = typeVariables.getLongVariable(variable);
                 yield TypeParameter.numericParameter(variableValue);
             }

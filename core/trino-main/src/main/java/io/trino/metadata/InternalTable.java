@@ -89,7 +89,9 @@ public class InternalTable
 
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             checkArgument(columnNames.size() == types.size(),
-                    "Column name count does not match type count: columnNames=%s, types=%s", columnNames, types.size());
+                    "Column name count does not match type count: columnNames=%s, types=%s",
+                    columnNames,
+                    types.size());
 
             pages = new ArrayList<>();
             pageBuilder = new PageBuilder(types);

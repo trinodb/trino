@@ -784,20 +784,20 @@ public class QueryMonitor
     {
         return stageInfo.stageStats().getOutputBufferUtilization()
                 .map(utilization -> new StageOutputBufferUtilization(
-                            stageInfo.stageId().id(),
-                            stageInfo.tasks().size(),
-                            // scale ratio to percentages
-                            utilization.p01() * 100,
-                            utilization.p05() * 100,
-                            utilization.p10() * 100,
-                            utilization.p25() * 100,
-                            utilization.p50() * 100,
-                            utilization.p75() * 100,
-                            utilization.p90() * 100,
-                            utilization.p95() * 100,
-                            utilization.p99() * 100,
-                            utilization.min() * 100,
-                            utilization.max() * 100,
+                        stageInfo.stageId().id(),
+                        stageInfo.tasks().size(),
+                        // scale ratio to percentages
+                        utilization.p01() * 100,
+                        utilization.p05() * 100,
+                        utilization.p10() * 100,
+                        utilization.p25() * 100,
+                        utilization.p50() * 100,
+                        utilization.p75() * 100,
+                        utilization.p90() * 100,
+                        utilization.p95() * 100,
+                        utilization.p99() * 100,
+                        utilization.min() * 100,
+                        utilization.max() * 100,
                         Duration.ofNanos(utilization.total())));
     }
 

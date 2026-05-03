@@ -92,7 +92,8 @@ public class MemoryRevokingScheduler
         checkArgument(
                 memoryRevokingTarget <= memoryRevokingThreshold,
                 "memoryRevokingTarget should be less than or equal memoryRevokingThreshold, but got %s and %s respectively",
-                memoryRevokingTarget, memoryRevokingThreshold);
+                memoryRevokingTarget,
+                memoryRevokingThreshold);
     }
 
     private static double checkFraction(double value, String valueName)

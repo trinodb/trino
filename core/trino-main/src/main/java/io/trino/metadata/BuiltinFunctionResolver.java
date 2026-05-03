@@ -75,10 +75,10 @@ class BuiltinFunctionResolver
     {
         try {
             return uncheckedCacheGet(functionCache, FunctionCacheKey.from(name, parameterTypes),
-                () -> {
-                    CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
-                    return resolveBuiltin(functionBinding);
-                });
+                    () -> {
+                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(parameterTypes, getBuiltinFunctions(name), name);
+                        return resolveBuiltin(functionBinding);
+                    });
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -115,7 +115,9 @@ class BuiltinFunctionResolver
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            return uncheckedCacheGet(coercionCache, new CoercionCacheKey(operatorType, fromType, toType),
+            return uncheckedCacheGet(
+                    coercionCache,
+                    new CoercionCacheKey(operatorType, fromType, toType),
                     () -> resolveCoercion(mangleOperatorName(operatorType), fromType, toType));
         }
         catch (UncheckedExecutionException e) {

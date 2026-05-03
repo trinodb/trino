@@ -902,11 +902,13 @@ public final class SystemSessionProperties
                         "Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(),
                         true),
-                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
                         "Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(),
                         true),
-                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
                         "Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(),
                         true),
@@ -1116,15 +1118,18 @@ public final class SystemSessionProperties
                         "Reorder conjunctive/disjunctive filter terms at runtime based on observed selectivity and performance",
                         featuresConfig.isAdaptiveFilterReorderingEnabled(),
                         false),
-                integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
+                integerProperty(
+                        PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
                         true),
-                dataSizeProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
+                dataSizeProperty(
+                        IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
                         "Minimum amount of data written by a writer operator on average before it tries to close the idle writers",
                         DataSize.of(256, MEGABYTE),
                         true),
-                durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
+                durationProperty(
+                        CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
                         "The duration after which the writer operator tries to close the idle writers",
                         new Duration(5, SECONDS),
                         true),

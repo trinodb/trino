@@ -457,10 +457,10 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         return metadata.applyPartitioning(
-                connectorSession,
-                tableHandle.connectorHandle(),
-                partitioning.map(PartitioningHandle::getConnectorHandle),
-                columns)
+                        connectorSession,
+                        tableHandle.connectorHandle(),
+                        partitioning.map(PartitioningHandle::getConnectorHandle),
+                        columns)
                 .map(handle -> new TableHandle(catalogHandle, handle, tableHandle.transaction()));
     }
 

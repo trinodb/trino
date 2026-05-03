@@ -94,14 +94,16 @@ public class CommentTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", originalTableName);
+                    "Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.",
+                    originalTableName);
         }
 
         if (metadata.isView(session, originalTableName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "Table '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?", originalTableName);
+                    "Table '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?",
+                    originalTableName);
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);

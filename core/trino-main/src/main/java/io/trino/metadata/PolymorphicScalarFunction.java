@@ -104,7 +104,10 @@ class PolymorphicScalarFunction
     {
         Method method = methodAndNativeContainerTypes.method();
         checkState(method.getParameterCount() >= boundSignature.getArity(),
-                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), boundSignature.getArity());
+                "method %s has not enough arguments: %s (should have at least %s)",
+                method.getName(),
+                method.getParameterCount(),
+                boundSignature.getArity());
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
         int methodParameterIndex = 0;
@@ -160,7 +163,10 @@ class PolymorphicScalarFunction
                 .sum();
         int matchingMethodArgumentCount = matchingMethod.getParameterCount();
         checkState(matchingMethodArgumentCount == expectedArgumentsCount,
-                "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodArgumentCount, expectedArgumentsCount);
+                "method %s has invalid number of arguments: %s (should have %s)",
+                matchingMethod.getName(),
+                matchingMethodArgumentCount,
+                expectedArgumentsCount);
 
         MethodHandle matchingMethodHandle = Reflection.methodHandle(matchingMethod);
         matchingMethodHandle = MethodHandles.insertArguments(

@@ -200,7 +200,8 @@ public class EventDrivenTaskSourceFactory
         long arbitraryDistributionComputeTaskTargetSizeInBytesMax = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(session).toBytes();
         checkArgument(arbitraryDistributionComputeTaskTargetSizeInBytesMax >= arbitraryDistributionComputeTaskTargetSizeInBytesMin,
                 "arbitraryDistributionComputeTaskTargetSizeInBytesMax %s should be no smaller than arbitraryDistributionComputeTaskTargetSizeInBytesMin %s",
-                arbitraryDistributionComputeTaskTargetSizeInBytesMax, arbitraryDistributionComputeTaskTargetSizeInBytesMin);
+                arbitraryDistributionComputeTaskTargetSizeInBytesMax,
+                arbitraryDistributionComputeTaskTargetSizeInBytesMin);
 
         int arbitraryDistributionWriteTaskTargetSizeGrowthPeriod = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(session);
         double arbitraryDistributionWriteTaskTargetSizeGrowthFactor = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(session);
@@ -208,7 +209,8 @@ public class EventDrivenTaskSourceFactory
         long arbitraryDistributionWriteTaskTargetSizeInBytesMax = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(session).toBytes();
         checkArgument(arbitraryDistributionWriteTaskTargetSizeInBytesMax >= arbitraryDistributionWriteTaskTargetSizeInBytesMin,
                 "arbitraryDistributionWriteTaskTargetSizeInBytesMax %s should be larger than arbitraryDistributionWriteTaskTargetSizeInBytesMin %s",
-                arbitraryDistributionWriteTaskTargetSizeInBytesMax, arbitraryDistributionWriteTaskTargetSizeInBytesMin);
+                arbitraryDistributionWriteTaskTargetSizeInBytesMax,
+                arbitraryDistributionWriteTaskTargetSizeInBytesMin);
 
         if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
             return new ArbitraryDistributionSplitAssigner(
