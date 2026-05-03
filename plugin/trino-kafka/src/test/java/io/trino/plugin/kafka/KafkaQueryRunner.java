@@ -158,7 +158,8 @@ public final class KafkaQueryRunner
                         topicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
                     }
 
-                    extensions = () -> new AbstractConfigurationAwareModule() {
+                    extensions = () -> new AbstractConfigurationAwareModule()
+                    {
                         @Override
                         protected void setup(Binder binder)
                         {

@@ -708,7 +708,8 @@ public class TestMetastoreHiveStatisticsProvider
     @Test
     public void testGetTableStatisticsSampling()
     {
-        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider() {
+        HiveStatisticsProvider statisticsProvider = new AbstractHiveStatisticsProvider()
+        {
             @Override
             protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
             {

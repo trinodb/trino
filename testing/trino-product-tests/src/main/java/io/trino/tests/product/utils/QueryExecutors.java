@@ -92,7 +92,8 @@ public final class QueryExecutors
 
     public static QueryExecutor onSpark()
     {
-        return new QueryExecutor() {
+        return new QueryExecutor()
+        {
             private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "spark");
 
             @Override

@@ -355,7 +355,8 @@ public class MockConnector
                     Constraint constraint)
             {
                 SchemaTableName tableName = ((MockConnectorTableHandle) table).getTableName();
-                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT) {
+                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT)
+                {
                     @Override
                     public Metrics getMetrics()
                     {

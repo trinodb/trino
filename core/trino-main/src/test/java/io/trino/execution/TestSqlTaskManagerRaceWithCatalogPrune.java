@@ -148,11 +148,13 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             throw new UnsupportedOperationException("Only implement what is needed by worker catalog manager");
         }
     };
-    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor() {
+    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor()
+    {
         @Override
         public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask)
         {
-            return new TaskHandle() {
+            return new TaskHandle()
+            {
                 @Override
                 public boolean isDestroyed()
                 {

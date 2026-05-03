@@ -130,7 +130,8 @@ public class PinotSqlFormatter
     public static String formatFilter(SchemaTableName schemaTableName, FilterContext filterContext, Map<String, ColumnHandle> columnHandles)
     {
         requireNonNull(filterContext, "filterContext is null");
-        Context context = new Context() {
+        Context context = new Context()
+        {
             @Override
             public SchemaTableName getSchemaTableName()
             {
@@ -179,7 +180,8 @@ public class PinotSqlFormatter
     public static String formatExpression(SchemaTableName schemaTableName, ExpressionContext expressionContext, Optional<Map<String, ColumnHandle>> columnHandles)
     {
         requireNonNull(expressionContext, "expressionContext is null");
-        Context context = new Context() {
+        Context context = new Context()
+        {
             @Override
             public SchemaTableName getSchemaTableName()
             {

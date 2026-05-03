@@ -429,7 +429,8 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeAllocator getNodeAllocator(Session session)
     {
-        return new NodeAllocator() {
+        return new NodeAllocator()
+        {
             @Override
             public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
             {

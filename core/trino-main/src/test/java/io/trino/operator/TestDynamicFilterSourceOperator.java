@@ -136,7 +136,8 @@ public class TestDynamicFilterSourceOperator
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
                 new PlanNodeId("PLAN_NODE_ID"),
-                new DynamicFilterSourceConsumer() {
+                new DynamicFilterSourceConsumer()
+                {
                     @Override
                     public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
                     {
