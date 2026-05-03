@@ -89,8 +89,8 @@ public class Union
         }
         Union o = (Union) obj;
         return Objects.equals(relations, o.relations) &&
-               isDistinct() == o.isDistinct() &&
-               Objects.equals(getCorresponding(), o.getCorresponding());
+                isDistinct() == o.isDistinct() &&
+                Objects.equals(getCorresponding(), o.getCorresponding());
     }
 
     @Override
