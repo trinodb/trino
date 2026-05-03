@@ -371,7 +371,10 @@ public class TestJdbcExternalAuthentication
                             "Authentication required",
                             format("Bearer x_redirect_server=\"http://localhost:%s/v1/authentications/dummy/logins/%s\", " +
                                             "x_token_server=\"http://localhost:%s/v1/authentications/dummy/%s\"",
-                                    port.getAsInt(), sessionId, port.getAsInt(), sessionId)));
+                                    port.getAsInt(),
+                                    sessionId,
+                                    port.getAsInt(),
+                                    sessionId)));
         }
     }
 

@@ -185,7 +185,8 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
 
         // cannot set mutually exclusive properties for non-conforming clients to true
-        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
+        assertInvalid(
+                "jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
                 "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 

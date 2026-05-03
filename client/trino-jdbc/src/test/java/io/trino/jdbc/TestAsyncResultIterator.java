@@ -66,7 +66,8 @@ class TestAsyncResultIterator
                         interruptedButSwallowedLatch.countDown();
                     }
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
-                }), ignored -> {},
+                }),
+                ignored -> {},
                 new WarningsManager(),
                 Optional.of(new ArrayBlockingQueue<>(100)));
 
@@ -95,7 +96,8 @@ class TestAsyncResultIterator
                 new MockStatementClient(() -> {
                     thread.compareAndSet(null, Thread.currentThread());
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
-                }), ignored -> {},
+                }),
+                ignored -> {},
                 new WarningsManager(),
                 Optional.of(queue));
 

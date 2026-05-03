@@ -223,9 +223,9 @@ public class TestTrinoUri
     {
         assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=&SSLVerification=true", new Properties()))
                 .hasMessageContaining(
-                    "Provided connection properties are invalid:\n" +
-                    "Connection property SSLVerification requires TLS/SSL to be enabled\n" +
-                    "Connection property user value is empty");
+                        "Provided connection properties are invalid:\n" +
+                                "Connection property SSLVerification requires TLS/SSL to be enabled\n" +
+                                "Connection property user value is empty");
     }
 
     @Test
