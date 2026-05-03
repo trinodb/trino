@@ -220,8 +220,7 @@ public class TaskResource
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
-        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo ->
-                Response.ok(taskInfo).build(), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo -> Response.ok(taskInfo).build(), directExecutor());
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
