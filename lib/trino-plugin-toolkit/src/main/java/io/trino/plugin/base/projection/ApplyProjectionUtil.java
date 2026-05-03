@@ -64,8 +64,8 @@ public final class ApplyProjectionUtil
     {
         return expressionPredicate.test(expression)
                 && (expression instanceof Variable ||
-                    (expression instanceof FieldDereference fieldDereference
-                            && isPushdownSupported(fieldDereference.getTarget(), expressionPredicate)));
+                (expression instanceof FieldDereference fieldDereference
+                        && isPushdownSupported(fieldDereference.getTarget(), expressionPredicate)));
     }
 
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)

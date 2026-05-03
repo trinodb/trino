@@ -828,7 +828,8 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ConnectorSession session,
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(
+            ConnectorSession session,
             FunctionId functionId)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
@@ -837,8 +838,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session,
-            FunctionId functionId, BoundSignature boundSignature)
+    public FunctionDependencyDeclaration getFunctionDependencies(
+            ConnectorSession session,
+            FunctionId functionId,
+            BoundSignature boundSignature)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getFunctionDependencies(session, functionId, boundSignature);

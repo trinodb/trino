@@ -91,35 +91,35 @@ public class TestFileBasedAccessControlConfig
 
         assertFailsValidation(
                 new FileBasedAccessControlConfig()
-                    .setRefreshPeriod(Duration.valueOf("1ms")),
+                        .setRefreshPeriod(Duration.valueOf("1ms")),
                 "configFile",
                 "must not be null",
                 NotNull.class);
 
         assertFailsValidation(
                 new FileBasedAccessControlConfig()
-                    .setRefreshPeriod(Duration.valueOf("0ms"))
-                    .setConfigFile(securityConfigFile),
+                        .setRefreshPeriod(Duration.valueOf("0ms"))
+                        .setConfigFile(securityConfigFile),
                 "refreshPeriod",
                 "must be greater than or equal to 1ms",
                 MinDuration.class);
 
         assertFailsValidation(
                 new FileBasedAccessControlConfig()
-                    .setRefreshPeriod(Duration.valueOf("1ms"))
-                    .setConfigFile("not_existing_file"),
+                        .setRefreshPeriod(Duration.valueOf("1ms"))
+                        .setConfigFile("not_existing_file"),
                 "configFileValid",
                 "Config file does not exist.",
                 AssertTrue.class);
 
         assertValidates(
                 new FileBasedAccessControlConfig()
-                    .setConfigFile(securityConfigFile));
+                        .setConfigFile(securityConfigFile));
 
         assertValidates(
                 new FileBasedAccessControlConfig()
-                    .setConfigFile(securityConfigFile)
-                    .setRefreshPeriod(Duration.valueOf("1ms")));
+                        .setConfigFile(securityConfigFile)
+                        .setRefreshPeriod(Duration.valueOf("1ms")));
     }
 
     @Test
