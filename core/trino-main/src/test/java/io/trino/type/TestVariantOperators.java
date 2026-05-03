@@ -849,7 +849,8 @@ class TestVariantOperators
         //  * global metadata over the whole JSON tree
         //  * object-field encoding sorted by UTF-8 name (via Slice sort)
         //  * correct field-id assignment per object
-        String json = """
+        String json =
+                """
                 [
                   {"b": 1, "a": 2},
                   {"c": 3, "a": 4}
@@ -898,7 +899,8 @@ class TestVariantOperators
     {
         // Use some non-ASCII field names to exercise the Slice/UTF-8 sort.
         // These are chosen just to make sure we're not assuming ASCII-only.
-        String json = """
+        String json =
+                """
                 {
                   "é": 1,
                   "e": 2,
@@ -1039,7 +1041,8 @@ class TestVariantOperators
                         "B", "two",
                         "C", true));
 
-        String oneOfEverythingRowLiteral = """
+        String oneOfEverythingRowLiteral =
+                """
                 ROW(
                   NULL AS a,
                   TRUE AS b,
