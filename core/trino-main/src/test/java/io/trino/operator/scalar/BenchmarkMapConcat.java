@@ -136,7 +136,8 @@ public class BenchmarkMapConcat
 
             projectionsBuilder.add(call(
                     functionResolution.resolveFunction(name, fromTypes(mapType, mapType)),
-                    new Reference(mapType, "$col_0"), new Reference(mapType, "$col_1")));
+                    new Reference(mapType, "$col_0"),
+                    new Reference(mapType, "$col_1")));
 
             List<Expression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

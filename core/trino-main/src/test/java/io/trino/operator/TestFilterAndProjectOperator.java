@@ -96,12 +96,14 @@ public class TestFilterAndProjectOperator
 
         Expression filter = call(
                 functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                col1, new Constant(BIGINT, 9L));
+                col1,
+                new Constant(BIGINT, 9L));
 
         Expression field0 = col0;
         Expression add5 = call(
                 functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                col1, new Constant(BIGINT, 5L));
+                col1,
+                new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5), layout);
@@ -149,7 +151,8 @@ public class TestFilterAndProjectOperator
 
         Expression filter = call(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                col1, new Constant(BIGINT, 10L));
+                col1,
+                new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(col1), layout);

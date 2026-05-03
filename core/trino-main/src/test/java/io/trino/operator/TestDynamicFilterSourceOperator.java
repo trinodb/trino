@@ -200,7 +200,8 @@ public class TestDynamicFilterSourceOperator
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, BIGINT));
 
         Operator op1 = createOperator(operatorFactory); // will finish before noMoreOperators()
-        verifyPassthrough(op1,
+        verifyPassthrough(
+                op1,
                 ImmutableList.of(BIGINT),
                 new Page(createLongsBlock(1, 2)),
                 new Page(createLongsBlock(3, 5)));
@@ -211,7 +212,8 @@ public class TestDynamicFilterSourceOperator
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L, 5L))))));
 
-        verifyPassthrough(op2,
+        verifyPassthrough(
+                op2,
                 ImmutableList.of(BIGINT),
                 new Page(createLongsBlock(2, 3)),
                 new Page(createLongsBlock(1, 4)));
@@ -379,8 +381,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(COLOR),
                 ImmutableList.of(new Page(block)),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(ValueSet.copyOf(COLOR, values.build()), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.copyOf(COLOR, values.build()), false)))));
     }
 
     @Test
@@ -415,8 +416,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(largePage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, (long) maxDistinctValues, true)),
                                 false)))));
     }
@@ -509,8 +509,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(largePage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(VARCHAR, utf8Slice(largeText), true, utf8Slice(largeText), true)),
                                 false)))));
     }
@@ -552,8 +551,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(page1, page2, page3),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
                                 false)))));
     }
@@ -570,8 +568,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(largePage, nullsPage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(ValueSet.of(BIGINT, 7L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.of(BIGINT, 7L), false)))));
     }
 
     @Test
@@ -645,12 +642,10 @@ public class TestDynamicFilterSourceOperator
         operatorFactory.noMoreOperators();
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"),
-                        Domain.create(
+                        new DynamicFilterId("0"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, 150L, true)),
                                 false),
-                        new DynamicFilterId("1"),
-                        Domain.create(
+                        new DynamicFilterId("1"), Domain.create(
                                 ValueSet.ofRanges(range(BIGINT, 0L, true, 200L, true)),
                                 false)))));
     }

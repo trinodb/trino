@@ -442,7 +442,8 @@ public class TestAnnotationEngineForAggregates
         @TypeParameter("T")
         public static void input(
                 @AggregationState NullableDoubleState state,
-                @SqlType("array(T)") Block arrayBlock, @SqlType("T") double additionalValue)
+                @SqlType("array(T)") Block arrayBlock,
+                @SqlType("T") double additionalValue)
         {
             // noop this is only for annotation testing puproses
         }
@@ -451,7 +452,8 @@ public class TestAnnotationEngineForAggregates
         @TypeParameter("T")
         public static void input(
                 @AggregationState NullableLongState state,
-                @SqlType("array(T)") Block arrayBlock, @SqlType("T") long additionalValue)
+                @SqlType("array(T)") Block arrayBlock,
+                @SqlType("T") long additionalValue)
         {
             // noop this is only for annotation testing puproses
         }
@@ -706,7 +708,7 @@ public class TestAnnotationEngineForAggregates
                         operator = LESS_THAN,
                         argumentTypes = {DOUBLE, DOUBLE},
                         convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
-                        MethodHandle methodHandle,
+                MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
@@ -719,7 +721,7 @@ public class TestAnnotationEngineForAggregates
                         operator = LESS_THAN,
                         argumentTypes = {DOUBLE, DOUBLE},
                         convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
-                        MethodHandle methodHandle,
+                MethodHandle methodHandle,
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
@@ -732,7 +734,7 @@ public class TestAnnotationEngineForAggregates
                         operator = LESS_THAN,
                         argumentTypes = {DOUBLE, DOUBLE},
                         convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
-                        MethodHandle methodHandle,
+                MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
@@ -1026,7 +1028,8 @@ public class TestAnnotationEngineForAggregates
         public static void input(
                 @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
                 @AggregationState NullableDoubleState state,
-                @SqlType("T1") double x, @SqlType("T2") double y)
+                @SqlType("T1") double x,
+                @SqlType("T2") double y)
         {
             // noop this is only for annotation testing purposes
         }

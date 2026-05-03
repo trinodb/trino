@@ -1005,7 +1005,8 @@ public class TestHashAggregationOperator
                 SINGLE,
                 false,
                 ImmutableList.of(
-                        COUNT.createAggregatorFactory(SINGLE,
+                        COUNT.createAggregatorFactory(
+                                SINGLE,
                                 ImmutableList.of(0),
                                 OptionalInt.empty())),
                 OptionalInt.empty(),

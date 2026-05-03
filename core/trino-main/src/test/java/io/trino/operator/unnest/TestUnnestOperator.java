@@ -204,7 +204,8 @@ public class TestUnnestOperator
         Type mapType = new MapType(BIGINT, BIGINT, TESTING_TYPE_MANAGER.getTypeOperators());
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1L, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
+                .row(1L,
+                        arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
                         sqlMapOf(BIGINT, DOUBLE, ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN)))
                 .build();
 

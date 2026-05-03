@@ -416,7 +416,8 @@ public class TestPageProcessor
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
         Expression add10Expression = call(
                 functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 10L));
+                new Reference(BIGINT, "$col_0"),
+                new Constant(BIGINT, 10L));
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
 
         TestingTicker testingTicker = new TestingTicker();

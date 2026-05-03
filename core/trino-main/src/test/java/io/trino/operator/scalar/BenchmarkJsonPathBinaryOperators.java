@@ -167,7 +167,8 @@ public class BenchmarkJsonPathBinaryOperators
                                     new FunctionType(ImmutableList.of(), VARCHAR)))),
                     ImmutableList.of(
                             call(functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
-                                    new Reference(VARCHAR, "$col_0"), new Constant(BOOLEAN, true)),
+                                    new Reference(VARCHAR, "$col_0"),
+                                    new Constant(BOOLEAN, true)),
                             new Constant(jsonPath2016Type, new IrJsonPath(false, path)),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
                             constantNull(VARCHAR),

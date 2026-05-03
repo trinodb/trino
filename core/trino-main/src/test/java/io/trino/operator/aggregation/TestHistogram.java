@@ -122,7 +122,8 @@ public class TestHistogram
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                "histogram", fromTypes(DOUBLE),
+                "histogram",
+                fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 

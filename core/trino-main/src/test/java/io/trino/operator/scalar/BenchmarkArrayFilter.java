@@ -152,7 +152,8 @@ public class BenchmarkArrayFilter
                         name,
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-                projectionsBuilder.add(call(resolvedFunction,
+                projectionsBuilder.add(call(
+                        resolvedFunction,
                         new Reference(arrayType, "$col_" + i),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "x")),
@@ -219,7 +220,8 @@ public class BenchmarkArrayFilter
                 ResolvedFunction resolvedFunction = functionResolution.resolveFunction(name, fromTypes(arrayType, new FunctionType(ROW_TYPES, BOOLEAN)));
                 ResolvedFunction lessThan = functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
-                projectionsBuilder.add(call(resolvedFunction,
+                projectionsBuilder.add(call(
+                        resolvedFunction,
                         new Reference(arrayType, "$col_" + i),
                         new Lambda(
                                 ImmutableList.of(new Symbol(elementType, "x")),
