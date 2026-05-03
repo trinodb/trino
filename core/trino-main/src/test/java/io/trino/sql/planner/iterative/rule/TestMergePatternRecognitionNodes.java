@@ -335,7 +335,8 @@ public class TestMergePatternRecognitionNodes
                                     .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"), p.symbol("d")));
                         }))))
                 .matches(
-                        patternRecognition(builder -> builder
+                        patternRecognition(
+                                builder -> builder
                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableMap.of("d", ASC_NULLS_LAST)))
                                         .addMeasure(
                                                 "parent_measure",
@@ -399,7 +400,8 @@ public class TestMergePatternRecognitionNodes
                                 ImmutableMap.of(
                                         "c", expression(new Reference(BIGINT, "c")),
                                         "parent_measure", expression(new Reference(BIGINT, "parent_measure"))),
-                                patternRecognition(builder -> builder
+                                patternRecognition(
+                                        builder -> builder
                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                 .addMeasure(
                                                         "parent_measure",
@@ -439,8 +441,10 @@ public class TestMergePatternRecognitionNodes
                         .addVariableDefinition(new IrLabel("X"), TRUE)
                         .source(p.project(
                                 Assignments.of(
-                                        p.symbol("a"), new Reference(BIGINT, "a"),
-                                        p.symbol("expression"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                        p.symbol("a"),
+                                        new Reference(BIGINT, "a"),
+                                        p.symbol("expression"),
+                                        new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
                                             .addMeasure(
@@ -467,7 +471,8 @@ public class TestMergePatternRecognitionNodes
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
                                                 "expression", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))),
-                                        patternRecognition(builder -> builder
+                                        patternRecognition(
+                                                builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
                                                                 new Reference(BIGINT, "pointer"),
@@ -502,8 +507,10 @@ public class TestMergePatternRecognitionNodes
                         .addVariableDefinition(new IrLabel("X"), TRUE)
                         .source(p.project(
                                 Assignments.of(
-                                        p.symbol("a"), new Reference(BIGINT, "a"),
-                                        p.symbol("expression"), new Call(MULTIPLY_BIGINT, ImmutableList.of(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Reference(BIGINT, "child_measure")))),
+                                        p.symbol("a"),
+                                        new Reference(BIGINT, "a"),
+                                        p.symbol("expression"),
+                                        new Call(MULTIPLY_BIGINT, ImmutableList.of(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Reference(BIGINT, "child_measure")))),
                                 p.patternRecognition(childBuilder -> {
                                     childBuilder
                                             .addMeasure(
@@ -530,7 +537,8 @@ public class TestMergePatternRecognitionNodes
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
                                                 "expression", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), new Reference(BIGINT, "child_measure"))))),
-                                        patternRecognition(builder -> builder
+                                        patternRecognition(
+                                                builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
                                                                 new Reference(BIGINT, "pointer"),
@@ -603,7 +611,8 @@ public class TestMergePatternRecognitionNodes
                                                 .put("expression_1", expression(new Reference(BIGINT, "expression_1")))
                                                 .put("expression_2", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))
                                                 .buildOrThrow(),
-                                        patternRecognition(builder -> builder
+                                        patternRecognition(
+                                                builder -> builder
                                                         .addMeasure(
                                                                 "parent_measure",
                                                                 new Reference(BIGINT, "pointer"),
@@ -680,7 +689,8 @@ public class TestMergePatternRecognitionNodes
                                                 "parent_measure", expression(new Reference(BIGINT, "parent_measure")),
                                                 "child_measure", expression(new Reference(BIGINT, "child_measure")),
                                                 "expression_2", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "a"))))),
-                                        patternRecognition(builder -> builder
+                                        patternRecognition(
+                                                builder -> builder
                                                         .specification(specification(ImmutableList.of("a"), ImmutableList.of(), ImmutableMap.of()))
                                                         .addMeasure(
                                                                 "parent_measure",
@@ -736,7 +746,8 @@ public class TestMergePatternRecognitionNodes
                                                 Optional.empty())))
                                 .source(p.values(p.symbol("a", BIGINT)))))))
                 .matches(
-                        patternRecognition(builder -> builder
+                        patternRecognition(
+                                builder -> builder
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(
                                                 new IrLabel("X"),

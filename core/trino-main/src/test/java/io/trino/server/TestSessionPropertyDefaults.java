@@ -88,8 +88,7 @@ public class TestSessionPropertyDefaults
                 .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
         assertThat(session.getCatalogProperties()).isEqualTo(ImmutableMap.of(
-                TEST_CATALOG_NAME,
-                ImmutableMap.of("explicit_set", "explicit_set")));
+                TEST_CATALOG_NAME, ImmutableMap.of("explicit_set", "explicit_set")));
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 

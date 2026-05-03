@@ -201,7 +201,8 @@ public class TestAdaptivePlanner
                                                                 .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                                 .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))))))
                                 .children(
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(3)
                                                         .planPattern(
@@ -310,7 +311,8 @@ public class TestAdaptivePlanner
                                         spb2 -> spb2.fragmentMatcher(fm -> fm
                                                 // This fragment id should not change
                                                 .fragmentId(2).planPattern(any(node(TableScanNode.class)))),
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(3)
                                                         .planPattern(

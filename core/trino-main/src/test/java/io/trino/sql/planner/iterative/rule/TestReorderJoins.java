@@ -425,8 +425,10 @@ public class TestReorderJoins
                         p.join(INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1", BIGINT), new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1", BIGINT).toSymbolReference())),
-                                                p.symbol("P2", BIGINT), p.symbol("A1", BIGINT).toSymbolReference()),
+                                                p.symbol("P1", BIGINT),
+                                                new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1", BIGINT).toSymbolReference())),
+                                                p.symbol("P2", BIGINT),
+                                                p.symbol("A1", BIGINT).toSymbolReference()),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),

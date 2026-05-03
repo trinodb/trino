@@ -163,9 +163,11 @@ public class TestWindowClause
     {
         @Language("SQL") String sql = "SELECT a old_a, 2e0 a FROM (VALUES -100, -99, -98) t(a) WINDOW w AS (ORDER BY a + 1) ORDER BY count(*) OVER (w RANGE BETWEEN CURRENT ROW AND a + 1e0 FOLLOWING)";
         PlanMatchPattern pattern =
-                anyTree(sort(// sort by window function result
+                anyTree(sort(
+                        // sort by window function result
                         ImmutableList.of(sort("count_result", ASCENDING, LAST)),
-                        project(window(// window function in ORDER BY
+                        project(window(
+                                // window function in ORDER BY
                                 windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification(
                                                 ImmutableList.of(),
@@ -184,9 +186,11 @@ public class TestWindowClause
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_bound")),
                                                                 Optional.of(new Symbol(UNKNOWN, "coerced_sortkey"))))),
-                                project(// frame bound value computation
+                                project(
+                                        // frame bound value computation
                                         ImmutableMap.of("frame_bound", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "coerced_sortkey"), new Reference(DOUBLE, "frame_offset"))))),
-                                        project(// sort key coercion to frame bound type
+                                        project(
+                                                // sort key coercion to frame bound type
                                                 ImmutableMap.of("coerced_sortkey", expression(new Cast(new Reference(INTEGER, "sortkey"), DOUBLE))),
                                                 node(FilterNode.class,
                                                         project(project(
@@ -195,7 +199,8 @@ public class TestWindowClause
                                                                         "sortkey", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)))),
                                                                         // frame offset based on "a" in output scope
                                                                         "frame_offset", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "new_a"), new Constant(DOUBLE, 1.0))))),
-                                                                project(// output expression
+                                                                project(
+                                                                        // output expression
                                                                         ImmutableMap.of("new_a", expression(new Constant(DOUBLE, 2e0))),
                                                                         project(project(values("a")))))))))))));
 

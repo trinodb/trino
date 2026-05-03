@@ -88,7 +88,8 @@ public class TestEliminateCrossJoins
     @Test
     public void testDoesNotReorderJoinsWhenNoCrossJoinPresent()
     {
-        assertPlan("SELECT o1.orderkey, o2.custkey, o3.orderstatus, o4.totalprice " +
+        assertPlan(
+                "SELECT o1.orderkey, o2.custkey, o3.orderstatus, o4.totalprice " +
                         "FROM (orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey) " +
                         "JOIN (orders o3 JOIN orders o4 ON o3.orderkey = o4.orderkey) ON o1.orderkey = o3.orderkey",
                 anyTree(
@@ -126,7 +127,8 @@ public class TestEliminateCrossJoins
     {
         // "p.name < l.comment" expression is automatically transformed to "p.name < cast(L_COMMENT AS varchar(55))"
         // with PushInequalityFilterExpressionBelowJoinRuleSet the cast "cast(L_COMMENT AS varchar(55))" is pushed down
-        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
+        assertPlan(
+                "SELECT o.orderkey FROM part p, orders o, lineitem l " +
                         "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment",
                 anyTree(
                         join(INNER, builder -> builder
@@ -146,7 +148,8 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoinPreserveFilters()
     {
-        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
+        assertPlan(
+                "SELECT o.orderkey FROM part p, orders o, lineitem l " +
                         "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND l.returnflag = 'R' AND shippriority >= 10",
                 anyTree(
                         join(INNER, builder -> builder

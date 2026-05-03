@@ -1153,8 +1153,7 @@ class TestVariantOperators
         Variant leaf = Variant.ofObject(ImmutableSortedMap.of(
                 utf8Slice("outer"),
                 Variant.ofObject(Map.of(
-                        utf8Slice("inner"),
-                        Variant.ofArray(List.of(
+                        utf8Slice("inner"), Variant.ofArray(List.of(
                                 Variant.ofObject(Map.of(utf8Slice("x"), Variant.ofInt(10))),
                                 Variant.ofObject(Map.of(utf8Slice("y"), Variant.ofInt(20)))))))));
 
@@ -1251,8 +1250,7 @@ class TestVariantOperators
                 "ARRAY[%s, %s]".formatted(toVariantLiteral(leaf1), toVariantLiteral(leaf2)),
                 List.of(
                         Map.of("a", "x", "b", 1),
-                        Map.of("a", 3, "c", 2))
-        );
+                        Map.of("a", 3, "c", 2)));
     }
 
     @Test
@@ -1452,7 +1450,8 @@ class TestVariantOperators
 
         assertThat(assertions.expression("CAST(a AS MAP<VARCHAR, %s>)".formatted(type))
                 .binding(
-                        "a", toVariantLiteral(createObjectWithSortedFields(
+                        "a",
+                        toVariantLiteral(createObjectWithSortedFields(
                                 Metadata.of(List.of(utf8Slice("key1"), utf8Slice("key2"), utf8Slice("key3"))),
                                 List.of(
                                         new ObjectField(0, variant),
@@ -1466,7 +1465,8 @@ class TestVariantOperators
 
         assertThat(assertions.expression("CAST(a AS ROW(col1 %s, col2 %s, col3 %s))".formatted(type, type, type))
                 .binding(
-                        "a", toVariantLiteral(createObjectWithSortedFields(
+                        "a",
+                        toVariantLiteral(createObjectWithSortedFields(
                                 Metadata.of(List.of(utf8Slice("col1"), utf8Slice("col2"), utf8Slice("col3"))),
                                 List.of(
                                         new ObjectField(0, variant),

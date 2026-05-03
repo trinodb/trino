@@ -350,7 +350,8 @@ public class TestConnectorExpressionTranslator
                 .readOnly()
                 .execute(TEST_SESSION, transactionSession -> {
                     String pattern = "%pattern%";
-                    io.trino.spi.expression.Call translated = new io.trino.spi.expression.Call(BOOLEAN,
+                    io.trino.spi.expression.Call translated = new io.trino.spi.expression.Call(
+                            BOOLEAN,
                             StandardFunctions.LIKE_FUNCTION_NAME,
                             List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                     new io.trino.spi.expression.Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))));
@@ -376,7 +377,8 @@ public class TestConnectorExpressionTranslator
                                     .build());
 
                     String escape = "\\";
-                    translated = new io.trino.spi.expression.Call(BOOLEAN,
+                    translated = new io.trino.spi.expression.Call(
+                            BOOLEAN,
                             StandardFunctions.LIKE_FUNCTION_NAME,
                             List.of(
                                     new Variable("varchar_symbol_1", VARCHAR_TYPE),
@@ -448,8 +450,8 @@ public class TestConnectorExpressionTranslator
                     assertTranslationRoundTrips(
                             transactionSession,
                             new Call(
-                                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"), BIGINT, VARCHAR_TYPE),
-                                ImmutableList.of(new Reference(BIGINT, "bigint_symbol"))),
+                                    PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"), BIGINT, VARCHAR_TYPE),
+                                    ImmutableList.of(new Reference(BIGINT, "bigint_symbol"))),
                             new io.trino.spi.expression.Call(
                                     VARCHAR_TYPE,
                                     new FunctionName("$try_cast"),
@@ -470,7 +472,8 @@ public class TestConnectorExpressionTranslator
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
                                     .setName("lower").addArgument(VARCHAR_TYPE, new Reference(VARCHAR_TYPE, "varchar_symbol_1"))
                                     .build(),
-                            new io.trino.spi.expression.Call(VARCHAR_TYPE,
+                            new io.trino.spi.expression.Call(
+                                    VARCHAR_TYPE,
                                     new FunctionName("lower"),
                                     List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
                 });
@@ -544,14 +547,14 @@ public class TestConnectorExpressionTranslator
                 new In(new Reference(VARCHAR, "varchar_symbol_1"),
                         List.of(new Reference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
                 new io.trino.spi.expression.Call(
-                    BOOLEAN,
-                    StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
-                    List.of(
-                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                            new io.trino.spi.expression.Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
-                                    List.of(
-                                            new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                            new io.trino.spi.expression.Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), VARCHAR_TYPE))))));
+                        BOOLEAN,
+                        StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
+                        List.of(
+                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new io.trino.spi.expression.Call(VARCHAR_ARRAY_TYPE, ARRAY_CONSTRUCTOR_FUNCTION_NAME,
+                                        List.of(
+                                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                                new io.trino.spi.expression.Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), VARCHAR_TYPE))))));
     }
 
     @Test

@@ -113,7 +113,7 @@ public class TestRemoveRedundantLimit
                                                 ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 11L)))))))
                 .matches(
                         node(FilterNode.class,
-                                        node(ValuesNode.class)));
+                                node(ValuesNode.class)));
     }
 
     @Test

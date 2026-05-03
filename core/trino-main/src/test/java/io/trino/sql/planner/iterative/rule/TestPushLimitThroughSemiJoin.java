@@ -37,7 +37,9 @@ public class TestPushLimitThroughSemiJoin
                 .on(p -> p.limit(1, buildSemiJoin(p)))
                 .matches(
                         semiJoin(
-                                "leftKey", "rightKey", "match",
+                                "leftKey",
+                                "rightKey",
+                                "match",
                                 limit(1, values("leftKey")),
                                 values("rightKey")));
     }
@@ -52,7 +54,9 @@ public class TestPushLimitThroughSemiJoin
                                 buildSemiJoin(p)))
                 .matches(
                         semiJoin(
-                                "leftKey", "rightKey", "match",
+                                "leftKey",
+                                "rightKey",
+                                "match",
                                 limit(1, ImmutableList.of(sort("leftKey", ASCENDING, FIRST)), values("leftKey")),
                                 values("rightKey")));
     }
@@ -68,7 +72,9 @@ public class TestPushLimitThroughSemiJoin
                                 buildSemiJoin(p)))
                 .matches(
                         semiJoin(
-                                "leftKey", "rightKey", "match",
+                                "leftKey",
+                                "rightKey",
+                                "match",
                                 limit(
                                         1,
                                         ImmutableList.of(),

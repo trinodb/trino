@@ -115,9 +115,11 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
-                        new ConnectorViewDefinition.ViewColumn("nested", RowType.from(ImmutableList.of(
-                                RowType.field(INTEGER),
-                                RowType.field(INTEGER))).getTypeId(),
+                        new ConnectorViewDefinition.ViewColumn(
+                                "nested",
+                                RowType.from(ImmutableList.of(
+                                        RowType.field(INTEGER),
+                                        RowType.field(INTEGER))).getTypeId(),
                                 Optional.empty()),
                         new ConnectorViewDefinition.ViewColumn("id", INTEGER.getTypeId(), Optional.empty())),
                 Optional.empty(),

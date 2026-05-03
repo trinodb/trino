@@ -180,7 +180,8 @@ public class TestQueryResultsSerialization
                       "spilledBytes" : 0
                     },
                     "warnings" : [ ]
-                  }""", expectedDataField);
+                  }""",
+                expectedDataField);
     }
 
     private static String serialize(QueryData data)

@@ -97,7 +97,8 @@ public class TestPruneWindowColumns
     public void testOneFunctionNotNeeded()
     {
         tester().assertThat(new PruneWindowColumns())
-                .on(p -> buildProjectedWindow(p,
+                .on(p -> buildProjectedWindow(
+                        p,
                         symbol -> symbol.name().equals("output2") || symbol.name().equals("unused"),
                         alwaysTrue()))
                 .matches(
@@ -206,8 +207,7 @@ public class TestPruneWindowColumns
                                         ImmutableList.of(orderKey),
                                         ImmutableMap.of(orderKey, ASC_NULLS_FIRST)))),
                         ImmutableMap.of(
-                                output1,
-                                new WindowNode.Function(
+                                output1, new WindowNode.Function(
                                         MIN_FUNCTION,
                                         ImmutableList.of(input1.toSymbolReference()),
                                         Optional.of(new OrderingScheme(List.of(aggOrderInput1), Map.of(aggOrderInput1, ASC_NULLS_FIRST))),
@@ -221,8 +221,7 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey)),
                                         false,
                                         false),
-                                output2,
-                                new WindowNode.Function(
+                                output2, new WindowNode.Function(
                                         MIN_FUNCTION,
                                         ImmutableList.of(input2.toSymbolReference()),
                                         Optional.of(new OrderingScheme(List.of(aggOrderInput2), Map.of(aggOrderInput2, ASC_NULLS_FIRST))),

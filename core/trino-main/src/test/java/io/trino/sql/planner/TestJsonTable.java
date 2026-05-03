@@ -105,12 +105,14 @@ public class TestJsonTable
                     EMPTY ON ERROR)
                 """,
                 CREATED,
-                strictOutput(// left-side columns first, json_table columns next
+                strictOutput(
+                        // left-side columns first, json_table columns next
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
                                         ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON_2016, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
-                                        tableFunction(builder -> builder
+                                        tableFunction(
+                                                builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
                                                                 "$input",
@@ -123,11 +125,13 @@ public class TestJsonTable
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
                                                                 "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
-                                                        project(// coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
+                                                        project(
+                                                                // coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
                                                                 ImmutableMap.of(
                                                                         "name_coerced", expression(new Cast(new Reference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
                                                                         "json_col_coerced", expression(new Cast(new Reference(createVarcharType(9), "json_col"), VARCHAR))), // cast context item to VARCHAR for the input function
-                                                                project(// pre-project path parameter
+                                                                project(
+                                                                        // pre-project path parameter
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]")))),
                                                                         anyTree(

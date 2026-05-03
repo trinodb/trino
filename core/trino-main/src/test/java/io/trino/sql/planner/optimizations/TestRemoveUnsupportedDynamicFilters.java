@@ -371,7 +371,10 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -395,7 +398,10 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.of(new DynamicFilterId("DF")));
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
@@ -419,7 +425,10 @@ public class TestRemoveUnsupportedDynamicFilters
                 Optional.empty());
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -444,7 +453,10 @@ public class TestRemoveUnsupportedDynamicFilters
 
         assertPlan(
                 removeUnsupportedDynamicFilters(root),
-                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", noDynamicFilter(),
+                semiJoin("ORDERS_OK",
+                        "LINEITEM_OK",
+                        "SEMIJOIN_OUTPUT",
+                        noDynamicFilter(),
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                 values("ORDERS_OK")),
@@ -472,7 +484,8 @@ public class TestRemoveUnsupportedDynamicFilters
                             createPlanOptimizersStatsCollector(),
                             new CachingTableStatsProvider(metadata, session, () -> false),
                             RuntimeInfoProvider.noImplementation()));
-            new DynamicFiltersChecker().validate(rewrittenPlan,
+            new DynamicFiltersChecker().validate(
+                    rewrittenPlan,
                     session,
                     plannerContext,
                     WarningCollector.NOOP);

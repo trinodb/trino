@@ -178,7 +178,8 @@ public class TestAddExchangesPlans
                                                                 tableScan("nation")))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
@@ -191,11 +192,13 @@ public class TestAddExchangesPlans
                                                 exchange(REMOTE, REPARTITION,
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -217,11 +220,12 @@ public class TestAddExchangesPlans
                         limit(2, ImmutableList.of(), false,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, GATHER,
-                                            limit(2, ImmutableList.of(), true,
-                                                    exchange(LOCAL, REPARTITION,
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
+                                                limit(2, ImmutableList.of(), true,
+                                                        exchange(LOCAL,
+                                                                REPARTITION,
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
     }
 
     @Test
@@ -241,7 +245,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan(
@@ -257,7 +262,8 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
                                 .right(
                                         exchange(LOCAL, GATHER,
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -513,7 +519,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, GATHER,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         // build side bigger than threshold, local partitioned exchanged expected
@@ -531,7 +538,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
         // build side contains join, local partitioned exchanged expected
         assertDistributedPlan(
@@ -555,7 +563,8 @@ public class TestAddExchangesPlans
                                                                                 tableScan("region", ImmutableMap.of("regionkey2", "regionkey"))))
                                                                 .right(
                                                                         exchange(LOCAL, GATHER,
-                                                                                exchange(REMOTE, REPLICATE,
+                                                                                exchange(REMOTE,
+                                                                                        REPLICATE,
                                                                                         tableScan("region", ImmutableMap.of("regionkey1", "regionkey"))))))))))));
 
         // build side smaller than threshold, but stats not available. local partitioned exchanged expected
@@ -573,7 +582,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -804,7 +814,8 @@ public class TestAddExchangesPlans
                         ") t",
                 useExactPartitioning(),
                 anyTree(
-                        exchange(REMOTE, REPARTITION,
+                        exchange(REMOTE,
+                                REPARTITION,
                                 values("a"))));
     }
 
@@ -941,7 +952,8 @@ public class TestAddExchangesPlans
                         anyTree(
                                 tableScan("orders")),
                         exchange(LOCAL, GATHER,
-                                exchange(REMOTE, REPARTITION,
+                                exchange(REMOTE,
+                                        REPARTITION,
                                         tableScan("orders")))));
     }
 
@@ -974,7 +986,8 @@ public class TestAddExchangesPlans
                 anyTree(
                         anyTree(
                                 tableScan("orders")),
-                        exchange(LOCAL, GATHER,
+                        exchange(LOCAL,
+                                GATHER,
                                 tableScan("orders"))));
     }
 
@@ -996,7 +1009,9 @@ public class TestAddExchangesPlans
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                                 exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
-                                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                        exchange(LOCAL,
+                                                                REPARTITION,
+                                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
                                                                 tableScan("nation"))))))));
         // Put union at probe side
@@ -1009,14 +1024,18 @@ public class TestAddExchangesPlans
                         join(INNER, join -> join
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
-                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        exchange(LOCAL,
+                                                REPARTITION,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                 node(FilterNode.class,
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
                                                 node(FilterNode.class,
                                                         tableScan("nation"))))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -1029,7 +1048,9 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 anyTree(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 join(INNER, join -> join
                                         .equiCriteria("nationkey", "regionkey")
@@ -1038,7 +1059,9 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                         .right(
                                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                        exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        exchange(REMOTE,
+                                                                REPLICATE,
+                                                                FIXED_BROADCAST_DISTRIBUTION,
                                                                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
     }
 
@@ -1053,12 +1076,16 @@ public class TestAddExchangesPlans
                 anyTree(
                         join(INNER, join -> join
                                 .left(
-                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        exchange(LOCAL,
+                                                REPARTITION,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
                                                 tableScan("nation")))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1071,7 +1098,9 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 anyTree(
-                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_HASH_DISTRIBUTION,
                                 project(
                                         exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                 aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
@@ -1093,9 +1122,13 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_ARBITRARY_DISTRIBUTION,
                                 values("1"),
-                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                exchange(REMOTE,
+                                        GATHER,
+                                        SINGLE_DISTRIBUTION,
                                         tableScan("nation")))));
     }
 
@@ -1108,7 +1141,9 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 tableScan("nation"),
                                 tableScan("nation"))));
@@ -1123,7 +1158,9 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 tableScan("nation"),
                                 project(
@@ -1156,12 +1193,17 @@ public class TestAddExchangesPlans
                 noJoinReordering(),
                 output(
                         join(INNER, join -> join
-                                .left(exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                .left(exchange(
+                                        REMOTE,
+                                        REPARTITION,
+                                        FIXED_ARBITRARY_DISTRIBUTION,
                                         tableScan("nation"),
                                         node(TableScanNode.class)))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1177,13 +1219,20 @@ public class TestAddExchangesPlans
                 noJoinReordering(),
                 output(
                         join(INNER, join -> join
-                                .left(exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                .left(exchange(
+                                        LOCAL,
+                                        REPARTITION,
+                                        FIXED_ARBITRARY_DISTRIBUTION,
                                         tableScan("tables"),
                                         tableScan("tables")))
                                 .right(
                                         exchange(
-                                                LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                LOCAL,
+                                                GATHER,
+                                                SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1196,9 +1245,13 @@ public class TestAddExchangesPlans
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_ARBITRARY_DISTRIBUTION,
                                 node(ValuesNode.class),
-                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                exchange(REMOTE,
+                                        GATHER,
+                                        SINGLE_DISTRIBUTION,
                                         tableScan("nation")))));
     }
 

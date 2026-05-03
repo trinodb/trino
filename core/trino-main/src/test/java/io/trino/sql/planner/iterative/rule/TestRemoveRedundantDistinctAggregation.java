@@ -75,10 +75,10 @@ public class TestRemoveRedundantDistinctAggregation
                 .matches(
                         filter(new Comparison(GREATER_THAN, new Constant(INTEGER, 6L), new Constant(INTEGER, 5L)),
                                 project(aggregation(singleGroupingSet("value"),
-                                ImmutableMap.of(),
-                                Optional.empty(),
-                                SINGLE,
-                                values("value")))));
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        values("value")))));
     }
 
     @Test

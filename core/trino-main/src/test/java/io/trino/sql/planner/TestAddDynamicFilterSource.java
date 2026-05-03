@@ -151,7 +151,11 @@ public class TestAddDynamicFilterSource
                     anyTree(
                             filter(
                                     new Reference(BOOLEAN, "S"),
-                                    semiJoin("X", "Y", "S", dynamicFilter("DF"), Optional.of(semiJoinDistributionType),
+                                    semiJoin("X",
+                                            "Y",
+                                            "S",
+                                            dynamicFilter("DF"),
+                                            Optional.of(semiJoinDistributionType),
                                             filter(
                                                     TRUE,
                                                     dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "X")),

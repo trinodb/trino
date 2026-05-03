@@ -322,7 +322,7 @@ public class TestDistinctAggregationStrategyChooser
                 symbolAllocator);
         assertShouldUseSingleStep(aggregationStrategyChooser, aggregationNode, smallNdvContext.getSession(), smallNdvContext.getStatsProvider(), smallNdvContext.getLookup());
 
-                // big NDV, distinct_aggregations_strategy = split_to_subqueries
+        // big NDV, distinct_aggregations_strategy = split_to_subqueries
         assertThat((boolean) inTransaction(
                 testSessionBuilder().setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, SPLIT_TO_SUBQUERIES.name()).build(),
                 session -> {
@@ -363,7 +363,8 @@ public class TestDistinctAggregationStrategyChooser
 
     private static Map<Symbol, Aggregation> twoDistinctAggregations(SymbolAllocator symbolAllocator)
     {
-        return ImmutableMap.of(symbolAllocator.newSymbol("output1", BIGINT), new Aggregation(
+        return ImmutableMap.of(
+                symbolAllocator.newSymbol("output1", BIGINT), new Aggregation(
                         functionResolution.resolveFunction("sum", fromTypes(BIGINT)),
                         ImmutableList.of(symbolAllocator.newSymbol("input1", BIGINT).toSymbolReference()),
                         true,

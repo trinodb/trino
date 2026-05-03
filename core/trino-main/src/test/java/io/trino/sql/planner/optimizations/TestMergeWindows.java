@@ -71,7 +71,8 @@ public class TestMergeWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQSS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     DISCOUNT_ALIAS, "discount",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey",
@@ -79,14 +80,16 @@ public class TestMergeWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     DISCOUNT_ALIAS, "discount",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey"));
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DEOQS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey",
                     DISCOUNT_ALIAS, "discount",

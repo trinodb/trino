@@ -202,8 +202,7 @@ public class TestPatternRecognitionNodeSerialization
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "rank"),
-                        new Function(
+                        new Symbol(BIGINT, "rank"), new Function(
                                 rankFunction,
                                 ImmutableList.of(),
                                 Optional.empty(),
@@ -211,8 +210,7 @@ public class TestPatternRecognitionNodeSerialization
                                 false,
                                 false)),
                 ImmutableMap.of(
-                        new Symbol(BOOLEAN, "measure"),
-                        new Measure(new ExpressionAndValuePointers(new Constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
+                        new Symbol(BOOLEAN, "measure"), new Measure(new ExpressionAndValuePointers(new Constant(BOOLEAN, null), ImmutableList.of()), BOOLEAN)),
                 Optional.of(new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty())),
                 WINDOW,
                 ImmutableSet.of(new IrLabel("B")),

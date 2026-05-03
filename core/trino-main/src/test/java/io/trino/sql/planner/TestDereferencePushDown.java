@@ -61,7 +61,8 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownMultiLevel()
     {
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE)))) " +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE)))) " +
                         "SELECT a.msg.x, a.msg, b.msg.y FROM t a CROSS JOIN t b",
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
                         strictProject(
@@ -96,14 +97,16 @@ public class TestDereferencePushDown
                                                         new Constant(DOUBLE, 2e0),
                                                         new Constant(DOUBLE, 2e0))))))));
 
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5'",
                 output(ImmutableList.of("a_y"),
                         values("a_y")));
 
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10'",
@@ -126,7 +129,8 @@ public class TestDereferencePushDown
     public void testDereferencePushdownFilter()
     {
         // dereference pushdown + constant folding
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y, b.msg.x " +
                         "FROM t a CROSS JOIN t b " +
                         "WHERE a.msg.x = 7 OR IS_FINITE(b.msg.y)",
@@ -150,7 +154,8 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownWindow()
     {
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT msg.x AS x, ROW_NUMBER() OVER (PARTITION BY msg.y) AS rn " +
                         "FROM t ",
                 anyTree(
@@ -200,7 +205,8 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownSemiJoin()
     {
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0, 3) AS ROW(x BIGINT, y DOUBLE, z BIGINT)))) " +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0, 3) AS ROW(x BIGINT, y DOUBLE, z BIGINT)))) " +
                         "SELECT msg.y " +
                         "FROM t " +
                         "WHERE " +
@@ -209,7 +215,9 @@ public class TestDereferencePushDown
                         .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                         .build(),
                 anyTree(
-                        semiJoin("a_x", "b_z", "semi_join_symbol",
+                        semiJoin("a_x",
+                                "b_z",
+                                "semi_join_symbol",
                                 project(
                                         ImmutableMap.of("a_y", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE, BIGINT), "msg"), 1))),
                                         values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
@@ -219,7 +227,8 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownLimit()
     {
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT msg.x * 3  FROM t limit 1",
                 anyTree(
                         strictProject(ImmutableMap.of("x_into_3", expression(new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "msg_x"), new Constant(BIGINT, 3L))))),
@@ -228,7 +237,8 @@ public class TestDereferencePushDown
                                                 values("msg"))))));
 
         // dereference pushdown + constant folding
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y " +
@@ -248,14 +258,16 @@ public class TestDereferencePushDown
                                                                 new Constant(DOUBLE, 2e0),
                                                                 new Constant(DOUBLE, 2e0)))))))));
 
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5' " +
                         "LIMIT 100",
                 anyTree(limit(100, values("a_y"))));
 
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10' " +
@@ -278,7 +290,8 @@ public class TestDereferencePushDown
     @Test
     public void testDereferencePushdownUnnest()
     {
-        assertPlan("WITH t(msg, array) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE)), ARRAY[1, 2, 3])) " +
+        assertPlan(
+                "WITH t(msg, array) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE)), ARRAY[1, 2, 3])) " +
                         "SELECT a.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "CROSS JOIN UNNEST (a.array) " +

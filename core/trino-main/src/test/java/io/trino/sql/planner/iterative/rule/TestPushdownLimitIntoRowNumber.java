@@ -39,7 +39,8 @@ public class TestPushdownLimitIntoRowNumber
                                         p.symbol("row_number"),
                                         p.values(p.symbol("a")))))
                 .matches(
-                        rowNumber(rowNumber -> rowNumber
+                        rowNumber(
+                                rowNumber -> rowNumber
                                         .partitionBy(ImmutableList.of())
                                         .maxRowCountPerPartition(Optional.of(3)),
                                 values("a")));
@@ -52,12 +53,14 @@ public class TestPushdownLimitIntoRowNumber
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.of(5),
-                                    p.symbol("row_number"), p.values(a)));
+                                    p.symbol("row_number"),
+                                    p.values(a)));
                 })
                 .matches(
                         limit(
                                 3,
-                                rowNumber(rowNumber -> rowNumber
+                                rowNumber(
+                                        rowNumber -> rowNumber
                                                 .partitionBy(ImmutableList.of("a"))
                                                 .maxRowCountPerPartition(Optional.of(3)),
                                         values("a"))));
@@ -70,12 +73,14 @@ public class TestPushdownLimitIntoRowNumber
                             p.rowNumber(
                                     ImmutableList.of(a),
                                     Optional.empty(),
-                                    p.symbol("row_number"), p.values(a)));
+                                    p.symbol("row_number"),
+                                    p.values(a)));
                 })
                 .matches(
                         limit(
                                 3,
-                                rowNumber(rowNumber -> rowNumber
+                                rowNumber(
+                                        rowNumber -> rowNumber
                                                 .partitionBy(ImmutableList.of("a"))
                                                 .maxRowCountPerPartition(Optional.of(3)),
                                         values("a"))));
@@ -88,10 +93,12 @@ public class TestPushdownLimitIntoRowNumber
                             p.rowNumber(
                                     ImmutableList.of(),
                                     Optional.of(3),
-                                    p.symbol("row_number"), p.values(a)));
+                                    p.symbol("row_number"),
+                                    p.values(a)));
                 })
                 .matches(
-                        rowNumber(rowNumber -> rowNumber
+                        rowNumber(
+                                rowNumber -> rowNumber
                                         .partitionBy(ImmutableList.of())
                                         .maxRowCountPerPartition(Optional.of(3)),
                                 values("a")));
@@ -103,8 +110,10 @@ public class TestPushdownLimitIntoRowNumber
         tester().assertThat(new PushdownLimitIntoRowNumber())
                 .on(p ->
                         p.limit(0,
-                                p.rowNumber(ImmutableList.of(), Optional.of(5),
-                                        p.symbol("row_number"), p.values(p.symbol("a")))))
+                                p.rowNumber(ImmutableList.of(),
+                                        Optional.of(5),
+                                        p.symbol("row_number"),
+                                        p.values(p.symbol("a")))))
                 .doesNotFire();
     }
 
@@ -151,10 +160,12 @@ public class TestPushdownLimitIntoRowNumber
                             p.rowNumber(
                                     ImmutableList.of(),
                                     Optional.of(3),
-                                    p.symbol("row_number"), p.values(a)));
+                                    p.symbol("row_number"),
+                                    p.values(a)));
                 })
                 .matches(
-                        rowNumber(rowNumber -> rowNumber
+                        rowNumber(
+                                rowNumber -> rowNumber
                                         .partitionBy(ImmutableList.of())
                                         .maxRowCountPerPartition(Optional.of(3))
                                         .orderSensitive(true),

@@ -61,7 +61,8 @@ public class TestDeleteAndInsertMergeProcessor
         Block[] rowIdBlocks = {
                 makeLongArrayBlock(1, 1), // TransactionId
                 makeLongArrayBlock(1, 0), // rowId
-                makeIntArrayBlock(536870912, 536870912)}; // bucket
+                makeIntArrayBlock(536870912, 536870912), // bucket
+        };
         Block[] mergeCaseBlocks = {
                 makeVarcharArrayBlock(null, "Dave"), // customer
                 new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 11}), // purchases
@@ -108,7 +109,8 @@ public class TestDeleteAndInsertMergeProcessor
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912})}, // bucket
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
+                },
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),
@@ -120,7 +122,8 @@ public class TestDeleteAndInsertMergeProcessor
                         makeByteArrayBlock(1, 0, 1, 1, 1),
                         // operation number: update, insert, delete, update
                         makeByteArrayBlock(UPDATE_OPERATION_NUMBER, INSERT_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_OPERATION_NUMBER, UPDATE_OPERATION_NUMBER),
-                        makeIntArrayBlock(0, 1, 2, 0, 0)});
+                        makeIntArrayBlock(0, 1, 2, 0, 0),
+                });
 
         Page outputPage = processor.transformPage(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(8);
@@ -163,7 +166,8 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
                 new Block[] {
                         new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {2, 0, 1, 2, 2}), // TransactionId
                         new LongArrayBlock(5, Optional.of(rowIdNulls), new long[] {0, 0, 3, 1, 2}), // rowId
-                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912})}, // bucket
+                        new IntArrayBlock(5, Optional.of(rowIdNulls), new int[] {536870912, 0, 536870912, 536870912, 536870912}), // bucket
+                },
                 new Block[] {
                         // customer
                         makeVarcharArrayBlock("Aaron", "Carol", "Dave", "Dave", "Ed"),
@@ -175,7 +179,8 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
                         makeByteArrayBlock(1, 0, 1, 1, 0),
                         // operation number: update, insert, delete, update, update
                         makeByteArrayBlock(3, 1, 2, 3, 3),
-                        makeIntArrayBlock(0, -1, 1, 0, 0)});
+                        makeIntArrayBlock(0, -1, 1, 0, 0),
+                });
 
         Page outputPage = processor.transformPage(inputPage);
         assertThat(outputPage.getPositionCount()).isEqualTo(8);

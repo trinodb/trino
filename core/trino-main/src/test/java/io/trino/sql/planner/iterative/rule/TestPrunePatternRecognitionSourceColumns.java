@@ -51,7 +51,8 @@ public class TestPrunePatternRecognitionSourceColumns
                         .addVariableDefinition(new IrLabel("X"), TRUE)
                         .source(p.values(p.symbol("a")))))
                 .matches(
-                        patternRecognition(builder -> builder
+                        patternRecognition(
+                                builder -> builder
                                         .rowsPerMatch(ONE)
                                         .pattern(new IrLabel("X"))
                                         .addVariableDefinition(new IrLabel("X"), TRUE),

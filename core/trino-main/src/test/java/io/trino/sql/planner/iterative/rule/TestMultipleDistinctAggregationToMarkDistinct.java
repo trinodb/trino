@@ -102,10 +102,12 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("output1"),
-                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")), ImmutableList.of(BIGINT))
+                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")),
+                                ImmutableList.of(BIGINT))
                         .addAggregation(
                                 p.symbol("output2"),
-                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2")), new Symbol(UNKNOWN, "filter2")), ImmutableList.of(BIGINT))
+                                PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2")), new Symbol(UNKNOWN, "filter2")),
+                                ImmutableList.of(BIGINT))
                         .source(
                                 p.project(
                                         Assignments.builder()

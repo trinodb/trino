@@ -44,8 +44,7 @@ public class TestDeterminismEvaluator
     {
         assertThat(DeterminismEvaluator.isDeterministic(function("rand"))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("random"))).isFalse();
-        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(new ArrayType(VARCHAR), null)))
-        )).isFalse();
+        assertThat(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new Constant(new ArrayType(VARCHAR), null))))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("uuid"))).isFalse();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol"))))).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))))).isFalse();
@@ -53,20 +52,17 @@ public class TestDeterminismEvaluator
                 function(
                         "abs",
                         ImmutableList.of(DOUBLE),
-                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol")))))
-        )).isTrue();
+                        ImmutableList.of(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(new Reference(DOUBLE, "symbol"))))))).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L)))))
-        )).isTrue();
+                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 0L))))))).isTrue();
         assertThat(DeterminismEvaluator.isDeterministic(
                 function(
                         "filter",
                         ImmutableList.of(new ArrayType(INTEGER), new FunctionType(ImmutableList.of(INTEGER), BOOLEAN)),
-                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 0L)))))
-        )).isFalse();
+                        ImmutableList.of(new Constant(new ArrayType(INTEGER), null), lambda(new Symbol(INTEGER, "a"), comparison(GREATER_THAN, function("rand", ImmutableList.of(INTEGER), ImmutableList.of(new Reference(INTEGER, "a"))), new Constant(INTEGER, 0L))))))).isFalse();
     }
 
     private Call function(String name)

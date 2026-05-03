@@ -342,7 +342,8 @@ public class TestEffectivePredicateExtractor
                                 equals(new Reference(DOUBLE, "b"), new Reference(DOUBLE, "c")),
                                 lessThan(new Reference(BIGINT, "c"), bigintLiteral(10)))),
                 1,
-                new OrderingScheme(ImmutableList.of(new Symbol(BIGINT, "a")), ImmutableMap.of(new Symbol(BIGINT, "a"), SortOrder.ASC_NULLS_LAST)), TopNNode.Step.PARTIAL);
+                new OrderingScheme(ImmutableList.of(new Symbol(BIGINT, "a")), ImmutableMap.of(new Symbol(BIGINT, "a"), SortOrder.ASC_NULLS_LAST)),
+                TopNNode.Step.PARTIAL);
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
 
@@ -535,8 +536,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3)))))
-        )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
+                                new Row(ImmutableList.of(bigintLiteral(3))))))).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
 
         // one column with null
         assertThat(effectivePredicateExtractor.extract(
@@ -581,8 +581,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
-                        rows)
-        )).isEqualTo(new Between(new Reference(BIGINT, "a"), bigintLiteral(0), bigintLiteral(499)));
+                        rows))).isEqualTo(new Between(new Reference(BIGINT, "a"), bigintLiteral(0), bigintLiteral(499)));
 
         // NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -590,8 +589,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
-                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
+                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
@@ -601,8 +599,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(new Constant(DOUBLE, null))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(TRUE);
+                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(TRUE);
 
         // NaN and value
         assertThat(effectivePredicateExtractor.extract(
@@ -612,8 +609,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(DOUBLE, "x")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
+                                new Row(ImmutableList.of(doubleLiteral(Double.NaN))))))).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -645,8 +641,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
-                                new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200)))))
-        )).isEqualTo(and(
+                                new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200))))))).isEqualTo(and(
                 or(new IsNull(new Reference(BIGINT, "a")), new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1))),
                 or(new IsNull(new Reference(BIGINT, "b")), new Comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)))));
 
@@ -666,8 +661,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(new Reference(BIGINT, "b")))))
-        )).isEqualTo(TRUE);
+                                new Row(ImmutableList.of(new Reference(BIGINT, "b"))))))).isEqualTo(TRUE);
 
         // non-comparable and non-orderable
         assertThat(effectivePredicateExtractor.extract(
@@ -677,8 +671,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BOGUS, "g")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(2)))))
-        )).isEqualTo(TRUE);
+                                new Row(ImmutableList.of(bigintLiteral(2))))))).isEqualTo(TRUE);
     }
 
     private Expression extract(PlanNode node)
@@ -1009,7 +1002,9 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 filter(baseTableScan, and(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10)), lessThan(new Reference(BIGINT, "a"), bigintLiteral(100)))),
                 filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(5))),
-                new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"),
+                new Symbol(BIGINT, "a"),
+                new Symbol(BIGINT, "b"),
+                new Symbol(DOUBLE, "c"),
                 Optional.empty(),
                 Optional.empty());
 
