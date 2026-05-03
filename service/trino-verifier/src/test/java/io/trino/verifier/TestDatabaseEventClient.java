@@ -117,7 +117,8 @@ public class TestDatabaseEventClient
 
     private static String getJdbcUrl(MySQLContainer container)
     {
-        return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
+        return format(
+                "%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),
                 container.getUsername(),
                 container.getPassword());

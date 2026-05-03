@@ -35,9 +35,12 @@ class TestPluginReader
                 .setErr(new PrintWriter(writer));
 
         int exitCode = cmd.execute(
-                "--impacted-modules", "src/test/resources/gib-impacted.log",
-                "--plugin-dir", "src/test/resources/server-plugins",
-                "--root-pom", "src/test/resources/pom.xml");
+                "--impacted-modules",
+                "src/test/resources/gib-impacted.log",
+                "--plugin-dir",
+                "src/test/resources/server-plugins",
+                "--root-pom",
+                "src/test/resources/pom.xml");
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
     }
@@ -52,10 +55,14 @@ class TestPluginReader
                 .setErr(new PrintWriter(writer));
 
         int exitCode = cmd.execute(
-                "--impacted-modules", "src/test/resources/gib-impacted.log",
-                "--plugin-dir", "src/test/resources/server-plugins",
-                "--plugin-dir", tempDir.toString(),
-                "--root-pom", "src/test/resources/pom.xml");
+                "--impacted-modules",
+                "src/test/resources/gib-impacted.log",
+                "--plugin-dir",
+                "src/test/resources/server-plugins",
+                "--plugin-dir",
+                tempDir.toString(),
+                "--root-pom",
+                "src/test/resources/pom.xml");
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
     }

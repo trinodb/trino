@@ -89,10 +89,14 @@ public class EnvSinglenodeSparkHive
                         "/spark/conf/spark-defaults.conf")
                 .withCommand(
                         "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
+                        "--master",
+                        "local[*]",
+                        "--class",
+                        "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
+                        "--name",
+                        "Thrift JDBC/ODBC Server",
+                        "--conf",
+                        "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                         "spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));

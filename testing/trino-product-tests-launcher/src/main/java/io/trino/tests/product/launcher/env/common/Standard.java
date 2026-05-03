@@ -310,10 +310,10 @@ public final class Standard
                     script,
                     format(
                             "#!/bin/bash\n" +
-                            "ipv6=$(hostname -I | awk '{print $2}')\n" +
-                            "IPv6 address of the node: ${ipv6}\n" +
-                            "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
-                            "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
+                                    "ipv6=$(hostname -I | awk '{print $2}')\n" +
+                                    "IPv6 address of the node: ${ipv6}\n" +
+                                    "echo '-Djava.net.preferIPv6Addresses=true' >> '%s'\n" +
+                                    "echo \"node.internal-address=${ipv6}\" >> '%s'\n",
                             CONTAINER_TRINO_JVM_CONFIG,
                             CONTAINER_TRINO_CONFIG_PROPERTIES),
                     UTF_8);
