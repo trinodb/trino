@@ -39,7 +39,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestInlineProjectIntoFilter
         extends BaseRuleTest
-
 {
     @Test
     public void testInlineProjection()
@@ -125,8 +124,10 @@ public class TestInlineProjectIntoFilter
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b"))),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
-                                        p.symbol("b", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                        p.symbol("a", BOOLEAN),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b", BOOLEAN),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
                                 p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(
@@ -145,8 +146,10 @@ public class TestInlineProjectIntoFilter
                         new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b"))),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("a", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
-                                        p.symbol("b", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
+                                        p.symbol("a", BOOLEAN),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 0L)),
+                                        p.symbol("b", BOOLEAN),
+                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "c"), new Constant(INTEGER, 5L))),
                                 p.values(p.symbol("c", INTEGER)))))
                 .matches(
                         project(

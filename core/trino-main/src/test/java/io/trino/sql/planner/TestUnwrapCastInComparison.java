@@ -457,7 +457,8 @@ public class TestUnwrapCastInComparison
     {
         // ensure the optimization works when the terms of the comparison are reversed
         // vs the canonical <expr> <op> <literal> form
-        assertPlan("SELECT * FROM (VALUES REAL '1') t(a) WHERE DOUBLE '1' = a",
+        assertPlan(
+                "SELECT * FROM (VALUES REAL '1') t(a) WHERE DOUBLE '1' = a",
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
                         .build(),

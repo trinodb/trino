@@ -51,8 +51,7 @@ public class TestPruneAggregationColumns
                                 aggregation(
                                         singleGroupingSet("key"),
                                         ImmutableMap.of(
-                                                Optional.of("b"),
-                                                aggregationFunction("count", false, ImmutableList.of())),
+                                                Optional.of("b"), aggregationFunction("count", false, ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
                                         values("key"))));

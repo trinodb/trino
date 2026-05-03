@@ -50,32 +50,32 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT first, last
-                 FROM (SELECT '{"a" : [1, 2, 3], "b" : [4, 5, 6]}') t(json_col), JSON_TABLE(
-                     json_col,
-                     'lax $.a'
-                     COLUMNS(
-                         first bigint PATH 'lax $[0]',
-                         last bigint PATH 'lax $[last]'))
+                SELECT first, last
+                FROM (SELECT '{"a" : [1, 2, 3], "b" : [4, 5, 6]}') t(json_col), JSON_TABLE(
+                    json_col,
+                    'lax $.a'
+                    COLUMNS(
+                        first bigint PATH 'lax $[0]',
+                        last bigint PATH 'lax $[last]'))
                 """))
                 .matches("VALUES (BIGINT '1', BIGINT '3')");
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM
-                     (SELECT '{"a" : {"b" : [1, 2, 3], "c" : [[4, 5, 6], [7, 8, 9]]}}') t(json_col),
-                     JSON_TABLE(
-                         json_col,
-                         'lax $.a' AS "path_a"
-                         COLUMNS(
-                             NESTED PATH 'lax $.b[*]' AS "path_b"
-                                     COLUMNS (c1 integer PATH 'lax $ * 10'),
-                             NESTED PATH 'lax $.c' AS "path_c"
-                                     COLUMNS (
-                                         NESTED PATH 'lax $[0][*]' AS "path_d" COLUMNS (c2 integer PATH 'lax $ * 100'),
-                                         NESTED PATH 'lax $[last][*]' AS "path_e" COLUMNS (c3 integer PATH 'lax $ * 1000')))
-                         PLAN ("path_a" OUTER ("path_b" UNION ("path_c" INNER ("path_d" CROSS "path_e")))))
+                SELECT *
+                FROM
+                    (SELECT '{"a" : {"b" : [1, 2, 3], "c" : [[4, 5, 6], [7, 8, 9]]}}') t(json_col),
+                    JSON_TABLE(
+                        json_col,
+                        'lax $.a' AS "path_a"
+                        COLUMNS(
+                            NESTED PATH 'lax $.b[*]' AS "path_b"
+                                    COLUMNS (c1 integer PATH 'lax $ * 10'),
+                            NESTED PATH 'lax $.c' AS "path_c"
+                                    COLUMNS (
+                                        NESTED PATH 'lax $[0][*]' AS "path_d" COLUMNS (c2 integer PATH 'lax $ * 100'),
+                                        NESTED PATH 'lax $[last][*]' AS "path_e" COLUMNS (c3 integer PATH 'lax $ * 1000')))
+                        PLAN ("path_a" OUTER ("path_b" UNION ("path_c" INNER ("path_d" CROSS "path_e")))))
                 """))
                 .matches(
                         """
@@ -101,24 +101,24 @@ public class TestJsonTable
         // subqueries are supported in the context item and path parameter value
         assertThat(assertions.query(
                 """
-                 SELECT empty_default, error_default
-                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
-                     (SELECT json_col),
-                     'lax $[$index]' PASSING (SELECT 0) AS "index"
-                     COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT -42 ON EMPTY,
-                         error_default bigint PATH 'strict $[42]' DEFAULT 42 ON ERROR))
+                SELECT empty_default, error_default
+                FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
+                    (SELECT json_col),
+                    'lax $[$index]' PASSING (SELECT 0) AS "index"
+                    COLUMNS(
+                        empty_default bigint PATH 'lax $[-42]' DEFAULT -42 ON EMPTY,
+                        error_default bigint PATH 'strict $[42]' DEFAULT 42 ON ERROR))
                 """))
                 .matches("VALUES (BIGINT '-42', BIGINT '42')");
 
         assertThat(assertions.query(
                 """
-                 SELECT empty_default
-                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
-                     (SELECT json_col),
-                     'lax $[$index]' PASSING (SELECT 0) AS "index"
-                     COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY))
+                SELECT empty_default
+                FROM (SELECT '[[1, 2, 3], [4, 5, 6]]') t(json_col), JSON_TABLE(
+                    (SELECT json_col),
+                    'lax $[$index]' PASSING (SELECT 0) AS "index"
+                    COLUMNS(
+                        empty_default bigint PATH 'lax $[-42]' DEFAULT (SELECT -42) ON EMPTY))
                 """))
                 .failure()
                 .hasErrorCode(UNSUPPORTED_SUBQUERY)
@@ -131,14 +131,14 @@ public class TestJsonTable
         // test correlation in: context item, value of path parameter "index", empty default, error default
         assertThat(assertions.query(
                 """
-                 SELECT empty_default, error_default
-                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]', 0, -42, 42) t(json_col, index_col, empty_default_col, error_default_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $[$index]' PASSING index_col AS "index"
-                     COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT empty_default_col ON EMPTY,
-                         error_default bigint PATH 'strict $[42]' DEFAULT error_default_col ON ERROR))
+                SELECT empty_default, error_default
+                FROM (SELECT '[[1, 2, 3], [4, 5, 6]]', 0, -42, 42) t(json_col, index_col, empty_default_col, error_default_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $[$index]' PASSING index_col AS "index"
+                    COLUMNS(
+                        empty_default bigint PATH 'lax $[-42]' DEFAULT empty_default_col ON EMPTY,
+                        error_default bigint PATH 'strict $[42]' DEFAULT error_default_col ON ERROR))
                 """))
                 .matches("VALUES (BIGINT '-42', BIGINT '42')");
     }
@@ -170,38 +170,38 @@ public class TestJsonTable
         // first the columns from the left side of the join (json_col, index_col, empty_default_col, error_default_col), next the json_table columns (empty_default, error_default)
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (SELECT '[[1, 2, 3], [4, 5, 6]]', 0, -42, 42) t(json_col, index_col, empty_default_col, error_default_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $[$index]' PASSING index_col AS "index"
-                     COLUMNS(
-                         empty_default bigint PATH 'lax $[-42]' DEFAULT empty_default_col * 2 ON EMPTY,
-                         error_default bigint PATH 'strict $[42]' DEFAULT error_default_col * 2 ON ERROR))
+                SELECT *
+                FROM (SELECT '[[1, 2, 3], [4, 5, 6]]', 0, -42, 42) t(json_col, index_col, empty_default_col, error_default_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $[$index]' PASSING index_col AS "index"
+                    COLUMNS(
+                        empty_default bigint PATH 'lax $[-42]' DEFAULT empty_default_col * 2 ON EMPTY,
+                        error_default bigint PATH 'strict $[42]' DEFAULT error_default_col * 2 ON ERROR))
                 """))
                 .matches("VALUES ('[[1, 2, 3], [4, 5, 6]]', 0, -42, 42, BIGINT '-84', BIGINT '84')");
 
         // json_table columns in order of declaration
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[]',
-                        'lax $' AS "p"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $' AS "p1"
-                                    COLUMNS (
-                                        b varchar(1) PATH 'lax "B"',
-                                        NESTED PATH 'lax $' AS "p2 "COLUMNS (
-                                                                c varchar(1) PATH 'lax "C"',
-                                                                d varchar(1) PATH 'lax "D"'),
-                                        e varchar(1) PATH 'lax "E"'),
-                            f varchar(1) PATH 'lax "F"',
-                            NESTED PATH 'lax $' AS "p3"
-                                     COLUMNS (g varchar(1) PATH 'lax "G"'),
-                            h varchar(1) PATH 'lax "H"')
-                        PLAN DEFAULT (CROSS))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[]',
+                       'lax $' AS "p"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $' AS "p1"
+                                   COLUMNS (
+                                       b varchar(1) PATH 'lax "B"',
+                                       NESTED PATH 'lax $' AS "p2 "COLUMNS (
+                                                               c varchar(1) PATH 'lax "C"',
+                                                               d varchar(1) PATH 'lax "D"'),
+                                       e varchar(1) PATH 'lax "E"'),
+                           f varchar(1) PATH 'lax "F"',
+                           NESTED PATH 'lax $' AS "p3"
+                                    COLUMNS (g varchar(1) PATH 'lax "G"'),
+                           h varchar(1) PATH 'lax "H"')
+                       PLAN DEFAULT (CROSS))
                 """))
                 .matches("VALUES ('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H')");
     }
@@ -212,12 +212,12 @@ public class TestJsonTable
         // implicit CROSS join
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (VALUES ('[1, 2, 3]'), ('[4, 5, 6, 7, 8]')) t(json_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $[4]'
-                     COLUMNS(a integer PATH 'lax $'))
+                SELECT *
+                FROM (VALUES ('[1, 2, 3]'), ('[4, 5, 6, 7, 8]')) t(json_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $[4]'
+                    COLUMNS(a integer PATH 'lax $'))
                 """))
                 .matches("VALUES ('[4, 5, 6, 7, 8]', 8)");
 
@@ -288,47 +288,47 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path"
-                                    COLUMNS (b varchar(1) PATH 'lax "B"'))
-                        PLAN ("root_path" OUTER "nested_path"))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path"
+                                   COLUMNS (b varchar(1) PATH 'lax "B"'))
+                       PLAN ("root_path" OUTER "nested_path"))
                 """))
                 .matches("VALUES ('A', CAST(null AS varchar(1)))");
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path"
-                                    COLUMNS (b varchar(1) PATH 'lax "B"'))
-                        PLAN ("root_path" INNER "nested_path"))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path"
+                                   COLUMNS (b varchar(1) PATH 'lax "B"'))
+                       PLAN ("root_path" INNER "nested_path"))
                 """))
                 .returnsEmptyResult();
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[[], [1]]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (
-                                        b varchar(1) PATH 'lax "B"',
-                                        NESTED PATH 'lax $[*]' AS "nested_path_2"
-                                                COLUMNS(
-                                                    c varchar(1) PATH 'lax "C"')))
-                        PLAN ("root_path" OUTER ("nested_path_1" OUTER "nested_path_2")))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[[], [1]]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (
+                                       b varchar(1) PATH 'lax "B"',
+                                       NESTED PATH 'lax $[*]' AS "nested_path_2"
+                                               COLUMNS(
+                                                   c varchar(1) PATH 'lax "C"')))
+                       PLAN ("root_path" OUTER ("nested_path_1" OUTER "nested_path_2")))
                 """))
                 .matches(
                         """
@@ -339,38 +339,38 @@ public class TestJsonTable
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[[], [1]]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (
-                                        b varchar(1) PATH 'lax "B"',
-                                        NESTED PATH 'lax $[*]' AS "nested_path_2"
-                                                COLUMNS(
-                                                    c varchar(1) PATH 'lax "C"')))
-                        PLAN ("root_path" OUTER ("nested_path_1" INNER "nested_path_2")))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[[], [1]]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (
+                                       b varchar(1) PATH 'lax "B"',
+                                       NESTED PATH 'lax $[*]' AS "nested_path_2"
+                                               COLUMNS(
+                                                   c varchar(1) PATH 'lax "C"')))
+                       PLAN ("root_path" OUTER ("nested_path_1" INNER "nested_path_2")))
                 """))
                 .matches("VALUES ('A', 'B', 'C')");
 
         // intermediately nested path returns empty sequence
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (
-                                        b varchar(1) PATH 'lax "B"',
-                                        NESTED PATH 'lax $' AS "nested_path_2"
-                                                COLUMNS(
-                                                    c varchar(1) PATH 'lax "C"')))
-                        PLAN ("root_path" OUTER ("nested_path_1" INNER "nested_path_2")))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (
+                                       b varchar(1) PATH 'lax "B"',
+                                       NESTED PATH 'lax $' AS "nested_path_2"
+                                               COLUMNS(
+                                                   c varchar(1) PATH 'lax "C"')))
+                       PLAN ("root_path" OUTER ("nested_path_1" INNER "nested_path_2")))
                 """))
                 .matches("VALUES ('A', CAST(null AS varchar(1)), CAST(null AS varchar(1)))");
     }
@@ -381,19 +381,19 @@ public class TestJsonTable
         // each sibling produces 1 row
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $' AS "nested_path_b"
-                                    COLUMNS (b varchar(1) PATH 'lax "B"'),
-                            NESTED PATH 'lax $' AS "nested_path_c"
-                                    COLUMNS (c varchar(1) PATH 'lax "C"'),
-                            NESTED PATH 'lax $' AS "nested_path_d"
-                                    COLUMNS (d varchar(1) PATH 'lax "D"'))
-                        PLAN ("root_path" INNER ("nested_path_c" UNION ("nested_path_d" CROSS "nested_path_b"))))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $' AS "nested_path_b"
+                                   COLUMNS (b varchar(1) PATH 'lax "B"'),
+                           NESTED PATH 'lax $' AS "nested_path_c"
+                                   COLUMNS (c varchar(1) PATH 'lax "C"'),
+                           NESTED PATH 'lax $' AS "nested_path_d"
+                                   COLUMNS (d varchar(1) PATH 'lax "D"'))
+                       PLAN ("root_path" INNER ("nested_path_c" UNION ("nested_path_d" CROSS "nested_path_b"))))
                 """))
                 .matches(
                         """
@@ -405,19 +405,19 @@ public class TestJsonTable
         // each sibling produces 2 rows
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[10, 1000]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (b integer PATH 'lax $ * 1'),
-                            NESTED PATH 'lax $[*]' AS "nested_path_2"
-                                    COLUMNS (c integer PATH 'lax $ * 2'),
-                            NESTED PATH 'lax $[*]' AS "nested_path_3"
-                                    COLUMNS (d integer PATH 'lax $ * 3'))
-                        PLAN ("root_path" INNER ("nested_path_2" UNION ("nested_path_3" CROSS "nested_path_1"))))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[10, 1000]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (b integer PATH 'lax $ * 1'),
+                           NESTED PATH 'lax $[*]' AS "nested_path_2"
+                                   COLUMNS (c integer PATH 'lax $ * 2'),
+                           NESTED PATH 'lax $[*]' AS "nested_path_3"
+                                   COLUMNS (d integer PATH 'lax $ * 3'))
+                       PLAN ("root_path" INNER ("nested_path_2" UNION ("nested_path_3" CROSS "nested_path_1"))))
                 """))
                 .matches(
                         """
@@ -433,34 +433,34 @@ public class TestJsonTable
         // one sibling produces empty result -- CROSS result is empty
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[10, 1000]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (b integer PATH 'lax $ * 1'),
-                            NESTED PATH 'lax $[42]' AS "nested_path_2"
-                                    COLUMNS (c integer PATH 'lax $ * 2'))
-                        PLAN ("root_path" INNER ("nested_path_1" CROSS "nested_path_2")))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[10, 1000]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (b integer PATH 'lax $ * 1'),
+                           NESTED PATH 'lax $[42]' AS "nested_path_2"
+                                   COLUMNS (c integer PATH 'lax $ * 2'))
+                       PLAN ("root_path" INNER ("nested_path_1" CROSS "nested_path_2")))
                 """))
                 .returnsEmptyResult();
 
         // one sibling produces empty result -- UNION result contains the other sibling's result
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[10, 1000]',
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            a varchar(1) PATH 'lax "A"',
-                            NESTED PATH 'lax $[*]' AS "nested_path_1"
-                                    COLUMNS (b integer PATH 'lax $ * 1'),
-                            NESTED PATH 'lax $[42]' AS "nested_path_2"
-                                    COLUMNS (c integer PATH 'lax $ * 2'))
-                        PLAN ("root_path" INNER ("nested_path_1" UNION "nested_path_2")))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[10, 1000]',
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           a varchar(1) PATH 'lax "A"',
+                           NESTED PATH 'lax $[*]' AS "nested_path_1"
+                                   COLUMNS (b integer PATH 'lax $ * 1'),
+                           NESTED PATH 'lax $[42]' AS "nested_path_2"
+                                   COLUMNS (c integer PATH 'lax $ * 2'))
+                       PLAN ("root_path" INNER ("nested_path_1" UNION "nested_path_2")))
                 """))
                 .matches(
                         """
@@ -475,24 +475,24 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '{"A" : 42, "b" : true}',
-                     'lax $'
-                     COLUMNS(
-                        a integer,
-                        "b" boolean))
+                SELECT *
+                FROM JSON_TABLE(
+                    '{"A" : 42, "b" : true}',
+                    'lax $'
+                    COLUMNS(
+                       a integer,
+                       "b" boolean))
                 """))
                 .matches("VALUES (42, true)");
 
         // the implicit column path is 'lax $.C'. It produces empty sequence, so the ON EMPTY clause determines the result
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '{"A" : 42, "b" : true}',
-                     'lax $'
-                     COLUMNS(c varchar (5) DEFAULT 'empty' ON EMPTY DEFAULT 'error' ON ERROR))
+                SELECT *
+                FROM JSON_TABLE(
+                    '{"A" : 42, "b" : true}',
+                    'lax $'
+                    COLUMNS(c varchar (5) DEFAULT 'empty' ON EMPTY DEFAULT 'error' ON ERROR))
                 """))
                 .matches("VALUES 'empty'");
     }
@@ -503,35 +503,35 @@ public class TestJsonTable
         // error during root path evaluation handled according to top level EMPTY ON ERROR clause
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'strict $[42]'
-                     COLUMNS(a integer PATH 'lax 1')
-                     EMPTY ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'strict $[42]'
+                    COLUMNS(a integer PATH 'lax 1')
+                    EMPTY ON ERROR)
                 """))
                 .returnsEmptyResult();
 
         // error during root path evaluation handled according to top level ON ERROR clause which defaults to EMPTY ON ERROR
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'strict $[42]'
-                     COLUMNS(a integer PATH 'lax 1'))
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'strict $[42]'
+                    COLUMNS(a integer PATH 'lax 1'))
                 """))
                 .returnsEmptyResult();
 
         // error during root path evaluation handled according to top level ERROR ON ERROR clause
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'strict $[42]'
-                     COLUMNS(a integer PATH 'lax 1')
-                     ERROR ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'strict $[42]'
+                    COLUMNS(a integer PATH 'lax 1')
+                    ERROR ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -544,47 +544,47 @@ public class TestJsonTable
         // error during nested path evaluation handled according to top level EMPTY ON ERROR clause
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $' AS "root_path"
-                     COLUMNS(
-                        a integer PATH 'lax 1',
-                        NESTED PATH 'strict $[42]' AS "nested_path"
-                            COLUMNS(b integer PATH 'lax 2'))
-                     PLAN DEFAULT(INNER)
-                     EMPTY ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $' AS "root_path"
+                    COLUMNS(
+                       a integer PATH 'lax 1',
+                       NESTED PATH 'strict $[42]' AS "nested_path"
+                           COLUMNS(b integer PATH 'lax 2'))
+                    PLAN DEFAULT(INNER)
+                    EMPTY ON ERROR)
                 """))
                 .returnsEmptyResult();
 
         // error during nested path evaluation handled according to top level ON ERROR clause which defaults to EMPTY ON ERROR
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $' AS "root_path"
-                     COLUMNS(
-                        a integer PATH 'lax 1',
-                        NESTED PATH 'strict $[42]' AS "nested_path"
-                            COLUMNS(b integer PATH 'lax 2'))
-                     PLAN DEFAULT(INNER))
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $' AS "root_path"
+                    COLUMNS(
+                       a integer PATH 'lax 1',
+                       NESTED PATH 'strict $[42]' AS "nested_path"
+                           COLUMNS(b integer PATH 'lax 2'))
+                    PLAN DEFAULT(INNER))
                 """))
                 .returnsEmptyResult();
 
         // error during nested path evaluation handled according to top level ERROR ON ERROR clause
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $' AS "root_path"
-                     COLUMNS(
-                        a integer PATH 'lax 1',
-                        NESTED PATH 'strict $[42]' AS "nested_path"
-                            COLUMNS(b integer PATH 'lax 2'))
-                     PLAN DEFAULT(INNER)
-                     ERROR ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $' AS "root_path"
+                    COLUMNS(
+                       a integer PATH 'lax 1',
+                       NESTED PATH 'strict $[42]' AS "nested_path"
+                           COLUMNS(b integer PATH 'lax 2'))
+                    PLAN DEFAULT(INNER)
+                    ERROR ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -597,12 +597,12 @@ public class TestJsonTable
         // error during column path evaluation handled according to column's ERROR ON ERROR clause
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'strict $[42]' ERROR ON ERROR)
-                     EMPTY ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'strict $[42]' ERROR ON ERROR)
+                    EMPTY ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -611,24 +611,24 @@ public class TestJsonTable
         // error during column path evaluation handled according to column's ON ERROR clause which defaults to NULL ON ERROR
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'strict $[42]')
-                     EMPTY ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'strict $[42]')
+                    EMPTY ON ERROR)
                 """))
                 .matches("VALUES CAST(null as integer)");
 
         // error during column path evaluation handled according to column's ON ERROR clause which defaults to ERROR ON ERROR because the top level error behavior is ERROR ON ERROR
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     '[]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'strict $[42]')
-                     ERROR ON ERROR)
+                SELECT *
+                FROM JSON_TABLE(
+                    '[]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'strict $[42]')
+                    ERROR ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -640,12 +640,12 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (SELECT '[]' WHERE rand() > 1) t(json_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax 1'))
+                SELECT *
+                FROM (SELECT '[]' WHERE rand() > 1) t(json_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax 1'))
                 """))
                 .returnsEmptyResult();
     }
@@ -656,46 +656,46 @@ public class TestJsonTable
         // if input is null, json_table returns empty result
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     CAST (null AS varchar),
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax 1'))
+                SELECT *
+                FROM JSON_TABLE(
+                    CAST (null AS varchar),
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax 1'))
                 """))
                 .returnsEmptyResult();
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (VALUES (CAST(null AS varchar)), (CAST(null AS varchar)), (CAST(null AS varchar))) t(json_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax 1'))
+                SELECT *
+                FROM (VALUES (CAST(null AS varchar)), (CAST(null AS varchar)), (CAST(null AS varchar))) t(json_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax 1'))
                 """))
                 .returnsEmptyResult();
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (VALUES (CAST(null AS varchar)), (CAST(null AS varchar)), (CAST(null AS varchar))) t(json_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $'
-                     COLUMNS(
-                        NESTED PATH 'lax $'
-                            COLUMNS(a integer PATH 'lax 1')))
+                SELECT *
+                FROM (VALUES (CAST(null AS varchar)), (CAST(null AS varchar)), (CAST(null AS varchar))) t(json_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $'
+                    COLUMNS(
+                       NESTED PATH 'lax $'
+                           COLUMNS(a integer PATH 'lax 1')))
                 """))
                 .returnsEmptyResult();
 
         // null as formatted input evaluates to empty sequence. json_table returns empty result
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                     CAST (null AS varchar) FORMAT JSON,
-                     'lax $'
-                     COLUMNS(a varchar FORMAT JSON PATH 'lax $'))
+                SELECT *
+                FROM JSON_TABLE(
+                    CAST (null AS varchar) FORMAT JSON,
+                    'lax $'
+                    COLUMNS(a varchar FORMAT JSON PATH 'lax $'))
                 """))
                 .returnsEmptyResult();
     }
@@ -706,13 +706,13 @@ public class TestJsonTable
         // null as SQL-value parameter "index" is evaluated to a JSON null, and causes type mismatch
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (SELECT '[1, 2, 3]', CAST(null AS integer)) t(json_col, index_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $[$index]' PASSING index_col AS "index"
-                     COLUMNS(a integer PATH 'lax 1')
-                     ERROR ON ERROR)
+                SELECT *
+                FROM (SELECT '[1, 2, 3]', CAST(null AS integer)) t(json_col, index_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $[$index]' PASSING index_col AS "index"
+                    COLUMNS(a integer PATH 'lax 1')
+                    ERROR ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -721,13 +721,13 @@ public class TestJsonTable
         // null as JSON (formatted) parameter "index" evaluates to empty sequence, and causes type mismatch
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (SELECT '[1, 2, 3]', CAST(null AS varchar)) t(json_col, index_col),
-                 JSON_TABLE(
-                     json_col,
-                     'lax $[$index]' PASSING index_col FORMAT JSON AS "index"
-                     COLUMNS(a integer PATH 'lax 1')
-                     ERROR ON ERROR)
+                SELECT *
+                FROM (SELECT '[1, 2, 3]', CAST(null AS varchar)) t(json_col, index_col),
+                JSON_TABLE(
+                    json_col,
+                    'lax $[$index]' PASSING index_col FORMAT JSON AS "index"
+                    COLUMNS(a integer PATH 'lax 1')
+                    ERROR ON ERROR)
                 """))
                 .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
@@ -739,23 +739,23 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT a
-                 FROM (SELECT null) t(empty_default),
-                 JSON_TABLE(
-                     '[1, 2, 3]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax $[42]' DEFAULT empty_default ON EMPTY DEFAULT -1 ON ERROR))
+                SELECT a
+                FROM (SELECT null) t(empty_default),
+                JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax $[42]' DEFAULT empty_default ON EMPTY DEFAULT -1 ON ERROR))
                 """))
                 .matches("VALUES CAST(null AS integer)");
 
         assertThat(assertions.query(
                 """
-                 SELECT a
-                 FROM (SELECT null) t(error_default),
-                 JSON_TABLE(
-                     '[1, 2, 3]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'strict $[42]' DEFAULT -1 ON EMPTY DEFAULT error_default ON ERROR))
+                SELECT a
+                FROM (SELECT null) t(error_default),
+                JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'strict $[42]' DEFAULT -1 ON EMPTY DEFAULT error_default ON ERROR))
                 """))
                 .matches("VALUES CAST(null AS integer)");
     }
@@ -765,23 +765,23 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT a
-                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
-                 JSON_TABLE(
-                     '[1, 2, 3]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax $[0]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                SELECT a
+                FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax $[0]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
                 """))
                 .matches("VALUES 1");
 
         assertThat(assertions.query(
                 """
-                 SELECT a
-                 FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
-                 JSON_TABLE(
-                     '[1, 2, 3]',
-                     'lax $'
-                     COLUMNS(a integer PATH 'lax $[42]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
+                SELECT a
+                FROM (SELECT CAST(x AS integer) - CAST(x AS integer) AS divisor FROM UNNEST(sequence(1, 1)) u(x)) t,
+                JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(a integer PATH 'lax $[42]' DEFAULT 1 / divisor ON EMPTY ERROR ON ERROR))
                 """))
                 .failure()
                 .hasErrorCode(DIVISION_BY_ZERO);
@@ -793,55 +793,55 @@ public class TestJsonTable
         // returned value cast to declared type
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[1, 2, 3]',
-                        'lax $'
-                        COLUMNS(a real PATH 'lax $[last]'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[1, 2, 3]',
+                       'lax $'
+                       COLUMNS(a real PATH 'lax $[last]'))
                 """))
                 .matches("VALUES REAL '3'");
 
         // default value cast to declared type
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[1, 2, 3]',
-                        'lax $'
-                        COLUMNS(a real PATH 'lax $[42]' DEFAULT 42 ON EMPTY))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[1, 2, 3]',
+                       'lax $'
+                       COLUMNS(a real PATH 'lax $[42]' DEFAULT 42 ON EMPTY))
                 """))
                 .matches("VALUES REAL '42'");
 
         // default ON EMPTY value is null. It is cast to declared type
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[1, 2, 3]',
-                        'lax $'
-                        COLUMNS(a real PATH 'lax $[42]'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[1, 2, 3]',
+                       'lax $'
+                       COLUMNS(a real PATH 'lax $[42]'))
                 """))
                 .matches("VALUES CAST(null AS REAL)");
 
         // default value cast to declared type
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[1, 2, 3]',
-                        'lax $'
-                        COLUMNS(a real PATH 'strict $[42]' DEFAULT 42 ON ERROR))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[1, 2, 3]',
+                       'lax $'
+                       COLUMNS(a real PATH 'strict $[42]' DEFAULT 42 ON ERROR))
                 """))
                 .matches("VALUES REAL '42'");
 
         // default ON ERROR value is null. It is cast to declared type
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[1, 2, 3]',
-                        'lax $'
-                        COLUMNS(a real PATH 'strict $[42]'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[1, 2, 3]',
+                       'lax $'
+                       COLUMNS(a real PATH 'strict $[42]'))
                 """))
                 .matches("VALUES CAST(null AS REAL)");
     }
@@ -851,53 +851,53 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[{"a" : true}]',
-                        'lax $'
-                        COLUMNS(a varchar(50) FORMAT JSON PATH 'lax $[0]'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[{"a" : true}]',
+                       'lax $'
+                       COLUMNS(a varchar(50) FORMAT JSON PATH 'lax $[0]'))
                 """))
                 .matches("VALUES CAST('{\"a\":true}' AS VARCHAR(50))");
 
         String varbinaryLiteral = "X'" + base16().encode("{\"a\":true}".getBytes(UTF_16LE)) + "'";
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[{"a" : true}]',
-                        'lax $'
-                        COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[0]'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[{"a" : true}]',
+                       'lax $'
+                       COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[0]'))
                 """))
                 .matches("VALUES " + varbinaryLiteral);
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[{"a" : true}]',
-                        'lax $'
-                        COLUMNS(a char(50) FORMAT JSON PATH 'lax $[42]' EMPTY OBJECT ON EMPTY))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[{"a" : true}]',
+                       'lax $'
+                       COLUMNS(a char(50) FORMAT JSON PATH 'lax $[42]' EMPTY OBJECT ON EMPTY))
                 """))
                 .matches("VALUES CAST('{}' AS CHAR(50))");
 
         varbinaryLiteral = "X'" + base16().encode("[]".getBytes(UTF_16LE)) + "'";
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[{"a" : true}]',
-                        'lax $'
-                        COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'strict $[42]' EMPTY ARRAY ON ERROR))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[{"a" : true}]',
+                       'lax $'
+                       COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'strict $[42]' EMPTY ARRAY ON ERROR))
                 """))
                 .matches("VALUES " + varbinaryLiteral);
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '[{"a" : true}]',
-                        'lax $'
-                        COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[42]' NULL ON EMPTY))
+                SELECT *
+                FROM JSON_TABLE(
+                       '[{"a" : true}]',
+                       'lax $'
+                       COLUMNS(a varbinary FORMAT JSON ENCODING UTF16 PATH 'lax $[42]' NULL ON EMPTY))
                 """))
                 .matches("VALUES CAST(null AS VARBINARY)");
     }
@@ -907,13 +907,13 @@ public class TestJsonTable
     {
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM JSON_TABLE(
-                        '["a", "b", "c", "d", "e", "f", "g", "h"]',
-                        'lax $[*]' AS "root_path"
-                        COLUMNS(
-                            o FOR ORDINALITY,
-                            x varchar(1) PATH 'lax $'))
+                SELECT *
+                FROM JSON_TABLE(
+                       '["a", "b", "c", "d", "e", "f", "g", "h"]',
+                       'lax $[*]' AS "root_path"
+                       COLUMNS(
+                           o FOR ORDINALITY,
+                           x varchar(1) PATH 'lax $'))
                 """))
                 .matches(
                         """
@@ -930,28 +930,28 @@ public class TestJsonTable
 
         assertThat(assertions.query(
                 """
-                 SELECT *
-                 FROM (VALUES
-                        ('[["a", "b"], ["c", "d"], ["e", "f"]]'),
-                        ('[["g", "h"], ["i", "j"], ["k", "l"]]')) t(json_col),
-                 JSON_TABLE(
-                        json_col,
-                        'lax $' AS "root_path"
-                        COLUMNS(
-                            o FOR ORDINALITY,
-                            NESTED PATH 'lax $[0][*]' AS "nested_path_1"
-                                    COLUMNS (
-                                        x1 varchar PATH 'lax $',
-                                        o1 FOR ORDINALITY),
-                            NESTED PATH 'lax $[1][*]' AS "nested_path_2"
-                                    COLUMNS (
-                                        x2 varchar PATH 'lax $',
-                                        o2 FOR ORDINALITY),
-                            NESTED PATH 'lax $[2][*]' AS "nested_path_3"
-                                    COLUMNS (
-                                        x3 varchar PATH 'lax $',
-                                        o3 FOR ORDINALITY))
-                        PLAN ("root_path" INNER ("nested_path_2" UNION ("nested_path_3" CROSS "nested_path_1"))))
+                SELECT *
+                FROM (VALUES
+                       ('[["a", "b"], ["c", "d"], ["e", "f"]]'),
+                       ('[["g", "h"], ["i", "j"], ["k", "l"]]')) t(json_col),
+                JSON_TABLE(
+                       json_col,
+                       'lax $' AS "root_path"
+                       COLUMNS(
+                           o FOR ORDINALITY,
+                           NESTED PATH 'lax $[0][*]' AS "nested_path_1"
+                                   COLUMNS (
+                                       x1 varchar PATH 'lax $',
+                                       o1 FOR ORDINALITY),
+                           NESTED PATH 'lax $[1][*]' AS "nested_path_2"
+                                   COLUMNS (
+                                       x2 varchar PATH 'lax $',
+                                       o2 FOR ORDINALITY),
+                           NESTED PATH 'lax $[2][*]' AS "nested_path_3"
+                                   COLUMNS (
+                                       x3 varchar PATH 'lax $',
+                                       o3 FOR ORDINALITY))
+                       PLAN ("root_path" INNER ("nested_path_2" UNION ("nested_path_3" CROSS "nested_path_1"))))
                 """))
                 .matches(
                         """

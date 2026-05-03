@@ -92,8 +92,10 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
-                                        p.symbol("expr_count", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
+                                        p.symbol("expr_sum", INTEGER),
+                                        new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count", INTEGER),
+                                        new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -134,8 +136,10 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
-                                        p.symbol("expr_count", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
+                                        p.symbol("expr_sum", INTEGER),
+                                        new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count", INTEGER),
+                                        new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
@@ -147,7 +151,7 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                                         p.values(p.symbol("a"), p.symbol("b"))))))))))
                 .matches(
                         project(ImmutableMap.of(
-                                "corr", expression(new Reference(BIGINT, "corr")),
+                                        "corr", expression(new Reference(BIGINT, "corr")),
                                         "expr_sum", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_agg"), new Constant(INTEGER, 1L)))),
                                         "expr_count", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count_agg"), new Constant(INTEGER, 1L))))),
                                 aggregation(
@@ -185,8 +189,10 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                         TRUE,
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
-                                        p.symbol("expr_count", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
+                                        p.symbol("expr_sum", INTEGER),
+                                        new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count", INTEGER),
+                                        new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .singleGroupingSet(p.symbol("a"))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))

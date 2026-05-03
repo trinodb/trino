@@ -97,7 +97,8 @@ public class BasePlanTest
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
 
-        planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
+        planTester.createCatalog(
+                planTester.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         return planTester;

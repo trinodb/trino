@@ -401,12 +401,12 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                                new Switch(
-                                        new Reference(BOOLEAN, "a"),
-                                        ImmutableList.of(
-                                                new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
-                                                new WhenClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
-                                        TRUE),
+                        new Switch(
+                                new Reference(BOOLEAN, "a"),
+                                ImmutableList.of(
+                                        new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
+                                        new WhenClause(new Comparison(EQUAL, new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L)), FALSE)),
+                                TRUE),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
 

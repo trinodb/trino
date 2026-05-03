@@ -79,8 +79,7 @@ public class TestExpressionRewriteRuleSet
                                 p.symbol("count_1", BigintType.BIGINT),
                                 PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))),
                                 ImmutableList.of(BigintType.BIGINT))
-                        .source(
-                                p.values(p.symbol("x"), p.symbol("y")))))
+                        .source(p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", PlanMatchPattern.aggregationFunction("count", ImmutableList.of("y"))),

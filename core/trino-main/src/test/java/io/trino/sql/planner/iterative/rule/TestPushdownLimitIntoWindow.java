@@ -67,7 +67,8 @@ public class TestPushdownLimitIntoWindow
                                                 ImmutableList.of("a"),
                                                 ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
                                         .maxRankingPerPartition(3)
-                                        .partial(false), values("a"))));
+                                        .partial(false),
+                                values("a"))));
     }
 
     @Test
@@ -187,10 +188,8 @@ public class TestPushdownLimitIntoWindow
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                                     ImmutableMap.of(
-                                            rowNumberSymbol,
-                                            newWindowNodeFunction(rowNumberFunction, a),
-                                            rankSymbol,
-                                            newWindowNodeFunction(rankFunction, a)),
+                                            rowNumberSymbol, newWindowNodeFunction(rowNumberFunction, a),
+                                            rankSymbol, newWindowNodeFunction(rankFunction, a)),
                                     p.values(a)));
                 })
                 .doesNotFire();

@@ -169,18 +169,30 @@ public class TestingHydraIdentityProvider
             String logoutCallbackUrl)
     {
         createHydraContainer()
-                .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
+                .withCommand(
+                        "clients",
+                        "create",
+                        "--endpoint",
+                        "https://hydra:4445",
                         "--skip-tls-verify",
-                        "--id", clientId,
-                        "--secret", clientSecret,
-                        "--audience", String.join(",", audiences),
-                        "--grant-types", "authorization_code,refresh_token,client_credentials",
-                        "--response-types", "token,code,id_token",
-                        "--scope", "openid,offline",
-                        "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl,
-                        "--post-logout-callbacks", logoutCallbackUrl)
+                        "--id",
+                        clientId,
+                        "--secret",
+                        clientSecret,
+                        "--audience",
+                        String.join(",", audiences),
+                        "--grant-types",
+                        "authorization_code,refresh_token,client_credentials",
+                        "--response-types",
+                        "token,code,id_token",
+                        "--scope",
+                        "openid,offline",
+                        "--token-endpoint-auth-method",
+                        tokenEndpointAuthMethod.getValue(),
+                        "--callbacks",
+                        callbackUrl,
+                        "--post-logout-callbacks",
+                        logoutCallbackUrl)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }

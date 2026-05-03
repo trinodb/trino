@@ -112,12 +112,16 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1", rowType(field("x", BIGINT), field("y", BIGINT))), new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0),
-                                        p.symbol("expr_2"), new FieldReference(new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0), 1)),
+                                        p.symbol("expr_1", rowType(field("x", BIGINT), field("y", BIGINT))),
+                                        new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0),
+                                        p.symbol("expr_2"),
+                                        new FieldReference(new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0), 1)),
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("a", ROW_TYPE), new Reference(ROW_TYPE, "a"),
-                                                p.symbol("b"), new Reference(BIGINT, "b")),
+                                                p.symbol("a", ROW_TYPE),
+                                                new Reference(ROW_TYPE, "a"),
+                                                p.symbol("b"),
+                                                new Reference(BIGINT, "b")),
                                         p.values(p.symbol("a", ROW_TYPE), p.symbol("b")))))
                 .doesNotFire();
 
@@ -126,8 +130,10 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr", ROW_TYPE), new Reference(ROW_TYPE, "a"),
-                                        p.symbol("a_x"), new FieldReference(new Reference(ROW_TYPE, "a"), 0)),
+                                        p.symbol("expr", ROW_TYPE),
+                                        new Reference(ROW_TYPE, "a"),
+                                        p.symbol("a_x"),
+                                        new FieldReference(new Reference(ROW_TYPE, "a"), 0)),
                                 p.project(
                                         Assignments.of(p.symbol("a", ROW_TYPE), new Reference(ROW_TYPE, "a")),
                                         p.values(p.symbol("a", ROW_TYPE)))))
@@ -143,8 +149,10 @@ public class TestPushDownDereferencesRules
                                 Assignments.of(p.symbol("x"), new FieldReference(new Reference(ROW_TYPE, "msg"), 0)),
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("y"), new Reference(BIGINT, "y"),
-                                                p.symbol("msg", ROW_TYPE), new Reference(ROW_TYPE, "msg")),
+                                                p.symbol("y"),
+                                                new Reference(BIGINT, "y"),
+                                                p.symbol("msg", ROW_TYPE),
+                                                new Reference(ROW_TYPE, "msg")),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("y")))))
                 .matches(
                         strictProject(
@@ -200,8 +208,10 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr", ROW_TYPE.getFields().get(0).getType()), new FieldReference(new Reference(ROW_TYPE, "msg1"), 0),
-                                        p.symbol("expr_2", ROW_TYPE), new Reference(ROW_TYPE, "msg2")),
+                                        p.symbol("expr", ROW_TYPE.getFields().get(0).getType()),
+                                        new FieldReference(new Reference(ROW_TYPE, "msg1"), 0),
+                                        p.symbol("expr_2", ROW_TYPE),
+                                        new Reference(ROW_TYPE, "msg2")),
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
@@ -291,8 +301,10 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("deref_replicate", rowType.getFields().get(1).getType()), new FieldReference(new Reference(rowType, "replicate"), 1),
-                                        p.symbol("deref_unnest", nestedColumnType.getElementType()), new Call(subscript, ImmutableList.of(new Reference(nestedColumnType, "unnested_row"), new Constant(BIGINT, 2L)))),
+                                        p.symbol("deref_replicate", rowType.getFields().get(1).getType()),
+                                        new FieldReference(new Reference(rowType, "replicate"), 1),
+                                        p.symbol("deref_unnest", nestedColumnType.getElementType()),
+                                        new Call(subscript, ImmutableList.of(new Reference(nestedColumnType, "unnested_row"), new Constant(BIGINT, 2L)))),
                                 p.unnest(
                                         ImmutableList.of(p.symbol("replicate", rowType)),
                                         ImmutableList.of(
@@ -363,8 +375,10 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr", BIGINT), new FieldReference(new Reference(ROW_TYPE, "msg"), 0),
-                                        p.symbol("expr_2", BIGINT), new FieldReference(new Reference(ROW_TYPE, "msg2"), 0)),
+                                        p.symbol("expr", BIGINT),
+                                        new FieldReference(new Reference(ROW_TYPE, "msg"), 0),
+                                        p.symbol("expr_2", BIGINT),
+                                        new FieldReference(new Reference(ROW_TYPE, "msg2"), 0)),
                                 p.filter(
                                         new Logical(AND, ImmutableList.of(new Comparison(NOT_EQUAL, new FieldReference(new Reference(ROW_TYPE, "msg"), 0), new Constant(BIGINT, 3L)), not(FUNCTIONS.getMetadata(), new IsNull(new Reference(ROW_TYPE, "msg2"))))),
                                         p.values(p.symbol("msg", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
@@ -580,7 +594,8 @@ public class TestPushDownDereferencesRules
                                         .put(p.symbol("msg1_x"), new FieldReference(new Reference(ROW_TYPE, "msg1"), 0))
                                         .put(p.symbol("msg2_x"), new FieldReference(new Reference(ROW_TYPE, "msg2"), 0))
                                         .build(),
-                                p.topN(5, ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
+                                p.topN(5,
+                                        ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -730,8 +745,10 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1", complexType.getFields().get(0).getType()), new FieldReference(new Reference(complexType, "a"), 0),
-                                        p.symbol("expr_2"), new Call(
+                                        p.symbol("expr_1", complexType.getFields().get(0).getType()),
+                                        new FieldReference(new Reference(complexType, "a"), 0),
+                                        p.symbol("expr_2"),
+                                        new Call(
                                                 ADD_BIGINT,
                                                 ImmutableList.of(
                                                         new Call(

@@ -304,7 +304,8 @@ public class TestUnwrapYearInComparison
     {
         // ensure the optimization works when the terms of the comparison are reversed
         // vs the canonical <expr> <op> <literal> form
-        assertPlan("SELECT * FROM (VALUES DATE '2022-01-01') t(a) WHERE 2022 = year(a)",
+        assertPlan(
+                "SELECT * FROM (VALUES DATE '2022-01-01') t(a) WHERE 2022 = year(a)",
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, "0")
                         .build(),

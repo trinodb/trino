@@ -116,11 +116,11 @@ public class TestGroupingSets
                 """))
                 .matches(
                         """
-                         VALUES
-                         (   1,    1,    1, BIGINT '1'),
-                         (NULL, NULL, NULL, 3),
-                         (   1, NULL, NULL, 3),
-                         (   1,    2,    2, 2)
+                        VALUES
+                        (   1,    1,    1, BIGINT '1'),
+                        (NULL, NULL, NULL, 3),
+                        (   1, NULL, NULL, 3),
+                        (   1,    2,    2, 2)
                         """);
     }
 }

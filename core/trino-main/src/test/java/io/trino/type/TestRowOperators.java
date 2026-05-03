@@ -414,9 +414,14 @@ public class TestRowOperators
                         "{\"a\": 1, \"b\": 2, \"none\": null, \"three\": 3}, null]' "))
                 .hasType(RowType.anonymous(
                         ImmutableList.of(
-                                new ArrayType(BIGINT), new ArrayType(BIGINT), new ArrayType(BIGINT),
-                                mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT), mapType(VARCHAR, BIGINT),
-                                RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT)), RowType.anonymous(ImmutableList.of(BIGINT)),
+                                new ArrayType(BIGINT),
+                                new ArrayType(BIGINT),
+                                new ArrayType(BIGINT),
+                                mapType(VARCHAR, BIGINT),
+                                mapType(VARCHAR, BIGINT),
+                                mapType(VARCHAR, BIGINT),
+                                RowType.anonymous(ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT)),
+                                RowType.anonymous(ImmutableList.of(BIGINT)),
                                 RowType.from(ImmutableList.of(
                                         RowType.field("a", BIGINT),
                                         RowType.field("b", BIGINT),
@@ -424,10 +429,16 @@ public class TestRowOperators
                                         RowType.field("none", BIGINT))),
                                 RowType.from(ImmutableList.of(RowType.field("nothing", BIGINT))))))
                 .isEqualTo(asList(
-                        asList(1L, 2L, null, 3L), emptyList(), null,
-                        asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)), ImmutableMap.of(), null,
-                        asList(1L, 2L, null, 3L), null,
-                        asList(1L, 2L, 3L, null), null));
+                        asList(1L, 2L, null, 3L),
+                        emptyList(),
+                        null,
+                        asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
+                        ImmutableMap.of(),
+                        null,
+                        asList(1L, 2L, null, 3L),
+                        null,
+                        asList(1L, 2L, 3L, null),
+                        null));
 
         assertThat(assertions.expression("CAST(a AS ROW(array1 ARRAY(BIGINT), array2 ARRAY(BIGINT), array3 ARRAY(BIGINT), " +
                         "map1 MAP(VARCHAR, BIGINT), map2 MAP(VARCHAR, BIGINT), map3 MAP(VARCHAR, BIGINT), " +
@@ -460,10 +471,16 @@ public class TestRowOperators
                                 RowType.field("three", BIGINT),
                                 RowType.field("none", BIGINT)))))))
                 .isEqualTo(asList(
-                        emptyList(), asList(1L, 2L, null, 3L), null,
-                        ImmutableMap.of(), null, asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
-                        asList(1L, 2L, null, 3L), null,
-                        null, asList(1L, 2L, 3L, null)));
+                        emptyList(),
+                        asList(1L, 2L, null, 3L),
+                        null,
+                        ImmutableMap.of(),
+                        null,
+                        asMap(ImmutableList.of("a", "b", "none", "three"), asList(1L, 2L, null, 3L)),
+                        asList(1L, 2L, null, 3L),
+                        null,
+                        null,
+                        asList(1L, 2L, 3L, null)));
 
         // invalid cast
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a as ROW(a BIGINT, b BIGINT))")

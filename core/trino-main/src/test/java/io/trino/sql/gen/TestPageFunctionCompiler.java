@@ -110,7 +110,8 @@ public class TestPageFunctionCompiler
     private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
     private static final Call ADD_10_EXPRESSION = call(
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-            new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 10L));
+            new Reference(BIGINT, "$col_0"),
+            new Constant(BIGINT, 10L));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()

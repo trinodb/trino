@@ -72,7 +72,9 @@ public class TestPruneSemiJoinColumns
                 .matches(
                         strictProject(
                                 ImmutableMap.of("match", expression(new Reference(BOOLEAN, "match"))),
-                                semiJoin("leftKey", "rightKey", "match",
+                                semiJoin("leftKey",
+                                        "rightKey",
+                                        "match",
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "leftKey", expression(new Reference(BIGINT, "leftKey"))),

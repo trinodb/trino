@@ -178,7 +178,8 @@ public class TestAddExchangesPlans
                                                                 tableScan("nation")))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
@@ -191,11 +192,13 @@ public class TestAddExchangesPlans
                                                 exchange(REMOTE, REPARTITION,
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)))))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -217,11 +220,12 @@ public class TestAddExchangesPlans
                         limit(2, ImmutableList.of(), false,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, GATHER,
-                                            limit(2, ImmutableList.of(), true,
-                                                    exchange(LOCAL, REPARTITION,
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
-                                                            limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
+                                                limit(2, ImmutableList.of(), true,
+                                                        exchange(LOCAL,
+                                                                REPARTITION,
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                                limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
     }
 
     @Test
@@ -241,7 +245,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         anyTree(
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan(
@@ -257,7 +262,8 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))
                                 .right(
                                         exchange(LOCAL, GATHER,
-                                                exchange(REMOTE, REPARTITION,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -513,7 +519,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, GATHER,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         // build side bigger than threshold, local partitioned exchanged expected
@@ -531,7 +538,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
         // build side contains join, local partitioned exchanged expected
         assertDistributedPlan(
@@ -555,7 +563,8 @@ public class TestAddExchangesPlans
                                                                                 tableScan("region", ImmutableMap.of("regionkey2", "regionkey"))))
                                                                 .right(
                                                                         exchange(LOCAL, GATHER,
-                                                                                exchange(REMOTE, REPLICATE,
+                                                                                exchange(REMOTE,
+                                                                                        REPLICATE,
                                                                                         tableScan("region", ImmutableMap.of("regionkey1", "regionkey"))))))))))));
 
         // build side smaller than threshold, but stats not available. local partitioned exchanged expected
@@ -573,7 +582,8 @@ public class TestAddExchangesPlans
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                 .right(
                                         exchange(LOCAL, REPARTITION,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -804,7 +814,8 @@ public class TestAddExchangesPlans
                         ") t",
                 useExactPartitioning(),
                 anyTree(
-                        exchange(REMOTE, REPARTITION,
+                        exchange(REMOTE,
+                                REPARTITION,
                                 values("a"))));
     }
 
@@ -919,29 +930,30 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                        SELECT
-                            orders.orderkey,
-                            orders.orderstatus
-                        FROM (
-                            SELECT
-                                orderkey,
-                                ARBITRARY(orderstatus) AS orderstatus,
-                                COUNT(*)
-                            FROM orders
-                        GROUP BY
-                            orderkey
-                        ) t,
-                        orders
-                        WHERE
-                            orders.orderkey = t.orderkey
-                            AND orders.orderstatus = t.orderstatus
+                SELECT
+                    orders.orderkey,
+                    orders.orderstatus
+                FROM (
+                    SELECT
+                        orderkey,
+                        ARBITRARY(orderstatus) AS orderstatus,
+                        COUNT(*)
+                    FROM orders
+                GROUP BY
+                    orderkey
+                ) t,
+                orders
+                WHERE
+                    orders.orderkey = t.orderkey
+                    AND orders.orderstatus = t.orderstatus
                 """,
                 noJoinReorderingColocatedJoinDisabled(),
                 anyTree(
                         anyTree(
                                 tableScan("orders")),
                         exchange(LOCAL, GATHER,
-                                exchange(REMOTE, REPARTITION,
+                                exchange(REMOTE,
+                                        REPARTITION,
                                         tableScan("orders")))));
     }
 
@@ -953,28 +965,29 @@ public class TestAddExchangesPlans
 
         assertDistributedPlan(
                 """
+                SELECT
+                    orders.orderkey,
+                    orders.orderstatus
+                FROM (
                     SELECT
-                        orders.orderkey,
-                        orders.orderstatus
-                    FROM (
-                        SELECT
-                            orderkey,
-                            ARBITRARY(orderstatus) AS orderstatus,
-                            COUNT(*)
-                        FROM orders
-                        GROUP BY
-                            orderkey
-                    ) t,
-                    orders
-                    WHERE
-                        orders.orderkey = t.orderkey
-                        AND orders.orderstatus = t.orderstatus
+                        orderkey,
+                        ARBITRARY(orderstatus) AS orderstatus,
+                        COUNT(*)
+                    FROM orders
+                    GROUP BY
+                        orderkey
+                ) t,
+                orders
+                WHERE
+                    orders.orderkey = t.orderkey
+                    AND orders.orderstatus = t.orderstatus
                 """,
                 noJoinReordering(),
                 anyTree(
                         anyTree(
                                 tableScan("orders")),
-                        exchange(LOCAL, GATHER,
+                        exchange(LOCAL,
+                                GATHER,
                                 tableScan("orders"))));
     }
 
@@ -984,7 +997,7 @@ public class TestAddExchangesPlans
         // Put union at build side
         assertDistributedPlan(
                 """
-                    SELECT * FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey
+                SELECT * FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey
                 """,
                 noJoinReordering(),
                 anyTree(
@@ -996,7 +1009,9 @@ public class TestAddExchangesPlans
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                                 exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
-                                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                        exchange(LOCAL,
+                                                                REPARTITION,
+                                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
                                                                 tableScan("nation"))))))));
         // Put union at probe side
@@ -1009,14 +1024,18 @@ public class TestAddExchangesPlans
                         join(INNER, join -> join
                                 .equiCriteria("nationkey", "regionkey")
                                 .left(
-                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        exchange(LOCAL,
+                                                REPARTITION,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                 node(FilterNode.class,
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
                                                 node(FilterNode.class,
                                                         tableScan("nation"))))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
@@ -1025,11 +1044,13 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                    SELECT regionkey FROM nation UNION ALL (SELECT nationkey FROM nation n JOIN region r on r.regionkey = n.nationkey)
+                SELECT regionkey FROM nation UNION ALL (SELECT nationkey FROM nation n JOIN region r on r.regionkey = n.nationkey)
                 """,
                 noJoinReordering(),
                 anyTree(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 join(INNER, join -> join
                                         .equiCriteria("nationkey", "regionkey")
@@ -1038,7 +1059,9 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))
                                         .right(
                                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                        exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                        exchange(REMOTE,
+                                                                REPLICATE,
+                                                                FIXED_BROADCAST_DISTRIBUTION,
                                                                 tableScan("region", ImmutableMap.of("regionkey", "regionkey")))))))));
     }
 
@@ -1047,18 +1070,22 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                    SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation), region group by nationkey
+                SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation), region group by nationkey
                 """,
                 noJoinReordering(),
                 anyTree(
                         join(INNER, join -> join
                                 .left(
-                                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                        exchange(LOCAL,
+                                                REPARTITION,
+                                                FIXED_ARBITRARY_DISTRIBUTION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")),
                                                 tableScan("nation")))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1067,11 +1094,13 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                    SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation) GROUP BY nationkey
+                SELECT sum(nationkey) FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM nation) GROUP BY nationkey
                 """,
                 noJoinReordering(),
                 anyTree(
-                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_HASH_DISTRIBUTION,
                                 project(
                                         exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                 aggregation(ImmutableMap.of("partial_sum", aggregationFunction("sum", ImmutableList.of("nationkey"))),
@@ -1089,13 +1118,17 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                     SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES (1))
+                SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES (1))
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_ARBITRARY_DISTRIBUTION,
                                 values("1"),
-                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                exchange(REMOTE,
+                                        GATHER,
+                                        SINGLE_DISTRIBUTION,
                                         tableScan("nation")))));
     }
 
@@ -1104,11 +1137,13 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                     SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT nationkey FROM nation)
+                SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT nationkey FROM nation)
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 tableScan("nation"),
                                 tableScan("nation"))));
@@ -1119,11 +1154,13 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                     SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT sum(nationkey) FROM nation GROUP BY nationkey)
+                SELECT * FROM ((SELECT nationkey FROM nation) UNION ALL (SELECT nationkey FROM nation)) UNION ALL (SELECT sum(nationkey) FROM nation GROUP BY nationkey)
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                        exchange(REMOTE,
+                                GATHER,
+                                SINGLE_DISTRIBUTION,
                                 tableScan("nation"),
                                 tableScan("nation"),
                                 project(
@@ -1151,17 +1188,22 @@ public class TestAddExchangesPlans
         // Need to use JOIN as parent of UNION ALL to expose replacing remote exchange with local exchange
         assertDistributedPlan(
                 """
-                         SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM mock.default.nation), region
+                SELECT * FROM (SELECT nationkey FROM nation UNION ALL SELECT nationkey FROM mock.default.nation), region
                 """,
                 noJoinReordering(),
                 output(
                         join(INNER, join -> join
-                                .left(exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                .left(exchange(
+                                        REMOTE,
+                                        REPARTITION,
+                                        FIXED_ARBITRARY_DISTRIBUTION,
                                         tableScan("nation"),
                                         node(TableScanNode.class)))
                                 .right(
                                         exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1172,18 +1214,25 @@ public class TestAddExchangesPlans
         // TODO: https://starburstdata.atlassian.net/browse/SEP-11273
         assertDistributedPlan(
                 """
-                         SELECT * FROM (SELECT table_catalog FROM system.information_schema.tables UNION ALL SELECT table_catalog FROM system.information_schema.tables), region
+                SELECT * FROM (SELECT table_catalog FROM system.information_schema.tables UNION ALL SELECT table_catalog FROM system.information_schema.tables), region
                 """,
                 noJoinReordering(),
                 output(
                         join(INNER, join -> join
-                                .left(exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                .left(exchange(
+                                        LOCAL,
+                                        REPARTITION,
+                                        FIXED_ARBITRARY_DISTRIBUTION,
                                         tableScan("tables"),
                                         tableScan("tables")))
                                 .right(
                                         exchange(
-                                                LOCAL, GATHER, SINGLE_DISTRIBUTION,
-                                                exchange(REMOTE, REPLICATE, FIXED_BROADCAST_DISTRIBUTION,
+                                                LOCAL,
+                                                GATHER,
+                                                SINGLE_DISTRIBUTION,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        FIXED_BROADCAST_DISTRIBUTION,
                                                         tableScan("region")))))));
     }
 
@@ -1192,13 +1241,17 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 """
-                         SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES(1))
+                SELECT * FROM (SELECT nationkey FROM nation UNION ALL VALUES(1))
                 """,
                 noJoinReordering(),
                 output(
-                        exchange(LOCAL, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                        exchange(LOCAL,
+                                REPARTITION,
+                                FIXED_ARBITRARY_DISTRIBUTION,
                                 node(ValuesNode.class),
-                                exchange(REMOTE, GATHER, SINGLE_DISTRIBUTION,
+                                exchange(REMOTE,
+                                        GATHER,
+                                        SINGLE_DISTRIBUTION,
                                         tableScan("nation")))));
     }
 

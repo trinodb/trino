@@ -141,22 +141,22 @@ public class TestColocatedJoin
     {
         assertDistributedPlan(
                 """
+                SELECT
+                    orders.column_a,
+                    orders.column_b
+                FROM (
                     SELECT
-                        orders.column_a,
-                        orders.column_b
-                    FROM (
-                        SELECT
-                            column_a,
-                            ARBITRARY(column_b) AS column_b,
-                            COUNT(*)
-                        FROM orders
-                        GROUP BY
-                            column_a
-                        ) t,
-                        orders
-                        WHERE
-                            orders.column_a = t.column_a
-                            AND orders.column_b = t.column_b
+                        column_a,
+                        ARBITRARY(column_b) AS column_b,
+                        COUNT(*)
+                    FROM orders
+                    GROUP BY
+                        column_a
+                    ) t,
+                    orders
+                    WHERE
+                        orders.column_a = t.column_a
+                        AND orders.column_b = t.column_b
                 """,
                 prepareSession(0.01, true),
                 anyTree(

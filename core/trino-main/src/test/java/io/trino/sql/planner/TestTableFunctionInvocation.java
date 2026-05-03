@@ -102,7 +102,8 @@ public class TestTableFunctionInvocation
                    COPARTITION (t1, t3))) t
                 """,
                 CREATED,
-                anyTree(tableFunction(builder -> builder
+                anyTree(tableFunction(
+                        builder -> builder
                                 .name("different_arguments_function")
                                 .addTableArgument(
                                         "INPUT_1",
@@ -146,7 +147,8 @@ public class TestTableFunctionInvocation
                    COPARTITION (t1, t2))) t
                 """,
                 CREATED,
-                anyTree(tableFunction(builder -> builder
+                anyTree(tableFunction(
+                        builder -> builder
                                 .name("two_table_arguments_function")
                                 .addTableArgument(
                                         "INPUT1",
@@ -235,7 +237,8 @@ public class TestTableFunctionInvocation
     @Test
     public void testRemoveRedundantTableFunction()
     {
-        assertPlan("SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true WHERE false) t(a, b) PRUNE WHEN EMPTY))",
+        assertPlan(
+                "SELECT * FROM TABLE(mock.system.pass_through_function(input => TABLE(SELECT 1, true WHERE false) t(a, b) PRUNE WHEN EMPTY))",
                 output(values(ImmutableList.of("x", "a", "b"))));
 
         assertPlan(

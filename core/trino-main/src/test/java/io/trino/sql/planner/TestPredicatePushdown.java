@@ -176,7 +176,10 @@ public class TestPredicatePushdown
         assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
                 noSemiJoinRewrite(),
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", dynamicFilter("DF"),
+                        semiJoin("LINE_ORDER_KEY",
+                                "ORDERS_ORDER_KEY",
+                                "SEMI_JOIN_RESULT",
+                                dynamicFilter("DF"),
                                 filter(
                                         TRUE,
                                         dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY")),

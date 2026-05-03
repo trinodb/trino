@@ -151,9 +151,11 @@ public class TestInlineProjections
         tester().assertThat(new InlineProjections())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("complex", INTEGER), new Reference(INTEGER, "complex"),
+                                p.symbol("complex", INTEGER),
+                                new Reference(INTEGER, "complex"),
                                 p.symbol("output", new FunctionType(ImmutableList.of(BIGINT), INTEGER)),
-                                new Lambda(ImmutableList.of(p.symbol("arg")),
+                                new Lambda(
+                                        ImmutableList.of(p.symbol("arg")),
                                         new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "arg"), new Reference(INTEGER, "complex"))))),
                         p.project(Assignments.builder()
                                         .put(p.symbol("complex", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "x"), new Constant(INTEGER, 1L))))

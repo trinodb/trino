@@ -52,16 +52,14 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1, p.symbol("a")),
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(0, p.symbol("a")),
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();
@@ -72,8 +70,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1, p.symbol("a")),
                                 p.values(5, p.symbol("b")),
                                 new EquiJoinClause(p.symbol("a"), p.symbol("b"))))
@@ -81,8 +78,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1, p.symbol("a")),
                                 p.values(5, p.symbol("b")),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))))
@@ -94,8 +90,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(5, p.symbol("a")),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
@@ -106,8 +101,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
@@ -118,8 +112,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a")), ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("true")))), rowType(field("b", BOOLEAN))))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
@@ -130,8 +123,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
@@ -140,8 +132,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
@@ -150,8 +141,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(1, p.symbol("a")),
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
@@ -160,8 +150,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.values(10, p.symbol("a"))),
@@ -174,8 +163,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
@@ -188,8 +176,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(5, p.symbol("c")),
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
@@ -206,8 +193,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
@@ -220,8 +206,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(5, p.symbol("c")),
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
@@ -238,8 +223,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
@@ -252,8 +236,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(5, p.symbol("c")),
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
@@ -270,8 +253,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c"))))
                 .matches(
@@ -284,8 +266,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(5, p.symbol("c")),
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
                 .matches(
@@ -302,8 +283,7 @@ public class TestReplaceJoinOverConstantWithProject
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
                                 p.values(5, p.symbol("c")),
                                 ImmutableList.of(),
@@ -328,8 +308,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("rand")), ImmutableList.of(new Row(ImmutableList.of(randomFunction)))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();
@@ -340,8 +319,7 @@ public class TestReplaceJoinOverConstantWithProject
 
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.valuesOfExpressions(ImmutableList.of(p.symbol("uuid")), ImmutableList.of(new Row(ImmutableList.of(uuidFunction)))),
                                 p.values(5, p.symbol("b"))))
                 .doesNotFire();

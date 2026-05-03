@@ -94,8 +94,10 @@ public class TestPushProjectionThroughUnion
                     Symbol w = p.symbol("w", ROW_TYPE);
                     return p.project(
                             Assignments.of(
-                                    cTimes3, new Call(MULTIPLY_BIGINT, ImmutableList.of(c.toSymbolReference(), new Constant(BIGINT, 3L))),
-                                    dX, new FieldReference(new Reference(ROW_TYPE, "d"), 0)),
+                                    cTimes3,
+                                    new Call(MULTIPLY_BIGINT, ImmutableList.of(c.toSymbolReference(), new Constant(BIGINT, 3L))),
+                                    dX,
+                                    new FieldReference(new Reference(ROW_TYPE, "d"), 0)),
                             p.union(
                                     ImmutableListMultimap.<Symbol, Symbol>builder()
                                             .put(c, a)

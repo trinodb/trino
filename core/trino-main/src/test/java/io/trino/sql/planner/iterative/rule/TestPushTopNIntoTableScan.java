@@ -134,7 +134,8 @@ public class TestPushTopNIntoTableScan
                                                 metric, metricColumn)));
                     })
                     .matches(
-                            topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
+                            topN(1,
+                                    ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.SINGLE,
                                     tableScan(
                                             connectorHandle::equals,
@@ -196,7 +197,8 @@ public class TestPushTopNIntoTableScan
                                                 metric, metricColumn)));
                     })
                     .matches(
-                            topN(1, ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
+                            topN(1,
+                                    ImmutableList.of(sort(dimensionName, ASCENDING, FIRST)),
                                     TopNNode.Step.PARTIAL,
                                     tableScan(
                                             connectorHandle::equals,

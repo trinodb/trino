@@ -66,7 +66,8 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                     .specification(new DataOrganizationSpecification(ImmutableList.of(c), Optional.of(new OrderingScheme(ImmutableList.of(d), ImmutableMap.of(d, ASC_NULLS_FIRST)))))
                                     .source(p.values(a, b, c, d, unreferenced, marker)));
                 })
-                .matches(tableFunctionProcessor(builder -> builder
+                .matches(tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("proper"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("a")))
@@ -105,7 +106,8 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                     .markerSymbols(ImmutableMap.of(unreferenced, marker))
                                     .source(p.values(unreferenced, marker)));
                 })
-                .matches(tableFunctionProcessor(builder -> builder
+                .matches(tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .markerSymbols(ImmutableMap.of()),
                         project(
@@ -151,7 +153,8 @@ public class TestPruneTableFunctionProcessorSourceColumns
                                             unreferenced, marker3))
                                     .source(p.values(a, b, c, d, e, f, marker1, marker2, marker3, unreferenced)));
                 })
-                .matches(tableFunctionProcessor(builder -> builder
+                .matches(tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("a"), ImmutableList.of("c"), ImmutableList.of("e")))
                                 .requiredSymbols(ImmutableList.of(ImmutableList.of("b"), ImmutableList.of("d"), ImmutableList.of("f")))

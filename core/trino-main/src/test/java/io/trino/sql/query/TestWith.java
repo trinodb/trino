@@ -68,7 +68,9 @@ public class TestWith
                 format(
                         "SELECT count(*) " +
                                 "FROM information_schema.columns " +
-                                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'", TEST_CATALOG_NAME, TINY_SCHEMA_NAME)))
+                                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'",
+                        TEST_CATALOG_NAME,
+                        TINY_SCHEMA_NAME)))
                 .matches("VALUES BIGINT '0'");
         assertions.execute("SELECT min(row_number) FROM nation");
 

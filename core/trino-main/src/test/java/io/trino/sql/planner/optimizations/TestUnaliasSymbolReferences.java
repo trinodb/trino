@@ -113,8 +113,7 @@ public class TestUnaliasSymbolReferences
                                                 tableScan(
                                                         probeTable,
                                                         ImmutableMap.of("probeColumn1", "suppkey", "probeColumn2", "nationkey")))))
-                        .right(
-                                project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
+                        .right(project(tableScan(buildTable, ImmutableMap.of("column", "nationkey"))))));
     }
 
     @Test

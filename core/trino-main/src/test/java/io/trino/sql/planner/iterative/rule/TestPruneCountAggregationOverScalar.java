@@ -52,9 +52,7 @@ public class TestPruneCountAggregationOverScalar
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
-                                .source(
-                                        p.tableScan(ImmutableList.of(), ImmutableMap.of())))
-                ).doesNotFire();
+                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())))).doesNotFire();
     }
 
     @Test

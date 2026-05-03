@@ -214,7 +214,8 @@ public class TestDecorrelateUnnest
                                         INNER,
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))
                 .matches(
-                        project(// restore semantics of INNER unnest after it was rewritten to LEFT
+                        project(
+                                // restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
                                         "unnested_corr", expression(ifExpression(new IsNull(new Reference(BIGINT, "ordinality")), new Constant(BIGINT, null), new Reference(BIGINT, "unnested_corr")))),
@@ -386,11 +387,13 @@ public class TestDecorrelateUnnest
                                         INNER,
                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))
                 .matches(
-                        project(// restore semantics of INNER unnest after it was rewritten to LEFT
+                        project(
+                                // restore semantics of INNER unnest after it was rewritten to LEFT
                                 ImmutableMap.of(
                                         "corr", expression(new Reference(BIGINT, "corr")),
                                         "boolean_result", expression(ifExpression(new IsNull(new Reference(BIGINT, "ordinality")), new Constant(BOOLEAN, null), new Reference(BOOLEAN, "boolean_result")))),
-                                project(// append projection from the subquery
+                                project(
+                                        // append projection from the subquery
                                         ImmutableMap.of(
                                                 "corr", expression(new Reference(BIGINT, "corr")),
                                                 "unique", expression(new Reference(BIGINT, "unique")),
@@ -431,25 +434,30 @@ public class TestDecorrelateUnnest
                                                                         p.values(ImmutableList.of(), ImmutableList.of(ImmutableList.of()))))))))))
                 .matches(
                         project(
-                                filter(// enforce single row
+                                filter(
+                                        // enforce single row
                                         ifExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 1L)), new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, 28L), new Constant(VARCHAR, Slices.utf8Slice("Scalar sub-query has returned multiple rows")))), BOOLEAN), TRUE),
-                                        project(// second projection
+                                        project(
+                                                // second projection
                                                 ImmutableMap.of(
                                                         "corr", expression(new Reference(BIGINT, "corr")),
                                                         "unique", expression(new Reference(BIGINT, "unique")),
                                                         "ordinality", expression(new Reference(BIGINT, "ordinality")),
                                                         "row_number", expression(new Reference(BIGINT, "row_number")),
                                                         "integer_result", expression(ifExpression(new Reference(BOOLEAN, "boolean_result"), new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)))),
-                                                filter(// limit
+                                                filter(
+                                                        // limit
                                                         new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)),
-                                                        project(// first projection
+                                                        project(
+                                                                // first projection
                                                                 ImmutableMap.of(
                                                                         "corr", expression(new Reference(BIGINT, "corr")),
                                                                         "unique", expression(new Reference(BIGINT, "unique")),
                                                                         "ordinality", expression(new Reference(BIGINT, "ordinality")),
                                                                         "row_number", expression(new Reference(BIGINT, "row_number")),
                                                                         "boolean_result", expression(new IsNull(new Reference(BIGINT, "unnested_corr")))),
-                                                                filter(// topN
+                                                                filter(
+                                                                        // topN
                                                                         new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 10L)),
                                                                         window(builder -> builder
                                                                                         .specification(specification(
