@@ -665,9 +665,9 @@ public class CachingJdbcClient
     }
 
     /**
-     * @deprecated {@link JdbcTableHandle}  is not a good representation of the table. For example, we don't want
-     * to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
-     * Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
+     * @deprecated {@link JdbcTableHandle} is not a good representation of the table. For example, we don't want
+     *         to distinguish between "a plan table" and "table with selected columns", or "a table with a constraint" here.
+     *         Use {@link #onDataChanged(SchemaTableName)}, which avoids these ambiguities.
      */
     @Deprecated
     public void onDataChanged(JdbcTableHandle handle)

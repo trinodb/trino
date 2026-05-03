@@ -391,7 +391,7 @@ public class CassandraSession
      *
      * @param table the table to get partitions from
      * @param filterPrefixes the list of possible values for each partition key.
-     * Order of values should match {@link CassandraTable#partitionKeyColumns()}
+     *         Order of values should match {@link CassandraTable#partitionKeyColumns()}
      * @return list of {@link CassandraPartition}
      */
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)

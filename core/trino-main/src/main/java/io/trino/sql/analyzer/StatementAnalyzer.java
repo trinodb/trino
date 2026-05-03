@@ -6067,7 +6067,7 @@ class StatementAnalyzer
 
         /**
          * @return true if the Query / QuerySpecification containing the analyzed
-         * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
+         *         Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
          */
         private boolean analyzeLimit(Node node, Scope scope)
         {

@@ -1878,7 +1878,7 @@ public abstract class BaseTestJdbcResultSet
 
     /**
      * @deprecated Use {@link #assertSqlExceptionThrownBy} to verify exception is of SQLException type (and verify message).
-     * When exception (incorrectly) is not of SQLException type, use {@link #assertWrongExceptionThrownBy} with a to-do comment.
+     *         When exception (incorrectly) is not of SQLException type, use {@link #assertWrongExceptionThrownBy} with a to-do comment.
      */
     @Deprecated
     // Prevent accidental usage of Assertions.assertThatThrownBy in new code.

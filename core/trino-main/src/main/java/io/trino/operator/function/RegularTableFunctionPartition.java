@@ -162,9 +162,9 @@ public class RegularTableFunctionPartition
      * to the declared source semantics (set or rows).
      *
      * @return A List containing:
-     * - Optional Page for every source that is not fully consumed
-     * - Optional.empty() for every source that is fully consumed
-     * or null if all sources are fully consumed.
+     *         - Optional Page for every source that is not fully consumed
+     *         - Optional.empty() for every source that is fully consumed
+     *         or null if all sources are fully consumed.
      */
     private List<Optional<Page>> prepareInputPages()
     {

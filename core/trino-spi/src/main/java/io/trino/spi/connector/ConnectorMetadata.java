@@ -100,7 +100,7 @@ public interface ConnectorMetadata
      * or is not a table (e.g. is a view, or a materialized view).
      *
      * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
-     * cannot be queried.
+     *         cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
@@ -1827,7 +1827,7 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     * performance as reading this table.
+     *         performance as reading this table.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

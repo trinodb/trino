@@ -828,7 +828,7 @@ public class OrcRecordReader
 
     /**
      * @return The memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
-     * instance sizes.
+     *         instance sizes.
      */
     @VisibleForTesting
     long getMemoryUsage()

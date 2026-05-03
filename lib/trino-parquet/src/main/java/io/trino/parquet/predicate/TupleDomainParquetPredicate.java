@@ -110,14 +110,14 @@ public class TupleDomainParquetPredicate
      * granular statistics from column index and dictionary.
      *
      * @param valueCounts the number of values for a column in the segment; this can be used with
-     * Statistics to determine if a column is only null
+     *         Statistics to determine if a column is only null
      * @param statistics column statistics
      * @param id Parquet file name
      *
      * @return Optional.empty() if statistics were sufficient to eliminate the file section.
-     * Otherwise, a list of columns for which page-level indices and dictionary could be consulted
-     * to potentially eliminate the file section. An optional with empty list is returned if there is
-     * going to be no benefit in looking at column index or dictionary for any column.
+     *         Otherwise, a list of columns for which page-level indices and dictionary could be consulted
+     *         to potentially eliminate the file section. An optional with empty list is returned if there is
+     *         going to be no benefit in looking at column index or dictionary for any column.
      */
     public Optional<List<ColumnDescriptor>> getIndexLookupCandidates(
             Map<ColumnDescriptor, Long> valueCounts,
@@ -193,7 +193,7 @@ public class TupleDomainParquetPredicate
      * Should the Parquet Reader process a file section with the specified statistics.
      *
      * @param valueCounts the number of values for a column in the segment; this can be used with
-     * Statistics to determine if a column is only null
+     *         Statistics to determine if a column is only null
      * @param columnIndexStore column index (statistics) store
      * @param id Parquet file name
      */

@@ -111,7 +111,7 @@ public class Constraint
 
     /**
      * @return mappings from variable names to table column handles
-     * It is guaranteed that all the required mappings for {@link #getExpression} will be provided but not necessarily *all* the column handles of the table
+     *         It is guaranteed that all the required mappings for {@link #getExpression} will be provided but not necessarily *all* the column handles of the table
      */
     public Map<String, ColumnHandle> getAssignments()
     {

@@ -334,7 +334,7 @@ public class Long2LongOpenBigHashMap
      * @param k the key.
      * @param incr the increment.
      * @return the old value, or the {@linkplain #defaultReturnValue() default
-     * return value} if no value was present for the given key.
+     *         return value} if no value was present for the given key.
      */
     public long addTo(final long k, final long incr)
     {
@@ -647,7 +647,8 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long computeIfAbsentNullable(final long k,
+    public long computeIfAbsentNullable(
+            final long k,
             final LongFunction<? extends Long> mappingFunction)
     {
         requireNonNull(mappingFunction);
@@ -668,7 +669,8 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long computeIfPresent(final long k,
+    public long computeIfPresent(
+            final long k,
             final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
@@ -694,7 +696,8 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long compute(final long k,
+    public long compute(
+            final long k,
             final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
@@ -724,7 +727,9 @@ public class Long2LongOpenBigHashMap
      * {@inheritDoc}
      */
     @Override
-    public long merge(final long k, final long v,
+    public long merge(
+            final long k,
+            final long v,
             final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
@@ -1355,7 +1360,9 @@ public class Long2LongOpenBigHashMap
                     Long2LongOpenBigHashMap.this.clear();
                 }
 
-                /** {@inheritDoc} */
+                /**
+                 * {@inheritDoc}
+                 */
                 @Override
                 public void forEach(final LongConsumer consumer)
                 {

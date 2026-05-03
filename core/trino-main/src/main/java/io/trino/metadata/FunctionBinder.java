@@ -424,9 +424,9 @@ class FunctionBinder
 
     /**
      * @param boundSignature Ideally this would be a real bound signature,
-     * but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
-     * We could just not consider these applicable functions, but there are tests that depend on
-     * the specific error messages for these failures.
+     *         but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
+     *         We could just not consider these applicable functions, but there are tests that depend on
+     *         the specific error messages for these failures.
      */
     private record ApplicableFunction(CatalogFunctionMetadata function, Signature boundSignature)
     {

@@ -417,7 +417,7 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method leads to incorrect result when the date value is before 1582 Oct 14.
-     * If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
+     *         If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
      */
     @Deprecated
     public static ColumnMapping dateColumnMappingUsingSqlDate()
@@ -502,8 +502,8 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Time} and the class cannot represent time value when JVM zone had
-     * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
-     * {@link #timeColumnMapping} instead.
+     *         forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
+     *         {@link #timeColumnMapping} instead.
      */
     @Deprecated
     public static ColumnMapping timeColumnMappingUsingSqlTime()
@@ -526,8 +526,8 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Time} and the class cannot represent time value when JVM zone had
-     * forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
-     * {@link #timeWriteFunction} instead.
+     *         forward offset change (a 'gap') at given time on 1970-01-01. If driver only supports {@link LocalTime}, use
+     *         {@link #timeWriteFunction} instead.
      */
     @Deprecated
     public static LongWriteFunction timeWriteFunctionUsingSqlTime()
@@ -581,10 +581,10 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). This mapping also disables pushdown by default
-     * to ensure correctness because rounding happens within Trino and won't apply to remote system.
-     * If driver supports {@link LocalDateTime}, use {@link #timestampColumnMapping} instead.
+     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). This mapping also disables pushdown by default
+     *         to ensure correctness because rounding happens within Trino and won't apply to remote system.
+     *         If driver supports {@link LocalDateTime}, use {@link #timestampColumnMapping} instead.
      */
     @Deprecated
     public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithRounding(TimestampType timestampType)
@@ -640,9 +640,9 @@ public final class StandardColumnMappings
 
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
-     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
-     * {@link #timestampWriteFunction} instead.
+     *         forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     *         (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
+     *         {@link #timestampWriteFunction} instead.
      */
     @Deprecated
     public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)

@@ -42,8 +42,8 @@ public interface DeltaLakeFileSystemFactory
 
     /**
      * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
-     * instead. The new methods can potentially support vending credentials and may pass more information
-     * when creating {@link TrinoFileSystem} in the future.
+     *         instead. The new methods can potentially support vending credentials and may pass more information
+     *         when creating {@link TrinoFileSystem} in the future.
      */
     @Deprecated
     @Override
@@ -54,8 +54,8 @@ public interface DeltaLakeFileSystemFactory
 
     /**
      * @deprecated Use {@link #create(ConnectorSession, VendedCredentialsHandle)} or {@link #create(ConnectorSession, String)}
-     * instead. The new methods can potentially support vending credentials and may pass more information
-     * when creating {@link TrinoFileSystem} in the future.
+     *         instead. The new methods can potentially support vending credentials and may pass more information
+     *         when creating {@link TrinoFileSystem} in the future.
      */
     @Deprecated
     @Override

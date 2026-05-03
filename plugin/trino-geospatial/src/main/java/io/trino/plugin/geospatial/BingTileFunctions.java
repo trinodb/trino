@@ -57,7 +57,7 @@ import static java.lang.String.format;
  * A set of functions to convert between geometries and Bing tiles.
  *
  * @see <a href="https://msdn.microsoft.com/en-us/library/bb259689.aspx">https://msdn.microsoft.com/en-us/library/bb259689.aspx</a>
- * for the description of the Bing tiles.
+ *         for the description of the Bing tiles.
  */
 public final class BingTileFunctions
 {

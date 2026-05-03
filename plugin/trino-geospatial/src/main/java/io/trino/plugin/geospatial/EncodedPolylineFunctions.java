@@ -42,7 +42,7 @@ import static java.lang.String.format;
  * A set of functions to convert between geometries and encoded polylines.
  *
  * @see <a href="https://developers.google.com/maps/documentation/utilities/polylinealgorithm">
- * https://developers.google.com/maps/documentation/utilities/polylinealgorithm</a> for a description of encoded polylines.
+ *         https://developers.google.com/maps/documentation/utilities/polylinealgorithm</a> for a description of encoded polylines.
  */
 public final class EncodedPolylineFunctions
 {

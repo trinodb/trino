@@ -39,7 +39,7 @@ public interface Exchange
      *
      * @param taskPartitionId uniquely identifies a dataset written to a sink
      * @return {@link ExchangeSinkHandle} associated with the <code>taskPartitionId</code>.
-     * Must be passed to {@link #instantiateSink(ExchangeSinkHandle, int)} along with an attempt id to create a sink instance
+     *         Must be passed to {@link #instantiateSink(ExchangeSinkHandle, int)} along with an attempt id to create a sink instance
      */
     ExchangeSinkHandle addSink(int taskPartitionId);
 
@@ -64,7 +64,7 @@ public interface Exchange
      * @param sinkHandle - handle returned by <code>addSink</code>
      * @param taskAttemptId - attempt id
      * @return ExchangeSinkInstanceHandle to be sent to a worker that is needed to create an {@link ExchangeSink} instance using
-     * {@link ExchangeManager#createSink(ExchangeSinkInstanceHandle)}
+     *         {@link ExchangeManager#createSink(ExchangeSinkInstanceHandle)}
      */
     CompletableFuture<ExchangeSinkInstanceHandle> instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
@@ -95,7 +95,7 @@ public interface Exchange
      * Returns an {@link ExchangeSourceHandleSource} instance to be used to enumerate {@link ExchangeSourceHandle}s.
      *
      * @return Future containing a list of {@link ExchangeSourceHandle} to be sent to a
-     * worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource()}
+     *         worker that is needed to create an {@link ExchangeSource} using {@link ExchangeManager#createSource()}
      */
     ExchangeSourceHandleSource getSourceHandles();
 

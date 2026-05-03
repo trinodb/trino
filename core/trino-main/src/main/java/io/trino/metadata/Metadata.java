@@ -913,7 +913,7 @@ public interface Metadata
      * In the long term, this should be replaced by improvements in the cost model.
      *
      * @return true if the cumulative cost of splitting a read of the specified tableHandle into multiple reads,
-     * each of which projects a subset of the required columns, is not significantly more than the cost of reading the specified tableHandle
+     *         each of which projects a subset of the required columns, is not significantly more than the cost of reading the specified tableHandle
      */
     boolean allowSplittingReadIntoMultipleSubQueries(Session session, TableHandle tableHandle);
 

@@ -237,7 +237,7 @@ public class TaskDescriptorStorage
      * Get task descriptor
      *
      * @return Non empty {@link TaskDescriptor} for a task identified by the <code>stageId</code> and <code>partitionId</code>.
-     * Returns {@link Optional#empty()} if the query of a given <code>stageId</code> has been finished (e.g.: cancelled by the user or finished early).
+     *         Returns {@link Optional#empty()} if the query of a given <code>stageId</code> has been finished (e.g.: cancelled by the user or finished early).
      * @throws java.util.NoSuchElementException if {@link TaskDescriptor} for a given task does not exist
      */
     public synchronized Optional<TaskDescriptor> get(StageId stageId, int partitionId)

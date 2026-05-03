@@ -909,7 +909,7 @@ public final class SortedRangeSet
      * @param toIndex the index of the last range in sortedRangeSet (exclusive) to be searched
      * @param range the range to be searched for
      * @return index of the overlapping range, if it is contained in the SortedRangeSet otherwise, (-(insertion point) - 1).
-     * The insertion point is defined as the point at which the range would be inserted into the SortedRangeSet
+     *         The insertion point is defined as the point at which the range would be inserted into the SortedRangeSet
      */
     private static int findRangeInsertionPoint(SortedRangeSet sortedRangeSet, int fromIndex, int toIndex, RangeView range)
     {
