@@ -110,8 +110,20 @@ public class BenchmarkMapSubscript
             switch (mapSize) {
                 case 1 -> keys = ImmutableList.of("do_not_use");
                 case 13 -> {
-                    keys = ImmutableList.of("is_inverted", "device_model", "country", "carrier_id", "network_type", "os_version",
-                            "device_brand", "device_type", "interface", "device_os", "app_version", "device_type_class", "browser");
+                    keys = ImmutableList.of(
+                            "is_inverted",
+                            "device_model",
+                            "country",
+                            "carrier_id",
+                            "network_type",
+                            "os_version",
+                            "device_brand",
+                            "device_type",
+                            "interface",
+                            "device_os",
+                            "app_version",
+                            "device_type_class",
+                            "browser");
                 }
                 default -> throw new UnsupportedOperationException();
             }
@@ -144,7 +156,8 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(call(
                         resolvedFunction,
-                        new Reference(mapType, "$col_0"), new Constant(createUnboundedVarcharType(), utf8Slice(keys.get(i)))));
+                        new Reference(mapType, "$col_0"),
+                        new Constant(createUnboundedVarcharType(), utf8Slice(keys.get(i)))));
             }
 
             List<Expression> projections = projectionsBuilder.build();

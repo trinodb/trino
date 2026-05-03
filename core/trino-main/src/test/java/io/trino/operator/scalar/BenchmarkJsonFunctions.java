@@ -198,7 +198,8 @@ public class BenchmarkJsonFunctions
                                     new FunctionType(ImmutableList.of(), VARCHAR)))),
                     ImmutableList.of(
                             call(functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
-                                    new Reference(VARCHAR, "$col_0"), new Constant(BOOLEAN, true)),
+                                    new Reference(VARCHAR, "$col_0"),
+                                    new Constant(BOOLEAN, true)),
                             new Constant(jsonPath2016Type, new IrJsonPath(false, pathRoot)),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
                             constantNull(VARCHAR),
@@ -223,7 +224,8 @@ public class BenchmarkJsonFunctions
             Type boundedVarcharType = createVarcharType(100);
             List<Expression> jsonExtractScalarProjection = ImmutableList.of(call(
                     functionResolution.resolveFunction("json_extract_scalar", fromTypes(ImmutableList.of(boundedVarcharType, JSON_PATH))),
-                    new Reference(boundedVarcharType, "$col_0"), new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
+                    new Reference(boundedVarcharType, "$col_0"),
+                    new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
@@ -248,7 +250,8 @@ public class BenchmarkJsonFunctions
                                     TINYINT))),
                     ImmutableList.of(
                             call(functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
-                                    new Reference(VARCHAR, "$col_0"), new Constant(BOOLEAN, true)),
+                                    new Reference(VARCHAR, "$col_0"),
+                                    new Constant(BOOLEAN, true)),
                             new Constant(jsonPath2016Type, new IrJsonPath(false, pathRoot)),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
                             new Constant(TINYINT, 0L),
@@ -271,7 +274,8 @@ public class BenchmarkJsonFunctions
             Type boundedVarcharType = createVarcharType(100);
             List<Expression> jsonExtractScalarProjection = ImmutableList.of(call(
                     functionResolution.resolveFunction("json_extract", fromTypes(ImmutableList.of(boundedVarcharType, JSON_PATH))),
-                    new Reference(boundedVarcharType, "$col_0"), new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
+                    new Reference(boundedVarcharType, "$col_0"),
+                    new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))

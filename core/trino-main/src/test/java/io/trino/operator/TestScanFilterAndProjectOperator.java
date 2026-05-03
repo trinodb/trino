@@ -173,7 +173,8 @@ public class TestScanFilterAndProjectOperator
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
         Expression filter = call(
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                col0, new Constant(BIGINT, 10L));
+                col0,
+                new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
         Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);

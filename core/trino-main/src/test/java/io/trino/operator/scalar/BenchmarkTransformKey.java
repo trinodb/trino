@@ -122,7 +122,8 @@ public class BenchmarkTransformKey
                     name,
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType, elementType), elementType)));
             ResolvedFunction add = functionResolution.resolveOperator(ADD, ImmutableList.of(elementType, elementType));
-            projectionsBuilder.add(call(resolvedFunction,
+            projectionsBuilder.add(call(
+                    resolvedFunction,
                     new Reference(mapType, "$col_0"),
                     new Lambda(
                             ImmutableList.of(new Symbol(elementType, "x"), new Symbol(elementType, "y")),

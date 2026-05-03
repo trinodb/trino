@@ -279,7 +279,8 @@ public class BenchmarkPartitionedOutputOperator
                                             Optional.ofNullable(isNull),
                                             new Block[] {
                                                     RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
-                                                    createRandomLongsBlock(positionCount, nullRate)});
+                                                    createRandomLongsBlock(positionCount, nullRate),
+                                            });
                                 })
                                 .collect(toImmutableList()));
             });

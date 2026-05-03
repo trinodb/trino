@@ -195,23 +195,43 @@ public class BenchmarkResourceUsageTimeSeriesRecorder
             }
             Metrics metrics = new Metrics(metricsBuilder.buildOrThrow());
             return new OperatorStats(
-                    0, 0, 0,
+                    0,
+                    0,
+                    0,
                     new PlanNodeId("test"),
                     Optional.empty(),
                     "test",
                     1,
-                    0, Duration.ZERO, Duration.ZERO,
-                    DataSize.ofBytes(0), 0, Duration.ZERO,
-                    DataSize.ofBytes(0), 0,
-                    DataSize.ofBytes(0), 0, 0d,
-                    0, Duration.ZERO, Duration.ZERO,
-                    DataSize.ofBytes(0), 0,
-                    0, metrics, Metrics.EMPTY, Metrics.EMPTY,
+                    0,
+                    Duration.ZERO,
+                    Duration.ZERO,
+                    DataSize.ofBytes(0),
+                    0,
+                    Duration.ZERO,
+                    DataSize.ofBytes(0),
+                    0,
+                    DataSize.ofBytes(0),
+                    0,
+                    0d,
+                    0,
+                    Duration.ZERO,
+                    Duration.ZERO,
+                    DataSize.ofBytes(0),
+                    0,
+                    0,
+                    metrics,
+                    Metrics.EMPTY,
+                    Metrics.EMPTY,
                     DataSize.ofBytes(0),
                     Duration.ZERO,
-                    0, Duration.ZERO, Duration.ZERO,
-                    DataSize.ofBytes(0), DataSize.ofBytes(0),
-                    DataSize.ofBytes(0), DataSize.ofBytes(0), DataSize.ofBytes(0),
+                    0,
+                    Duration.ZERO,
+                    Duration.ZERO,
+                    DataSize.ofBytes(0),
+                    DataSize.ofBytes(0),
+                    DataSize.ofBytes(0),
+                    DataSize.ofBytes(0),
+                    DataSize.ofBytes(0),
                     DataSize.ofBytes(0),
                     Optional.empty(),
                     null);
@@ -255,7 +275,6 @@ public class BenchmarkResourceUsageTimeSeriesRecorder
         benchmarkInstance.operatorStatsAdd(operatorStatsAddData, blackhole);
 
         benchmark(BenchmarkResourceUsageTimeSeriesRecorder.class)
-                .withOptions(options -> options.jvmArgs("-Xmx4g")
-                ).run();
+                .withOptions(options -> options.jvmArgs("-Xmx4g")).run();
     }
 }

@@ -957,11 +957,11 @@ public class TestVarbinaryFunctions
     {
         assertThat(assertions.function("hmac_sha512", "CAST('' AS VARBINARY)", "CAST('key' AS VARBINARY)"))
                 .isEqualTo(sqlVarbinaryFromHex("84FA5AA0279BBC473267D05A53EA03310A987CECC4C1535FF29B6D76B8F1444A" +
-                                               "728DF3AADB89D4A9A6709E1998F373566E8F824A8CA93B1821F0B69BC2A2F65E"));
+                        "728DF3AADB89D4A9A6709E1998F373566E8F824A8CA93B1821F0B69BC2A2F65E"));
 
         assertThat(assertions.function("hmac_sha512", "CAST('hashme' AS VARBINARY)", "CAST('key' AS VARBINARY)"))
                 .isEqualTo(sqlVarbinaryFromHex("FEFA712B67DED871E1ED987F8B20D6A69EB9FCC87974218B9A1A6D5202B54C18" +
-                                               "ECDA4839A979DED22F07E0881CF40B762691992D120408F49D6212E112509D72"));
+                        "ECDA4839A979DED22F07E0881CF40B762691992D120408F49D6212E112509D72"));
     }
 
     @Test
