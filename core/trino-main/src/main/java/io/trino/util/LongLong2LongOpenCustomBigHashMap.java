@@ -43,7 +43,7 @@ public class LongLong2LongOpenCustomBigHashMap
          * @param e1 first half of the element.
          * @param e2 second half of the element.
          * @return the hash code of the given element with respect to this hash
-         * strategy.
+         *         strategy.
          */
         long hashCode(long e1, long e2);
 
@@ -56,7 +56,7 @@ public class LongLong2LongOpenCustomBigHashMap
          * @param b1 first half of another element.
          * @param b2 second half of another element.
          * @return true if the two specified elements are equal with respect to this
-         * hash strategy.
+         *         hash strategy.
          */
         boolean equals(long a1, long a2, long b1, long b2);
     }
@@ -356,7 +356,7 @@ public class LongLong2LongOpenCustomBigHashMap
      * @param k2 the second half of key.
      * @param incr the increment.
      * @return the old value, or the {@linkplain #defaultReturnValue() default
-     * return value} if no value was present for the given key.
+     *         return value} if no value was present for the given key.
      */
     public long addTo(final long k1, final long k2, final long incr)
     {

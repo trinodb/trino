@@ -135,7 +135,7 @@ public class AggregationNode
 
     /**
      * @return true if the aggregation collapses all rows into a single global group (e.g., as a result of a GROUP BY () query).
-     * Otherwise, false.
+     *         Otherwise, false.
      */
     public boolean hasSingleGlobalAggregation()
     {
@@ -144,11 +144,11 @@ public class AggregationNode
 
     /**
      * @return whether this node should produce default output in case of no input pages.
-     * For example for query:
-     * <pre>{@code
+     *         For example for query:
+     *         <pre>{@code
      * SELECT count(*) FROM nation WHERE nationkey < 0
      * }</pre>
-     * A default output of "0" is expected to be produced by FINAL aggregation operator.
+     *         A default output of "0" is expected to be produced by FINAL aggregation operator.
      */
     public boolean hasDefaultOutput()
     {

@@ -533,7 +533,7 @@ public class OrcPageSourceFactory
      * @param fileColumns All OrcColumns nested in the root column of the table.
      * @param columns Columns from the Hive metastore that are being used
      * @return Return the fileColumns list with any OrcColumn corresponding to a desiredColumn renamed if
-     * the names differ from those specified in the desiredColumns.
+     *         the names differ from those specified in the desiredColumns.
      */
     private static List<OrcColumn> ensureColumnNameConsistency(List<OrcColumn> fileColumns, List<HiveColumnHandle> columns)
     {

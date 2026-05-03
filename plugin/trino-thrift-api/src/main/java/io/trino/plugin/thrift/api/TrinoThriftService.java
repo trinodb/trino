@@ -41,7 +41,7 @@ public interface TrinoThriftService
      *
      * @param schemaNameOrNull a structure containing schema name or {@literal null}
      * @return a list of table names with corresponding schemas. If schema name is null then returns
-     * a list of tables for all schemas. Returns an empty list if a schema does not exist
+     *         a list of tables for all schemas. Returns an empty list if a schema does not exist
      */
     @ThriftMethod("trinoListTables")
     List<TrinoThriftSchemaTableName> listTables(

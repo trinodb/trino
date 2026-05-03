@@ -334,7 +334,7 @@ public class Long2LongOpenBigHashMap
      * @param k the key.
      * @param incr the increment.
      * @return the old value, or the {@linkplain #defaultReturnValue() default
-     * return value} if no value was present for the given key.
+     *         return value} if no value was present for the given key.
      */
     public long addTo(final long k, final long incr)
     {

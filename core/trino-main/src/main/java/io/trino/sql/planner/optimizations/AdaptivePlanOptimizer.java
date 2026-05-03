@@ -43,7 +43,7 @@ public interface AdaptivePlanOptimizer
         /**
          * @param plan The optimized plan
          * @param changedPlanNodes The set of PlanNodeIds that were changed during optimization, as well as the new
-         * PlanNodeIds that were added to the optimized plan.
+         *         PlanNodeIds that were added to the optimized plan.
          */
         public Result(PlanNode plan, Set<PlanNodeId> changedPlanNodes)
         {

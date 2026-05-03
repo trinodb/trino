@@ -39,9 +39,9 @@ public final class TimeZone
      * <p>
      *
      * @param timeWithTimeZone the packed long
-     * representing a `time(p) with time zone`
+     *         representing a `time(p) with time zone`
      * @return the time zone offset in the format
-     * "+HH:mm" or "-HH:mm" as a VARCHAR
+     *         "+HH:mm" or "-HH:mm" as a VARCHAR
      */
     @LiteralParameters("p")
     @SqlType(StandardTypes.VARCHAR)
@@ -67,7 +67,7 @@ public final class TimeZone
      *
      * @param timeWithTimeZone the LongTimeWithTimeZone object
      * @return the time zone offset in the format
-     * "+HH:mm" or "-HH:mm" as a VARCHAR
+     *         "+HH:mm" or "-HH:mm" as a VARCHAR
      */
     @LiteralParameters("p")
     @SqlType(StandardTypes.VARCHAR)

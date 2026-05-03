@@ -561,8 +561,8 @@ public final class DomainTranslator
 
         /**
          * @return Date representations of the form 2005-09-09, 2005-09-9, 2005-9-09 and 2005-9-9 expanded to ranges:
-         * {@code [2005-09-09, 2005-09-0:), [2005-09-9, 2005-09-:), [2005-9-09, 2005-9-0:), [2005-9-9, 2005-9-:)}
-         * (the {@code :} character is the next one after {@code 9}).
+         *         {@code [2005-09-09, 2005-09-0:), [2005-09-9, 2005-09-:), [2005-9-09, 2005-9-0:), [2005-9-9, 2005-9-:)}
+         *         (the {@code :} character is the next one after {@code 9}).
          */
         private static SortedRangeSet dateStringRanges(LocalDate date, VarcharType domainType)
         {

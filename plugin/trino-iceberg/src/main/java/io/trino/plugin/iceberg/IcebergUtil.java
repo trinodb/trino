@@ -1113,7 +1113,7 @@ public final class IcebergUtil
      * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
      *
      * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot.
      */
     public static Optional<Snapshot> firstSnapshot(Table table)
@@ -1135,11 +1135,11 @@ public final class IcebergUtil
 
     /**
      * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
-     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot,
-     * {@code baseSnapshotId} is not a valid snapshot in the table or
-     * the {@code baseSnapshotId} is the current snapshot.
+     *         {@code baseSnapshotId} is not a valid snapshot in the table or
+     *         the {@code baseSnapshotId} is the current snapshot.
      */
     public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
     {
