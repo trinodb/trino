@@ -219,7 +219,8 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(DataSize.of(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.queryId(),
+            QueryContext queryContext = new QueryContext(
+                    taskId.queryId(),
                     DataSize.of(1, MEGABYTE),
                     memoryPool,
                     new TestingGcMonitor(),
@@ -287,7 +288,8 @@ public class MockRemoteTaskFactory
             TaskStats stats = taskContext.getTaskStats();
             PartitionedSplitsInfo combinedSplitsInfo = getPartitionedSplitsInfo();
             PartitionedSplitsInfo queuedSplitsInfo = getQueuedPartitionedSplitsInfo();
-            return new TaskStatus(taskStateMachine.getTaskId(),
+            return new TaskStatus(
+                    taskStateMachine.getTaskId(),
                     TASK_INSTANCE_ID,
                     nextTaskInfoVersion.get(),
                     state,

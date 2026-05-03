@@ -697,7 +697,8 @@ public class TestSourcePartitionedScheduler
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), REPLICATE, RetryPolicy.NONE);
         return new PlanFragment(
                 new PlanFragmentId("plan_id"),
-                new JoinNode(new PlanNodeId("join_id"),
+                new JoinNode(
+                        new PlanNodeId("join_id"),
                         INNER,
                         filterNode,
                         remote,

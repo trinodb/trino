@@ -241,7 +241,7 @@ public class TestingRemoteTaskFactory
         @Override
         public void setSpeculative(boolean speculative)
         {
-           // ignore
+            // ignore
         }
 
         public synchronized OutputBuffers getOutputBuffers()

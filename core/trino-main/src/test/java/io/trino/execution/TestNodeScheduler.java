@@ -443,7 +443,8 @@ public class TestNodeScheduler
         InternalNode chosenNode = Iterables.get(nodeManager.getNodes(ACTIVE), 0);
 
         TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
-        RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
+        RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(
+                taskId1,
                 chosenNode,
                 ImmutableList.of(
                         new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()),
@@ -726,7 +727,8 @@ public class TestNodeScheduler
 
         TestSplitRemote()
         {
-            this(HostAddress.fromString(format("10.%s.%s.%s:%s",
+            this(HostAddress.fromString(format(
+                    "10.%s.%s.%s:%s",
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),

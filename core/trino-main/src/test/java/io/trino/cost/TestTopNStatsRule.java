@@ -30,7 +30,7 @@ public class TestTopNStatsRule
     {
         // Test case with more rows in data than in topN SINGLE step
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -79,7 +79,7 @@ public class TestTopNStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 10.0)));
 
@@ -147,7 +147,7 @@ public class TestTopNStatsRule
     {
         // Test no nulls case
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -180,7 +180,7 @@ public class TestTopNStatsRule
 
         // test Reducing the nullFraction
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -213,7 +213,7 @@ public class TestTopNStatsRule
 
         // test nulls first
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
