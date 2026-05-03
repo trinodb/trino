@@ -1068,7 +1068,8 @@ public class TestCachingHiveMetastore
 
     private void acquireSharedReadLock()
     {
-        metastore.acquireSharedReadLock(new AcidTransactionOwner("test"),
+        metastore.acquireSharedReadLock(
+                new AcidTransactionOwner("test"),
                 "queryId",
                 5,
                 Collections.singletonList(new SchemaTableName("test", "test")),
@@ -1134,8 +1135,10 @@ public class TestCachingHiveMetastore
                 int currentAccessCount = thriftClient.getAccessCount();
                 int timesCacheHasBeenOmitted = (currentAccessCount - startingAccessCount) / i;
                 assertThat(timesCacheHasBeenOmitted)
-                        .describedAs(format("Metastore is expected to not use cache %s times, but it does not use it %s times.",
-                                expectedCacheOmittingOperations, timesCacheHasBeenOmitted))
+                        .describedAs(format(
+                                "Metastore is expected to not use cache %s times, but it does not use it %s times.",
+                                expectedCacheOmittingOperations,
+                                timesCacheHasBeenOmitted))
                         .isEqualTo(expectedCacheOmittingOperations);
             }
         }

@@ -172,32 +172,28 @@ class TestNodeLocalDynamicSplitPruning
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        BUCKET_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 10L)));
+                        BUCKET_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 10L)));
     }
 
     private static TupleDomain<ColumnHandle> getNonSelectiveBucketTupleDomain()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        BUCKET_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 1L)));
+                        BUCKET_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 1L)));
     }
 
     private static TupleDomain<ColumnHandle> getTupleDomainForPartitionSplitPruning()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        PARTITION_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 1L)));
+                        PARTITION_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 1L)));
     }
 
     private static TupleDomain<ColumnHandle> getNonSelectivePartitionTupleDomain()
     {
         return TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        PARTITION_HIVE_COLUMN_HANDLE,
-                        Domain.singleValue(INTEGER, 42L)));
+                        PARTITION_HIVE_COLUMN_HANDLE, Domain.singleValue(INTEGER, 42L)));
     }
 
     private static TestingConnectorSession getSession(HiveConfig config)

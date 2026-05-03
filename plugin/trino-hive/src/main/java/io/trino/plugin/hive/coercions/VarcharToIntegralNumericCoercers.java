@@ -47,7 +47,8 @@ public final class VarcharToIntegralNumericCoercers
             super(fromType, toType);
             checkArgument(
                     toType.equals(TINYINT) || toType.equals(SMALLINT) || toType.equals(INTEGER) || toType.equals(BIGINT),
-                    "Unsupported datatype for coercion from varchar to %s", toType);
+                    "Unsupported datatype for coercion from varchar to %s",
+                    toType);
         }
 
         @Override

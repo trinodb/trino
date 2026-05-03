@@ -46,7 +46,8 @@ public class BridgingHiveMetastoreFactory
     @Override
     public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
-        return new TracingHiveMetastore(tracer,
+        return new TracingHiveMetastore(
+                tracer,
                 new BridgingHiveMetastore(thriftMetastoreFactory.createMetastore(identity)));
     }
 }

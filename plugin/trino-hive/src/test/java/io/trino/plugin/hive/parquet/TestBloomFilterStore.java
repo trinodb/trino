@@ -212,19 +212,22 @@ public class TestBloomFilterStore
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(60, 61, 62, 63, 64, 65), javaIntObjectInspector);
 
             // case 1, bloomfilter store has the column, and ranges expanded successfully and overlap
-            TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 2, bloomfilter store does not have the column, but ranges exceeded DOMAIN_COMPACTION_THRESHOLD
-            domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, 0L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 3, bloomfilter store has the column, and ranges expanded successfully but does not overlap
-            domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
@@ -239,13 +242,15 @@ public class TestBloomFilterStore
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(null, null, 62, 63, 64, 65), javaIntObjectInspector);
 
-            TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, and ranges overlap
             assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
-            TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             // bloomfilter store has the column, but ranges not overlap
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
@@ -261,7 +266,8 @@ public class TestBloomFilterStore
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(62, 63, 64, 65), javaIntObjectInspector);
 
-            TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
+            TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
+                    INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), true)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
             assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();

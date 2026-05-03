@@ -224,7 +224,8 @@ class TestOrcPredicates
                 RunLengthEncodedBlock.create(
                         RowBlock.fromFieldBlocks(1, new Block[] {
                                 new LongArrayBlock(1, Optional.empty(), new long[] {4}),
-                                new LongArrayBlock(1, Optional.empty(), new long[] {5})}),
+                                new LongArrayBlock(1, Optional.empty(), new long[] {5}),
+                        }),
                         NUM_ROWS),
                 RunLengthEncodedBlock.create(new LongArrayBlock(1, Optional.empty(), new long[] {6}), NUM_ROWS)));
 

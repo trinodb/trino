@@ -188,8 +188,7 @@ public class TestMetastoreHiveStatisticsProvider
         validatePartitionStatistics(
                 TABLE,
                 ImmutableMap.of(
-                        PARTITION,
-                        PartitionStatistics.builder()
+                        PARTITION, PartitionStatistics.builder()
                                 .setBasicStatistics(new HiveBasicStatistics(0, 0, 0, 0))
                                 .setColumnStatistics(ImmutableMap.of(COLUMN, createDoubleColumnStatistics(OptionalDouble.of(NaN), OptionalDouble.of(NaN), OptionalLong.empty(), OptionalLong.empty())))
                                 .build()));
@@ -895,7 +894,8 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static PartitionStatistics booleanDistinctValuesCount(OptionalLong trueCount, OptionalLong falseCount, OptionalLong nullsCount)
     {
-        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(),
+        return new PartitionStatistics(
+                HiveBasicStatistics.createEmptyStatistics(),
                 ImmutableMap.of(COLUMN, createBooleanColumnStatistics(trueCount, falseCount, nullsCount)));
     }
 

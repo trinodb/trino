@@ -320,8 +320,7 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize, BooleanSupplier partitionMatchSupplier)
         {
-            super(
-                    "partition-name",
+            super("partition-name",
                     "path",
                     0,
                     fileSize.toBytes(),

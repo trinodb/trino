@@ -95,8 +95,7 @@ public class TestHiveS3AndGlueMetastoreTest
     @Override
     protected void validateDataFiles(String partitionColumn, String tableName, String location)
     {
-        getActiveFiles(tableName).forEach(dataFile ->
-        {
+        getActiveFiles(tableName).forEach(dataFile -> {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
             assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + partitionPart + "[a-zA-Z0-9_-]+$");

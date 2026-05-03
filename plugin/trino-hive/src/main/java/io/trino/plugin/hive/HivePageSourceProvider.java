@@ -223,7 +223,8 @@ public class HivePageSourceProvider
                     transaction);
 
             if (pageSource.isPresent()) {
-                return Optional.of(createHivePageSource(columnMappings,
+                return Optional.of(createHivePageSource(
+                        columnMappings,
                         bucketAdaptation,
                         bucketValidator,
                         typeManager,

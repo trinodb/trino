@@ -89,25 +89,25 @@ public final class HiveTypeUtil
     {
         return switch (category) {
             case BOOLEAN,
-                    BYTE,
-                    SHORT,
-                    INT,
-                    LONG,
-                    FLOAT,
-                    DOUBLE,
-                    STRING,
-                    VARCHAR,
-                    CHAR,
-                    DATE,
-                    TIMESTAMP,
-                    TIMESTAMPLOCALTZ,
-                    BINARY,
-                    DECIMAL -> true;
+                 BYTE,
+                 SHORT,
+                 INT,
+                 LONG,
+                 FLOAT,
+                 DOUBLE,
+                 STRING,
+                 VARCHAR,
+                 CHAR,
+                 DATE,
+                 TIMESTAMP,
+                 TIMESTAMPLOCALTZ,
+                 BINARY,
+                 DECIMAL -> true;
             case INTERVAL_YEAR_MONTH,
-                    INTERVAL_DAY_TIME,
-                    VOID,
-                    VARIANT,
-                    UNKNOWN -> false;
+                 INTERVAL_DAY_TIME,
+                 VOID,
+                 VARIANT,
+                 UNKNOWN -> false;
         };
     }
 

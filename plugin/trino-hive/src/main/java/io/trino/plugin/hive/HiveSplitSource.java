@@ -210,11 +210,18 @@ class HiveSplitSource
             if (loggedHighMemoryWarning.compareAndSet(false, true)) {
                 highMemorySplitSourceCounter.update(1);
                 log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
-                        databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
+                        databaseName,
+                        tableName,
+                        queryId,
+                        succinctBytes(maxOutstandingSplitsBytes),
+                        getBufferedInternalSplitCount());
             }
             throw new TrinoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
-                    databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
+                    databaseName,
+                    tableName,
+                    succinctBytes(maxOutstandingSplitsBytes),
+                    getBufferedInternalSplitCount()));
         }
         bufferedInternalSplitCount.incrementAndGet();
         return queues.offer(split);
@@ -314,8 +321,8 @@ class HiveSplitSource
                 Optional<String> affinityKey = internalSplit.isForceLocalScheduling()
                         ? Optional.empty()
                         : deterministicSplits
-                                ? splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes)
-                                : splitAffinityProvider.getKey(internalSplit.getPath(), 0, internalSplit.getEstimatedFileSize());
+                          ? splitAffinityProvider.getKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes)
+                          : splitAffinityProvider.getKey(internalSplit.getPath(), 0, internalSplit.getEstimatedFileSize());
                 resultBuilder.add(new HiveSplit(
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),

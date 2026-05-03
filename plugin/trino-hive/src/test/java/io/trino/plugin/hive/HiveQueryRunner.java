@@ -329,7 +329,8 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
+                        .withConnectorRoles(role
+                                .map(selectedRole -> ImmutableMap.of(
                                         HIVE_CATALOG, selectedRole,
                                         HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
@@ -358,15 +359,15 @@ public final class HiveQueryRunner
         @Language("SQL") String sql = switch (tableName.objectName()) {
             case "part", "partsupp", "supplier", "nation", "region" -> format("CREATE TABLE %s AS SELECT * FROM %s", tableName.objectName(), tableName);
             case "lineitem" -> format(
-                        "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
-                        tableName.objectName(),
-                        columnNaming.getName(table.getColumn("orderkey")),
-                        tableName);
+                    "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+                    tableName.objectName(),
+                    columnNaming.getName(table.getColumn("orderkey")),
+                    tableName);
             case "customer", "orders" -> format(
-                        "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
-                        tableName.objectName(),
-                        columnNaming.getName(table.getColumn("custkey")),
-                        tableName);
+                    "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
+                    tableName.objectName(),
+                    columnNaming.getName(table.getColumn("custkey")),
+                    tableName);
             default -> throw new UnsupportedOperationException();
         };
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);

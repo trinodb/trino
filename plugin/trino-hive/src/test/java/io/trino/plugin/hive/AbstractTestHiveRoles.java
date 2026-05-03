@@ -164,8 +164,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO"));
         cleanup();
     }
 
@@ -177,8 +183,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                "user",
+                "USER",
+                "role1",
+                "YES",
+                "role1",
+                "ROLE",
+                "role2",
+                "YES"));
         cleanup();
     }
 
@@ -196,8 +208,14 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                "user",
+                "USER",
+                "role1",
+                "YES",
+                "role1",
+                "ROLE",
+                "role2",
+                "YES"));
         cleanup();
     }
 
@@ -234,13 +252,25 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO"));
 
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                "user",
+                "USER",
+                "public",
+                "NO",
+                "user",
+                "USER",
+                "role1",
+                "NO"));
         cleanup();
     }
 
@@ -266,9 +296,18 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO",
+                "role2",
+                "ROLE",
+                "role3",
+                "NO"));
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles("user", "USER", "public", "NO"));
@@ -285,14 +324,29 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO",
+                "role2",
+                "ROLE",
+                "role3",
+                "NO"));
 
         executeFromAdmin(revokeRoleFromRoleSql("role2", "role1"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                "user",
+                "USER",
+                "public",
+                "NO",
+                "user",
+                "USER",
+                "role1",
+                "NO"));
         cleanup();
     }
 
@@ -306,14 +360,29 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToRoleSql("role2", "role1"));
         executeFromAdmin(grantRoleToRoleSql("role3", "role2"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO",
-                "role2", "ROLE", "role3", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO",
+                "role2",
+                "ROLE",
+                "role3",
+                "NO"));
 
         executeFromAdmin(dropRoleSql("role2"));
         assertEqualsIgnoreOrder(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "public", "NO",
-                "user", "USER", "role1", "NO"));
+                "user",
+                "USER",
+                "public",
+                "NO",
+                "user",
+                "USER",
+                "role1",
+                "NO"));
         cleanup();
     }
 
@@ -325,14 +394,26 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                "user",
+                "USER",
+                "role1",
+                "YES",
+                "role1",
+                "ROLE",
+                "role2",
+                "YES"));
 
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO"));
         cleanup();
     }
 
@@ -344,16 +425,28 @@ abstract class AbstractTestHiveRoles
         executeFromAdmin(grantRoleToUserWithAdminSql("role1", "user"));
         executeFromAdmin(grantRoleToRoleWithAdminSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "YES",
-                "role1", "ROLE", "role2", "YES"));
+                "user",
+                "USER",
+                "role1",
+                "YES",
+                "role1",
+                "ROLE",
+                "role2",
+                "YES"));
 
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         executeFromAdmin(revokeAdminOptionForRoleFromRoleSql("role2", "role1"));
         assertContains(listApplicableRoles("user"), applicableRoles(
-                "user", "USER", "role1", "NO",
-                "role1", "ROLE", "role2", "NO"));
+                "user",
+                "USER",
+                "role1",
+                "NO",
+                "role1",
+                "ROLE",
+                "role2",
+                "NO"));
 
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
         executeFromAdmin(revokeRoleFromUserSql("role1", "user"));
