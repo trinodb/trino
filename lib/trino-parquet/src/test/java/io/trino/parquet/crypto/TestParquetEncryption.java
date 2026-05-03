@@ -463,12 +463,14 @@ public final class TestParquetEncryption
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                    0, 0);
+                    0,
+                    0);
 
             ColumnDescriptor id = new ColumnDescriptor(
                     new String[] {"id"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
-                    0, 0);
+                    0,
+                    0);
 
             // ——— Predicate on accessible column (age = missingAge) → dictionary-based pruning to 0 ———
             TupleDomain<ColumnDescriptor> domainAge = TupleDomain.withColumnDomains(ImmutableMap.of(age, singleValue(INTEGER, (long) missingAge)));
@@ -539,12 +541,14 @@ public final class TestParquetEncryption
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                    0, 0);
+                    0,
+                    0);
 
             ColumnDescriptor id = new ColumnDescriptor(
                     new String[] {"id"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
-                    0, 0);
+                    0,
+                    0);
 
             // --- Predicate on accessible column (age == missingAge) → Bloom filter should prune to 0
             TupleDomain<ColumnDescriptor> domainAge = TupleDomain.withColumnDomains(
@@ -858,7 +862,8 @@ public final class TestParquetEncryption
         ColumnDescriptor descriptor = new ColumnDescriptor(
                 new String[] {"age"},
                 Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                0, 0);
+                0,
+                0);
 
         Map<List<String>, ColumnDescriptor> byPath = ImmutableMap.of(
                 ImmutableList.of("age"), descriptor);
@@ -868,10 +873,16 @@ public final class TestParquetEncryption
                 domain, ImmutableList.of(descriptor), UTC);
 
         List<RowGroupInfo> groups = getFilteredRowGroups(
-                0, source.getEstimatedSize(),
-                source, metadata,
-                List.of(domain), List.of(predicate),
-                byPath, UTC, 200, ParquetReaderOptions.builder().build());
+                0,
+                source.getEstimatedSize(),
+                source,
+                metadata,
+                List.of(domain),
+                List.of(predicate),
+                byPath,
+                UTC,
+                200,
+                ParquetReaderOptions.builder().build());
 
         PrimitiveField field = new PrimitiveField(INTEGER, true, descriptor, 0);
         Column column = new Column("age", field);
@@ -922,11 +933,15 @@ public final class TestParquetEncryption
 
         ColumnDescriptor ageDescriptor = new ColumnDescriptor(
                 new String[] {"age"},
-                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"), 0, 0);
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
+                0,
+                0);
 
         ColumnDescriptor idDescriptor = new ColumnDescriptor(
                 new String[] {"id"},
-                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"), 0, 0);
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
+                0,
+                0);
 
         Map<List<String>, ColumnDescriptor> byPath = ImmutableMap.of(
                 ImmutableList.of("age"), ageDescriptor,
@@ -936,9 +951,16 @@ public final class TestParquetEncryption
                 TupleDomain.all(), ImmutableList.of(ageDescriptor, idDescriptor), UTC);
 
         List<RowGroupInfo> groups = getFilteredRowGroups(
-                0, source.getEstimatedSize(), source, metadata,
-                List.of(TupleDomain.all()), List.of(predicate),
-                byPath, UTC, 200, ParquetReaderOptions.builder().build());
+                0,
+                source.getEstimatedSize(),
+                source,
+                metadata,
+                List.of(TupleDomain.all()),
+                List.of(predicate),
+                byPath,
+                UTC,
+                200,
+                ParquetReaderOptions.builder().build());
 
         PrimitiveField ageField = new PrimitiveField(INTEGER, true, ageDescriptor, 0);
         PrimitiveField idField = new PrimitiveField(INTEGER, true, idDescriptor, 1);
@@ -950,7 +972,9 @@ public final class TestParquetEncryption
         try (ParquetReader reader = new ParquetReader(
                 Optional.ofNullable(metadata.getFileMetaData().getCreatedBy()),
                 columns,
-                false, groups, source,
+                false,
+                groups,
+                source,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
                 ParquetReaderOptions.builder().build(),

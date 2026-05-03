@@ -229,9 +229,9 @@ public class PrimitiveColumnWriter
             throws IOException
     {
         byte[] pageDataBytes = BytesInput.concat(
-                repetitionLevelWriter.getBytes(),
-                definitionLevelWriter.getBytes(),
-                primitiveValueWriter.getBytes())
+                        repetitionLevelWriter.getBytes(),
+                        definitionLevelWriter.getBytes(),
+                        primitiveValueWriter.getBytes())
                 .toByteArray();
         int uncompressedSize = pageDataBytes.length;
         ParquetDataOutput pageData = (compressor != null)

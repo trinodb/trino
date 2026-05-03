@@ -131,7 +131,8 @@ public class UuidColumnReader
             return new Int128ArrayBlock(currentBatchSize, Optional.empty(), new long[0]);
         }
         if (totalByteLength > ONE_GIGABYTE) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR,
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
                     format("Values in column \"%s\" are too large to process for Trino. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
         }
         if (dataStream == null) {

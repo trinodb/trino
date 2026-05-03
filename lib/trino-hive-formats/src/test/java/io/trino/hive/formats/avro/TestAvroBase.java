@@ -177,7 +177,8 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("anArray", ImmutableList.of(1, 2, 3, 4));
         allTypeBlocks.add(ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, 4}, createIntsBlock(1, 2, 3, 4)));
         ALL_TYPES_GENERIC_RECORD.put("aMap", ImmutableMap.of(new Utf8("key1"), 1, new Utf8("key2"), 2));
-        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(Optional.empty(),
+        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(
+                Optional.empty(),
                 new int[] {0, 2},
                 createStringsBlock("key1", "key2"),
                 createIntsBlock(1, 2)));

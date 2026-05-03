@@ -110,7 +110,8 @@ public class TestAvroPageDataReaderWithoutTypeManager
             while (avroFileReader.hasNext()) {
                 Page p = avroFileReader.next();
                 MapBlock mb = (MapBlock) p.getBlock(0);
-                MapBlock expected = (MapBlock) MAP_VARCHAR_VARCHAR.createBlockFromKeyValue(Optional.empty(),
+                MapBlock expected = (MapBlock) MAP_VARCHAR_VARCHAR.createBlockFromKeyValue(
+                        Optional.empty(),
                         new int[] {0, 1},
                         createStringsBlock("key1"),
                         createStringsBlock("value1"));

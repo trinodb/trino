@@ -272,10 +272,12 @@ final class ParquetWriters
         {
             checkArgument(
                     LogicalTypeAnnotation.variantType(Header.VERSION).equals(variant.getLogicalTypeAnnotation()),
-                    "VARIANT group must be annotated with VARIANT logical type: %s", variant);
+                    "VARIANT group must be annotated with VARIANT logical type: %s",
+                    variant);
             checkArgument(
                     variant.getFieldCount() == 2,
-                    "Unsupported VARIANT schema (expected exactly 2 fields: metadata, value): %s", variant);
+                    "Unsupported VARIANT schema (expected exactly 2 fields: metadata, value): %s",
+                    variant);
 
             org.apache.parquet.schema.Type metadataType = variant.getType("metadata");
             org.apache.parquet.schema.Type valueType = variant.getType("value");
@@ -285,19 +287,23 @@ final class ParquetWriters
 
             checkArgument(
                     metadataPrimitive.getPrimitiveTypeName() == PrimitiveTypeName.BINARY,
-                    "VARIANT metadata field must be binary: %s", metadataPrimitive);
+                    "VARIANT metadata field must be binary: %s",
+                    metadataPrimitive);
             checkArgument(
                     valuePrimitive.getPrimitiveTypeName() == PrimitiveTypeName.BINARY,
-                    "VARIANT value field must be binary: %s", valuePrimitive);
+                    "VARIANT value field must be binary: %s",
+                    valuePrimitive);
 
             checkArgument(
                     metadataPrimitive.getRepetition() == Repetition.REQUIRED,
-                    "VARIANT metadata field must be required: %s", metadataPrimitive);
+                    "VARIANT metadata field must be required: %s",
+                    metadataPrimitive);
 
             // For now, we only support the unshredded form: required value
             checkArgument(
                     valuePrimitive.getRepetition() == Repetition.REQUIRED,
-                    "VARIANT value field must be required (unshredded only supported): %s", valuePrimitive);
+                    "VARIANT value field must be required (unshredded only supported): %s",
+                    valuePrimitive);
 
             String[] path = currentPath();
             ColumnWriter metadataColumnWriter = primitive(metadataPrimitive, ObjectArrays.concat(path, "metadata"), VARBINARY);
@@ -361,7 +367,9 @@ final class ParquetWriters
         checkArgument(
                 annotationType.isInstance(parquetType.getLogicalTypeAnnotation()) &&
                         predicate.test(annotationType.cast(parquetType.getLogicalTypeAnnotation())),
-                "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
+                "Wrong Parquet type '%s' for Trino type '%s'",
+                parquetType,
+                type);
     }
 
     private static Predicate<TimeLogicalTypeAnnotation> isTime(LogicalTypeAnnotation.TimeUnit precision)

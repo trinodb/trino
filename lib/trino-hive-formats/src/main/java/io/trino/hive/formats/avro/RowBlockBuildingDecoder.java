@@ -59,9 +59,11 @@ public class RowBlockBuildingDecoder
             buildSteps[i] = switch (fieldAction) {
                 case DefaultValueFieldRecordFieldReadAction defaultValueFieldRecordFieldReadAction -> new ConstantBlockAction(
                         getDefaultBlockBuilder(defaultValueFieldRecordFieldReadAction.fieldSchema(),
-                                defaultValueFieldRecordFieldReadAction.defaultBytes(), typeManager),
+                                defaultValueFieldRecordFieldReadAction.defaultBytes(),
+                                typeManager),
                         defaultValueFieldRecordFieldReadAction.outputChannel());
-                case ReadFieldAction readFieldAction -> new BuildIntoBlockAction(typeManager.blockBuildingDecoderFor(readFieldAction.readAction()),
+                case ReadFieldAction readFieldAction -> new BuildIntoBlockAction(
+                        typeManager.blockBuildingDecoderFor(readFieldAction.readAction()),
                         readFieldAction.outputChannel());
                 case SkipFieldRecordFieldReadAction skipFieldRecordFieldReadAction -> new SkipSchemaBuildingAction(skipFieldRecordFieldReadAction.skipAction());
             };

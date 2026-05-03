@@ -128,8 +128,7 @@ public class TestSequenceFileReaderWriter
                 // write new, read old and new
                 try (TempFile tempFile = new TempFile()) {
                     Map<String, String> metadata = ImmutableMap.of(
-                            String.valueOf(ThreadLocalRandom.current().nextLong()),
-                            String.valueOf(ThreadLocalRandom.current().nextLong()));
+                            String.valueOf(ThreadLocalRandom.current().nextLong()), String.valueOf(ThreadLocalRandom.current().nextLong()));
                     writeNew(tempFile.file(), values, metadata, compressionKind, blockCompressed, valueType);
 
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()

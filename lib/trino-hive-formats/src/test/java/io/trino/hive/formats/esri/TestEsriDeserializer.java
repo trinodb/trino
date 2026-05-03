@@ -233,8 +233,7 @@ public class TestEsriDeserializer
                 new Column("id", BIGINT, 0),
                 new Column("name", VARCHAR, 1),
                 new Column("varbinary_field", VARBINARY, 2),
-                new Column("value", DOUBLE, 3)
-        );
+                new Column("value", DOUBLE, 3));
 
         assertThatThrownBy(() -> parse(json, columns))
                 .isInstanceOf(EsriDeserializer.UnsupportedTypeException.class)
@@ -303,7 +302,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """, dateStr);
+                    """,
+                    dateStr);
 
             page = parse(json);
             assertThat(DATE.getLong(page.getBlock(4), 0)).isEqualTo(20150);
@@ -324,7 +324,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """, dateStr);
+                    """,
+                    dateStr);
 
             page = parse(json);
             assertThat(page.getBlock(4).isNull(0))
@@ -379,7 +380,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """, timestampStr);
+                    """,
+                    timestampStr);
 
             page = parse(json);
             assertThat(TIMESTAMP_MILLIS.getLong(page.getBlock(5), 0))
@@ -396,7 +398,8 @@ public class TestEsriDeserializer
                         },
                         "geometry": null
                     }
-                    """, timestampStr);
+                    """,
+                    timestampStr);
 
             page = parse(json);
             assertThat(page.getBlock(5).isNull(0))
