@@ -495,7 +495,8 @@ public class TestIcebergGlueCatalogAccessOperations
                             .add(GET_TABLE)
                             .build());
 
-            assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+            assertQueryFails(
+                    "SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
                     "Table '" + testSchema + ".test_select_snapshots\\$materialized_view_storage' not found");
 
             // This test should get updated if a new system table is added.

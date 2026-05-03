@@ -105,7 +105,9 @@ public class IcebergRestCatalogFileSystemFactory
         Optional<S3VendedCredentials> s3VendedCredentials = createVendedCredentialsIfPresent(
                 fileIoProperties,
                 () -> S3VendedCredentialsProvider.createVendedCredentials(fileIoProperties),
-                S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
+                S3FileIOProperties.ACCESS_KEY_ID,
+                S3FileIOProperties.SECRET_ACCESS_KEY,
+                S3FileIOProperties.SESSION_TOKEN);
         Optional<GcsVendedCredentials> gcsVendedCredentials = createVendedCredentialsIfPresent(
                 fileIoProperties,
                 () -> GcsVendedCredentialsProvider.createVendedCredentials(fileIoProperties),
@@ -143,7 +145,9 @@ public class IcebergRestCatalogFileSystemFactory
         Optional<S3VendedCredentialsProvider> s3VendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
                 fileIoProperties,
                 () -> new S3VendedCredentialsProvider(catalogProperties, fileIoProperties),
-                S3FileIOProperties.ACCESS_KEY_ID, S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.SESSION_TOKEN);
+                S3FileIOProperties.ACCESS_KEY_ID,
+                S3FileIOProperties.SECRET_ACCESS_KEY,
+                S3FileIOProperties.SESSION_TOKEN);
         Optional<GcsVendedCredentialsProvider> gcsVendedCredentialsProvider = createVendedCredentialsProviderIfPresent(
                 fileIoProperties,
                 () -> new GcsVendedCredentialsProvider(catalogProperties, fileIoProperties),

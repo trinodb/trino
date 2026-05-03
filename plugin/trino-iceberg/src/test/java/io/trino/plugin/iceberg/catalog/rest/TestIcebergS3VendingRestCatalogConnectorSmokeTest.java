@@ -135,13 +135,15 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     @BeforeAll
     public void initFileSystem()
     {
-        this.fileSystem = new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setRegion(MINIO_REGION)
-                .setEndpoint(minio.getMinioAddress())
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(MINIO_ROOT_USER)
-                .setAwsSecretKey(MINIO_ROOT_PASSWORD), new S3FileSystemStats()
-        ).create(SESSION);
+        this.fileSystem = new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setRegion(MINIO_REGION)
+                        .setEndpoint(minio.getMinioAddress())
+                        .setPathStyleAccess(true)
+                        .setAwsAccessKey(MINIO_ROOT_USER)
+                        .setAwsSecretKey(MINIO_ROOT_PASSWORD),
+                new S3FileSystemStats()).create(SESSION);
     }
 
     @Test
