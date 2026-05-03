@@ -637,15 +637,12 @@ public class RedshiftClient
             case Types.BIT -> Optional.of(booleanColumnMapping());
 
             // case Types.TINYINT: -- Redshift doesn't support tinyint
-            case Types.SMALLINT ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
-            case Types.INTEGER ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
-            case Types.BIGINT ->
-                // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
-                    Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.SMALLINT -> Optional.of(ColumnMapping.longMapping(SMALLINT, ResultSet::getShort, smallintWriteFunction(), pushdownDiscreteValues(SMALLINT)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.INTEGER -> Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, integerWriteFunction(), pushdownDiscreteValues(INTEGER)));
+            // IN clause query in Redshift performs better compared to range queries, hence convert range queries to discrete set where possible.
+            case Types.BIGINT -> Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), pushdownDiscreteValues(BIGINT)));
 
             case Types.REAL -> Optional.of(realColumnMapping());
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());

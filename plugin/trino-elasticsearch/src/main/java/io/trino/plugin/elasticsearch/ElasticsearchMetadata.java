@@ -633,8 +633,7 @@ public class ElasticsearchMetadata
                         regex.append(escaped ? "_" : ".");
                         escaped = false;
                     }
-                    case '\\' ->
-                        regex.append("\\\\");
+                    case '\\' -> regex.append("\\\\");
                     default -> {
                         // escape special regex characters
                         if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {

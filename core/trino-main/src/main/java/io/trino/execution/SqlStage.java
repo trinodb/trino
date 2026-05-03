@@ -484,16 +484,11 @@ public final class SqlStage
         public Void visitTableWriter(TableWriterNode node, Void context)
         {
             switch (node.getTarget()) {
-                case TableWriterNode.MergeTarget mergeTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle()));
-                case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle()));
-                case TableWriterNode.TableExecuteTarget tableExecuteTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle()));
-                case TableWriterNode.CreateTarget createTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle()));
-                case TableWriterNode.InsertTarget insertTarget ->
-                        extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
+                case TableWriterNode.MergeTarget mergeTarget -> extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle()));
+                case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget -> extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle()));
+                case TableWriterNode.TableExecuteTarget tableExecuteTarget -> extract(builder, node, metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle()));
+                case TableWriterNode.CreateTarget createTarget -> extract(builder, node, metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle()));
+                case TableWriterNode.InsertTarget insertTarget -> extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
                 default -> throw new IllegalArgumentException("Unsupported table writer node: " + node.getClass().getSimpleName());
             }
             return null;

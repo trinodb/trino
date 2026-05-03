@@ -86,8 +86,7 @@ public class PrometheusQueryResponseParse
         }
         if (result != null && resultType != null) {
             switch (resultType) {
-                case "matrix", "vector" ->
-                    results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
+                case "matrix", "vector" -> results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
                 case "scalar", "string" -> {
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();

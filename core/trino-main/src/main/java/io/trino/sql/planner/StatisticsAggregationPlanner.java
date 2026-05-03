@@ -128,9 +128,8 @@ public class StatisticsAggregationPlanner
             case MIN_VALUE -> createAggregation("min", input, inputType);
             case MAX_VALUE -> createAggregation("max", input, inputType);
             case NUMBER_OF_DISTINCT_VALUES -> createAggregation("approx_distinct", input, inputType);
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
-                // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                    createAggregation("$approx_set", input, inputType);
+            // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
+            case NUMBER_OF_DISTINCT_VALUES_SUMMARY -> createAggregation("$approx_set", input, inputType);
             case NUMBER_OF_NON_NULL_VALUES -> createAggregation("count", input, inputType);
             case NUMBER_OF_TRUE_VALUES -> createAggregation("count_if", input, BOOLEAN);
             case TOTAL_SIZE_IN_BYTES -> createAggregation(SumDataSizeForStats.NAME, input, inputType);

@@ -243,22 +243,20 @@ public final class StreamPropertyDerivations
                 case LEFT -> leftProperties
                         .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                         .unordered(unordered);
-                case RIGHT ->
-                    // since this is a right join, none of the matched output rows will contain nulls
-                    // in the left partitioning columns, and all of the unmatched rows will have
-                    // null for all left columns.  therefore, the output is still partitioned on the
-                    // left columns.  the only change is there will be at least two streams so the
-                    // output is multiple
-                    // There is one exception to this.  If the left is partitioned on empty set, we
-                    // we can't say that the output is partitioned on empty set, but we can say that
-                    // it is partitioned on the left join symbols
-                    // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
-                        new StreamProperties(MULTIPLE, Optional.empty(), false);
-                case FULL ->
-                    // the left can contain nulls in any stream so we can't say anything about the
-                    // partitioning, and nulls from the right are produced from a extra new stream
-                    // so we will always have multiple streams.
-                        new StreamProperties(MULTIPLE, Optional.empty(), false);
+                // since this is a right join, none of the matched output rows will contain nulls
+                // in the left partitioning columns, and all of the unmatched rows will have
+                // null for all left columns.  therefore, the output is still partitioned on the
+                // left columns.  the only change is there will be at least two streams so the
+                // output is multiple
+                // There is one exception to this.  If the left is partitioned on empty set, we
+                // we can't say that the output is partitioned on empty set, but we can say that
+                // it is partitioned on the left join symbols
+                // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
+                case RIGHT -> new StreamProperties(MULTIPLE, Optional.empty(), false);
+                // the left can contain nulls in any stream so we can't say anything about the
+                // partitioning, and nulls from the right are produced from a extra new stream
+                // so we will always have multiple streams.
+                case FULL -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };
         }
 
@@ -284,10 +282,9 @@ public final class StreamPropertyDerivations
 
             return switch (node.getType()) {
                 case INNER -> probeProperties;
-                case SOURCE_OUTER ->
-                    // the probe can contain nulls in any stream so we can't say anything about the
-                    // partitioning but the other properties of the probe will be maintained.
-                        probeProperties.withUnspecifiedPartitioning();
+                // the probe can contain nulls in any stream so we can't say anything about the
+                // partitioning but the other properties of the probe will be maintained.
+                case SOURCE_OUTER -> probeProperties.withUnspecifiedPartitioning();
             };
         }
 

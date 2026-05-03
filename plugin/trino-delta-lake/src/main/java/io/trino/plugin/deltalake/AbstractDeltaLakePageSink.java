@@ -168,8 +168,7 @@ public abstract class AbstractDeltaLakePageSink
                     dataColumnNames.add(column.basePhysicalColumnName());
                     dataColumnTypes.add(column.basePhysicalType());
                 }
-                case SYNTHESIZED ->
-                    processSynthesizedColumn(column);
+                case SYNTHESIZED -> processSynthesizedColumn(column);
                 default -> throw new IllegalStateException("Unexpected column type: " + column.columnType());
             }
         }

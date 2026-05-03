@@ -182,12 +182,9 @@ public class RedisRecordCursor
         fetchData(currentKeys);
 
         switch (split.getValueDataType()) {
-            case STRING ->
-                processStringValues(currentKeys);
-            case HASH ->
-                processHashValues(currentKeys);
-            default ->
-                log.warn("Redis value of type %s is unsupported", split.getValueDataType());
+            case STRING -> processStringValues(currentKeys);
+            case HASH -> processHashValues(currentKeys);
+            default -> log.warn("Redis value of type %s is unsupported", split.getValueDataType());
         }
         currentKeys.clear();
     }
@@ -243,20 +240,13 @@ public class RedisRecordCursor
             if (columnHandle.isInternal()) {
                 RedisInternalFieldDescription fieldDescription = RedisInternalFieldDescription.forColumnName(columnHandle.getName());
                 switch (fieldDescription) {
-                    case KEY_FIELD ->
-                        currentRowValuesMap.put(columnHandle, bytesValueProvider(keyData));
-                    case VALUE_FIELD ->
-                        currentRowValuesMap.put(columnHandle, bytesValueProvider(stringValueData));
-                    case KEY_LENGTH_FIELD ->
-                        currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
-                    case VALUE_LENGTH_FIELD ->
-                        currentRowValuesMap.put(columnHandle, longValueProvider(stringValueData.length));
-                    case KEY_CORRUPT_FIELD ->
-                        currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
-                    case VALUE_CORRUPT_FIELD ->
-                        currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
-                    default ->
-                        throw new IllegalArgumentException("unknown internal field " + fieldDescription);
+                    case KEY_FIELD -> currentRowValuesMap.put(columnHandle, bytesValueProvider(keyData));
+                    case VALUE_FIELD -> currentRowValuesMap.put(columnHandle, bytesValueProvider(stringValueData));
+                    case KEY_LENGTH_FIELD -> currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
+                    case VALUE_LENGTH_FIELD -> currentRowValuesMap.put(columnHandle, longValueProvider(stringValueData.length));
+                    case KEY_CORRUPT_FIELD -> currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
+                    case VALUE_CORRUPT_FIELD -> currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
+                    default -> throw new IllegalArgumentException("unknown internal field " + fieldDescription);
                 }
             }
         }
@@ -407,10 +397,8 @@ public class RedisRecordCursor
                 redisCursor = client.scan(cursor, scanParams);
                 keys = new ArrayList<>(redisCursor.getResult());
             }
-            case ZSET ->
-                keys = new ArrayList<>(client.zrange(split.getKeyName(), split.getStart(), split.getEnd()));
-            default ->
-                log.warn("Redis key of type %s is unsupported", split.getKeyDataFormat());
+            case ZSET -> keys = new ArrayList<>(client.zrange(split.getKeyName(), split.getStart(), split.getEnd()));
+            default -> log.warn("Redis key of type %s is unsupported", split.getKeyDataFormat());
         }
     }
 
@@ -420,8 +408,7 @@ public class RedisRecordCursor
         hashValues = null;
 
         switch (split.getValueDataType()) {
-            case STRING ->
-                stringValues = client.mget(currentKeys.toArray(new String[0]));
+            case STRING -> stringValues = client.mget(currentKeys.toArray(new String[0]));
             case HASH -> {
                 try (Pipeline pipeline = client.pipelined()) {
                     for (String key : currentKeys) {
@@ -430,8 +417,7 @@ public class RedisRecordCursor
                     hashValues = pipeline.syncAndReturnAll();
                 }
             }
-            default ->
-                log.warn("Redis value of type %s is unsupported", split.getValueDataType());
+            default -> log.warn("Redis value of type %s is unsupported", split.getValueDataType());
         }
     }
 }

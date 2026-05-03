@@ -83,8 +83,7 @@ public sealed interface FilterEvaluator
     static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(Expression expression, Map<Symbol, Integer> layout, ColumnarFilterCompiler compiler, boolean filterReorderingEnabled)
     {
         return switch (expression) {
-            case Constant constant when constant.value() instanceof Boolean booleanValue ->
-                    booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
+            case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
             case Comparison comparison -> createComparisonExpressionEvaluator(compiler, comparison, layout);
             case Call call -> {
                 if (isNotExpression(call)) {
