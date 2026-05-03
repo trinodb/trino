@@ -131,38 +131,38 @@ public final class PartitionFields
                     // identity doesn't allow specifying an alias
                     builder.identity(fromIdentifierToColumn(match.group()));
                 }) ||
-                tryMatch(field, YEAR_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    builder.year(column, column + "_year" + suffix);
-                }) ||
-                tryMatch(field, MONTH_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    builder.month(column, column + "_month" + suffix);
-                }) ||
-                tryMatch(field, DAY_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    builder.day(column, column + "_day" + suffix);
-                }) ||
-                tryMatch(field, HOUR_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    builder.hour(column, column + "_hour" + suffix);
-                }) ||
-                tryMatch(field, BUCKET_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    int numBuckets = parseInt(match.group(2));
-                    String newSuffix = includeWidthInPartitionName ? "_" + numBuckets + suffix : suffix;
-                    builder.bucket(column, numBuckets, column + "_bucket" + newSuffix);
-                }) ||
-                tryMatch(field, TRUNCATE_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    int width = parseInt(match.group(2));
-                    String newSuffix = includeWidthInPartitionName ? "_" + width + suffix : suffix;
-                    builder.truncate(column, width, column + "_trunc" + newSuffix);
-                }) ||
-                tryMatch(field, VOID_PATTERN, match -> {
-                    String column = fromIdentifierToColumn(match.group(1));
-                    builder.alwaysNull(column, column + "_null" + suffix);
-                });
+                        tryMatch(field, YEAR_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            builder.year(column, column + "_year" + suffix);
+                        }) ||
+                        tryMatch(field, MONTH_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            builder.month(column, column + "_month" + suffix);
+                        }) ||
+                        tryMatch(field, DAY_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            builder.day(column, column + "_day" + suffix);
+                        }) ||
+                        tryMatch(field, HOUR_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            builder.hour(column, column + "_hour" + suffix);
+                        }) ||
+                        tryMatch(field, BUCKET_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            int numBuckets = parseInt(match.group(2));
+                            String newSuffix = includeWidthInPartitionName ? "_" + numBuckets + suffix : suffix;
+                            builder.bucket(column, numBuckets, column + "_bucket" + newSuffix);
+                        }) ||
+                        tryMatch(field, TRUNCATE_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            int width = parseInt(match.group(2));
+                            String newSuffix = includeWidthInPartitionName ? "_" + width + suffix : suffix;
+                            builder.truncate(column, width, column + "_trunc" + newSuffix);
+                        }) ||
+                        tryMatch(field, VOID_PATTERN, match -> {
+                            String column = fromIdentifierToColumn(match.group(1));
+                            builder.alwaysNull(column, column + "_null" + suffix);
+                        });
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
         }

@@ -411,7 +411,8 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
-        assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+        assertQueryFails(
+                "SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
                 "Table 'tpch.test_select_snapshots\\$materialized_view_storage' not found");
 
         // This test should get updated if a new system table is added.

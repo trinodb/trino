@@ -155,7 +155,8 @@ public final class FilesTablePageSource
             }
             return getColumnType(column, typeManager);
         }).collect(toImmutableList()));
-        this.columnNameToIndex = mapWithIndex(requiredColumns.stream(),
+        this.columnNameToIndex = mapWithIndex(
+                requiredColumns.stream(),
                 (columnName, position) -> immutableEntry(columnName, Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         this.completedBytes = split.manifestFile().length();
@@ -208,27 +209,60 @@ public final class FilesTablePageSource
             writePartitionColumns(contentFile);
             writeValueOrNull(pageBuilder, RECORD_COUNT_COLUMN_NAME, contentFile::recordCount, BIGINT::writeLong);
             writeValueOrNull(pageBuilder, FILE_SIZE_IN_BYTES_COLUMN_NAME, contentFile::fileSizeInBytes, BIGINT::writeLong);
-            writeValueOrNull(pageBuilder, COLUMN_SIZES_COLUMN_NAME, contentFile::columnSizes,
+            writeValueOrNull(
+                    pageBuilder,
+                    COLUMN_SIZES_COLUMN_NAME,
+                    contentFile::columnSizes,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            writeValueOrNull(pageBuilder, VALUE_COUNTS_COLUMN_NAME, contentFile::valueCounts,
+            writeValueOrNull(
+                    pageBuilder,
+                    VALUE_COUNTS_COLUMN_NAME,
+                    contentFile::valueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            writeValueOrNull(pageBuilder, NULL_VALUE_COUNTS_COLUMN_NAME, contentFile::nullValueCounts,
+            writeValueOrNull(
+                    pageBuilder,
+                    NULL_VALUE_COUNTS_COLUMN_NAME,
+                    contentFile::nullValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            writeValueOrNull(pageBuilder, NAN_VALUE_COUNTS_COLUMN_NAME, contentFile::nanValueCounts,
+            writeValueOrNull(
+                    pageBuilder,
+                    NAN_VALUE_COUNTS_COLUMN_NAME,
+                    contentFile::nanValueCounts,
                     FilesTablePageSource::writeIntegerBigintInMap);
-            writeValueOrNull(pageBuilder, LOWER_BOUNDS_COLUMN_NAME, contentFile::lowerBounds,
+            writeValueOrNull(
+                    pageBuilder,
+                    LOWER_BOUNDS_COLUMN_NAME,
+                    contentFile::lowerBounds,
                     this::writeIntegerVarcharInMap);
-            writeValueOrNull(pageBuilder, UPPER_BOUNDS_COLUMN_NAME, contentFile::upperBounds,
+            writeValueOrNull(
+                    pageBuilder,
+                    UPPER_BOUNDS_COLUMN_NAME,
+                    contentFile::upperBounds,
                     this::writeIntegerVarcharInMap);
-            writeValueOrNull(pageBuilder, KEY_METADATA_COLUMN_NAME, contentFile::keyMetadata,
+            writeValueOrNull(
+                    pageBuilder,
+                    KEY_METADATA_COLUMN_NAME,
+                    contentFile::keyMetadata,
                     (blkBldr, value) -> VARBINARY.writeSlice(blkBldr, Slices.wrappedHeapBuffer(value)));
-            writeValueOrNull(pageBuilder, SPLIT_OFFSETS_COLUMN_NAME, contentFile::splitOffsets,
+            writeValueOrNull(
+                    pageBuilder,
+                    SPLIT_OFFSETS_COLUMN_NAME,
+                    contentFile::splitOffsets,
                     FilesTablePageSource::writeLongInArray);
-            writeValueOrNull(pageBuilder, EQUALITY_IDS_COLUMN_NAME, contentFile::equalityFieldIds,
+            writeValueOrNull(
+                    pageBuilder,
+                    EQUALITY_IDS_COLUMN_NAME,
+                    contentFile::equalityFieldIds,
                     FilesTablePageSource::writeIntegerInArray);
-            writeValueOrNull(pageBuilder, SORT_ORDER_ID_COLUMN_NAME, contentFile::sortOrderId,
+            writeValueOrNull(
+                    pageBuilder,
+                    SORT_ORDER_ID_COLUMN_NAME,
+                    contentFile::sortOrderId,
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
-            writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
+            writeValueOrNull(
+                    pageBuilder,
+                    READABLE_METRICS_COLUMN_NAME,
+                    () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
                     (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
             writeValueOrNull(pageBuilder, ADDED_SNAPSHOT_ID_COLUMN_NAME, entry::snapshotId, BIGINT::writeLong);
             writeValueOrNull(pageBuilder, FILE_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::fileSequenceNumber, BIGINT::writeLong);

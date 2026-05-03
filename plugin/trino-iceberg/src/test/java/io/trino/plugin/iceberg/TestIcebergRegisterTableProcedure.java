@@ -446,14 +446,18 @@ public class TestIcebergRegisterTableProcedure
 
         assertQueryFails(format("CALL iceberg.system.register_table (CURRENT_SCHEMA, '%s')", tableName),
                 ".*'TABLE_LOCATION' is missing.*");
-        assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA)",
+        assertQueryFails(
+                "CALL iceberg.system.register_table (CURRENT_SCHEMA)",
                 ".*'TABLE_NAME' is missing.*");
-        assertQueryFails("CALL iceberg.system.register_table ()",
+        assertQueryFails(
+                "CALL iceberg.system.register_table ()",
                 ".*'SCHEMA_NAME' is missing.*");
 
-        assertQueryFails("CALL iceberg.system.register_table (null, null, null)",
+        assertQueryFails(
+                "CALL iceberg.system.register_table (null, null, null)",
                 ".*schema_name cannot be null or empty.*");
-        assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, null, null)",
+        assertQueryFails(
+                "CALL iceberg.system.register_table (CURRENT_SCHEMA, null, null)",
                 ".*table_name cannot be null or empty.*");
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', null)",
                 ".*table_location cannot be null or empty.*");

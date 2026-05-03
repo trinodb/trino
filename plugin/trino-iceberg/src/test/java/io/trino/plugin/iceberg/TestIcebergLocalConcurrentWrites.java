@@ -1024,7 +1024,8 @@ final class TestIcebergLocalConcurrentWrites
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
-        List<String> rows = ImmutableList.of("('A', TIMESTAMP '2024-01-01 01:01', 1, 'aaa')",
+        List<String> rows = ImmutableList.of(
+                "('A', TIMESTAMP '2024-01-01 01:01', 1, 'aaa')",
                 "('B', TIMESTAMP '2024-01-01 02:02', 1, 'aab')",
                 "('C', TIMESTAMP '2024-01-01 03:03', 1, 'aac')",
                 "('D', TIMESTAMP '2024-01-01 04:04', 1, 'aad')");
@@ -1308,7 +1309,7 @@ final class TestIcebergLocalConcurrentWrites
                             RuntimeException trinoException = getTrinoExceptionCause(e);
                             try {
                                 assertThat(trinoException).hasMessageMatching("Failed to commit the transaction during optimize.*|" +
-                                                                              "Failed to commit during optimize.*");
+                                        "Failed to commit during optimize.*");
                             }
                             catch (Throwable verifyFailure) {
                                 if (verifyFailure != e) {

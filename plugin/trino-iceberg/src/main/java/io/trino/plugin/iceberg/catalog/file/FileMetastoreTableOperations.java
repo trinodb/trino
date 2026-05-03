@@ -76,8 +76,11 @@ public class FileMetastoreTableOperations
         checkState(currentMetadataLocation != null, "No current metadata location for existing table");
         String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
         if (!currentMetadataLocation.equals(metadataLocation)) {
-            throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
-                    currentMetadataLocation, metadataLocation, getSchemaTableName());
+            throw new CommitFailedException(
+                    "Metadata location [%s] is not same as table metadata location [%s] for %s",
+                    currentMetadataLocation,
+                    metadataLocation,
+                    getSchemaTableName());
         }
 
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);

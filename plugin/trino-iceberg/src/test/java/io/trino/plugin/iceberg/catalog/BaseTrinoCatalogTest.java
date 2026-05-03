@@ -265,7 +265,8 @@ public abstract class BaseTrinoCatalogTest
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+            Schema tableSchema = new Schema(
+                    Types.NestedField.optional(1, "col1", Types.LongType.get()),
                     Types.NestedField.optional(2, "col2", Types.StringType.get()),
                     Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
                     Types.NestedField.optional(4, "col4", Types.StringType.get()));

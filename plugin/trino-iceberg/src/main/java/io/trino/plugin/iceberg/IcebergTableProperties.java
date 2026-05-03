@@ -240,7 +240,8 @@ public class IcebergTableProperties
         checkState(SUPPORTED_PROPERTIES.containsAll(tableProperties.stream()
                         .map(PropertyMetadata::getName)
                         .collect(toImmutableList())),
-                "%s does not contain all supported properties", SUPPORTED_PROPERTIES);
+                "%s does not contain all supported properties",
+                SUPPORTED_PROPERTIES);
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -286,7 +287,8 @@ public class IcebergTableProperties
     private static void validateFormatVersion(int version)
     {
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY,
+            throw new TrinoException(
+                    INVALID_TABLE_PROPERTY,
                     format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
         }
     }

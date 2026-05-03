@@ -47,8 +47,7 @@ public class SparkIceberg
             Optional<Network> network,
             int startupRetryLimit)
     {
-        super(
-                image,
+        super(image,
                 hostName,
                 ports,
                 filesToMount,
@@ -64,11 +63,16 @@ public class SparkIceberg
         withRunCommand(
                 ImmutableList.of(
                         "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
+                        "--master",
+                        "local[*]",
+                        "--class",
+                        "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
+                        "--name",
+                        "Thrift JDBC/ODBC Server",
+                        "--packages",
+                        "org.apache.spark:spark-avro_2.12:3.2.1",
+                        "--conf",
+                        "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
                         "spark-internal"));
     }
 

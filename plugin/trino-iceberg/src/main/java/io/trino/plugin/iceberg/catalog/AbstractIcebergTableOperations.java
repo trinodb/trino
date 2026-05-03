@@ -277,7 +277,9 @@ public abstract class AbstractIcebergTableOperations
         String newUUID = newMetadata.uuid();
         if (currentMetadata != null) {
             checkState(newUUID == null || newUUID.equals(currentMetadata.uuid()),
-                    "Table UUID does not match: current=%s != refreshed=%s", currentMetadata.uuid(), newUUID);
+                    "Table UUID does not match: current=%s != refreshed=%s",
+                    currentMetadata.uuid(),
+                    newUUID);
         }
 
         currentMetadata = newMetadata;

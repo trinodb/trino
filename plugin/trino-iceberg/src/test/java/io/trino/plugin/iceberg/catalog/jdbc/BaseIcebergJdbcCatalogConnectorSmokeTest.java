@@ -91,7 +91,9 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_catalog_smoke_test").toFile();
         closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
-        jdbcCatalog = (JdbcCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
+        jdbcCatalog = (JdbcCatalog) buildIcebergCatalog(
+                "tpch",
+                ImmutableMap.<String, String>builder()
                         .put(CATALOG_IMPL, JdbcCatalog.class.getName())
                         .put(URI, server.getJdbcUrl())
                         .put(PROPERTY_PREFIX + "user", USER)
