@@ -48,32 +48,24 @@ public class TaskSystemTable
 
     public static final ConnectorTableMetadata TASK_TABLE = tableMetadataBuilder(TASK_TABLE_NAME)
             .column("node_id", createUnboundedVarcharType())
-
             .column("task_id", createUnboundedVarcharType())
             .column("stage_id", createUnboundedVarcharType())
             .column("query_id", createUnboundedVarcharType())
             .column("state", createUnboundedVarcharType())
-
             .column("splits", BIGINT)
             .column("queued_splits", BIGINT)
             .column("running_splits", BIGINT)
             .column("completed_splits", BIGINT)
-
             .column("split_scheduled_time_ms", BIGINT)
             .column("split_cpu_time_ms", BIGINT)
             .column("split_blocked_time_ms", BIGINT)
-
             .column("internal_network_input_bytes", BIGINT)
-
             .column("processed_input_bytes", BIGINT)
             .column("processed_input_rows", BIGINT)
-
             .column("output_bytes", BIGINT)
             .column("output_rows", BIGINT)
-
             .column("physical_input_bytes", BIGINT)
             .column("physical_written_bytes", BIGINT)
-
             .column("created", TIMESTAMP_TZ_MILLIS)
             .column("start", TIMESTAMP_TZ_MILLIS)
             .column("last_heartbeat", TIMESTAMP_TZ_MILLIS)

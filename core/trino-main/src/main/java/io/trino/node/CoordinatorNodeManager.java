@@ -88,8 +88,7 @@ public final class CoordinatorNodeManager
             CurrentNodeState currentNodeState,
             @ForNodeManager HttpClient httpClient)
     {
-        this(
-                nodeInventory,
+        this(nodeInventory,
                 currentNode,
                 currentNodeState,
                 nodeInfo.getEnvironment(),

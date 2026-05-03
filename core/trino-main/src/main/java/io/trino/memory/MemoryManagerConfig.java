@@ -30,7 +30,8 @@ import static java.util.Locale.ENGLISH;
         "experimental.cluster-memory-manager-enabled",
         "query.low-memory-killer.enabled",
         "resources.reserved-system-memory",
-        "query.low-memory-killer.delay"})
+        "query.low-memory-killer.delay",
+})
 public class MemoryManagerConfig
 {
     // enforced against user memory allocations

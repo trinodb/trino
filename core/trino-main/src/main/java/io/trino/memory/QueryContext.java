@@ -93,8 +93,7 @@ public class QueryContext
             DataSize maxSpill,
             SpillSpaceTracker spillSpaceTracker)
     {
-        this(
-                queryId,
+        this(queryId,
                 maxUserMemory,
                 memoryPool,
                 GUARANTEED_MEMORY,

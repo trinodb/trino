@@ -107,7 +107,10 @@ public class AnnounceNodeAnnouncer
                         // this should not happen, but if it does we do not want to stop announcing
                         log.error(e, "Error announcing node to coordinators");
                     }
-                }, 5, 5, SECONDS);
+                },
+                5,
+                5,
+                SECONDS);
         forceAnnounce();
     }
 

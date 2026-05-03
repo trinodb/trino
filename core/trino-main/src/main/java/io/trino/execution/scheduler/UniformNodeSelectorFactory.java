@@ -115,7 +115,8 @@ public class UniformNodeSelectorFactory
         if (nodeMapMemoizationDuration.toMillis() > 0) {
             nodeMap = Suppliers.memoizeWithExpiration(
                     this::createNodeMap,
-                    nodeMapMemoizationDuration.toMillis(), MILLISECONDS);
+                    nodeMapMemoizationDuration.toMillis(),
+                    MILLISECONDS);
         }
         else {
             nodeMap = this::createNodeMap;

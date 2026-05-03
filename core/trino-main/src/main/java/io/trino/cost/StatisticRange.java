@@ -35,6 +35,7 @@ public class StatisticRange
     private static final double DENSITY_HEURISTIC_THRESHOLD = 1e-3;
 
     // TODO unify field and method names with SymbolStatsEstimate
+
     /**
      * {@code NaN} represents empty range ({@code high} must be {@code NaN} too)
      */
@@ -148,7 +149,8 @@ public class StatisticRange
         double overlapDistinctValuesRight = overlapPercentOfRight * other.distinctValues;
         double minInputDistinctValues = minExcludeNaN(this.distinctValues, other.distinctValues);
 
-        return minExcludeNaN(minInputDistinctValues,
+        return minExcludeNaN(
+                minInputDistinctValues,
                 maxExcludeNaN(overlapDistinctValuesLeft, overlapDistinctValuesRight));
     }
 

@@ -27,7 +27,8 @@ public class NodeMap
     private final SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath;
     private final Set<String> coordinatorNodeIds;
 
-    public NodeMap(SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
+    public NodeMap(
+            SetMultimap<HostAddress, InternalNode> nodesByHostAndPort,
             SetMultimap<InetAddress, InternalNode> nodesByHost,
             SetMultimap<NetworkLocation, InternalNode> workersByNetworkPath,
             Set<String> coordinatorNodeIds)

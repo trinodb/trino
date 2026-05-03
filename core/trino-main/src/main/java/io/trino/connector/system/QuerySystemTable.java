@@ -64,16 +64,13 @@ public class QuerySystemTable
             .column("source", createUnboundedVarcharType())
             .column("query", createUnboundedVarcharType())
             .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
-
             .column("queued_time_ms", BIGINT)
             .column("analysis_time_ms", BIGINT)
             .column("planning_time_ms", BIGINT)
-
             .column("created", TIMESTAMP_TZ_MILLIS)
             .column("started", TIMESTAMP_TZ_MILLIS)
             .column("last_heartbeat", TIMESTAMP_TZ_MILLIS)
             .column("end", TIMESTAMP_TZ_MILLIS)
-
             .column("error_type", createUnboundedVarcharType())
             .column("error_code", createUnboundedVarcharType())
             .build();

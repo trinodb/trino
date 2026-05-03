@@ -114,8 +114,7 @@ public class TaskDescriptorStorage
             JsonCodec<TaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<Split> splitJsonCodec)
     {
-        this(
-                config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
+        this(config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(),
                 taskDescriptorJsonCodec,

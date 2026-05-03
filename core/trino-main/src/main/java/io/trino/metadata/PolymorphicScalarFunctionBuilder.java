@@ -259,10 +259,14 @@ public final class PolymorphicScalarFunctionBuilder
             checkState(matchingMethod.size() == 1, "multiple methods %s was not found in %s", methodName, clazz);
             MethodAndNativeContainerTypes methodAndNativeContainerTypes = matchingMethod.get(0);
             int argumentSize = signature.getArgumentTypes().size();
-            checkState(types.size() == argumentSize, "not matching number of arguments from signature: %s (should have %s)",
-                    types.size(), argumentSize);
-            checkState(types.size() == argumentConventions.size(), "not matching number of arguments from argument properties: %s (should have %s)",
-                    types.size(), argumentConventions.size());
+            checkState(types.size() == argumentSize,
+                    "not matching number of arguments from signature: %s (should have %s)",
+                    types.size(),
+                    argumentSize);
+            checkState(types.size() == argumentConventions.size(),
+                    "not matching number of arguments from argument properties: %s (should have %s)",
+                    types.size(),
+                    argumentConventions.size());
             Iterator<InvocationArgumentConvention> argumentConventionIterator = argumentConventions.iterator();
             Iterator<Optional<Class<?>>> typesIterator = types.iterator();
             while (argumentConventionIterator.hasNext() && typesIterator.hasNext()) {

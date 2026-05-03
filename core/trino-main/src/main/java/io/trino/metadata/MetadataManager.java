@@ -457,10 +457,10 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         return metadata.applyPartitioning(
-                connectorSession,
-                tableHandle.connectorHandle(),
-                partitioning.map(PartitioningHandle::getConnectorHandle),
-                columns)
+                        connectorSession,
+                        tableHandle.connectorHandle(),
+                        partitioning.map(PartitioningHandle::getConnectorHandle),
+                        columns)
                 .map(handle -> new TableHandle(catalogHandle, handle, tableHandle.transaction()));
     }
 
@@ -2221,8 +2221,7 @@ public final class MetadataManager
         projections.forEach(projection -> requireNonNull(projection, "one of the projections is null"));
         assignments.forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
 
-        verify(
-                expectedProjectionSize == projections.size(),
+        verify(expectedProjectionSize == projections.size(),
                 "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
                 projections.size(),
                 expectedProjectionSize,
