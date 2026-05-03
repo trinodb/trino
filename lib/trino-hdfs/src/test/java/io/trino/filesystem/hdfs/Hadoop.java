@@ -38,8 +38,7 @@ public class Hadoop
 
     public Hadoop()
     {
-        super(
-                IMAGE,
+        super(IMAGE,
                 "hadoop-master",
                 Set.of(HDFS_PORT),
                 emptyMap(),

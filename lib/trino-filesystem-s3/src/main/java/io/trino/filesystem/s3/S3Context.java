@@ -41,7 +41,8 @@ record S3Context(
         StorageClassType storageClass,
         ObjectCannedAcl cannedAcl)
 {
-    private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
+    private static final int MIN_PART_SIZE = 5 * 1024 * 1024;
+    // S3 requirement
 
     public S3Context
     {
