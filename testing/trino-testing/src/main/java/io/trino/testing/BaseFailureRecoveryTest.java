@@ -667,12 +667,12 @@ public abstract class BaseFailureRecoveryTest
 
         public FailureRecoveryAssert finishesSuccessfully()
         {
-            return finishesSuccessfully(queryId -> {});
+            return finishesSuccessfully(_ -> {});
         }
 
         public FailureRecoveryAssert finishesSuccessfullyWithoutTaskFailures()
         {
-            return finishesSuccessfully(queryId -> {}, false);
+            return finishesSuccessfully(_ -> {}, false);
         }
 
         private FailureRecoveryAssert finishesSuccessfully(Consumer<QueryId> queryAssertion)

@@ -8731,8 +8731,8 @@ public class TestAnalyzer
                 new SchemaPropertyManager(CatalogServiceProvider.fail()),
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
-                new ViewPropertyManager(catalogName -> ImmutableMap.of()),
-                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
+                new ViewPropertyManager(_ -> ImmutableMap.of()),
+                new MaterializedViewPropertyManager(_ -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
@@ -8746,9 +8746,9 @@ public class TestAnalyzer
                         return new ConnectorTransactionHandle() {};
                     }
                 },
-                user -> ImmutableSet.of(),
+                _ -> ImmutableSet.of(),
                 new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                new TableFunctionRegistry(catalogName -> new CatalogTableFunctions(ImmutableList.of(
+                new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of(
                         new TwoScalarArgumentsFunction(),
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),

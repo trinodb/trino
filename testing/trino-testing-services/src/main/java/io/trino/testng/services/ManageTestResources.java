@@ -242,7 +242,7 @@ public class ManageTestResources
         Pattern pattern = Pattern.compile(classNamePattern);
         return named(
                 "declaredClassPattern(%s)".formatted(classNamePattern),
-                (field, value, stage) -> pattern.matcher(field.getType().getName()).matches());
+                (field, _, _) -> pattern.matcher(field.getType().getName()).matches());
     }
 
     /**
@@ -250,7 +250,7 @@ public class ManageTestResources
      */
     private static Rule isAutoCloseable()
     {
-        return named("isAutoCloseable", (field, value, stage) -> {
+        return named("isAutoCloseable", (_, value, stage) -> {
             if (!(value instanceof AutoCloseable)) {
                 return false;
             }
@@ -291,7 +291,7 @@ public class ManageTestResources
         return tryLoadClass("io.trino.transaction.TransactionManager").map(transactionManagerClass ->
                 named(
                         "is-instance-TransactionManager-field",
-                        (field, value, stage) -> {
+                        (field, value, _) -> {
                             // Exclude static fields to allow usages of the form: `static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager()`
                             if (isStatic(field.getModifiers())) {
                                 return false;
@@ -323,7 +323,7 @@ public class ManageTestResources
      */
     private static Rule isLeftoverExecutorService()
     {
-        return named("isLeftoverExecutorService", (field, value, stage) -> {
+        return named("isLeftoverExecutorService", (_, value, stage) -> {
             if (!(value instanceof ExecutorService executorService)) {
                 return false;
             }

@@ -1841,7 +1841,7 @@ public abstract class BaseConnectorTest
         String initialResults = "VALUES (VARCHAR 'first_table', BIGINT '1')";
         withMockTableListing(
                 mockSchemaForListing,
-                connectorSession -> List.copyOf(mockListing.get()),
+                _ -> List.copyOf(mockListing.get()),
                 () -> {
                     assertUpdate(create);
 
@@ -1919,7 +1919,7 @@ public abstract class BaseConnectorTest
         String initialResults = "VALUES (VARCHAR 'first_table', BIGINT '1')";
         withMockTableListing(
                 mockSchemaForListing,
-                connectorSession -> List.copyOf(mockListing.get()),
+                _ -> List.copyOf(mockListing.get()),
                 () -> {
                     assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
                             "GRACE PERIOD INTERVAL '1' HOUR " +
@@ -5856,7 +5856,7 @@ public abstract class BaseConnectorTest
             /// One thread submits some CREATE OR REPLACE statements
             futures.add(executor.submit(() -> {
                 barrier.await(30, SECONDS);
-                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(_ -> {
                     try {
                         getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
                     }
@@ -5877,9 +5877,9 @@ public abstract class BaseConnectorTest
             }));
             // Other 4 threads continue try to read the same table, none of the reads should fail.
             IntStream.range(0, threads)
-                    .forEach(threadNumber -> futures.add(executor.submit(() -> {
+                    .forEach(_ -> futures.add(executor.submit(() -> {
                         barrier.await(30, SECONDS);
-                        IntStream.range(0, numOfReads).forEach(readIndex -> {
+                        IntStream.range(0, numOfReads).forEach(_ -> {
                             try {
                                 MaterializedResult result = computeActual("SELECT * FROM " + tableName);
                                 if (result.getRowCount() == 1) {
@@ -6139,7 +6139,7 @@ public abstract class BaseConnectorTest
                     getSession(),
                     query,
                     queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive(),
-                    results -> {});
+                    _ -> {});
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

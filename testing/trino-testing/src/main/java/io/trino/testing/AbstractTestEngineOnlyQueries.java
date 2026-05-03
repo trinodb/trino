@@ -6291,7 +6291,7 @@ public abstract class AbstractTestEngineOnlyQueries
     private static String pivotQuery(int columnsCount)
     {
         String fields = IntStream.range(0, columnsCount)
-                .mapToObj(columnNumber -> "lower(name)")
+                .mapToObj(_ -> "lower(name)")
                 .collect(joining(", "));
 
         String literals = IntStream.range(0, columnsCount)

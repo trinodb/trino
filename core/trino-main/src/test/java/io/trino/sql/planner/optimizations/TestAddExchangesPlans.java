@@ -1138,9 +1138,9 @@ public class TestAddExchangesPlans
     public void testUnionAllOnDifferentCatalogs()
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata("nationkey", BigintType.BIGINT)))
-                .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(
+                .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(
                         SchemaTableName.schemaTableName("default", "nation"),
                         TupleDomain.all(),
                         Optional.of(ImmutableList.of(new MockConnectorColumnHandle("nationkey", BigintType.BIGINT)))))

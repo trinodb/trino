@@ -662,7 +662,7 @@ final class TestOpaAccessControl
 
     private void testRequestContextContentsForGivenTrinoVersion(Optional<SystemAccessControlFactory.SystemAccessControlContext> accessControlContext, String expectedTrinoVersion)
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                 Optional.of(mockClient),
@@ -696,7 +696,7 @@ final class TestOpaAccessControl
     @Test
     void testRequestContextContentsForAdditionalContext()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.context-file", OPA_ADDITIONAL_CONTEXT_FILE.toString()),
                 Optional.of(mockClient),
@@ -841,7 +841,7 @@ final class TestOpaAccessControl
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
-                request -> {
+                _ -> {
                     throw new AssertionError("Should not have been called");
                 });
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
@@ -945,7 +945,7 @@ final class TestOpaAccessControl
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
-                request -> {
+                _ -> {
                     throw new AssertionError("Should not have been called");
                 });
 
