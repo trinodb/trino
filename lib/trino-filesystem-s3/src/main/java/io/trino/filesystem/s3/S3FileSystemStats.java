@@ -150,8 +150,13 @@ public class S3FileSystemStats
             implements MetricPublisher
     {
         private static final Set<SdkMetric<?>> ALLOWED_METRICS = Set.of(
-                API_CALL_SUCCESSFUL, RETRY_COUNT, API_CALL_DURATION, ERROR_TYPE,
-                AVAILABLE_CONCURRENCY, LEASED_CONCURRENCY, PENDING_CONCURRENCY_ACQUIRES,
+                API_CALL_SUCCESSFUL,
+                RETRY_COUNT,
+                API_CALL_DURATION,
+                ERROR_TYPE,
+                AVAILABLE_CONCURRENCY,
+                LEASED_CONCURRENCY,
+                PENDING_CONCURRENCY_ACQUIRES,
                 CONCURRENCY_ACQUIRE_DURATION);
 
         private static final Logger log = Logger.get(JmxMetricPublisher.class);
