@@ -1057,7 +1057,7 @@ public class TestSignatureBinder
 
         Signature sortByKey = functionSignature()
                 .returnType(arrayType(new TypeSignature("T")))
-                 .argumentType(arrayType(new TypeSignature("T")))
+                .argumentType(arrayType(new TypeSignature("T")))
                 .argumentType(functionType(new TypeSignature("T"), new TypeSignature("E")))
                 .typeVariable("T")
                 .orderableTypeParameter("E")
@@ -1183,9 +1183,9 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .argumentType(new TypeSignature("T"))
                 .typeVariableConstraint(TypeVariableConstraint.builder("T")
-                    .rowType()
-                    .castableTo(TIMESTAMP_MILLIS.getTypeSignature())
-                    .build())
+                        .rowType()
+                        .castableTo(TIMESTAMP_MILLIS.getTypeSignature())
+                        .build())
                 .build();
 
         assertThat(function)

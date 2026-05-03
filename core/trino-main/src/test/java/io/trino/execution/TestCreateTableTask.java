@@ -150,7 +150,9 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsTrue()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_if_not_exists"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_if_not_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 IGNORE,
                 ImmutableList.of(),
@@ -165,7 +167,9 @@ class TestCreateTableTask
     @Test
     void testCreateTableNotExistsFalse()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_fail_if_exists"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_fail_if_exists"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(),
@@ -183,7 +187,9 @@ class TestCreateTableTask
     @Test
     void testReplaceTable()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_replace"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_replace"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 REPLACE,
                 ImmutableList.of(),
@@ -201,7 +207,9 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithMaterializedViewPropertyFails()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_with_materialized_view_property"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_with_materialized_view_property"),
                 ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
                 FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
@@ -513,7 +521,9 @@ class TestCreateTableTask
     @Test
     void testCreateTableWithCoercedType()
     {
-        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_coerced_type"),
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_coerced_type"),
                 ImmutableList.of(
                         new ColumnDefinition(
                                 QualifiedName.of("a"),

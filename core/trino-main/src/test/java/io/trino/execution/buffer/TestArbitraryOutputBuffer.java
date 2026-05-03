@@ -158,7 +158,8 @@ public class TestArbitraryOutputBuffer
         outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
         buffer.setOutputBuffers(outputBuffers);
         assertQueueState(buffer, 10, SECOND, 0, 0);
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(0,
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(
+                0,
                 createPage(4),
                 createPage(5),
                 createPage(6),
@@ -688,7 +689,9 @@ public class TestArbitraryOutputBuffer
         assertFutureIsDone(secondEnqueuePage);
 
         // get and acknowledge the last 5 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
+        assertBufferResultEquals(
+                TYPES,
+                getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 

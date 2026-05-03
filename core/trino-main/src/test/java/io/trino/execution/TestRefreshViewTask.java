@@ -293,7 +293,7 @@ final class TestRefreshViewTask
 
         assertThatThrownBy(() -> getFutureValue(
                 executeRefreshView(asQualifiedName(
-                        qualifiedObjectName("existing_view")),
+                                qualifiedObjectName("existing_view")),
                         new TestingAccessControl(ImmutableSet.of("existing_table")))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Access Denied: View owner does not have sufficient privileges: Cannot select from columns [test] in table or view test_catalog.schema.existing_table");

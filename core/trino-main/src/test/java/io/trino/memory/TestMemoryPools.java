@@ -83,7 +83,8 @@ class TestMemoryPools
 
     private RevocableMemoryDriver createRevocableMemoryDriver(MemoryPool userPool, DataSize reservedPerPage, long numberOfPages)
     {
-        QueryContext queryContext = new QueryContext(new QueryId("query"),
+        QueryContext queryContext = new QueryContext(
+                new QueryId("query"),
                 TEN_MEGABYTES,
                 userPool,
                 new TestingGcMonitor(),

@@ -181,8 +181,8 @@ public class TestSetSessionTask
     public void testSetSessionWithParameters()
     {
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                        new StringLiteral("ban"),
-                        new Parameter(0)));
+                new StringLiteral("ban"),
+                new Parameter(0)));
 
         testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }

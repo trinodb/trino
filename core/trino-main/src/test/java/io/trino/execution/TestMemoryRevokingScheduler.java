@@ -289,7 +289,8 @@ public class TestMemoryRevokingScheduler
 
     private QueryContext getOrCreateQueryContext(QueryId queryId)
     {
-        return queryContexts.computeIfAbsent(queryId, id -> new QueryContext(id,
+        return queryContexts.computeIfAbsent(queryId, id -> new QueryContext(
+                id,
                 DataSize.of(1, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),

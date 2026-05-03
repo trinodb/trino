@@ -168,12 +168,14 @@ public class TestQueryStats
                     null));
 
     private static final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries = ImmutableList.of(
-            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan",
+            new QueryPlanOptimizerStatistics(
+                    "io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan",
                     10L,
                     1L,
                     4600,
                     0),
-            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushTopNThroughUnion",
+            new QueryPlanOptimizerStatistics(
+                    "io.trino.sql.planner.iterative.rule.PushTopNThroughUnion",
                     5L,
                     0L,
                     499,
