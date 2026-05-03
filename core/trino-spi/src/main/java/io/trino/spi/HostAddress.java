@@ -272,7 +272,7 @@ public class HostAddress
         }
         HostAddress other = (HostAddress) obj;
         return this.port == other.port &&
-               Objects.equals(this.host, other.host);
+                Objects.equals(this.host, other.host);
     }
 
     /**

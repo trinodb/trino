@@ -615,7 +615,9 @@ public class TypeOperators
         return permuteArguments(
                 lookup.findVirtual(Type.class, methodName, MethodType.methodType(void.class, BlockBuilder.class, javaType)),
                 MethodType.methodType(void.class, Type.class, javaType, BlockBuilder.class),
-                0, 2, 1);
+                0,
+                2,
+                1);
     }
 
     private static boolean booleanEqual(boolean left, boolean right)

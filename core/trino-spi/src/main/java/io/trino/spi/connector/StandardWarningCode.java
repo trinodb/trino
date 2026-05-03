@@ -26,6 +26,7 @@ public enum StandardWarningCode
     DEPRECATED_SYNTAX(0x0000_0005)
 
     /**/;
+
     private final WarningCode warningCode;
 
     StandardWarningCode(int code)

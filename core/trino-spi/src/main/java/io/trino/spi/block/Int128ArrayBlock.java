@@ -172,7 +172,8 @@ public final class Int128ArrayBlock
                 isNull(position) ? new boolean[] {true} : null,
                 new long[] {
                         values[(position + positionOffset) * 2],
-                        values[((position + positionOffset) * 2) + 1]});
+                        values[((position + positionOffset) * 2) + 1],
+                });
     }
 
     @Override

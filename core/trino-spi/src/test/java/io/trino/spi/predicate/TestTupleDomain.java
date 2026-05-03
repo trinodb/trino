@@ -809,17 +809,20 @@ class TestTupleDomain
         testAsPredicate(bPositive, Map.of(A, doubleNull), true);
 
         // constraint and binding keys intersecting
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleZero,
                         C, doubleOne),
                 false);
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleOne,
                         C, doubleOne),
                 true);
-        testAsPredicate(abPositive,
+        testAsPredicate(
+                abPositive,
                 Map.of(
                         B, doubleOne,
                         C, doubleZero),

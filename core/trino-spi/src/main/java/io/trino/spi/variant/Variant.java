@@ -772,8 +772,12 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
             return false;
         }
         return VariantUtils.equals(
-                metadata, data, 0,
-                rightValue.metadata, rightValue.data, 0);
+                metadata,
+                data,
+                0,
+                rightValue.metadata,
+                rightValue.data,
+                0);
     }
 
     @Override

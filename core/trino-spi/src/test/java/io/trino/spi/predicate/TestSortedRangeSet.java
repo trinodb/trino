@@ -292,7 +292,8 @@ class TestSortedRangeSet
 
         // ranges
         testRangeSet = SortedRangeSet.of(
-                Range.range(BIGINT, 499L, false, 505L, false), LongStream.range(100, 201).filter(i -> i % 10 == 0)
+                Range.range(BIGINT, 499L, false, 505L, false),
+                LongStream.range(100, 201).filter(i -> i % 10 == 0)
                         .mapToObj(i -> Range.range(BIGINT, i * 5, false, (i + 1) * 5, false)).toList().toArray(Range[]::new));
         // beginning of set
         assertOverlaps(testRangeSet, SortedRangeSet.of(BIGINT, 500L));
