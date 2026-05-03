@@ -35,7 +35,7 @@ final class SpilledLookupSourceHandle
         SPILLED,
         UNSPILLING,
         PRODUCED,
-        DISPOSE_REQUESTED
+        DISPOSE_REQUESTED,
     }
 
     @GuardedBy("this")

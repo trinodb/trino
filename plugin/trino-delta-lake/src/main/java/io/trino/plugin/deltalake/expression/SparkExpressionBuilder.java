@@ -239,7 +239,7 @@ public class SparkExpressionBuilder
     {
         BASE,
         ESCAPED,
-        UNICODE_SEQUENCE
+        UNICODE_SEQUENCE,
     }
 
     @Override

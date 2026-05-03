@@ -41,7 +41,7 @@ public final class SystemPartitioningHandle
         FIXED,
         SOURCE,
         COORDINATOR_ONLY,
-        ARBITRARY
+        ARBITRARY,
     }
 
     public static final PartitioningHandle SINGLE_DISTRIBUTION = createSystemPartitioning(SystemPartitioning.SINGLE, SystemPartitionFunction.SINGLE);

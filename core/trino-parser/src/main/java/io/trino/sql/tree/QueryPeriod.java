@@ -32,7 +32,7 @@ public class QueryPeriod
     public enum RangeType
     {
         TIMESTAMP,
-        VERSION
+        VERSION,
     }
 
     public QueryPeriod(NodeLocation location, RangeType rangeType, Expression end)

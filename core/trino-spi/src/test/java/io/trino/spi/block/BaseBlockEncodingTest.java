@@ -147,6 +147,5 @@ abstract class BaseBlockEncodingTest<T>
         ONLY_NULLS,
         ONLY_VALUES,
         MIXED,
-        /**/
     }
 }

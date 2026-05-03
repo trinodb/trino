@@ -49,7 +49,7 @@ public class JoinNode
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     private final JoinType type;

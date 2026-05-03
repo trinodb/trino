@@ -497,7 +497,7 @@ public abstract class AbstractColumnReaderRowRangesTest
     {
         NONE,
         ALL,
-        MIXED
+        MIXED,
     }
 
     /**

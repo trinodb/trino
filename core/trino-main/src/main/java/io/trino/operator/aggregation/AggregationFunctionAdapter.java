@@ -43,7 +43,7 @@ public final class AggregationFunctionAdapter
         BLOCK_INPUT_CHANNEL,
         NULLABLE_BLOCK_INPUT_CHANNEL,
         BLOCK_INDEX,
-        STATE
+        STATE,
     }
 
     private static final MethodHandle BOOLEAN_TYPE_GETTER;

@@ -16,5 +16,5 @@ package io.trino.sql.analyzer;
 public enum CorrelationSupport
 {
     ALLOWED,
-    DISALLOWED
+    DISALLOWED,
 }

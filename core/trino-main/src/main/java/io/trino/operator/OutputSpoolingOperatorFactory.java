@@ -161,7 +161,7 @@ public class OutputSpoolingOperatorFactory
             NEEDS_INPUT, // output is not ready
             HAS_OUTPUT, // output page ready
             HAS_LAST_OUTPUT, // last output page ready
-            FINISHED // no more pages will be ever produced
+            FINISHED, // no more pages will be ever produced
         }
 
         private OutputSpoolingOperator.State state = NEEDS_INPUT;

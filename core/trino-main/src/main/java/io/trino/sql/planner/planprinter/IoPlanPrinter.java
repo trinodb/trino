@@ -596,7 +596,7 @@ public class IoPlanPrinter
         {
             BELOW,   // lower than the value, but infinitesimally close to the value
             EXACTLY, // exactly the value
-            ABOVE    // higher than the value, but infinitesimally close to the value
+            ABOVE,    // higher than the value, but infinitesimally close to the value
         }
 
         private final Optional<String> value;

@@ -26,7 +26,7 @@ public interface Exchange
     enum SourceHandlesDeliveryMode
     {
         STANDARD,
-        EAGER
+        EAGER,
     }
 
     /**

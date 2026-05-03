@@ -402,7 +402,7 @@ public class PageProcessor
         {
             YIELD,
             PAGE_TOO_LARGE,
-            SUCCESS
+            SUCCESS,
         }
     }
 }

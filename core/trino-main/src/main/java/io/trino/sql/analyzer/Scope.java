@@ -420,6 +420,6 @@ public class Scope
     enum BasisType
     {
         TABLE,
-        FIELD
+        FIELD,
     }
 }
