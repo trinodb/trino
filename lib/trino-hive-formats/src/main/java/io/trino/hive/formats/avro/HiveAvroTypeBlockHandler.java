@@ -137,7 +137,7 @@ public class HiveAvroTypeBlockHandler
         ValidateLogicalTypeResult logicalTypeResult = validateLogicalType(schema);
         return switch (logicalTypeResult) {
             case NoLogicalType _ -> baseTypeFor(schema, this);
-            case InvalidNativeAvroLogicalType _ -> //Hive Ignores these issues
+            case InvalidNativeAvroLogicalType _ -> // Hive Ignores these issues
                     baseTypeFor(schema, this);
             case NonNativeAvroLogicalType nonNativeAvroLogicalType -> switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
                 case VARCHAR_TYPE_LOGICAL_NAME, CHAR_TYPE_LOGICAL_NAME -> getHiveLogicalVarCharOrCharType(schema, nonNativeAvroLogicalType);
@@ -174,7 +174,7 @@ public class HiveAvroTypeBlockHandler
         ValidateLogicalTypeResult logicalTypeResult = validateLogicalType(readAction.readSchema());
         return switch (logicalTypeResult) {
             case NoLogicalType _ -> baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
-            case InvalidNativeAvroLogicalType _ -> //Hive Ignores these issues
+            case InvalidNativeAvroLogicalType _ -> // Hive Ignores these issues
                     baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
             case NonNativeAvroLogicalType nonNativeAvroLogicalType -> switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
                 case VARCHAR_TYPE_LOGICAL_NAME ->
@@ -266,9 +266,9 @@ public class HiveAvroTypeBlockHandler
                 throws IOException
         {
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
-                //add tag with channel
+                // add tag with channel
                 UNION_FIELD_TAG_TYPE.writeLong(fieldBuilders.getFirst(), outputChannel);
-                //add in null fields except one
+                // add in null fields except one
                 for (int channel = 1; channel <= totalChannels; channel++) {
                     if (channel == outputChannel + 1) {
                         blockBuildingDecoder.decodeIntoBlock(decoder, fieldBuilders.get(channel));

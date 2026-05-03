@@ -372,7 +372,7 @@ public class TestClickHouseConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
 
-        //Log families
+        // Log families
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'log')");
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'tinylog')");
@@ -380,7 +380,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'stripelog')");
         assertUpdate("DROP TABLE " + tableName);
 
-        //NOT support engine
+        // NOT support engine
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
                 ".* Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }

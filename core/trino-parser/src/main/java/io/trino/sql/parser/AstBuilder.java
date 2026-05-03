@@ -2662,7 +2662,7 @@ class AstBuilder
 
         List<Expression> arguments = ImmutableList.of(expression, separator, overflowError, overflowFiller, showOverflowEntryCount);
 
-        //TODO model this as a ListAgg node in the AST
+        // TODO model this as a ListAgg node in the AST
         return new FunctionCall(
                 Optional.of(getLocation(context)),
                 QualifiedName.of("LISTAGG"),

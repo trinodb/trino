@@ -1125,7 +1125,7 @@ public class TestCachingHiveMetastore
 
         void omitsCacheForNumberOfOperations(int expectedCacheOmittingOperations)
         {
-            //load caches
+            // load caches
             metastoreInteractions.accept(cachingHiveMetastore);
 
             int startingAccessCount = thriftClient.getAccessCount();

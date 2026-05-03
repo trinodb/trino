@@ -156,7 +156,7 @@ public final class ProtobufUtils
                 requireNonNull(protoType.getKeyType(), "keyType is null");
                 requireNonNull(protoType.getValueType(), "valueType is null");
                 builder.addNestedType(DescriptorProto.newBuilder()
-                        //First Name to Upper case
+                        // First Name to Upper case
                         .setName(getNameForMapField(field.getName()))
                         .setOptions(MessageOptions.newBuilder().setMapEntry(true).build())
                         .addField(

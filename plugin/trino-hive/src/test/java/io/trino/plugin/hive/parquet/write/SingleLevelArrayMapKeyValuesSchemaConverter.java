@@ -171,7 +171,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
 
     public static GroupType mapType(Repetition repetition, String alias, String mapAlias, Type keyType, Type valueType)
     {
-        //support projection only on key of a map
+        // support projection only on key of a map
         if (valueType == null) {
             return mapKeyValueWrapper(
                     repetition,

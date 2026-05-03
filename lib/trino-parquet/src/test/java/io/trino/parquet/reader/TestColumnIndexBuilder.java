@@ -257,7 +257,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.decimalType(2, 12)).named("test_binary_decimal");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -401,7 +401,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -651,7 +651,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BOOLEAN).named("test_boolean");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BooleanColumn col = booleanColumn("test_col");
 
@@ -748,7 +748,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(DOUBLE).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.DoubleColumn col = doubleColumn("test_col");
 
@@ -881,7 +881,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(FLOAT).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.FloatColumn col = floatColumn("test_col");
 
@@ -1014,7 +1014,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).named("test_int32");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1129,7 +1129,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).as(LogicalTypeAnnotation.intType(8, false)).named("test_uint8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1227,7 +1227,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT64).named("test_int64");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.LongColumn col = longColumn("test_col");
 

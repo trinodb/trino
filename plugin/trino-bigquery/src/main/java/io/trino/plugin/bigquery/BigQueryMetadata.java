@@ -375,7 +375,7 @@ public class BigQueryMetadata
     private static boolean isBigLakeTable(TableDefinition tableDefinition)
     {
         if (tableDefinition instanceof ExternalTableDefinition externalTableDefinition) {
-            //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
+            // BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
             List<String> sourceUris = externalTableDefinition.getSourceUris();
             return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
                     isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&

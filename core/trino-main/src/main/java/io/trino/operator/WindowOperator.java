@@ -817,7 +817,7 @@ public class WindowOperator
             PeekingIterator<Page> sortedPages = peekingIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages());
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
-            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
+            currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */ 0));
             spillInProgress = Optional.of(asVoid(spiller.get().spill(sortedPages)));
 
             return spillInProgress.get();

@@ -514,7 +514,7 @@ public class TestNodeScheduler
         splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitLocal()));
         // 1 split with node2 as local node
         splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(HostAddress.fromString("10.0.0.1:12"))));
-        //splits now contains 41 splits : 21 with node1 as local node and 20 with node2 as local node
+        // splits now contains 41 splits : 21 with node1 as local node and 20 with node2 as local node
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         // Check that only 40 splits are being assigned as there is a single task
         assertThat(assignments3.size()).isEqualTo(40);

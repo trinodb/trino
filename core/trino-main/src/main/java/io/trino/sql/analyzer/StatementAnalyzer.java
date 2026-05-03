@@ -5092,7 +5092,7 @@ class StatementAnalyzer
 
             ImmutableSet.Builder<Field> accessibleFields = ImmutableSet.builder();
 
-            //collect fields by table
+            // collect fields by table
             ListMultimap<QualifiedObjectName, Field> tableFieldsMap = ArrayListMultimap.create();
             fields.forEach(field -> {
                 Optional<QualifiedObjectName> originTable = field.getOriginTable();
@@ -5828,7 +5828,7 @@ class StatementAnalyzer
                     .filter(isTableWithName(name));
 
             // TODO: recursive references could be supported in subquery before the point of shadowing.
-            //currently, the recursive query name is considered shadowed in the whole subquery if the subquery defines a common table with the same name
+            // currently, the recursive query name is considered shadowed in the whole subquery if the subquery defines a common table with the same name
             Set<Node> shadowedReferences = preOrder(node)
                     .filter(isQueryWithNameShadowed(name))
                     .flatMap(query -> preOrder(query)

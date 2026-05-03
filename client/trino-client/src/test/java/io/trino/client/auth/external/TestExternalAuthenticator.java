@@ -296,7 +296,7 @@ public class TestExternalAuthenticator
         ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
         Future<Request> interruptedAuthentication = interruptableThreadPool.submit(
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")));
-        Thread.sleep(100); //It's here to make sure that authentication will start before the other threads.
+        Thread.sleep(100); // It's here to make sure that authentication will start before the other threads.
         List<Future<Request>> requests = times(
                 2,
                 () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))

@@ -466,7 +466,7 @@ public class TestStringFunctions
                 .hasType(createVarcharType(15))
                 .isEqualTo("\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
 
-        //\uD801\uDC2D is one character
+        // \uD801\uDC2D is one character
         assertThat(assertions.function("replace", "'::\uD801\uDC2D::'", "':'", "''"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("\uD801\uDC2D");

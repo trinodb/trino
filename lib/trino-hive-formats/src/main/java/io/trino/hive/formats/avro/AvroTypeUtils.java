@@ -38,7 +38,7 @@ public final class AvroTypeUtils
             throws AvroTypeException
     {
         switch (schema.getType()) {
-            case NULL, BOOLEAN, INT, LONG, FLOAT, DOUBLE, ENUM, STRING, FIXED, BYTES -> {} //no-op
+            case NULL, BOOLEAN, INT, LONG, FLOAT, DOUBLE, ENUM, STRING, FIXED, BYTES -> {} // no-op
             case ARRAY -> verifyNoCircularReferences(schema.getElementType(), enclosingRecords);
             case MAP -> verifyNoCircularReferences(schema.getValueType(), enclosingRecords);
             case RECORD -> {

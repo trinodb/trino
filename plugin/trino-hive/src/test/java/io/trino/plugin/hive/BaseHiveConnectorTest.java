@@ -5187,7 +5187,7 @@ public abstract class BaseHiveConnectorTest
     {
         @Language("SQL") String createTable = "CREATE TABLE test_avro_timestamp_upcasting WITH (format = 'AVRO') AS SELECT TIMESTAMP '1994-09-27 11:23:45.678' my_timestamp";
 
-        //avro only stores as millis
+        // avro only stores as millis
         assertUpdate(createTable, 1);
 
         // access with multiple precisions

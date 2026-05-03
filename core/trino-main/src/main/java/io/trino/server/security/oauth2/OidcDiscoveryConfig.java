@@ -32,7 +32,7 @@ public class OidcDiscoveryConfig
     private Duration discoveryTimeout = new Duration(30, SECONDS);
     private boolean userinfoEndpointEnabled = true;
 
-    //TODO Left for backward compatibility, remove after the next release/a couple of releases
+    // TODO Left for backward compatibility, remove after the next release/a couple of releases
     private Optional<String> accessTokenIssuer = Optional.empty();
     private Optional<String> authUrl = Optional.empty();
     private Optional<String> tokenUrl = Optional.empty();

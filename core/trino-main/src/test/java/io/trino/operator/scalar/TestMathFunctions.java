@@ -2710,7 +2710,7 @@ public class TestMathFunctions
     @Test
     public void testSign()
     {
-        //retains type for NULL values
+        // retains type for NULL values
         assertThat(assertions.function("sign", "CAST(NULL as TINYINT)"))
                 .isNull(TINYINT);
 
@@ -2732,7 +2732,7 @@ public class TestMathFunctions
         assertThat(assertions.function("sign", "CAST(NULL as DECIMAL(38,0))"))
                 .isNull(createDecimalType(1, 0));
 
-        //tinyint
+        // tinyint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2740,7 +2740,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.byteValue());
         }
 
-        //smallint
+        // smallint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2748,7 +2748,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.shortValue());
         }
 
-        //integer
+        // integer
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2756,7 +2756,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.intValue());
         }
 
-        //bigint
+        // bigint
         for (int intValue : intLefts) {
             Float signum = Math.signum(intValue);
 
@@ -2764,7 +2764,7 @@ public class TestMathFunctions
                     .isEqualTo(signum.longValue());
         }
 
-        //double and float
+        // double and float
         for (double doubleValue : DOUBLE_VALUES) {
             assertThat(assertions.function("sign", "DOUBLE '%s'".formatted(doubleValue)))
                     .isEqualTo(Math.signum(doubleValue));
@@ -2773,18 +2773,18 @@ public class TestMathFunctions
                     .isEqualTo(Math.signum(((float) doubleValue)));
         }
 
-        //returns NaN for NaN input
+        // returns NaN for NaN input
         assertThat(assertions.function("sign", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
 
-        //returns proper sign for +/-Infinity input
+        // returns proper sign for +/-Infinity input
         assertThat(assertions.function("sign", "DOUBLE '+Infinity'"))
                 .isEqualTo(1.0);
 
         assertThat(assertions.function("sign", "DOUBLE '-Infinity'"))
                 .isEqualTo(-1.0);
 
-        //short decimal
+        // short decimal
         assertThat(assertions.function("sign", "DECIMAL '0'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 
@@ -2800,7 +2800,7 @@ public class TestMathFunctions
         assertThat(assertions.function("sign", "DECIMAL '-123.000000000000000'"))
                 .isEqualTo(decimal("-1", createDecimalType(1)));
 
-        //long decimal
+        // long decimal
         assertThat(assertions.function("sign", "DECIMAL '0.000000000000000000'"))
                 .isEqualTo(decimal("0", createDecimalType(1)));
 

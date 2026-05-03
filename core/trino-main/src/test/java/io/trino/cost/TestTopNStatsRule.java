@@ -47,7 +47,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(10) //Expect TopN to limit
+                        .outputRowsCount(10) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -122,7 +122,7 @@ public class TestTopNStatsRule
                         .topN(1000, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check
-                        .outputRowsCount(100) //Expect TopN not to limit
+                        .outputRowsCount(100) // Expect TopN not to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -164,7 +164,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(10) //Expect TopN to limit
+                        .outputRowsCount(10) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -197,7 +197,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(50) //Expect TopN to limit
+                        .outputRowsCount(50) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -230,7 +230,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(50) //Expect TopN to limit
+                        .outputRowsCount(50) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)

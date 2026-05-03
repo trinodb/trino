@@ -68,7 +68,7 @@ public class PrometheusQueryResponseParse
                         }
                     }
                     else {
-                        //error path
+                        // error path
                         String parsedStatus = parser.getValueAsString();
                         parser.nextToken();
                         parser.nextToken();

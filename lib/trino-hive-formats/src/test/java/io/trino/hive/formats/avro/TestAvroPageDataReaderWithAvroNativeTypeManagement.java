@@ -231,7 +231,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                     SqlTime timeMicros = (SqlTime) TimeType.TIME_MICROS.getObjectValue(p.getBlock(2), i);
                     assertThat(timeMicros.getPicos()).isEqualTo(39_600_000_000L * 1_000_000L);
 
-                    //UUID const assert
+                    // UUID const assert
                     assertThat(id).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(3), i));
                 }
                 totalRecords += p.getPositionCount();
@@ -298,7 +298,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         assertThat(timeMillis).isEqualTo(timeMicros.roundTo(3));
         assertThat(timeMillis.getPicos()).isEqualTo(timeMicros.getPicos()).isEqualTo(39_600_000_000L * 1_000_000L);
 
-        //UUID
+        // UUID
         assertThat(RANDOM_UUID.toString()).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(9), 0));
     }
 }

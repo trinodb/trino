@@ -61,8 +61,8 @@ public class TestSessionPropertyDefaults
 
         SessionPropertyConfigurationManagerFactory factory = new TestingSessionPropertyConfigurationManagerFactory(
                 ImmutableMap.<String, String>builder()
-                        .put(QUERY_MAX_MEMORY, "2GB") //Will be overridden
-                        .put(QUERY_MAX_TOTAL_MEMORY, "2GB") //Will remain default
+                        .put(QUERY_MAX_MEMORY, "2GB") // Will be overridden
+                        .put(QUERY_MAX_TOTAL_MEMORY, "2GB") // Will remain default
                         .buildOrThrow(),
                 ImmutableMap.of(
                         TEST_CATALOG_NAME,

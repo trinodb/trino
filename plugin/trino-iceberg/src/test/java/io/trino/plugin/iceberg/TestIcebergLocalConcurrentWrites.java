@@ -511,7 +511,7 @@ final class TestIcebergLocalConcurrentWrites
                     .count();
 
             assertThat(successes).isGreaterThanOrEqualTo(1);
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             switch ((int) successes) {
                 case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, NULL), (32, 40)");
                 case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, NULL), (33, 40)");
@@ -630,7 +630,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time DELETE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (8, 10), (11, 20), (21, 30)");
@@ -709,7 +709,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time UPDATE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (13, 20), (21, 30)");
@@ -864,7 +864,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isGreaterThanOrEqualTo(2);
 
-            //There can be different possible results depending on query order execution.
+            // There can be different possible results depending on query order execution.
             if (successfulWrites == 2) {
                 // If all queries starts at the same time MERGE will fail and results are:
                 assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (8, 10), (21, 30)");
@@ -1122,7 +1122,7 @@ final class TestIcebergLocalConcurrentWrites
 
             assertThat(successfulWrites).isEqualTo(3);
 
-            //There can be two possible results depended on which thread fails
+            // There can be two possible results depended on which thread fails
             MaterializedResult expected1 = computeActual("VALUES (VARCHAR 'AA', DATE '2024-01-01'), ('B', DATE '2024-01-02'), ('CC', DATE '2024-03-03'), ('DD', DATE '2024-04-04')");
             MaterializedResult expected2 = computeActual("VALUES (VARCHAR 'A', DATE '2024-01-01'), ('BB', DATE '2024-01-02'), ('CC', DATE '2024-03-03'), ('DD', DATE '2024-04-04')");
             assertThat(computeActual("SELECT data, part FROM " + tableName + " ORDER BY data"))

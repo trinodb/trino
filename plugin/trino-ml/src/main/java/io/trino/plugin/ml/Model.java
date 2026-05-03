@@ -25,5 +25,5 @@ public interface Model
 
     // Models must also provide a public static deserialization method, which accepts a byte[] returned from getSerializedData
     // TODO replace this with a ModelFactory interface
-    //static Model deserialize(byte[] data)
+    // static Model deserialize(byte[] data)
 }

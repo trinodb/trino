@@ -242,7 +242,7 @@ public final class TypeCoercion
     {
         int targetScale = Math.max(firstType.getScale(), secondType.getScale());
         int targetPrecision = Math.max(firstType.getPrecision() - firstType.getScale(), secondType.getPrecision() - secondType.getScale()) + targetScale;
-        //we allow potential loss of precision here. Overflow checking is done in operators.
+        // we allow potential loss of precision here. Overflow checking is done in operators.
         targetPrecision = Math.min(38, targetPrecision);
         return createDecimalType(targetPrecision, targetScale);
     }
