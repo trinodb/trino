@@ -56,7 +56,8 @@ public class TestCsv
                         "  name varchar, " +
                         "  comment varchar " +
                         ") WITH (format='CSV' %s)",
-                tableName, additionalTableProperties));
+                tableName,
+                additionalTableProperties));
 
         onTrino().executeQuery(format("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation", tableName));
 

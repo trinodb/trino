@@ -577,14 +577,16 @@ public class TestHiveTransactionalTable
         withTemporaryTable("transactional_partition_insert", true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
 
-            onTrino().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s (column2, column1) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 20),
                     makeInsertValues(2, 1, 20)));
 
             verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s WHERE column1 > 10", tableName), row(20));
 
-            onTrino().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s (column2, column1) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 21, 30),
                     makeInsertValues(2, 21, 30)));
@@ -595,7 +597,8 @@ public class TestHiveTransactionalTable
 
             verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s WHERE column1 > 15 AND column1 <= 25", tableName), row(0));
 
-            onTrino().executeQuery(format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s (column2, column1) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 20, 23),
                     makeInsertValues(2, 20, 23)));
@@ -620,9 +623,11 @@ public class TestHiveTransactionalTable
     {
         withTemporaryTable("bucketed_partitioned_insert_only", true, BUCKETED_V2, tableName -> {
             String insertOnlyProperty = insertOnly ? ", 'transactional_properties'='insert_only'" : "";
-            onHive().executeQuery(format("CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS" +
+            onHive().executeQuery(format(
+                    "CREATE TABLE %s (purchase STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (purchase) INTO 3 BUCKETS" +
                             " STORED AS ORC TBLPROPERTIES ('transactional' = 'true'%s)",
-                    tableName, insertOnlyProperty));
+                    tableName,
+                    insertOnlyProperty));
 
             onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES", tableName) +
                     " ('Fred', 'cards'), ('Fred', 'cereal'), ('Fred', 'limes'), ('Fred', 'chips')," +
@@ -694,7 +699,8 @@ public class TestHiveTransactionalTable
                 // Perform a multi-insert
                 onHive().executeQuery("SET hive.exec.dynamic.partition.mode = nonstrict");
                 // Combine dynamic and static partitioning to trick Hive to insert two rows with same rowId but different statementId to a single partition.
-                onHive().executeQuery(format("FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
+                onHive().executeQuery(format(
+                        "FROM %s INSERT INTO %s partition(c) SELECT 0, 0, 'c' || x INSERT INTO %2$s partition(c='c1') SELECT 0, 1",
                         dataTableName,
                         tableName));
                 onHive().executeQuery(format("DELETE FROM %s WHERE b = 1", tableName));
@@ -708,7 +714,8 @@ public class TestHiveTransactionalTable
     {
         withTemporaryTable("metadata_delete", true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column1 INT, column2 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column2'])", tableName));
-            execute(inserter, format("INSERT INTO %s (column2, column1) VALUES %s, %s",
+            execute(inserter, format(
+                    "INSERT INTO %s (column2, column1) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 20),
                     makeInsertValues(2, 1, 20)));
@@ -725,12 +732,14 @@ public class TestHiveTransactionalTable
         withTemporaryTable("non_transactional_metadata_delete", true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 BIGINT, column1 INT) WITH (partitioned_by = ARRAY['column1'])", tableName));
 
-            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format(
+                    "INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 10),
                     makeInsertValues(2, 1, 10)));
 
-            execute(Engine.TRINO, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(Engine.TRINO, format(
+                    "INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 11, 20),
                     makeInsertValues(2, 11, 20)));
@@ -782,11 +791,13 @@ public class TestHiveTransactionalTable
         withTemporaryTable("partitioned_row_level_delete", true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s (column2 INT, column1 BIGINT) WITH (transactional = true, partitioned_by = ARRAY['column1'])", tableName));
 
-            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(inserter, format(
+                    "INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 1, 20),
                     makeInsertValues(2, 1, 20)));
-            execute(inserter, format("INSERT INTO %s (column1, column2) VALUES %s, %s",
+            execute(inserter, format(
+                    "INSERT INTO %s (column1, column2) VALUES %s, %s",
                     tableName,
                     makeInsertValues(1, 21, 40),
                     makeInsertValues(2, 21, 40)));
@@ -944,8 +955,10 @@ public class TestHiveTransactionalTable
     {
         log.info("testInsertOnlyMultipleWriters bucketed %s, inserter1 %s, inserter2 %s", bucketed, inserter1, inserter2);
         withTemporaryTable("insert_only_partitioned", true, NONE, tableName -> {
-            onHive().executeQuery(format("CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) %s STORED AS ORC TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')",
-                    tableName, bucketed ? "CLUSTERED BY (col2) INTO 3 BUCKETS" : ""));
+            onHive().executeQuery(format(
+                    "CREATE TABLE %s (col1 INT, col2 BIGINT) PARTITIONED BY (col3 STRING) %s STORED AS ORC TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')",
+                    tableName,
+                    bucketed ? "CLUSTERED BY (col2) INTO 3 BUCKETS" : ""));
 
             execute(inserter1, format("INSERT INTO %s VALUES (1, 100, 'a'), (2, 200, 'b')", tableName));
             verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(1, 100, "a"), row(2, 200, "b"));
@@ -1731,7 +1744,8 @@ public class TestHiveTransactionalTable
                             "  phone varchar(15)," +
                             "  acctbal double," +
                             "  comment varchar(101))" +
-                            "WITH (transactional = true)", tableName));
+                            "WITH (transactional = true)",
+                    tableName));
             onTrino().executeQuery(format("INSERT INTO %s select * from tpch.tiny.supplier", tableName));
 
             int supplierRows = 100;
@@ -1924,7 +1938,8 @@ public class TestHiveTransactionalTable
         onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName))
                 .column(1)
                 .forEach(path -> verify(path.toString().endsWith(tableName.toLowerCase(ENGLISH)),
-                        "files in %s are not directly under table location", path));
+                        "files in %s are not directly under table location",
+                        path));
     }
 
     @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
@@ -1960,7 +1975,9 @@ public class TestHiveTransactionalTable
                             "transactional=true " +
                             "%s" +
                             ") AS SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
-                            "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
+                            "FROM tpch.sf1000.orders LIMIT 0",
+                    tableName,
+                    isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
             onTrino().executeQuery("SET SESSION scale_writers = true");
             onTrino().executeQuery("SET SESSION writer_scaling_min_data_processed = '4kB'");
             onTrino().executeQuery("SET SESSION task_scale_writers_enabled = false");
@@ -1971,7 +1988,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(
                     format(
                             "INSERT INTO %s SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
-                                    "FROM tpch.sf1000.orders LIMIT 100000", tableName));
+                                    "FROM tpch.sf1000.orders LIMIT 100000",
+                            tableName));
             assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsOnly(row(100000));
             int numberOfCreatedFiles = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount();
             int expectedNumberOfPartitions = isPartitioned ? 5 : 1;
