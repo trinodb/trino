@@ -289,7 +289,9 @@ public final class TestRun
                 }
                 List<String> environmentFeatures = environmentFeaturesByName.get(name);
                 log.info("Checking if impacted %s %s are overlapping with %s configured in the environment",
-                        name, features, environmentFeatures);
+                        name,
+                        features,
+                        environmentFeatures);
                 if (environmentFeatures.stream().anyMatch(features::contains)) {
                     return true;
                 }

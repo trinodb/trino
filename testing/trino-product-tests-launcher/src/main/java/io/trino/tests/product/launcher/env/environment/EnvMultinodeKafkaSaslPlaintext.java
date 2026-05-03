@@ -73,7 +73,8 @@ public final class EnvMultinodeKafkaSaslPlaintext
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka-configuration.properties")),
                         CONTAINER_TRINO_ETC + "/kafka-configuration.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("jvm.config")),
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("jvm.config")),
                         CONTAINER_TRINO_JVM_CONFIG);
     }
 }
