@@ -104,12 +104,12 @@ public class OptimizeMixedDistinctAggregations
     public static long distinctAggregationsUniqueArgumentCount(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations()
-                       .values().stream()
-                       .filter(Aggregation::isDistinct)
-                       .map(Aggregation::getArguments)
-                       .map(HashSet::new)
-                       .distinct()
-                       .count();
+                .values().stream()
+                .filter(Aggregation::isDistinct)
+                .map(Aggregation::getArguments)
+                .map(HashSet::new)
+                .distinct()
+                .count();
     }
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)

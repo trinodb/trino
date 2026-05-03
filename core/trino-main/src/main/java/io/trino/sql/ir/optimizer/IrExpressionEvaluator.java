@@ -176,7 +176,8 @@ public class IrExpressionEvaluator
         return buildRowValue((RowType) expression.type(), builders -> {
             for (int i = 0; i < expression.items().size(); ++i) {
                 writeNativeValue(
-                        expression.items().get(i).type(), builders.get(i),
+                        expression.items().get(i).type(),
+                        builders.get(i),
                         evaluate(expression.items().get(i), session, bindings));
             }
         });

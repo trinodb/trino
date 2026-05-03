@@ -126,7 +126,8 @@ public class JoinNode
                 checkArgument(
                         leftSymbols.contains(equiJoinClause.getLeft()) &&
                                 rightSymbols.contains(equiJoinClause.getRight()),
-                        "Equality join criteria should be normalized according to join sides: %s", equiJoinClause));
+                        "Equality join criteria should be normalized according to join sides: %s",
+                        equiJoinClause));
 
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.

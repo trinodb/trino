@@ -56,7 +56,8 @@ public class PlannerContext
     private final Supplier<IrExpressionOptimizer> partialEvaluator = Suppliers.memoize(() -> newPartialEvaluator(this));
 
     @Inject
-    public PlannerContext(Metadata metadata,
+    public PlannerContext(
+            Metadata metadata,
             TypeOperators typeOperators,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager,

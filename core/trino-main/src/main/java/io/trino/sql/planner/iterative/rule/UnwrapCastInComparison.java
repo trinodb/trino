@@ -130,7 +130,8 @@ public class UnwrapCastInComparison
         return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, expression);
     }
 
-    public static Expression unwrapCasts(Session session,
+    public static Expression unwrapCasts(
+            Session session,
             PlannerContext plannerContext,
             Expression expression)
     {

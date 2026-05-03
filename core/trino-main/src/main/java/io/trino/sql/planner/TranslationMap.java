@@ -596,7 +596,7 @@ public class TranslationMap
                     plannerContext.getMetadata().getCoercion(
                             builtinFunctionName("$try_cast"),
                             analysis.getType(expression.getExpression()),
-                    analysis.getType(expression)),
+                            analysis.getType(expression)),
                     ImmutableList.of(translateExpression(expression.getExpression())));
         }
 
@@ -977,8 +977,8 @@ public class TranslationMap
         return new Call(
                 operator,
                 ImmutableList.of(
-                    new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
-                    new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
+                        new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
+                        new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
     }
 
     private io.trino.sql.ir.Expression translate(LambdaExpression node)

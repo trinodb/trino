@@ -98,7 +98,8 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
-                return new RowNumberNode(idAllocator.getNextId(),
+                return new RowNumberNode(
+                        idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
                         false,
@@ -266,7 +267,8 @@ public class WindowFilterPushDown
 
         private TopNRankingNode convertToTopNRanking(WindowNode windowNode, RankingType rankingType, int limit)
         {
-            return new TopNRankingNode(idAllocator.getNextId(),
+            return new TopNRankingNode(
+                    idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     rankingType,

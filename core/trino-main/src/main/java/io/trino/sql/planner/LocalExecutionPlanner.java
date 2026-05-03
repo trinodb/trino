@@ -699,8 +699,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(TaskContext taskContext)
         {
-            this(
-                    taskContext,
+            this(taskContext,
                     new ArrayList<>(),
                     Optional.empty(),
                     new AtomicInteger(0));
@@ -1962,7 +1961,8 @@ public class LocalExecutionPlanner
             newLayout.put(node.getGroupIdSymbol(), outputChannel);
             outputTypes.add(BIGINT);
 
-            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(context.getNextOperatorId(),
+            OperatorFactory groupIdOperatorFactory = new GroupIdOperator.GroupIdOperatorFactory(
+                    context.getNextOperatorId(),
                     node.getId(),
                     outputTypes.build(),
                     mappings.build());
@@ -2066,7 +2066,8 @@ public class LocalExecutionPlanner
             // SYSTEM sampling is performed in the coordinator by dropping some random splits so the SamplingNode can be skipped here.
             else if (sourceNode instanceof SampleNode sampleNode) {
                 checkArgument(sampleNode.getSampleType() == SampleNode.Type.SYSTEM, "%s sampling is not supported", sampleNode.getSampleType());
-                return visitScanFilterAndProject(context,
+                return visitScanFilterAndProject(
+                        context,
                         planNodeId,
                         sampleNode.getSource(),
                         filterExpression,
@@ -2154,9 +2155,11 @@ public class LocalExecutionPlanner
             }
             catch (RuntimeException e) {
                 if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                    throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
+                    throw new TrinoException(
+                            QUERY_EXCEEDED_COMPILER_LIMIT,
                             "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
-                                    "or the underlying tables may have too many columns", e);
+                                    "or the underlying tables may have too many columns",
+                            e);
                 }
                 throw new TrinoException(COMPILER_ERROR, e);
             }
@@ -2744,7 +2747,8 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            PagesSpatialIndexFactory pagesSpatialIndexFactory = createPagesSpatialIndexFactory(node,
+            PagesSpatialIndexFactory pagesSpatialIndexFactory = createPagesSpatialIndexFactory(
+                    node,
                     buildNode,
                     buildSymbol,
                     radiusSymbol,
@@ -4260,8 +4264,7 @@ public class LocalExecutionPlanner
 
         PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
         {
-            this(
-                    ImmutableList.<OperatorFactory>builder()
+            this(ImmutableList.<OperatorFactory>builder()
                             .addAll(source.getOperatorFactories())
                             .add(operatorFactory)
                             .build(),
@@ -4281,7 +4284,8 @@ public class LocalExecutionPlanner
             int channelCount = layout.values().stream().mapToInt(Integer::intValue).max().orElse(-1) + 1;
             checkArgument(
                     layout.size() == channelCount && ImmutableSet.copyOf(layout.values()).containsAll(ContiguousSet.create(closedOpen(0, channelCount), integers())),
-                    "Layout does not have a symbol for every output channel: %s", layout);
+                    "Layout does not have a symbol for every output channel: %s",
+                    layout);
             Map<Integer, Symbol> channelLayout = ImmutableBiMap.copyOf(layout).inverse();
 
             return range(0, channelCount)

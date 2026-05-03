@@ -743,8 +743,7 @@ public class AddLocalExchanges
 
             // connector provided hash function
             verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
-            verify(
-                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+            verify(partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                     "Table writer partitioning has constant arguments");
             PlanWithProperties newSource = source.accept(this, parentPreferences);
             PlanWithProperties exchange = deriveProperties(
@@ -779,8 +778,7 @@ public class AddLocalExchanges
 
             // connector provided hash function
             verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
-            verify(
-                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+            verify(partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                     "Table writer partitioning has constant arguments");
 
             PlanWithProperties newSource = source.accept(this, defaultParallelism(session));

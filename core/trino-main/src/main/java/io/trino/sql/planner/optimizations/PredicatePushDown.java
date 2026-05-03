@@ -920,7 +920,8 @@ public class PredicatePushDown
                 }
             });
 
-            return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
+            return new OuterJoinPushDownResult(
+                    combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
                     combineConjuncts(postJoinConjuncts.build()));

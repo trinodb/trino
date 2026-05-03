@@ -42,7 +42,8 @@ public class ValidateStreamingAggregations
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode,
+    public void validate(
+            PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)

@@ -423,7 +423,8 @@ public class AggregationNode
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
                 checkArgument(argument instanceof Reference || argument instanceof Lambda,
-                        "argument must be symbol or lambda expression: %s", argument.getClass().getSimpleName());
+                        "argument must be symbol or lambda expression: %s",
+                        argument.getClass().getSimpleName());
             }
             this.distinct = distinct;
             this.filter = requireNonNull(filter, "filter is null");
