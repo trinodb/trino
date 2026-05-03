@@ -924,7 +924,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testQuantifiedComparisonCornerCases()
     {
-        //the %subquery% is wrapped in a SELECT so that H2 does not blow up on the VALUES subquery
+        // the %subquery% is wrapped in a SELECT so that H2 does not blow up on the VALUES subquery
         queryTemplate("SELECT %value% %operator% %quantifier% (SELECT * FROM (%subquery%))")
                 .replaceAll(
                         parameter("subquery").of(
@@ -3214,7 +3214,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testRowFieldAccessor()
     {
-        //Dereference only
+        // Dereference only
         assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
         assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(1.0E0, 2.0E0) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1.0");
         assertQuery("SELECT a.col0 FROM (VALUES ROW (CAST(ROW(TRUE, FALSE) AS ROW(col0 boolean, col1 boolean)))) AS t (a)", "SELECT TRUE");
@@ -5102,7 +5102,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // wildcard from aliased table with column aliases
         assertQuery("SELECT a, b, c, d FROM (SELECT T.* FROM nation T (a, b, c, d))");
 
-        //qualified wildcard from inline view
+        // qualified wildcard from inline view
         assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
 
         // wildcard from table with order by

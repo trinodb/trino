@@ -689,7 +689,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
         {
-            //We don't have to do a check here as TableScanNode has no dependencies.
+            // We don't have to do a check here as TableScanNode has no dependencies.
             return null;
         }
 

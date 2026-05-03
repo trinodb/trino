@@ -474,7 +474,7 @@ public class OpenSearchClient
 
                 JsonNode metaProperties = nullSafeNode(metaNode, "trino");
 
-                //stay backwards compatible with _meta.presto namespace for meta properties for some releases
+                // stay backwards compatible with _meta.presto namespace for meta properties for some releases
                 if (metaProperties.isNull()) {
                     metaProperties = nullSafeNode(metaNode, "presto");
                 }
@@ -494,7 +494,7 @@ public class OpenSearchClient
             String name = field.getKey();
             JsonNode value = field.getValue();
 
-            //default type is object
+            // default type is object
             String type = "object";
             if (value.has("type")) {
                 type = value.get("type").asText();

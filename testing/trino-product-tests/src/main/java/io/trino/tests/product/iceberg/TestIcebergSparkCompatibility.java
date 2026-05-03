@@ -373,7 +373,7 @@ public class TestIcebergSparkCompatibility
                 ", DATE '1950-06-28' _date " +
                 ", X'000102f0feff' _binary " +
                 ", UUID '406caec7-68b9-4778-81b2-a12ece70c8b1' _uuid " +
-                //", TIME '01:23:45.123456' _time " +
+                // ", TIME '01:23:45.123456' _time " +
                 "";
 
         switch (createMode) {
@@ -393,7 +393,7 @@ public class TestIcebergSparkCompatibility
                                 ", _date DATE" +
                                 ", _binary VARBINARY" +
                                 ", _uuid UUID" +
-                                //", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
+                                // ", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
                                 ") WITH (format = '%s', format_version = %d)",
                         trinoTableName,
                         storageFormat,
@@ -446,7 +446,7 @@ public class TestIcebergSparkCompatibility
                         ", CAST(_date AS varchar)" +
                         ", _binary" +
                         ", _uuid" +
-                        //", CAST(_time AS varchar)" +
+                        // ", CAST(_time AS varchar)" +
                         " FROM " + trinoTableName))
                 .containsOnly(row);
 

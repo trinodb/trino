@@ -174,7 +174,7 @@ public class TestDruidTypeMapping
     @Test
     public void testVarchar()
     {
-        //TODO Add test for unicode characters
+        // TODO Add test for unicode characters
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
                 .addRoundTrip("col_0", "string", "null", createUnboundedVarcharType(), "CAST('null' AS varchar)")

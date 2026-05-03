@@ -371,7 +371,7 @@ public abstract class TestAvroBase
         // test fixed
         assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
         assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
-        //test array
+        // test array
         assertThat(p.getBlock(8)).isInstanceOf(ArrayBlock.class);
         assertThat(ARRAY_INTEGER.getObject(p.getBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
         assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));

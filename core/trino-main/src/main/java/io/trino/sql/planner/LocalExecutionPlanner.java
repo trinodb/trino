@@ -2062,7 +2062,7 @@ public class LocalExecutionPlanner
                     channel++;
                 }
             }
-            //TODO: This is a simple hack, it will be replaced when we add ability to push down sampling into connectors.
+            // TODO: This is a simple hack, it will be replaced when we add ability to push down sampling into connectors.
             // SYSTEM sampling is performed in the coordinator by dropping some random splits so the SamplingNode can be skipped here.
             else if (sourceNode instanceof SampleNode sampleNode) {
                 checkArgument(sampleNode.getSampleType() == SampleNode.Type.SYSTEM, "%s sampling is not supported", sampleNode.getSampleType());

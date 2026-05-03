@@ -176,7 +176,7 @@ public class QueryContext
         return NOT_BLOCKED;
     }
 
-    //TODO Add tagging support for revocable memory reservations if needed
+    // TODO Add tagging support for revocable memory reservations if needed
     private synchronized ListenableFuture<Void> updateRevocableMemory(TaskId taskId, long delta)
     {
         if (delta >= 0) {
@@ -191,7 +191,7 @@ public class QueryContext
         return NOT_BLOCKED;
     }
 
-    //TODO move spill tracking to the new memory tracking framework
+    // TODO move spill tracking to the new memory tracking framework
     public synchronized ListenableFuture<Void> reserveSpill(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");

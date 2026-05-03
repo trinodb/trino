@@ -163,7 +163,7 @@ public class DruidJdbcClient
         return ImmutableSet.of(DRUID_SCHEMA);
     }
 
-    //Overridden to filter out tables that don't match schemaTableName
+    // Overridden to filter out tables that don't match schemaTableName
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {

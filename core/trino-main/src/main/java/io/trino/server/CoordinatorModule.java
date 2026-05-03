@@ -323,7 +323,7 @@ public class CoordinatorModule
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
-        //exchanges metrics
+        // exchanges metrics
         binder.bind(ExchangeMetricsCollector.class).in(Scopes.SINGLETON);
 
         // statistics calculator

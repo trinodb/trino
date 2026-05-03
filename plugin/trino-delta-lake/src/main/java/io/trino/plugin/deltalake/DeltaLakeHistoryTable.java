@@ -68,7 +68,7 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("isolation_level", VARCHAR))
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
                                 .add(new ColumnMetadata("operation_metrics", new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
-                                //TODO add support for userMetadata, engineInfo
+                                // TODO add support for userMetadata, engineInfo
                                 .build()));
     }
 

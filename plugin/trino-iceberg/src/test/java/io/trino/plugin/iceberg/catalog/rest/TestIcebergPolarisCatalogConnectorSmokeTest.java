@@ -250,7 +250,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     @Override
     public void testDeleteRowsConcurrently()
     {
-        //TODO: Fix https://github.com/trinodb/trino/issues/23941
+        // TODO: Fix https://github.com/trinodb/trino/issues/23941
         abort("Skipped for now due to #23941");
     }
 }

@@ -110,7 +110,7 @@ public class TestExternalAuthorizerOAuth2
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
-            //Wait until the token expires. See: HydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS
+            // Wait until the token expires. See: HydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS
             SECONDS.sleep(10);
 
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");

@@ -247,7 +247,7 @@ public class TestSimpleFormat
         // too few values
         assertValue(rowType, "1", Arrays.asList(1L, null, null));
         assertValue(rowType, "1\2a", Arrays.asList(1L, "a", null));
-        //exact number of values
+        // exact number of values
         assertValue(rowType, "1\2a\2NaN", Arrays.asList(1L, "a", Double.NaN));
         // too many values
         assertValue(rowType, "1\2a\2NaN\2ign\2ored", Arrays.asList(1L, "a", Double.NaN));
