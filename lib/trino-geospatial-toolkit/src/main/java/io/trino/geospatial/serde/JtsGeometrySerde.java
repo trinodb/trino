@@ -170,7 +170,8 @@ public final class JtsGeometrySerde
             return leftSrid;
         }
         if (leftSrid != rightSrid) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+            throw new TrinoException(
+                    INVALID_FUNCTION_ARGUMENT,
                     format("SRID mismatch: %d vs %d", leftSrid, rightSrid));
         }
         return leftSrid;

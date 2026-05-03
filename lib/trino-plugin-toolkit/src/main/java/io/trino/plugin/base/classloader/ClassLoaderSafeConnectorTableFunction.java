@@ -73,7 +73,8 @@ public class ClassLoaderSafeConnectorTableFunction
     }
 
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session,
+    public TableFunctionAnalysis analyze(
+            ConnectorSession session,
             ConnectorTransactionHandle transaction,
             Map<String, Argument> arguments,
             ConnectorAccessControl accessControl)

@@ -175,7 +175,7 @@ public final class ProtobufUtils
                                                 .setLabel(Label.LABEL_OPTIONAL),
                                         protoType.getValueType(),
                                         definedMessages))
-                                .build());
+                        .build());
                 // Handle for underscores and name
                 fieldDescriptor.setType(TYPE_MESSAGE)
                         .setLabel(Label.LABEL_REPEATED)

@@ -194,7 +194,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanCreateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Map.of());
         accessControl.checkCanDropTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanTruncateTable(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
-        accessControl.checkCanRenameTable(UNKNOWN,
+        accessControl.checkCanRenameTable(
+                UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
         assertAccessDenied(
@@ -1011,7 +1012,8 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControlManager.checkCanKillQueryOwnedBy(dave, alice),
                 "Cannot kill query");
-        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(dave, bob),
                 "Cannot kill query");
         assertAccessDenied(
                 () -> accessControlManager.checkCanViewQueryOwnedBy(dave, bob),
@@ -1431,14 +1433,14 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 .collect(toImmutableList());
 
         assertThat(accessControl.getColumnMasks(
-                 ALICE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns)).isEmpty();
+                ALICE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                columns)).isEmpty();
 
         Map<ColumnSchema, ViewExpression> charlieColumnMasks = accessControl.getColumnMasks(
-                 CHARLIE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns);
+                CHARLIE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                columns);
         assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("private"));
         assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("restricted"));
         assertViewExpressionEquals(
@@ -1450,7 +1452,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         .build());
         assertViewExpressionEquals(
                 charlieColumnMasks.get(createColumnSchema("masked_with_user")),
-                 ViewExpression.builder()
+                ViewExpression.builder()
                         .identity("mask-user")
                         .catalog("some-catalog")
                         .schema("bobschema")
