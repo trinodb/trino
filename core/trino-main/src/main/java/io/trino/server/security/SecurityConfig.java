@@ -26,7 +26,8 @@ import java.util.Optional;
 @DefunctConfig({
         "http.server.authentication.enabled",
         "http-server.authentication.allow-forwarded-https",
-        "dispatcher.forwarded-header"})
+        "dispatcher.forwarded-header",
+})
 public class SecurityConfig
 {
     private boolean insecureAuthenticationOverHttpAllowed = true;

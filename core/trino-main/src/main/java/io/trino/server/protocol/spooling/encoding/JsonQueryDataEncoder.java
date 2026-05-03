@@ -56,8 +56,8 @@ public class JsonQueryDataEncoder
                 .map(OutputColumn::type)
                 .collect(toImmutableList()));
         this.sourcePageChannels = requireNonNull(columns, "columns is null").stream()
-            .mapToInt(OutputColumn::sourcePageChannel)
-            .toArray();
+                .mapToInt(OutputColumn::sourcePageChannel)
+                .toArray();
         this.factory = requireNonNull(factory, "factory is null");
     }
 

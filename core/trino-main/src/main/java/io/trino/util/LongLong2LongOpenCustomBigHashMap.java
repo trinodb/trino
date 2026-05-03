@@ -663,7 +663,10 @@ public class LongLong2LongOpenCustomBigHashMap
         return newValue;
     }
 
-    public long merge(final long k1, final long k2, final long v,
+    public long merge(
+            final long k1,
+            final long k2,
+            final long v,
             final BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);

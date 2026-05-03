@@ -182,7 +182,8 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private OptionalLong whenSplitQueueHasSpaceThreshold = OptionalLong.empty();
 
-    @VisibleForTesting final AtomicInteger splitBatchSize;
+    @VisibleForTesting
+    final AtomicInteger splitBatchSize;
 
     private final boolean summarizeTaskInfo;
 
@@ -301,8 +302,10 @@ public final class HttpRemoteTask
             // TODO. https://github.com/trinodb/trino/issues/15820
             this.adaptiveUpdateRequestSizeEnabled = numOfPartitionedSources == 1 && isRemoteTaskAdaptiveUpdateRequestSizeEnabled(session);
             if (numOfPartitionedSources > 1) {
-                log.debug("%s - There are more than one partitioned sources: numOfPartitionedSources=%s",
-                        taskId, planFragment.getPartitionedSources().size());
+                log.debug(
+                        "%s - There are more than one partitioned sources: numOfPartitionedSources=%s",
+                        taskId,
+                        planFragment.getPartitionedSources().size());
             }
 
             int pendingSourceSplitCount = 0;
@@ -725,8 +728,12 @@ public final class HttpRemoteTask
             }
             // abandon current request and reschedule update if size of request body exceeds requestSizeLimit and splitBatchSize is updated
             if (numSplits > newSplitBatchSize && requestSize > maxRequestSizeInBytes) {
-                log.debug("%s - current taskUpdateRequestJson exceeded limit: %d, currentSplitBatchSize: %d, newSplitBatchSize: %d",
-                        taskId, requestSize, currentSplitBatchSize, newSplitBatchSize);
+                log.debug(
+                        "%s - current taskUpdateRequestJson exceeded limit: %d, currentSplitBatchSize: %d, newSplitBatchSize: %d",
+                        taskId,
+                        requestSize,
+                        currentSplitBatchSize,
+                        newSplitBatchSize);
                 return true; // reschedule needed
             }
         }

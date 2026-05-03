@@ -102,9 +102,9 @@ public class LikePatternType
 
         Slice slice = Slices.allocate(
                 Integer.BYTES +
-                pattern.length() +
-                Byte.BYTES +
-                (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
+                        pattern.length() +
+                        Byte.BYTES +
+                        (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
 
         // layout is: <pattern_length> <pattern> <hasEscape> <escape>?
         slice.setInt(0, pattern.length());
