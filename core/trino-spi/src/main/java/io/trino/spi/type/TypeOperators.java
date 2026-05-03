@@ -526,7 +526,9 @@ public class TypeOperators
         private static List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
             return switch (operatorConvention.operatorType()) {
-                case EQUAL, IDENTICAL, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL -> List.of(operatorConvention.type(), operatorConvention.type());
+                case LESS_THAN, LESS_THAN_OR_EQUAL,
+                     COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST,
+                     EQUAL, IDENTICAL -> List.of(operatorConvention.type(), operatorConvention.type());
                 case READ_VALUE, HASH_CODE, XX_HASH_64, INDETERMINATE -> List.of(operatorConvention.type());
                 default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
             };
@@ -615,7 +617,9 @@ public class TypeOperators
         return permuteArguments(
                 lookup.findVirtual(Type.class, methodName, MethodType.methodType(void.class, BlockBuilder.class, javaType)),
                 MethodType.methodType(void.class, Type.class, javaType, BlockBuilder.class),
-                0, 2, 1);
+                0,
+                2,
+                1);
     }
 
     private static boolean booleanEqual(boolean left, boolean right)

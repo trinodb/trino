@@ -209,7 +209,8 @@ class TestVariant
                 Byte.MAX_VALUE,
                 Short.MAX_VALUE,
                 Integer.MAX_VALUE,
-                Long.MAX_VALUE}) {
+                Long.MAX_VALUE,
+        }) {
             assertPrimitiveEncoding(
                     9,
                     value,
@@ -692,7 +693,7 @@ class TestVariant
     {
         int expectedOffsetSize = 1;
         // it is not possible to run the larger tests in CI due to memory constraints
-        for (int size : List.of(0xFF / 9, 0xFFFF / 9/*, 0xFFFFFF / 9, (0xFFFFFF / 9) + 1*/)) {
+        for (int size : List.of(0xFF / 9, 0xFFFF / 9 /*, 0xFFFFFF / 9, (0xFFFFFF / 9) + 1*/)) {
             List<Variant> elements = new ArrayList<>(size);
             ValueArray array = Variants.array();
             int totalSize = 0;
@@ -851,7 +852,7 @@ class TestVariant
 
         int expectedFieldIdSize = 1;
         // it is not possible to run the larger tests in CI due to memory constraints
-        for (int fieldCount : List.of(0xFF, 0xFFFF/*, 0xFFFFFF, 0xFFFFFF + 1*/)) {
+        for (int fieldCount : List.of(0xFF, 0xFFFF /*, 0xFFFFFF, 0xFFFFFF + 1*/)) {
             List<ObjectField> fields = new ArrayList<>();
             List<VariantValue> icebergValues = new ArrayList<>();
 

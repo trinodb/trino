@@ -478,9 +478,9 @@ public final class TupleDomain<T>
         boolean allSingleMatchingColumn = nonNoneDomains.stream()
                 .allMatch(domain -> domain.getDomains().isPresent() && domain.getDomains().get().size() == 1)
                 && nonNoneDomains.stream()
-                        .map(domain -> domain.getDomains().get().keySet())
-                        .distinct()
-                        .count() == 1;
+                .map(domain -> domain.getDomains().get().keySet())
+                .distinct()
+                .count() == 1;
 
         if (!allSingleMatchingColumn) {
             // columnWiseUnion would be a superset of the strict union

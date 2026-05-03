@@ -349,10 +349,10 @@ public class EquatableValueSet
     private String formatValues(int limit)
     {
         return Stream.concat(
-                entries.stream()
-                        .map(entry -> type.getObjectValue(entry.getBlock(), 0).toString())
-                        .limit(limit),
-                limit < getValuesCount() ? Stream.of("...") : Stream.of())
+                        entries.stream()
+                                .map(entry -> type.getObjectValue(entry.getBlock(), 0).toString())
+                                .limit(limit),
+                        limit < getValuesCount() ? Stream.of("...") : Stream.of())
                 .collect(joining(", ", inclusive ? "{" : "EXCLUDES{", "}"));
     }
 
