@@ -1474,7 +1474,8 @@ public class TestJdbcPreparedStatement
     public void testExplicitPrepare()
             throws Exception
     {
-        testExplicitPrepareSetting(true,
+        testExplicitPrepareSetting(
+                true,
                 "EXECUTE %statement% USING %values%");
     }
 
@@ -1482,7 +1483,8 @@ public class TestJdbcPreparedStatement
     public void testExecuteImmediate()
             throws Exception
     {
-        testExplicitPrepareSetting(false,
+        testExplicitPrepareSetting(
+                false,
                 "EXECUTE IMMEDIATE '%query%' USING %values%");
     }
 

@@ -75,11 +75,11 @@ public class HttpTokenPoller
     {
         try {
             return Failsafe.with(RetryPolicy.builder()
-                    .withMaxAttempts(-1)
-                    .withMaxDuration(timeout)
-                    .withBackoff(100, 500, MILLIS)
-                    .handle(IOException.class)
-                    .build())
+                            .withMaxAttempts(-1)
+                            .withMaxDuration(timeout)
+                            .withBackoff(100, 500, MILLIS)
+                            .handle(IOException.class)
+                            .build())
                     .get(() -> executePoll(prepareRequestBuilder(tokenUri).build()));
         }
         catch (FailsafeException e) {
@@ -95,11 +95,11 @@ public class HttpTokenPoller
     {
         try {
             Failsafe.with(RetryPolicy.<Integer>builder()
-                    .withMaxAttempts(-1)
-                    .withMaxDuration(Duration.ofSeconds(4))
-                    .withBackoff(100, 500, MILLIS)
-                    .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR)
-                    .build())
+                            .withMaxAttempts(-1)
+                            .withMaxDuration(Duration.ofSeconds(4))
+                            .withBackoff(100, 500, MILLIS)
+                            .handleResultIf(code -> code >= HTTP_INTERNAL_ERROR)
+                            .build())
                     .get(() -> {
                         Request request = prepareRequestBuilder(tokenUri)
                                 .delete()

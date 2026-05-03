@@ -36,7 +36,6 @@ public interface QueryDataDecoder
      *
      * @param input Input stream to decode (in memory or over the network)
      * @param segmentAttributes Attributes of the segment
-     *
      * @throws IOException if an I/O error occurs
      */
     CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
