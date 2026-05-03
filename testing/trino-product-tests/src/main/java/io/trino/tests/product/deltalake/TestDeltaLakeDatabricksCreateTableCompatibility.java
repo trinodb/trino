@@ -47,7 +47,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer int, string varchar, timetz timestamp with time zone) with (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (integer int, string varchar, timetz timestamp with time zone) with (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -88,12 +89,12 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(0));
             String showCreateTable = format(
-                        "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
-                        tableName,
-                        bucketName,
-                        tableDirectory,
-                        getDatabricksDefaultTableProperties());
+                    "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
+                            "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
+                    tableName,
+                    bucketName,
+                    tableDirectory,
+                    getDatabricksDefaultTableProperties());
             assertThat(onDelta().executeQuery("SHOW CREATE TABLE " + tableName)).containsExactlyInOrder(row(showCreateTable));
             testInsert(tableName, ImmutableList.of());
         }
@@ -109,7 +110,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_table_as_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s') AS " +
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s') AS " +
                         "VALUES (4, 'four', TIMESTAMP '2020-01-01 01:00:00.000 UTC'), (5, 'five', TIMESTAMP '2025-01-01 01:00:00.000 UTC'), (null, null, null)",
                 tableName,
                 bucketName,
@@ -119,11 +121,11 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES FROM default LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName)).contains(row(3));
             String showCreateTable = format(
-                        "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
-                        tableName,
-                        bucketName,
-                        tableDirectory,
-                        getDatabricksDefaultTableProperties());
+                    "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
+                    tableName,
+                    bucketName,
+                    tableDirectory,
+                    getDatabricksDefaultTableProperties());
             assertThat(onDelta().executeQuery("SHOW CREATE TABLE default." + tableName)).containsExactlyInOrder(row(showCreateTable));
             testInsert(
                     tableName,
@@ -144,7 +146,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_table_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s', partitioned_by = ARRAY['string']) AS " +
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (integer, string, timetz) with (location = 's3://%s/%s', partitioned_by = ARRAY['string']) AS " +
                         "VALUES (4, 'four', TIMESTAMP '2020-01-01 01:00:00.000 UTC'), (5, 'five', TIMESTAMP '2025-01-01 01:00:00.000 UTC'), (null, null, null)",
                 tableName,
                 bucketName,
@@ -154,12 +157,12 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(3));
             String showCreateTable = format(
-                        "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
-                                "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
-                        tableName,
-                        bucketName,
-                        tableDirectory,
-                        getDatabricksDefaultTableProperties());
+                    "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
+                            "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
+                    tableName,
+                    bucketName,
+                    tableDirectory,
+                    getDatabricksDefaultTableProperties());
             assertThat(onDelta().executeQuery("SHOW CREATE TABLE " + tableName)).containsExactlyInOrder(row(showCreateTable));
             testInsert(
                     tableName,
@@ -196,7 +199,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_table_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) COMMENT 'test comment' WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT) COMMENT 'test comment' WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -217,7 +221,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT COMMENT 'test comment') WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT COMMENT 'test comment') WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -243,7 +248,8 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         String tableName = "test_dl_create_column_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT COMMENT 'test comment') USING DELTA LOCATION 's3://%s/%s'",
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%s (col INT COMMENT 'test comment') USING DELTA LOCATION 's3://%s/%s'",
                 tableName,
                 bucketName,
                 tableDirectory));

@@ -137,8 +137,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_RAW_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_RAW_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_byte_bigint", "bigint"),
                 row("c_short_bigint", "bigint"),
@@ -208,8 +207,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_CSV_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_CSV_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_bigint", "bigint"),
                 row("c_integer", "integer"),
@@ -280,8 +278,7 @@ public class TestKafkaReadsSmokeTest
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
-                ALL_DATATYPES_JSON_TABLE_NAME
-        ))).containsOnly(
+                ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(
                 row("c_varchar", "varchar"),
                 row("c_bigint", "bigint"),
                 row("c_integer", "integer"),

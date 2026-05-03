@@ -466,7 +466,8 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS},
-            dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+            dataProviderClass = DataProviders.class,
+            dataProvider = "trueFalse")
     public void testDeletionVectorsAcrossAddFile(boolean partitioned)
     {
         String tableName = "test_deletion_vectors_accross_add_file_" + randomNameSuffix();

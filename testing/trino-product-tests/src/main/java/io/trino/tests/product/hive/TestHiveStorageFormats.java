@@ -503,8 +503,10 @@ public class TestHiveStorageFormats
                 nullFormat));
 
         // Manually format data for insertion b/c Hive's PreparedStatement can't handle nulls
-        onHive().executeQuery(format("INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
-                tableName, nullFormat));
+        onHive().executeQuery(format(
+                "INSERT INTO %s VALUES ('non-null'), (NULL), ('%s')",
+                tableName,
+                nullFormat));
 
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row("non-null"), row((Object) null), row((Object) null));
@@ -758,14 +760,15 @@ public class TestHiveStorageFormats
                     onTrino().executeQuery(format(
                             "INSERT INTO %s VALUES (%s)",
                             tableName,
-                            data.stream().map(entry -> format(
-                                    "%s,"
-                                            + " array[%2$s],"
-                                            + " map(array[%2$s], array[%2$s]),"
-                                            + " row(%2$s),"
-                                            + " array[map(array[%2$s], array[row(array[%2$s])])]",
-                                    entry.getId(),
-                                    format("TIMESTAMP '%s'", entry.getWriteValue())))
+                            data.stream()
+                                    .map(entry -> format(
+                                            "%s,"
+                                                    + " array[%2$s],"
+                                                    + " map(array[%2$s], array[%2$s]),"
+                                                    + " row(%2$s),"
+                                                    + " array[map(array[%2$s], array[row(array[%2$s])])]",
+                                            entry.getId(),
+                                            format("TIMESTAMP '%s'", entry.getWriteValue())))
                                     .collect(joining("), ("))));
                 });
 
@@ -1063,8 +1066,8 @@ public class TestHiveStorageFormats
         public String getStoragePropertiesAsSql()
         {
             return Stream.concat(
-                    Stream.of(immutableEntry("format", name)),
-                    properties.entrySet().stream())
+                            Stream.of(immutableEntry("format", name)),
+                            properties.entrySet().stream())
                     .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
                     .collect(joining(", "));
         }

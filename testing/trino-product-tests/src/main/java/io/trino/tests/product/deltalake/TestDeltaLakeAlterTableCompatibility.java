@@ -50,7 +50,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_add_column_with_comment_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -71,7 +72,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_rename_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("" +
+        onDelta().executeQuery(format(
+                "" +
                         "CREATE TABLE default.%s (col INT) " +
                         "USING DELTA LOCATION 's3://%s/%s' " +
                         "TBLPROPERTIES ('delta.columnMapping.mode'='name')",
@@ -103,7 +105,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_rename_partitioned_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("" +
+        onDelta().executeQuery(format(
+                "" +
                         "CREATE TABLE default.%s (col INT, part STRING) " +
                         "USING DELTA LOCATION 's3://%s/%s' " +
                         "PARTITIONED BY (part) " +
@@ -173,7 +176,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_comment_table_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -194,7 +198,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_dl_comment_column_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format(
+                "CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -215,7 +220,8 @@ public class TestDeltaLakeAlterTableCompatibility
         String tableName = "test_trino_preserves_versions_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("" +
+        onDelta().executeQuery(format(
+                "" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
                         "TBLPROPERTIES ('delta.minReaderVersion'='1', 'delta.minWriterVersion'='1', 'delta.checkpointInterval' = 1)",

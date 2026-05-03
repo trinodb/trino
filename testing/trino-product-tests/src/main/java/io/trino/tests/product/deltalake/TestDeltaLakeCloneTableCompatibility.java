@@ -326,7 +326,8 @@ public class TestDeltaLakeCloneTableCompatibility
                       WHEN MATCHED AND s.v = 'zzz' THEN DELETE
                       WHEN MATCHED THEN UPDATE SET v = s.v
                       WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-                    """, "delta.default." + clonedTable);
+                    """,
+                    "delta.default." + clonedTable);
             onTrino().executeQuery(mergeSql);
 
             List<Row> expectedRowsAfterMerge = ImmutableList.of(

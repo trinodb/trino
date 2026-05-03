@@ -39,7 +39,8 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_case_sensitivity_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')",
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s' TBLPROPERTIES ('test_key'='test_value', 'Test_Key'='Test_Mixed_Case')",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -64,7 +65,8 @@ public class TestDeltaLakeSystemTableCompatibility
         String tableName = "test_dl_table_properties_with_features_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onDelta().executeQuery(format("CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
+        onDelta().executeQuery(format(
+                "CREATE TABLE default.%s (col INT) USING DELTA LOCATION 's3://%s/%s'" +
                         " TBLPROPERTIES ('delta.minReaderVersion'='3', 'delta.minWriterVersion'='7', 'delta.columnMapping.mode'='id')",
                 tableName,
                 bucketName,

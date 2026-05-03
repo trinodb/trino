@@ -627,8 +627,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     " WHERE partitioning_column_2 IS NULL");
 
             assertThat(onTrino().executeQuery(
-                    "SELECT * FROM delta.default." + tableName
-            )).containsOnly(
+                    "SELECT * FROM delta.default." + tableName)).containsOnly(
                     row("testValue1", 1, "partition1"),
                     row("testValue2", 2, "partition2"));
 
