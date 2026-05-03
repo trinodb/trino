@@ -73,16 +73,15 @@ public final class HiveTypeUtil
                     typeSupported(((MapTypeInfo) typeInfo).getMapValueTypeInfo(), storageFormat);
             case LIST -> typeSupported(((ListTypeInfo) typeInfo).getListElementTypeInfo(), storageFormat);
             case STRUCT -> ((StructTypeInfo) typeInfo).getAllStructFieldTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
-            case UNION ->
-                    // This feature (reading union types as structs) has only been verified against Avro and ORC tables. Here's a discussion:
-                    //   1. Avro tables are supported and verified.
-                    //   2. ORC tables are supported and verified.
-                    //   3. The Parquet format doesn't support union types itself so there's no need to add support for it in Trino.
-                    //   4. TODO: RCFile tables are not supported yet.
-                    //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                    storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
-                            storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
-                            ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
+            // This feature (reading union types as structs) has only been verified against Avro and ORC tables. Here's a discussion:
+            //   1. Avro tables are supported and verified.
+            //   2. ORC tables are supported and verified.
+            //   3. The Parquet format doesn't support union types itself so there's no need to add support for it in Trino.
+            //   4. TODO: RCFile tables are not supported yet.
+            //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
+            case UNION -> storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
+                    storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
+                    ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> typeSupported(fieldTypeInfo, storageFormat));
         };
     }
 

@@ -137,8 +137,7 @@ public sealed interface AvroReadAction
                     }
                     throw new IllegalStateException("Unable to promote to Bytes from type " + action.writer.getType());
                 }
-                case NULL, BOOLEAN, INT, FIXED, ENUM, ARRAY, MAP, RECORD, UNION ->
-                        throw new IllegalStateException("Promotion action not allowed for reader schema type " + action.reader.getType());
+                case NULL, BOOLEAN, INT, FIXED, ENUM, ARRAY, MAP, RECORD, UNION -> throw new IllegalStateException("Promotion action not allowed for reader schema type " + action.reader.getType());
             };
             case CONTAINER -> switch (action.reader.getType()) {
                 case ARRAY -> new ArrayReadAction(action.reader, action.writer, fromAction(((Resolver.Container) action).elementAction));

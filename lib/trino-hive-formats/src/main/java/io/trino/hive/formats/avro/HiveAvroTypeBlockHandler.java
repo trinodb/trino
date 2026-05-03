@@ -177,10 +177,8 @@ public class HiveAvroTypeBlockHandler
             case InvalidNativeAvroLogicalType _ -> // Hive Ignores these issues
                     baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
             case NonNativeAvroLogicalType nonNativeAvroLogicalType -> switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
-                case VARCHAR_TYPE_LOGICAL_NAME ->
-                        new HiveVarcharTypeBlockBuildingDecoder(getHiveLogicalVarCharOrCharType(readAction.readSchema(), nonNativeAvroLogicalType));
-                case CHAR_TYPE_LOGICAL_NAME ->
-                        new HiveCharTypeBlockBuildingDecoder(getHiveLogicalVarCharOrCharType(readAction.readSchema(), nonNativeAvroLogicalType));
+                case VARCHAR_TYPE_LOGICAL_NAME -> new HiveVarcharTypeBlockBuildingDecoder(getHiveLogicalVarCharOrCharType(readAction.readSchema(), nonNativeAvroLogicalType));
+                case CHAR_TYPE_LOGICAL_NAME -> new HiveCharTypeBlockBuildingDecoder(getHiveLogicalVarCharOrCharType(readAction.readSchema(), nonNativeAvroLogicalType));
                 // logical type we don't recognize, ignore
                 default -> baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
             };

@@ -428,11 +428,10 @@ public final class TypeCoercion
                 default -> Optional.empty();
             };
             case StandardTypes.CHAR -> switch (resultTypeBase) {
-                case StandardTypes.VARCHAR ->
-                    // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
-                    // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
-                    // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
-                        Optional.empty();
+                // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
+                // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
+                // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
+                case StandardTypes.VARCHAR -> Optional.empty();
                 case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
                 case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
                 case JsonPathType.NAME -> Optional.of(JSON_PATH);

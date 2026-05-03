@@ -425,14 +425,12 @@ public class CassandraTypeManager
                 }
             }
             case INT, SMALLINT, TINYINT -> ((Long) trinoNativeValue).intValue();
-            case FLOAT ->
-                // conversion can result in precision lost
-                    intBitsToFloat(((Long) trinoNativeValue).intValue());
-            case DECIMAL ->
-                // conversion can result in precision lost
-                // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
-                // Otherwise partition id doesn't match
-                    new BigDecimal(trinoNativeValue.toString());
+            // conversion can result in precision lost
+            case FLOAT -> intBitsToFloat(((Long) trinoNativeValue).intValue());
+            // conversion can result in precision lost
+            // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
+            // Otherwise partition id doesn't match
+            case DECIMAL -> new BigDecimal(trinoNativeValue.toString());
             case TIME -> LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
             case TIMESTAMP -> Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
             case DATE -> LocalDate.ofEpochDay((Long) trinoNativeValue);

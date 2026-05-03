@@ -56,16 +56,11 @@ public class RewriteCast
         }
 
         return switch (targetType) {
-            case SmallintType smallintType ->
-                    Optional.of(new JdbcTypeHandle(SMALLINT, Optional.of(smallintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case IntegerType integerType ->
-                    Optional.of(new JdbcTypeHandle(INTEGER, Optional.of(integerType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case BigintType bigintType ->
-                    Optional.of(new JdbcTypeHandle(BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
-            case CharType charType ->
-                    Optional.of(new JdbcTypeHandle(CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
-            case VarcharType varcharType ->
-                    Optional.of(new JdbcTypeHandle(VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case SmallintType smallintType -> Optional.of(new JdbcTypeHandle(SMALLINT, Optional.of(smallintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case IntegerType integerType -> Optional.of(new JdbcTypeHandle(INTEGER, Optional.of(integerType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case BigintType bigintType -> Optional.of(new JdbcTypeHandle(BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case CharType charType -> Optional.of(new JdbcTypeHandle(CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
+            case VarcharType varcharType -> Optional.of(new JdbcTypeHandle(VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
             default -> Optional.empty();
         };
     }
@@ -73,8 +68,7 @@ public class RewriteCast
     private boolean pushdownSupported(JdbcTypeHandle sourceType, Type targetType)
     {
         return switch (targetType) {
-            case SmallintType _, IntegerType _, BigintType _ ->
-                    SUPPORTED_SOURCE_TYPE_FOR_INTEGRAL_CAST.contains(sourceType.jdbcType());
+            case SmallintType _, IntegerType _, BigintType _ -> SUPPORTED_SOURCE_TYPE_FOR_INTEGRAL_CAST.contains(sourceType.jdbcType());
             // varchar -> char is unsupported as varchar supports multi-byte characters whereas char supports only single byte characters.
             case CharType _ -> CHAR == sourceType.jdbcType();
             // char -> varchar is not supported as Redshift doesn't pad char value with blanks whereas Trino pads char value with blanks.

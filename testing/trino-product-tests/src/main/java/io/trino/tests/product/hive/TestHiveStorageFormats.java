@@ -585,12 +585,11 @@ public class TestHiveStorageFormats
                         "'dummy value' " +
                         "FROM dummy");
             }
-            case TRINO ->
-                writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " VALUES (" +
-                        "row(42), " +
-                        "row(row(43)), " +
-                        "row(ARRAY[11, 22, 33]), " +
-                        "'dummy value')");
+            case TRINO -> writer.queryExecutor().executeQuery("INSERT INTO " + tableName + " VALUES (" +
+                    "row(42), " +
+                    "row(row(43)), " +
+                    "row(ARRAY[11, 22, 33]), " +
+                    "'dummy value')");
             default -> throw new IllegalStateException("Unsupported writer: " + writer);
         }
 

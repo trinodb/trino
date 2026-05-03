@@ -98,8 +98,7 @@ public class SpoolingManagerBridge
                     .orElseThrow(() -> new ServiceUnavailableException("Retrieval mode is DIRECT but cannot generate pre-signed URI")));
             case COORDINATOR_STORAGE_REDIRECT, WORKER_PROXY, COORDINATOR_PROXY -> switch (delegate().location(handle)) {
                 case DirectLocation _ -> throw new IllegalStateException("Expected coordinator location but got direct one");
-                case CoordinatorLocation coordinatorLocation ->
-                        coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
+                case CoordinatorLocation coordinatorLocation -> coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
             };
         };
     }

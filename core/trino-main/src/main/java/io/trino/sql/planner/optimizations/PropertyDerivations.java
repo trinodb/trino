@@ -574,12 +574,11 @@ public final class PropertyDerivations
                         .local(ImmutableList.of())
                         .unordered(true)
                         .build();
-                case FULL ->
-                        // We can't say anything about the partitioning scheme because any partition of
-                        // a hash-partitioned join can produce nulls in case of a lack of matches
-                        ActualProperties.builder()
-                                .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
-                                .build();
+                // We can't say anything about the partitioning scheme because any partition of
+                // a hash-partitioned join can produce nulls in case of a lack of matches
+                case FULL -> ActualProperties.builder()
+                        .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
+                        .build();
             };
         }
 
@@ -729,12 +728,11 @@ public final class PropertyDerivations
                                 .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
                         .constants(constants)
                         .build();
-                case REPLICATE ->
-                        // TODO: this should have the same global properties as the stream taking the replicated data
-                        ActualProperties.builder()
-                                .global(arbitraryPartition())
-                                .constants(constants)
-                                .build();
+                // TODO: this should have the same global properties as the stream taking the replicated data
+                case REPLICATE -> ActualProperties.builder()
+                        .global(arbitraryPartition())
+                        .constants(constants)
+                        .build();
             };
         }
 
