@@ -8278,6 +8278,35 @@ public class TestAnalyzer
                 new ColumnDetail("tpch", "information_schema", "schemata", "schema_name"));
     }
 
+    @Test
+    public void testSelectColumnsLineageInfoWithRecursiveCte()
+    {
+        String sql = """
+                WITH RECURSIVE t(x, y) AS (
+                    SELECT a, b FROM t1
+                    UNION ALL
+                    SELECT x + 1, y + 1 FROM t WHERE x < 5
+                )
+                SELECT * FROM t""";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> optionalLineageInfo = analysis.getSelectColumnsLineageInfo();
+        assertThat(optionalLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = optionalLineageInfo.get();
+        assertThat(lineageInfo).hasSize(2);
+
+        ColumnLineageInfo colX = lineageInfo.get(0);
+        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+
+        ColumnLineageInfo colY = lineageInfo.get(1);
+        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "b"));
+    }
+
     @BeforeAll
     public void setup()
     {
