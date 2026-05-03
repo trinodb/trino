@@ -2143,7 +2143,8 @@ public class SemiTransactionalHiveMetastore
             for (PartitionAdder partitionAdder : partitionAdders.values()) {
                 List<List<String>> partitionsFailedToRollback = partitionAdder.rollback();
                 if (!partitionsFailedToRollback.isEmpty()) {
-                    logCleanupFailure("Failed to rollback: add_partition for partitions %s.%s %s",
+                    logCleanupFailure(
+                            "Failed to rollback: add_partition for partitions %s.%s %s",
                             partitionAdder.getSchemaName(),
                             partitionAdder.getTableName(),
                             partitionsFailedToRollback);
@@ -2300,10 +2301,10 @@ public class SemiTransactionalHiveMetastore
                                     .map(Column::getName)
                                     .collect(toImmutableList());
                             List<String> partitionNames = getOptionalPartitions(
-                                            schemaTableName.getSchemaName(),
-                                            schemaTableName.getTableName(),
-                                            partitionColumnNames,
-                                            TupleDomain.all())
+                                    schemaTableName.getSchemaName(),
+                                    schemaTableName.getTableName(),
+                                    partitionColumnNames,
+                                    TupleDomain.all())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
                                 Collection<Optional<Partition>> partitions = getOptionalPartitions(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();

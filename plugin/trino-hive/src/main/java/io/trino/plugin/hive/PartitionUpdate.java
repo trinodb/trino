@@ -191,7 +191,8 @@ public class PartitionUpdate
                 totalOnDiskDataSizeInBytes += partition.getOnDiskDataSizeInBytes();
             }
 
-            partitionUpdates.add(new PartitionUpdate(firstPartition.getName(),
+            partitionUpdates.add(new PartitionUpdate(
+                    firstPartition.getName(),
                     firstPartition.getUpdateMode(),
                     firstPartition.getWritePath(),
                     firstPartition.getTargetPath(),

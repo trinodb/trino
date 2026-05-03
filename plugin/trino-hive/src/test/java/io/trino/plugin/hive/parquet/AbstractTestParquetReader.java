@@ -199,7 +199,9 @@ public abstract class AbstractTestParquetReader
         Type structType = RowType.from(asList(field("stringField", VARCHAR), field("longField", BIGINT)));
         tester.testRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector))),
-                values, values, new ArrayType(structType));
+                values,
+                values,
+                new ArrayType(structType));
     }
 
     @Test
@@ -265,7 +267,9 @@ public abstract class AbstractTestParquetReader
                                 getStandardStructObjectInspector(
                                         structFieldNames,
                                         asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector)))),
-                values, values, new ArrayType(new ArrayType(structType)));
+                values,
+                values,
+                new ArrayType(new ArrayType(structType)));
     }
 
     @Test
@@ -284,7 +288,9 @@ public abstract class AbstractTestParquetReader
                                 getStandardStructObjectInspector(
                                         structFieldNames,
                                         asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector)))),
-                values, values, new ArrayType(new ArrayType(structType)));
+                values,
+                values,
+                new ArrayType(new ArrayType(structType)));
     }
 
     @Test
@@ -301,7 +307,9 @@ public abstract class AbstractTestParquetReader
                         getStandardStructObjectInspector(
                                 structFieldNames,
                                 asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector))),
-                values, values, new ArrayType(structType));
+                values,
+                values,
+                new ArrayType(structType));
     }
 
     @Test
@@ -318,7 +326,9 @@ public abstract class AbstractTestParquetReader
                         getStandardStructObjectInspector(
                                 structFieldNames,
                                 asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector))),
-                values, values, new ArrayType(structType));
+                values,
+                values,
+                new ArrayType(structType));
     }
 
     @Test
@@ -354,7 +364,9 @@ public abstract class AbstractTestParquetReader
         Iterable<Map<String, Long>> maps = createNullableTestMaps(transform(intsBetween(0, 10), Object::toString), longsBetween(0, 10));
         List<List<Map<String, Long>>> values = createTestArrays(maps);
         tester.testRoundTrip(getStandardListObjectInspector(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector)),
-                values, values, new ArrayType(mapType(VARCHAR, BIGINT)));
+                values,
+                values,
+                new ArrayType(mapType(VARCHAR, BIGINT)));
     }
 
     @Test
@@ -381,7 +393,9 @@ public abstract class AbstractTestParquetReader
                         getStandardMapObjectInspector(
                                 javaIntObjectInspector,
                                 getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector)))),
-                values, values, new ArrayType(mapType(INTEGER, structType)));
+                values,
+                values,
+                new ArrayType(mapType(INTEGER, structType)));
     }
 
     @Test
@@ -398,7 +412,9 @@ public abstract class AbstractTestParquetReader
                         getStandardMapObjectInspector(
                                 javaIntObjectInspector,
                                 getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector)))),
-                values, values, new ArrayType(mapType(INTEGER, structType)));
+                values,
+                values,
+                new ArrayType(mapType(INTEGER, structType)));
     }
 
     @Test
@@ -411,10 +427,14 @@ public abstract class AbstractTestParquetReader
         Type structType = RowType.from(singletonList(field("test", VARCHAR)));
         tester.testRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, singletonList(javaStringObjectInspector))),
-                values, values, new ArrayType(structType));
+                values,
+                values,
+                new ArrayType(structType));
         tester.testSingleLevelArraySchemaRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, singletonList(javaStringObjectInspector))),
-                values, values, new ArrayType(structType));
+                values,
+                values,
+                new ArrayType(structType));
     }
 
     @Test
@@ -432,11 +452,15 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(
                 getStandardListObjectInspector(
                         getStandardStructObjectInspector(structsOfStructsFieldNames, singletonList(structObjectInspector))),
-                values, values, new ArrayType(structsOfStructsType));
+                values,
+                values,
+                new ArrayType(structsOfStructsType));
         tester.testSingleLevelArraySchemaRoundTrip(
                 getStandardListObjectInspector(
                         getStandardStructObjectInspector(structsOfStructsFieldNames, singletonList(structObjectInspector))),
-                values, values, new ArrayType(structsOfStructsType));
+                values,
+                values,
+                new ArrayType(structsOfStructsType));
     }
 
     @Test
@@ -451,7 +475,9 @@ public abstract class AbstractTestParquetReader
                         getStandardMapObjectInspector(
                                 javaStringObjectInspector,
                                 getStandardListObjectInspector(javaIntObjectInspector))),
-                values, values, new ArrayType(mapType(VARCHAR, new ArrayType(INTEGER))));
+                values,
+                values,
+                new ArrayType(mapType(VARCHAR, new ArrayType(INTEGER))));
     }
 
     @Test
@@ -466,7 +492,9 @@ public abstract class AbstractTestParquetReader
                         getStandardMapObjectInspector(
                                 javaStringObjectInspector,
                                 getStandardListObjectInspector(javaIntObjectInspector))),
-                values, values, new ArrayType(mapType(VARCHAR, new ArrayType(INTEGER))));
+                values,
+                values,
+                new ArrayType(mapType(VARCHAR, new ArrayType(INTEGER))));
     }
 
     @Test
@@ -479,7 +507,9 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(getStandardMapObjectInspector(
                         javaIntObjectInspector,
                         getStandardListObjectInspector(javaIntObjectInspector)),
-                values, values, mapType(INTEGER, new ArrayType(INTEGER)));
+                values,
+                values,
+                mapType(INTEGER, new ArrayType(INTEGER)));
     }
 
     @Test
@@ -508,7 +538,9 @@ public abstract class AbstractTestParquetReader
         tester.testSingleLevelArraySchemaRoundTrip(getStandardMapObjectInspector(
                         javaIntObjectInspector,
                         getStandardListObjectInspector(javaIntObjectInspector)),
-                values, values, mapType(INTEGER, new ArrayType(INTEGER)));
+                values,
+                values,
+                mapType(INTEGER, new ArrayType(INTEGER)));
     }
 
     @Test
@@ -523,7 +555,9 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(getStandardMapObjectInspector(
                         javaLongObjectInspector,
                         getStandardStructObjectInspector(structFieldNames, asList(javaStringObjectInspector, javaLongObjectInspector))),
-                values, values, mapType(BIGINT, structType));
+                values,
+                values,
+                mapType(BIGINT, structType));
     }
 
     @Test
@@ -662,7 +696,9 @@ public abstract class AbstractTestParquetReader
                                 getStandardMapObjectInspector(javaIntObjectInspector, javaStringObjectInspector),
                                 getStandardListObjectInspector(javaStringObjectInspector),
                                 javaIntObjectInspector)),
-                values, values, structType);
+                values,
+                values,
+                structType);
     }
 
     @Test
@@ -681,7 +717,9 @@ public abstract class AbstractTestParquetReader
                                 javaIntObjectInspector,
                                 getStandardMapObjectInspector(javaIntObjectInspector, javaStringObjectInspector),
                                 javaIntObjectInspector)),
-                values, values, structType);
+                values,
+                values,
+                structType);
     }
 
     @Test
@@ -700,7 +738,9 @@ public abstract class AbstractTestParquetReader
                                 javaIntObjectInspector,
                                 getStandardListObjectInspector(javaStringObjectInspector),
                                 javaIntObjectInspector)),
-                values, values, structType);
+                values,
+                values,
+                structType);
     }
 
     @Test
@@ -712,7 +752,8 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("stringArrayField", "intField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        tester.testRoundTrip(getStandardStructObjectInspector(structFieldNames,
+        tester.testRoundTrip(getStandardStructObjectInspector(
+                structFieldNames,
                 asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector)), values, values, structType);
     }
 
@@ -725,7 +766,8 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("stringArrayField", "intField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intField", INTEGER)));
-        tester.testSingleLevelArraySchemaRoundTrip(getStandardStructObjectInspector(structFieldNames,
+        tester.testSingleLevelArraySchemaRoundTrip(getStandardStructObjectInspector(
+                structFieldNames,
                 asList(getStandardListObjectInspector(javaStringObjectInspector), javaIntObjectInspector)), values, values, structType);
     }
 
@@ -739,7 +781,8 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("intField", "stringArrayField");
 
         Type structType = RowType.from(asList(field("intField", INTEGER), field("stringArrayField", new ArrayType(VARCHAR))));
-        tester.testRoundTrip(getStandardStructObjectInspector(structFieldNames,
+        tester.testRoundTrip(getStandardStructObjectInspector(
+                structFieldNames,
                 asList(javaIntObjectInspector, getStandardListObjectInspector(javaStringObjectInspector))), values, values, structType);
     }
 
@@ -753,7 +796,8 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("intField", "stringArrayField");
 
         Type structType = RowType.from(asList(field("intField", INTEGER), field("stringArrayField", new ArrayType(VARCHAR))));
-        tester.testSingleLevelArraySchemaRoundTrip(getStandardStructObjectInspector(structFieldNames,
+        tester.testSingleLevelArraySchemaRoundTrip(getStandardStructObjectInspector(
+                structFieldNames,
                 asList(javaIntObjectInspector, getStandardListObjectInspector(javaStringObjectInspector))), values, values, structType);
     }
 
@@ -767,7 +811,8 @@ public abstract class AbstractTestParquetReader
         List<String> structFieldNames = asList("stringArrayField", "intArrayField");
 
         Type structType = RowType.from(asList(field("stringArrayField", new ArrayType(VARCHAR)), field("intArrayField", new ArrayType(INTEGER))));
-        tester.testRoundTrip(getStandardStructObjectInspector(structFieldNames,
+        tester.testRoundTrip(getStandardStructObjectInspector(
+                structFieldNames,
                 asList(getStandardListObjectInspector(javaStringObjectInspector), getStandardListObjectInspector(javaIntObjectInspector))), values, values, structType);
     }
 
@@ -784,7 +829,9 @@ public abstract class AbstractTestParquetReader
                         asList(
                                 getStandardListObjectInspector(getStandardListObjectInspector(javaStringObjectInspector)),
                                 getStandardListObjectInspector(getStandardListObjectInspector(javaIntObjectInspector)))),
-                values, values, structType);
+                values,
+                values,
+                structType);
     }
 
     @Test
@@ -1306,7 +1353,11 @@ public abstract class AbstractTestParquetReader
                                 getStandardListObjectInspector(javaStringObjectInspector),
                                 getStandardListObjectInspector(
                                         getStandardStructObjectInspector(contactsFieldNames, asList(javaStringObjectInspector, javaStringObjectInspector))))),
-                values, values, "address_book", addressBookType, Optional.of(parquetSchema));
+                values,
+                values,
+                "address_book",
+                addressBookType,
+                Optional.of(parquetSchema));
     }
 
     @Test
@@ -1508,8 +1559,12 @@ public abstract class AbstractTestParquetReader
         ObjectInspector fInspector = getStandardStructObjectInspector(singletonList("g"), singletonList(gInspector));
         ObjectInspector eInspector = getStandardStructObjectInspector(singletonList("f"), singletonList(fInspector));
         tester.testRoundTrip(asList(aInspector, eInspector),
-                new Iterable<?>[] {aValues, eValues}, new Iterable<?>[] {aValues, eValues},
-                asList("a", "e"), asList(aType, eType), Optional.of(parquetSchema), ParquetSchemaOptions.defaultOptions());
+                new Iterable<?>[] {aValues, eValues},
+                new Iterable<?>[] {aValues, eValues},
+                asList("a", "e"),
+                asList(aType, eType),
+                Optional.of(parquetSchema),
+                ParquetSchemaOptions.defaultOptions());
     }
 
     @Test
@@ -1754,12 +1809,14 @@ public abstract class AbstractTestParquetReader
     private void testRoundTripNumeric(Iterable<Integer> writeValues)
             throws Exception
     {
-        tester.testRoundTrip(javaByteObjectInspector,
+        tester.testRoundTrip(
+                javaByteObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToByte),
                 AbstractTestParquetReader::byteToInt,
                 INTEGER);
 
-        tester.testRoundTrip(javaShortObjectInspector,
+        tester.testRoundTrip(
+                javaShortObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToShort),
                 AbstractTestParquetReader::shortToInt,
                 INTEGER);
@@ -1768,12 +1825,14 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(javaLongObjectInspector, transform(writeValues, AbstractTestParquetReader::intToLong), BIGINT);
         // Add millis of a day to the writeValues to avoid creating illegal instant for small values due to time zone offset transition
         Iterable<Integer> timestampValues = transform(writeValues, value -> value + MILLISECONDS_PER_DAY);
-        tester.testRoundTrip(javaTimestampObjectInspector,
+        tester.testRoundTrip(
+                javaTimestampObjectInspector,
                 transform(timestampValues, AbstractTestParquetReader::intToTimestamp),
                 transform(timestampValues, AbstractTestParquetReader::intToSqlTimestamp),
                 TIMESTAMP_MILLIS);
 
-        tester.testRoundTrip(javaDateObjectInspector,
+        tester.testRoundTrip(
+                javaDateObjectInspector,
                 transform(writeValues, AbstractTestParquetReader::intToDate),
                 transform(writeValues, AbstractTestParquetReader::intToSqlDate),
                 DATE);
@@ -1886,7 +1945,8 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         Iterable<byte[]> writeValues = transform(intsBetween(0, 30_000), compose(AbstractTestParquetReader::stringToByteArray, Object::toString));
-        tester.testRoundTrip(javaByteArrayObjectInspector,
+        tester.testRoundTrip(
+                javaByteArrayObjectInspector,
                 writeValues,
                 transform(writeValues, AbstractTestParquetReader::byteArrayToVarbinary),
                 VARBINARY);

@@ -368,7 +368,8 @@ public class HiveWriterFactory
                         HiveType tableType = tableColumns.get(i).getType();
                         HiveType partitionType = existingPartitionColumns.get(i).getType();
                         if (!tableType.equals(partitionType)) {
-                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                    "" +
                                             "You are trying to write into an existing partition in a table. " +
                                             "The table schema has changed since the creation of the partition. " +
                                             "Inserting rows into such partition is not supported. " +
@@ -635,7 +636,8 @@ public class HiveWriterFactory
         if (isCreateTransactionalTable) {
             String paddedBucket = Strings.padStart("0", BUCKET_NUMBER_PADDING, '0');
             UUID uuid = randomUUID();
-            return format("0%s_%s%s",
+            return format(
+                    "0%s_%s%s",
                     paddedBucket,
                     Long.toUnsignedString(uuid.getLeastSignificantBits()),
                     Long.toUnsignedString(uuid.getMostSignificantBits()));

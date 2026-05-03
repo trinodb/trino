@@ -1350,7 +1350,8 @@ public class TestBackgroundHiveSplitLoader
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> tableParameters)
     {
-        return table(location,
+        return table(
+                location,
                 partitionColumns,
                 bucketProperty,
                 tableParameters,

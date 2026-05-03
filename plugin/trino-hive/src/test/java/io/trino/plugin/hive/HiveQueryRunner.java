@@ -329,7 +329,8 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
+                        .withConnectorRoles(role
+                                .map(selectedRole -> ImmutableMap.of(
                                         HIVE_CATALOG, selectedRole,
                                         HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))

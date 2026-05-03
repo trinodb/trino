@@ -110,9 +110,12 @@ final class TestGlueHiveMetastoreCanonicalPartitionKeys
 
                     // Filter: 2024-01-01 <= part <= 2024-01-10 — only 2024-01-01 and 2024-01-02 fall within the range
                     TupleDomain<String> rangeFilter = new PartitionFilterBuilder()
-                            .addRanges("part", Range.range(DateType.DATE,
-                                    LocalDate.of(2024, 1, 1).toEpochDay(), true,
-                                    LocalDate.of(2024, 1, 10).toEpochDay(), true))
+                            .addRanges("part", Range.range(
+                                    DateType.DATE,
+                                    LocalDate.of(2024, 1, 1).toEpochDay(),
+                                    true,
+                                    LocalDate.of(2024, 1, 10).toEpochDay(),
+                                    true))
                             .build();
                     assertThat(metastore.getPartitionNamesByFilter(table.getDatabaseName(), table.getTableName(), ImmutableList.of("part"), rangeFilter))
                             .hasValueSatisfying(names -> assertThat(names).containsExactlyInAnyOrder("part=2024-01-01", "part=2024-01-02"));

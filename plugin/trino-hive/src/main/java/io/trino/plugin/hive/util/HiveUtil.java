@@ -823,7 +823,8 @@ public final class HiveUtil
         table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
         List<String> allColumnNames = columnNames.build();
         if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
-            throw new TrinoException(HIVE_INVALID_METADATA,
+            throw new TrinoException(
+                    HIVE_INVALID_METADATA,
                     format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
         }
 
