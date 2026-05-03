@@ -81,6 +81,7 @@ public final class AvroTypeUtils
     {
         ZERO(0),
         ONE(1);
+
         private final int index;
 
         SimpleUnionNullIndex(int index)

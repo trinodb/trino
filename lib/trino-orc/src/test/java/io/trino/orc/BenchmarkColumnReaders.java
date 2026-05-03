@@ -446,17 +446,13 @@ public class BenchmarkColumnReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
-
                 "tinyint",
                 "integer",
                 "bigint",
                 "decimal(10,5)",
-
                 "timestamp",
-
                 "real",
                 "double",
-
                 "varchar",
                 "varbinary",
                 "uuid",
@@ -1209,8 +1205,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(
-                    getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
+            setup(getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
                     getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
         }
     }

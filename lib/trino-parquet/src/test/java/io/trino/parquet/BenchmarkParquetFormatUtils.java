@@ -114,7 +114,8 @@ public final class BenchmarkParquetFormatUtils
             double compressionRatio = inputSizeStats.getSum() / outputSizeStats.getSum();
             String compression = result.getParams().getParam("compression");
             String dataSet = result.getParams().getParam("dataSet");
-            System.out.printf("  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
+            System.out.printf(
+                    "  %-10s  %-30s  %-10s  %2.2f  %10s ± %11s (%5.2f%%) (N = %d, α = 99.9%%)\n",
                     result.getPrimaryResult().getLabel(),
                     dataSet,
                     compression,

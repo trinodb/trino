@@ -113,7 +113,6 @@ public class TupleDomainParquetPredicate
      *         Statistics to determine if a column is only null
      * @param statistics column statistics
      * @param id Parquet file name
-     *
      * @return Optional.empty() if statistics were sufficient to eliminate the file section.
      *         Otherwise, a list of columns for which page-level indices and dictionary could be consulted
      *         to potentially eliminate the file section. An optional with empty list is returned if there is

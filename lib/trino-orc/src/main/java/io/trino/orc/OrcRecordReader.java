@@ -409,8 +409,10 @@ public class OrcRecordReader
             List<Long> columnHashes = actualChecksum.getColumnHashes();
             for (int i = 0; i < columnHashes.size(); i++) {
                 int columnIndex = i;
-                validateWrite(validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
-                        "Invalid checksum for column %s", columnIndex);
+                validateWrite(
+                        validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
+                        "Invalid checksum for column %s",
+                        columnIndex);
             }
             validateWrite(validation -> validation.getChecksum().getStripeHash() == actualChecksum.getStripeHash(), "Invalid stripes checksum");
         }

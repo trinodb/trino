@@ -1072,7 +1072,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1103,7 +1113,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1187,7 +1207,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1218,7 +1248,16 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1285,7 +1324,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1316,7 +1365,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L));
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 8);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1342,8 +1401,11 @@ public class TestColumnIndexBuilder
     {
         ColumnIndexBuilder builder = ColumnIndexBuilder.getNoOpBuilder();
         StatsBuilder sb = new StatsBuilder();
-        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"), stringBinary("Jeltz"),
-                stringBinary("Slartibartfast"), null, null));
+        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"),
+                stringBinary("Jeltz"),
+                stringBinary("Slartibartfast"),
+                null,
+                null));
         builder.add(sb.stats(Types.required(BOOLEAN).named("test_boolean"), true, true, null, null));
         builder.add(sb.stats(Types.required(DOUBLE).named("test_double"), null, null, null));
         builder.add(sb.stats(Types.required(INT32).named("test_int32"), null, null));

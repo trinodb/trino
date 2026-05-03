@@ -921,10 +921,38 @@ public class LongOutputStreamV2
 
         enum FixedBitSizes
         {
-            ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, ELEVEN, TWELVE,
-            THIRTEEN, FOURTEEN, FIFTEEN, SIXTEEN, SEVENTEEN, EIGHTEEN, NINETEEN,
-            TWENTY, TWENTY_ONE, TWENTY_TWO, TWENTY_THREE, TWENTY_FOUR, TWENTY_SIX,
-            TWENTY_EIGHT, THIRTY, THIRTY_TWO, FORTY, FORTY_EIGHT, FIFTY_SIX, SIXTY_FOUR
+            ONE,
+            TWO,
+            THREE,
+            FOUR,
+            FIVE,
+            SIX,
+            SEVEN,
+            EIGHT,
+            NINE,
+            TEN,
+            ELEVEN,
+            TWELVE,
+            THIRTEEN,
+            FOURTEEN,
+            FIFTEEN,
+            SIXTEEN,
+            SEVENTEEN,
+            EIGHTEEN,
+            NINETEEN,
+            TWENTY,
+            TWENTY_ONE,
+            TWENTY_TWO,
+            TWENTY_THREE,
+            TWENTY_FOUR,
+            TWENTY_SIX,
+            TWENTY_EIGHT,
+            THIRTY,
+            THIRTY_TWO,
+            FORTY,
+            FORTY_EIGHT,
+            FIFTY_SIX,
+            SIXTY_FOUR,
         }
 
         /**
@@ -1168,43 +1196,64 @@ public class LongOutputStreamV2
             unrolledBitPackBytes(input, offset, len, output, 1);
         }
 
-        private void unrolledBitPack16(long[] input, int offset, int len,
+        private void unrolledBitPack16(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 2);
         }
 
-        private void unrolledBitPack24(long[] input, int offset, int len,
+        private void unrolledBitPack24(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 3);
         }
 
-        private void unrolledBitPack32(long[] input, int offset, int len,
+        private void unrolledBitPack32(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 4);
         }
 
-        private void unrolledBitPack40(long[] input, int offset, int len,
+        private void unrolledBitPack40(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 5);
         }
 
-        private void unrolledBitPack48(long[] input, int offset, int len,
+        private void unrolledBitPack48(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 6);
         }
 
-        private void unrolledBitPack56(long[] input, int offset, int len,
+        private void unrolledBitPack56(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 7);
         }
 
-        private void unrolledBitPack64(long[] input, int offset, int len,
+        private void unrolledBitPack64(
+                long[] input,
+                int offset,
+                int len,
                 SliceOutput output)
         {
             unrolledBitPackBytes(input, offset, len, output, 8);

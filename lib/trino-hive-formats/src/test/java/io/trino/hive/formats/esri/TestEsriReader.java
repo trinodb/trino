@@ -170,7 +170,11 @@ public class TestEsriReader
                             "y": %d
                         }
                     }
-                    """, i, i, i * 10, i * 20));
+                    """,
+                    i,
+                    i,
+                    i * 10,
+                    i * 20));
         }
         jsonBuilder.append("]}");
 
