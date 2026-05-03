@@ -935,7 +935,7 @@ public class TestRedshiftTypeMapping
     private static Function<String, String> padVarchar(int length)
     {
         // Add the same padding as RedshiftClient.writeCharAsVarchar, but start from String, not Slice
-        return (input) -> input + " ".repeat(length - Utf8.encodedLength(input));
+        return input -> input + " ".repeat(length - Utf8.encodedLength(input));
     }
 
     /**

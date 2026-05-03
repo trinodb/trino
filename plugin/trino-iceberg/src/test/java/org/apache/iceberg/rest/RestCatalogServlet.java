@@ -128,7 +128,7 @@ public class RestCatalogServlet
 
     protected Consumer<ErrorResponse> handle(HttpServletResponse response)
     {
-        return (errorResponse) -> {
+        return errorResponse -> {
             response.setStatus(errorResponse.code());
             try {
                 RESTObjectMapper.mapper().writeValue(response.getWriter(), errorResponse);
