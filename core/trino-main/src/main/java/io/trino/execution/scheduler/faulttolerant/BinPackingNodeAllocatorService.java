@@ -979,7 +979,7 @@ public class BinPackingNodeAllocatorService
             UNKNOWN,
             NONE_MATCHING,
             NOT_ENOUGH_RESOURCES_NOW,
-            RESERVED
+            RESERVED,
         }
 
         public static class ReserveResult

@@ -596,7 +596,7 @@ public class HivePageSourceProvider
         PREFILLED,
         INTERIM,
         SYNTHESIZED,
-        EMPTY
+        EMPTY,
     }
 
     private static Optional<BucketAdaptation> createBucketAdaptation(Optional<BucketConversion> bucketConversion, OptionalInt bucketNumber, List<ColumnMapping> columnMappings)

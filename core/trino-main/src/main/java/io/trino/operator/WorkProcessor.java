@@ -217,7 +217,7 @@ public interface WorkProcessor<T>
             BLOCKED,
             YIELD,
             RESULT,
-            FINISHED
+            FINISHED,
         }
 
         private final Type type;
@@ -326,7 +326,7 @@ public interface WorkProcessor<T>
             BLOCKED,
             YIELD,
             RESULT,
-            FINISHED
+            FINISHED,
         }
 
         private final Type type;

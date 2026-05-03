@@ -104,7 +104,7 @@ public final class GraphvizPrinter
         INDEX_SOURCE,
         UNNEST,
         ANALYZE_FINISH,
-        DYNAMIC_FILTER_SOURCE
+        DYNAMIC_FILTER_SOURCE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()

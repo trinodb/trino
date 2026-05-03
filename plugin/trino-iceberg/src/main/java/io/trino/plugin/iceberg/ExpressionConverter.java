@@ -291,7 +291,7 @@ public final class ExpressionConverter
     {
         BELOW_RANGE,
         IN_RANGE,
-        ABOVE_RANGE
+        ABOVE_RANGE,
     }
 
     private static ValueInRange range(Type type, Object value)

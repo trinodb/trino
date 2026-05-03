@@ -64,7 +64,7 @@ public class SemiJoinNode
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     @JsonProperty("source")

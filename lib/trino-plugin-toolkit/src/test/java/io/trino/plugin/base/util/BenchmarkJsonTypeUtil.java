@@ -192,7 +192,7 @@ public class BenchmarkJsonTypeUtil
         OBJECT_LARGE,
         NESTED_SHALLOW,
         NESTED_DEEP,
-        HIGHLY_NESTED_REAL_WORLD
+        HIGHLY_NESTED_REAL_WORLD,
     }
 
     @Test

@@ -108,7 +108,7 @@ public final class EsriDeserializer
 
     public enum Format {
         ESRI,
-        GEO_JSON
+        GEO_JSON,
     }
 
     public EsriDeserializer(List<Column> columns, Format format)

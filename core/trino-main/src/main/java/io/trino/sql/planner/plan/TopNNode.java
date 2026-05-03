@@ -36,7 +36,7 @@ public class TopNNode
     {
         SINGLE,
         PARTIAL,
-        FINAL
+        FINAL,
     }
 
     private final PlanNode source;

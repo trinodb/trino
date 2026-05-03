@@ -90,7 +90,7 @@ public final class SortedRangeSet
         DISCRETE,
         // empty set is also considered non discrete
         NON_DISCRETE,
-        UNKNOWN
+        UNKNOWN,
     }
 
     private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)

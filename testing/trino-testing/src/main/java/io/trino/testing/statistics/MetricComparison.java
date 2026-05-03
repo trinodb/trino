@@ -68,6 +68,6 @@ public class MetricComparison
     {
         NO_ESTIMATE,
         DIFFER,
-        MATCH
+        MATCH,
     }
 }

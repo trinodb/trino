@@ -2537,7 +2537,7 @@ public class TestIcebergSparkCompatibility
     {
         CREATE_TABLE_AND_INSERT,
         CREATE_TABLE_AS_SELECT,
-        CREATE_TABLE_WITH_NO_DATA_AND_INSERT
+        CREATE_TABLE_WITH_NO_DATA_AND_INSERT,
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")

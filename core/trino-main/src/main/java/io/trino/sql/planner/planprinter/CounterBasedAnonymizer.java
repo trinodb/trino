@@ -63,7 +63,7 @@ public class CounterBasedAnonymizer
         COLUMN,
         SYMBOL,
         LITERAL,
-        VALUE
+        VALUE,
     }
 
     private final ExpressionFormatter.Formatter anonymizeExpressionFormatter =

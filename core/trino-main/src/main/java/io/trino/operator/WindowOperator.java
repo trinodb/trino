@@ -492,7 +492,7 @@ public class WindowOperator
         public enum Type
         {
             START,
-            END
+            END,
         }
 
         public FrameBoundKey(int functionIndex, Type type)

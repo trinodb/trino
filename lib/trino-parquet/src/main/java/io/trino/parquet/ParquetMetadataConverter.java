@@ -355,7 +355,7 @@ public final class ParquetMetadataConverter
     {
         SIGNED,
         UNSIGNED,
-        UNKNOWN
+        UNKNOWN,
     }
 
     private static SortOrder sortOrder(PrimitiveType primitive)

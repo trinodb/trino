@@ -149,7 +149,7 @@ public class S3FileSystemExchangeStorage
     public enum CompatibilityMode
     {
         AWS,
-        GCP
+        GCP,
     }
 
     private final S3FileSystemExchangeStorageStats stats;

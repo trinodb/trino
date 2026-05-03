@@ -4234,7 +4234,7 @@ class AstBuilder
     {
         EMPTY,
         ESCAPED,
-        UNICODE_SEQUENCE
+        UNICODE_SEQUENCE,
     }
 
     private static String decodeUnicodeLiteral(SqlBaseParser.UnicodeStringLiteralContext context)

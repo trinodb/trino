@@ -152,7 +152,7 @@ public class HashBuilderOperator
         /**
          * No longer needed
          */
-        CLOSED
+        CLOSED,
     }
 
     private final OperatorContext operatorContext;
