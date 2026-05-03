@@ -889,11 +889,11 @@ class QueryPlanner
                 whenClauses.build(),
                 new Constant(
                         RowType.anonymous(ImmutableList.<Type>builder()
-                        .addAll(dataColumnSchemas.stream().map(ColumnSchema::getType).collect(toImmutableList()))
-                        .add(BOOLEAN)
-                        .add(TINYINT)
-                        .add(INTEGER)
-                        .build()),
+                                .addAll(dataColumnSchemas.stream().map(ColumnSchema::getType).collect(toImmutableList()))
+                                .add(BOOLEAN)
+                                .add(TINYINT)
+                                .add(INTEGER)
+                                .build()),
                         null));
 
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
@@ -1488,8 +1488,8 @@ class QueryPlanner
 
             for (FunctionCall windowFunction : functionCalls) {
                 inputsBuilder.addAll(windowFunction.getArguments().stream()
-                                .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
-                                .collect(Collectors.toList()));
+                        .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
+                        .collect(Collectors.toList()));
                 inputsBuilder.addAll(getSortItemsFromOrderBy(windowFunction.getOrderBy()).stream()
                         .map(SortItem::getSortKey)
                         .iterator());

@@ -67,7 +67,9 @@ public class PartitioningScheme
 
         Set<Symbol> columns = partitioning.getColumns();
         checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(columns),
-                "Output layout (%s) don't include all partition columns (%s)", outputLayout, columns);
+                "Output layout (%s) don't include all partition columns (%s)",
+                outputLayout,
+                columns);
 
         checkArgument(!replicateNullsAndAny || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
         this.replicateNullsAndAny = replicateNullsAndAny;

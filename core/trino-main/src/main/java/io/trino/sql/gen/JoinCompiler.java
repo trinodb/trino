@@ -683,7 +683,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(identicalOperator).getBindingId()),
                 "identical",
                 identicalOperator.type(),
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition);
     }
 
     private void generatePositionEqualsPositionMethod(
@@ -841,7 +844,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
                 "comparison",
                 long.class,
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition)
                 .cast(int.class)
                 .ret();
 
@@ -925,7 +931,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
                 "equal",
                 equalOperator.type(),
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition);
     }
 
     @UsedByGeneratedCode

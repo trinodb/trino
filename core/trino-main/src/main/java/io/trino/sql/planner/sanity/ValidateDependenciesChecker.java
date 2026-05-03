@@ -195,7 +195,8 @@ public final class ValidateDependenciesChecker
                         inputs,
                         node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             node.getCommonBaseFrame()
@@ -359,7 +360,8 @@ public final class ValidateDependenciesChecker
                         inputs,
                         node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
@@ -404,7 +406,8 @@ public final class ValidateDependenciesChecker
                     inputs,
                     node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(),
+                    node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -489,7 +492,8 @@ public final class ValidateDependenciesChecker
                     inputs,
                     node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(),
+                    node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -525,7 +529,8 @@ public final class ValidateDependenciesChecker
                         createInputs(source, boundSymbols),
                         node.getTiesResolvingScheme().get().orderBy(),
                         "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
-                        node.getTiesResolvingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getTiesResolvingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             checkDependencies(

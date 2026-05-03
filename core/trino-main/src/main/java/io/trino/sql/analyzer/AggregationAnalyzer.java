@@ -206,7 +206,9 @@ class AggregationAnalyzer
 
         this.groupingFields.forEach(fieldId -> {
             checkState(isFieldFromScope(fieldId, sourceScope),
-                    "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType());
+                    "Grouping field %s should originate from %s",
+                    fieldId,
+                    sourceScope.getRelationType());
         });
     }
 
@@ -248,8 +250,11 @@ class AggregationAnalyzer
                     .filter(expression -> !isGroupingKey(expression))
                     .findFirst()
                     .ifPresent(expression -> {
-                        throw semanticException(EXPRESSION_NOT_AGGREGATE, expression,
-                                "Subquery uses '%s' which must appear in GROUP BY clause", expression);
+                        throw semanticException(
+                                EXPRESSION_NOT_AGGREGATE,
+                                expression,
+                                "Subquery uses '%s' which must appear in GROUP BY clause",
+                                expression);
                     });
 
             return true;
@@ -412,7 +417,8 @@ class AggregationAnalyzer
                     List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
 
                     if (!aggregateFunctions.isEmpty()) {
-                        throw semanticException(NESTED_AGGREGATION,
+                        throw semanticException(
+                                NESTED_AGGREGATION,
                                 node,
                                 "Cannot nest aggregations inside aggregation '%s': %s",
                                 node.getName(),
@@ -420,7 +426,8 @@ class AggregationAnalyzer
                     }
 
                     if (!windowExpressions.isEmpty()) {
-                        throw semanticException(NESTED_WINDOW,
+                        throw semanticException(
+                                NESTED_WINDOW,
                                 node,
                                 "Cannot nest window functions or row pattern measures inside aggregation '%s': %s",
                                 node.getName(),
@@ -513,7 +520,8 @@ class AggregationAnalyzer
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE,
+                    throw semanticException(
+                            EXPRESSION_NOT_AGGREGATE,
                             expression,
                             "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
                             expression);
@@ -523,7 +531,8 @@ class AggregationAnalyzer
             for (SortItem sortItem : getSortItemsFromOrderBy(node.getOrderBy())) {
                 Expression expression = sortItem.getSortKey();
                 if (!process(expression, context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE,
+                    throw semanticException(
+                            EXPRESSION_NOT_AGGREGATE,
                             expression,
                             "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
                             expression);

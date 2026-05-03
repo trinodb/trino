@@ -132,9 +132,11 @@ public class DynamicFiltersChecker
                 if (currentSemiJoinDynamicFilter.isPresent()) {
                     DynamicFilterId dynamicFilterId = currentSemiJoinDynamicFilter.get();
                     verify(consumedSourceSide.contains(dynamicFilterId),
-                            "The dynamic filter %s present in semi-join was not consumed by it's source side.", dynamicFilterId);
+                            "The dynamic filter %s present in semi-join was not consumed by it's source side.",
+                            dynamicFilterId);
                     verify(!consumedFilteringSourceSide.contains(dynamicFilterId),
-                            "The dynamic filter %s present in semi-join was consumed by it's filtering source side.", dynamicFilterId);
+                            "The dynamic filter %s present in semi-join was consumed by it's filtering source side.",
+                            dynamicFilterId);
                     unmatched.remove(dynamicFilterId);
                 }
 
@@ -175,10 +177,12 @@ public class DynamicFiltersChecker
             return;
         }
         verify(expression instanceof Cast,
-                "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.", expression);
+                "Dynamic filter expression %s must be a SymbolReference or a CAST of SymbolReference.",
+                expression);
         Cast castExpression = (Cast) expression;
         verify(castExpression.expression() instanceof Reference,
-                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.", formatExpression(castExpression.expression()));
+                "The expression %s within in a CAST in dynamic filter must be a SymbolReference.",
+                formatExpression(castExpression.expression()));
     }
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)

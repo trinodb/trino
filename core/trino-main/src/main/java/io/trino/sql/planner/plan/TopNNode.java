@@ -45,7 +45,8 @@ public class TopNNode
     private final Step step;
 
     @JsonCreator
-    public TopNNode(@JsonProperty("id") PlanNodeId id,
+    public TopNNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,

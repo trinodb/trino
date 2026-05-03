@@ -262,11 +262,17 @@ public class JoinFilterFunctionCompiler
                 throw new UnsupportedOperationException("Reference not found in join layout: " + reference.name());
             }
             if (field < leftBlocksSize) {
-                return generateInputReference(callSiteBinder, scope, reference.type(),
+                return generateInputReference(
+                        callSiteBinder,
+                        scope,
+                        reference.type(),
                         leftPage.invoke("getBlock", Block.class, constantInt(field)),
                         leftPosition);
             }
-            return generateInputReference(callSiteBinder, scope, reference.type(),
+            return generateInputReference(
+                    callSiteBinder,
+                    scope,
+                    reference.type(),
                     rightPage.invoke("getBlock", Block.class, constantInt(field - leftBlocksSize)),
                     rightPosition);
         };

@@ -450,7 +450,8 @@ public class AdaptivePlanner
 
             if (sourceSubPlans.size() != sourceIds.size()) {
                 throw new IllegalStateException(
-                        String.format("Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
+                        String.format(
+                                "Source subPlans not found for exchange node %s; sourceIds: %s; filteredSubPlans: %s; allSubPlans: %s",
                                 node.getId(),
                                 sourceIds,
                                 sourceSubPlans.stream().map(subPlan -> subPlan.getFragment().getId() + "->" + subPlan.getFragment().getRoot().getId()).collect(toImmutableList()),

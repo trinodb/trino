@@ -763,7 +763,8 @@ public class PlanOptimizers
                         costCalculator,
                         SystemSessionProperties::useLegacyWindowFilterPushdown,
                         ImmutableList.of(new WindowFilterPushDown(plannerContext)),
-                        ImmutableSet.of(// should run after DecorrelateUnnest and ImplementLimitWithTies
+                        ImmutableSet.of(
+                                // should run after DecorrelateUnnest and ImplementLimitWithTies
                                 new RemoveEmptyUnionBranches(),
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),

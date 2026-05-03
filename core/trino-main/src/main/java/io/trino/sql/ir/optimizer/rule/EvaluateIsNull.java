@@ -68,8 +68,8 @@ public class EvaluateIsNull
                     inner.function().deterministic() &&
                             !inner.function().functionNullability().isReturnNullable() &&
                             inner.function().functionNullability().getArgumentNullable().stream().allMatch(Boolean.TRUE::equals) -> Optional.of(FALSE);
-                    // TODO: if function can't return null and non-nullable arguments are passed a non-null value, then the
-                    //       the call is guaranteed to not return null
+            // TODO: if function can't return null and non-nullable arguments are passed a non-null value, then the
+            //       the call is guaranteed to not return null
             default -> Optional.empty();
         };
     }

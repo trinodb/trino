@@ -465,7 +465,8 @@ public class PlanPrinter
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
 
         builder.append(format("Trino version: %s\n", version));
-        builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s, Finishing: %s\n",
+        builder.append(format(
+                "Queued: %s, Analysis: %s, Planning: %s, Execution: %s, Finishing: %s\n",
                 queryStats.getQueuedTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getAnalysisTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
@@ -499,7 +500,13 @@ public class PlanPrinter
         for (PlanFragment fragment : plan.getAllFragments()) {
             builder.append(formatFragment(
                     tableInfoSupplier,
-                    ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, new NoOpAnonymizer()));
+                    ImmutableMap.of(),
+                    valuePrinter,
+                    fragment,
+                    Optional.empty(),
+                    Optional.empty(),
+                    verbose,
+                    new NoOpAnonymizer()));
         }
 
         return builder.toString();
@@ -516,7 +523,8 @@ public class PlanPrinter
             Anonymizer anonymizer)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]\n",
+        builder.append(format(
+                "Fragment %s [%s]\n",
                 fragment.getId(),
                 anonymizer.anonymize(fragment.getPartitioning())));
 
@@ -530,7 +538,8 @@ public class PlanPrinter
             DataSize maxPeakTaskMemoryUsage = tasks.stream().map(task -> task.stats().peakUserMemoryReservation()).max(DataSize::compareTo).orElse(DataSize.ofBytes(0));
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format(
+                            "CPU: %s, Scheduled: %s, Blocked %s (Input: %s, Output: %s), Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
                             stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             stageStats.getTotalBlockedTime().convertToMostSuccinctTimeUnit(),
@@ -543,14 +552,16 @@ public class PlanPrinter
                             formatPositions(stageStats.getOutputPositions()),
                             stageStats.getOutputDataSize()));
             builder.append(indentString(1))
-                    .append(format("Peak Memory: %s, Tasks count: %d; per task: max: %s\n",
+                    .append(format(
+                            "Peak Memory: %s, Tasks count: %d; per task: max: %s\n",
                             stageStats.getPeakUserMemoryReservation().succinct(),
                             tasks.size(),
                             maxPeakTaskMemoryUsage.succinct()));
             Optional<DistributionSnapshot> outputBufferUtilization = stageInfo.get().stageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
-                        .append(format("Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, min=%s, max=%s}\n",
+                        .append(format(
+                                "Output buffer active time: %s, buffer utilization distribution (%%): {p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, min=%s, max=%s}\n",
                                 succinctNanos(outputBufferUtilization.get().total()),
                                 // scale ratio to percentages
                                 formatDouble(outputBufferUtilization.get().p01() * 100),
@@ -589,7 +600,8 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
         builder.append(indentString(1))
-                .append(format("Output layout: [%s]\n",
+                .append(format(
+                        "Output layout: [%s]\n",
                         Joiner.on(", ").join(layout)));
 
         boolean replicateNullsAndAny = partitioningScheme.isReplicateNullsAndAny();
@@ -605,12 +617,14 @@ public class PlanPrinter
                 .collect(toImmutableList());
         builder.append(indentString(1));
         if (replicateNullsAndAny) {
-            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]",
+            builder.append(format(
+                    "Output partitioning: %s (replicate nulls and any) [%s]",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
                     Joiner.on(", ").join(arguments)));
         }
         else {
-            builder.append(format("Output partitioning: %s [%s]\n",
+            builder.append(format(
+                    "Output partitioning: %s [%s]\n",
                     anonymizer.anonymize(partitioningScheme.getPartitioning().getHandle()),
                     Joiner.on(", ").join(arguments)));
         }
@@ -641,7 +655,8 @@ public class PlanPrinter
 
     private static String formatSizeDistribution(TDigest digest)
     {
-        return format("{count=%s, p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}",
+        return format(
+                "{count=%s, p01=%s, p05=%s, p10=%s, p25=%s, p50=%s, p75=%s, p90=%s, p95=%s, p99=%s, max=%s}",
                 formatDouble(digest.getCount()),
                 succinctBytes((long) digest.valueAt(0.01)),
                 succinctBytes((long) digest.valueAt(0.05)),
@@ -721,7 +736,8 @@ public class PlanPrinter
                         node.getType().getJoinLabel(),
                         descriptor.buildOrThrow(),
                         node.getSources(),
-                        node.getReorderJoinStatsAndCost(), context);
+                        node.getReorderJoinStatsAndCost(),
+                        context);
             }
 
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
@@ -740,7 +756,8 @@ public class PlanPrinter
         @Override
         public Void visitSpatialJoin(SpatialJoinNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node,
+            NodeRepresentation nodeOutput = addNode(
+                    node,
                     node.getType().getJoinLabel(),
                     ImmutableMap.of("filter", formatFilter(node.getFilter())),
                     context);
@@ -755,7 +772,8 @@ public class PlanPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node,
+            NodeRepresentation nodeOutput = addNode(
+                    node,
                     "SemiJoin",
                     ImmutableMap.of(
                             "criteria", anonymizer.anonymize(node.getSourceJoinSymbol()) + " = " + anonymizer.anonymize(node.getFilteringSourceJoinSymbol())),
@@ -782,7 +800,8 @@ public class PlanPrinter
         @Override
         public Void visitIndexSource(IndexSourceNode node, Context context)
         {
-            NodeRepresentation nodeOutput = addNode(node,
+            NodeRepresentation nodeOutput = addNode(
+                    node,
                     "IndexSource",
                     ImmutableMap.of(
                             "indexedTable", anonymizer.anonymize(node.getIndexHandle()),
@@ -802,7 +821,8 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new Comparison(Comparison.Operator.EQUAL,
+                joinExpressions.add(new Comparison(
+                        Comparison.Operator.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }
@@ -1634,7 +1654,8 @@ public class PlanPrinter
         {
             nodeOutput.appendDetails("aggregations =>");
             for (Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
-                nodeOutput.appendDetails("%s%s => [%s := %s]",
+                nodeOutput.appendDetails(
+                        "%s%s => [%s := %s]",
                         indentString(1),
                         anonymizer.anonymize(tableStatistic.getValue()),
                         tableStatistic.getKey(),

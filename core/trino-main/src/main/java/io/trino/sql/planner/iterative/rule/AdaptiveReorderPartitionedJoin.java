@@ -93,7 +93,8 @@ public class AdaptiveReorderPartitionedJoin
             .or(
                     // In case partial aggregation is missing
                     prev -> prev.with(right().matching(
-                            exchange().matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
+                            exchange()
+                                    .matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
                                             // Skip when exchange is gather
                                             && !exchangeNode.getType().equals(GATHER))
                                     .capturedAs(LOCAL_EXCHANGE_NODE))),
@@ -101,7 +102,8 @@ public class AdaptiveReorderPartitionedJoin
                     prev -> prev.with(right().matching(
                             aggregation().matching(node -> node.getStep() == PARTIAL)
                                     .with(source().matching(
-                                            exchange().matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
+                                            exchange()
+                                                    .matching(exchangeNode -> exchangeNode.getScope().equals(LOCAL)
                                                             // Skip when exchange is gather
                                                             && !exchangeNode.getType().equals(GATHER))
                                                     .capturedAs(LOCAL_EXCHANGE_NODE))))));

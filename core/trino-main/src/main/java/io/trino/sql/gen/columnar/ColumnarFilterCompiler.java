@@ -249,8 +249,10 @@ public class ColumnarFilterCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
+                throw new TrinoException(
+                        QUERY_EXCEEDED_COMPILER_LIMIT,
+                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
+                        e);
             }
             throw new TrinoException(COMPILER_ERROR, e.getCause());
         }

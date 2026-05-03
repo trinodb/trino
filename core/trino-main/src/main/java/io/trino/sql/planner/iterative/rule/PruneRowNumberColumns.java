@@ -52,9 +52,9 @@ public class PruneRowNumberColumns
         }
 
         Set<Symbol> requiredInputs = Streams.concat(
-                referencedOutputs.stream()
-                        .filter(symbol -> !symbol.equals(rowNumberNode.getRowNumberSymbol())),
-                rowNumberNode.getPartitionBy().stream())
+                        referencedOutputs.stream()
+                                .filter(symbol -> !symbol.equals(rowNumberNode.getRowNumberSymbol())),
+                        rowNumberNode.getPartitionBy().stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), rowNumberNode, requiredInputs);

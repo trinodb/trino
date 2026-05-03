@@ -63,7 +63,8 @@ public class LocalDynamicFiltersCollector
     {
         filterIds.forEach(filterId -> verify(
                 futures.put(filterId, SettableFuture.create()) == null,
-                "LocalDynamicFiltersCollector: duplicate filter %s", filterId));
+                "LocalDynamicFiltersCollector: duplicate filter %s",
+                filterId));
     }
 
     public Set<DynamicFilterId> getRegisteredDynamicFilterIds()

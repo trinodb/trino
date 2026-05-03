@@ -143,7 +143,8 @@ public class TransformExistsApplyToCorrelatedJoin
                 .putIdentities(applyNode.getInput().getOutputSymbols())
                 .put(exists, new Coalesce(ImmutableList.of(subqueryTrue.toSymbolReference(), FALSE)));
 
-        return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(),
+        return Optional.of(new ProjectNode(
+                context.getIdAllocator().getNextId(),
                 new CorrelatedJoinNode(
                         applyNode.getId(),
                         applyNode.getInput(),

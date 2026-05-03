@@ -375,8 +375,9 @@ public final class StreamPropertyDerivations
                         new StreamProperties(
                                 FIXED,
                                 Optional.of(node.getPartitioningScheme().getPartitioning().getArguments().stream()
-                                        .map(ArgumentBinding::getColumn)
-                                        .collect(toImmutableList())), false);
+                                            .map(ArgumentBinding::getColumn)
+                                            .collect(toImmutableList())),
+                                false);
                 case REPLICATE -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };
         }
@@ -580,7 +581,8 @@ public final class StreamPropertyDerivations
                 return properties;
             }
 
-            return new StreamProperties(properties.getDistribution(),
+            return new StreamProperties(
+                    properties.getDistribution(),
                     Optional.of(ImmutableList.of(node.getIdColumn())),
                     properties.isOrdered());
         }
