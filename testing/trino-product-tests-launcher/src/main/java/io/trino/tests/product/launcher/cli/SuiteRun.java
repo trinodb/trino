@@ -408,7 +408,8 @@ public class SuiteRun
                     suiteRun.getExtraOptions(),
                     getStatusString(),
                     duration,
-                    throwable.map(Throwable::getMessage).orElse("-")};
+                    throwable.map(Throwable::getMessage).orElse("-"),
+            };
         }
 
         private String getStatusString()

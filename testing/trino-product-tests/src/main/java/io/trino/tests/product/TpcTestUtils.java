@@ -59,7 +59,8 @@ public final class TpcTestUtils
             "web_page",
             "web_returns",
             "web_sales",
-            "web_site"};
+            "web_site",
+    };
 
     private static final String[] TPCH_TABLES = {
             "nation",
@@ -69,7 +70,8 @@ public final class TpcTestUtils
             "partsupp",
             "customer",
             "orders",
-            "lineitem"};
+            "lineitem",
+    };
 
     private TpcTestUtils() {}
 

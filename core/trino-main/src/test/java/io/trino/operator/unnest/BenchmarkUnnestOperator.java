@@ -86,7 +86,7 @@ public class BenchmarkUnnestOperator
                 "map(varchar,varchar)",
                 "array(row(varchar,varchar,varchar))",
                 "array(array(varchar))",
-                "array(varchar)|array(varchar)"
+                "array(varchar)|array(varchar)",
         })
         private String nestedType = "array(varchar)";
 

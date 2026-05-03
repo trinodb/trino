@@ -152,7 +152,9 @@ public class TableJdbcTable
 
     private static Object[] tableRow(String catalog, SchemaTableName name, String type)
     {
-        return new Object[] {catalog, name.getSchemaName(), name.getTableName(), type,
-                null, null, null, null, null, null};
+        return new Object[] {
+                catalog, name.getSchemaName(), name.getTableName(), type,
+                null, null, null, null, null, null,
+        };
     }
 }

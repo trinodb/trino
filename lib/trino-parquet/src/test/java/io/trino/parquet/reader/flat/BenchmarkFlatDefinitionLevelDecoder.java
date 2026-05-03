@@ -55,7 +55,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
 
     @Param({
             "false",
-            "true"
+            "true",
     })
     public boolean vectorizedDecodingEnabled;
 

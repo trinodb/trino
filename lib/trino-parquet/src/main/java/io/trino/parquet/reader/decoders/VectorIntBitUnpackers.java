@@ -45,7 +45,8 @@ public final class VectorIntBitUnpackers
             new Unpacker17(),
             new Unpacker18(),
             new Unpacker19(),
-            new Unpacker20()};
+            new Unpacker20(),
+    };
 
     public static IntBitUnpacker getVectorIntBitUnpacker(int bitWidth)
     {

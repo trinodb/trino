@@ -109,7 +109,7 @@ public final class TestParquetEncryption
             "false,false",
             "false,true",
             "true,false",
-            "true,true"
+            "true,true",
     })
     void columnOnlyFooterPlaintext(boolean checkFooterIntegrity, boolean compressed)
             throws IOException

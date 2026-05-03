@@ -36,7 +36,8 @@ public final class ShortBitUnpackers
             new Unpacker14(),
             new Unpacker15(),
             new Unpacker16(),
-            new Unpacker17()};
+            new Unpacker17(),
+    };
 
     // Short unpacker also exists for the out-of-range 17 value.
     // This unpacker truncates the most significant bit of the resulted numbers.

@@ -291,7 +291,7 @@ public class TestEsriDeserializer
         // Test valid ISO date formats
         String[] validIsoFormats = {
                 "2025-3-3",    // without leading zeros
-                "2025-03-03"   // with leading zeros
+                "2025-03-03",  // with leading zeros
         };
 
         for (String dateStr : validIsoFormats) {
@@ -312,7 +312,7 @@ public class TestEsriDeserializer
         // Test invalid date formats - should result in null
         String[] invalidDateFormats = {
                 "2025/03/03",     // slash-separated date
-                "03/03/2025"      // US-style date
+                "03/03/2025",     // US-style date
         };
 
         for (String dateStr : invalidDateFormats) {
@@ -345,13 +345,13 @@ public class TestEsriDeserializer
                 "2025-3-3 00:00:00.000", // without leading zeros
                 "2025-3-3 00:00:00",
                 "2025-3-3 00:00",
-                "2025-3-3"
+                "2025-3-3",
         };
 
         String[] invalidTimestampFormats = {
                 "2025/03/03 00:00:00",         // slash-separated date with time
                 "03/03/2025 00:00:00 AM",      // US-style date with time
-                "2025-03-03T00:00:00.000Z"     // ISO 8601 format
+                "2025-03-03T00:00:00.000Z",    // ISO 8601 format
         };
 
         // Test valid epoch milliseconds (as number)

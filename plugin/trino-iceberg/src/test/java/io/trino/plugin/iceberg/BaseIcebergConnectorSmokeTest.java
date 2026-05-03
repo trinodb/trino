@@ -144,9 +144,11 @@ public abstract class BaseIcebergConnectorSmokeTest
         ExecutorService executor = newFixedThreadPool(threads);
         List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
 
-        String[] expectedErrors = {"Failed to commit the transaction during write:",
+        String[] expectedErrors = {
+                "Failed to commit the transaction during write:",
                 "Failed to replace table due to concurrent updates:",
-                "Failed to commit during write:"};
+                "Failed to commit during write:",
+        };
         try (TestTable table = newTrinoTable(
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {

@@ -171,7 +171,8 @@ public class TestArrayAggregation
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
                 new Block[] {
-                        createStringsBlock("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye")},
+                        createStringsBlock("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"),
+                },
                 varcharAgg);
         AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
         AggregationTestInput testInput = testInputBuilder.build();

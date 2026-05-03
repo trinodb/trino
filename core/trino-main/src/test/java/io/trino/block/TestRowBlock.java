@@ -70,10 +70,12 @@ public class TestRowBlock
         // Blocks does not discard the null mask during creation if no values are null
         boolean[] rowIsNull = new boolean[5];
         assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[] {
-                new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes())}).mayHaveNull()).isTrue();
+                new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes()),
+        }).mayHaveNull()).isTrue();
         rowIsNull[rowIsNull.length - 1] = true;
         assertThat(fromNotNullSuppressedFieldBlocks(5, Optional.of(rowIsNull), new Block[] {
-                new ByteArrayBlock(5, Optional.of(rowIsNull), createExpectedValue(5).getBytes())}).mayHaveNull()).isTrue();
+                new ByteArrayBlock(5, Optional.of(rowIsNull), createExpectedValue(5).getBytes()),
+        }).mayHaveNull()).isTrue();
 
         // Empty blocks have no nulls and can also discard their null mask
         assertThat(fromNotNullSuppressedFieldBlocks(0, Optional.of(new boolean[0]), new Block[] {new ByteArrayBlock(0, Optional.empty(), new byte[0])}).mayHaveNull()).isFalse();
@@ -105,7 +107,8 @@ public class TestRowBlock
         assertCompact(fromFieldBlocks(0, new Block[] {emptyBlock, emptyBlock}));
         assertCompact(fromNotNullSuppressedFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {
                 new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes()),
-                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes())}));
+                new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes()),
+        }));
     }
 
     @Test

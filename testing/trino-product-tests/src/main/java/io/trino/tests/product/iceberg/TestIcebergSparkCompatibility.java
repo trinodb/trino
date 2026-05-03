@@ -626,7 +626,7 @@ public class TestIcebergSparkCompatibility
 
         Row[] expectedRows = {
                 row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001, 1, "x"),
-                row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003, 3, "z")
+                row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003, 3, "z"),
         };
         String select = "SELECT _string, _varbinary, _bigint, _struct._field, _struct._another_field FROM %s" +
                 " WHERE _struct._field = 1 OR _struct._another_field = 'z'";
@@ -3354,7 +3354,7 @@ public class TestIcebergSparkCompatibility
                         {"integer", "2147483647", "bigint", 2147483647L},
                         {"real", "10.3", "double", 10.3},
                         {"real", "'NaN'", "double", Double.NaN},
-                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
+                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)},
                 });
     }
 
@@ -3444,7 +3444,7 @@ public class TestIcebergSparkCompatibility
                         {"integer", "2147483647", "bigint", 2147483647L},
                         {"float", "10.3", "double", 10.3},
                         {"float", "'NaN'", "double", Double.NaN},
-                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)}
+                        {"decimal(5,3)", "'12.345'", "decimal(10,3)", BigDecimal.valueOf(12.345)},
                 });
     }
 

@@ -455,7 +455,7 @@ public class BenchmarkColumnReaders
                 "double",
                 "varchar",
                 "varbinary",
-                "uuid"
+                "uuid",
         })
         private String typeName;
 

@@ -55,7 +55,7 @@ public abstract class AbstractColumnWriterBenchmark
     public BloomFilterType bloomFilterType;
 
     @Param({
-            "1", "1048576" // 1MB is default page size
+            "1", "1048576", // 1MB is default page size
     })
     public int maxDictionaryPageSize;
 

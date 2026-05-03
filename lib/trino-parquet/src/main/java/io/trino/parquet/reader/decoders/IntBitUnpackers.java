@@ -50,7 +50,8 @@ public final class IntBitUnpackers
             new Unpacker29(),
             new Unpacker30(),
             new Unpacker31(),
-            new Unpacker32()};
+            new Unpacker32(),
+    };
 
     public static IntBitUnpacker getIntBitUnpacker(int bitWidth)
     {

@@ -96,7 +96,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                     return new Object[] {
                             createShortDecimalTestType(typeLength, precision),
                             encoding,
-                            createShortDecimalInputDataProvider(typeLength, precision)};
+                            createShortDecimalInputDataProvider(typeLength, precision),
+                    };
                 })
                 .toArray(Object[][]::new);
     }
@@ -107,7 +108,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .mapToObj(typeLength -> new Object[] {
                         createLongDecimalTestType(typeLength),
                         encoding,
-                        createLongDecimalInputDataProvider(typeLength)})
+                        createLongDecimalInputDataProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -117,7 +119,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createUuidTestType(),
                         encoding,
-                        new UuidInputProvider()})
+                        new UuidInputProvider(),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -128,7 +131,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createVarbinaryTestType(typeLength),
                         encoding,
-                        createRandomBinaryInputProvider(typeLength)})
+                        createRandomBinaryInputProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
@@ -139,7 +143,8 @@ public final class TestFixedWidthByteArrayValueDecoders
                 .map(encoding -> new Object[] {
                         createVarcharTestType(typeLength),
                         encoding,
-                        createRandomUtf8BinaryInputProvider(typeLength)})
+                        createRandomUtf8BinaryInputProvider(typeLength),
+                })
                 .toArray(Object[][]::new);
     }
 
