@@ -1199,7 +1199,7 @@ public class LocalExecutionPlanner
 
                         List<Integer> sortKeysArguments = sortKeysArgumentsBuilder.build();
                         Function<List<Supplier<Object>>, WindowAccumulator> finalAccumulatorSupplier = accumulatorSupplier;
-                        accumulatorSupplier = (lambdaProviders) ->
+                        accumulatorSupplier = lambdaProviders ->
                                 new OrderedWindowAccumulator(
                                         pagesIndexFactory,
                                         finalAccumulatorSupplier.apply(lambdaProviders),
@@ -1215,7 +1215,7 @@ public class LocalExecutionPlanner
 
                         Function<List<Supplier<Object>>, WindowAccumulator> finalAccumulatorSupplier = accumulatorSupplier;
                         List<Integer> argumentChannelsFinal = ImmutableList.copyOf(argumentChannels);
-                        accumulatorSupplier = (lambdaProviders) -> new DistinctWindowAccumulator(
+                        accumulatorSupplier = lambdaProviders -> new DistinctWindowAccumulator(
                                 finalAccumulatorSupplier.apply(lambdaProviders),
                                 argumentTypes,
                                 argumentChannelsFinal,

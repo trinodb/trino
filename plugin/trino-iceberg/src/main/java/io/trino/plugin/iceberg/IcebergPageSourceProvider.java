@@ -392,7 +392,7 @@ public class IcebergPageSourceProvider
                             tableSchema,
                             readerPageSourceWithRowPositions.startRowPosition(),
                             readerPageSourceWithRowPositions.endRowPosition(),
-                            (deleteFile) -> readDeletionVector(fileSystem, deleteFile),
+                            deleteFile -> readDeletionVector(fileSystem, deleteFile),
                             (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {

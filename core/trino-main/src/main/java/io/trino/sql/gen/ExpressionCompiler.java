@@ -70,7 +70,7 @@ public class ExpressionCompiler
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
-        return (dynamicFilter) -> {
+        return dynamicFilter -> {
             Optional<FilterEvaluator> filterEvaluator = columnarFilterEvaluatorSupplier.map(Supplier::get);
             if (filterEvaluator.isEmpty()) {
                 filterEvaluator = finalFilterFunctionSupplier

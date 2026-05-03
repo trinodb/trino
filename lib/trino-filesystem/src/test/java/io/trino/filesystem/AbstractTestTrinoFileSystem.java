@@ -1104,7 +1104,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     private static HttpRequest.Builder addHeaders(HttpRequest.Builder builder, Map<String, List<String>> headers)
     {
-        headers.forEach((headerName, headerValues) -> headerValues.forEach((headerValue) -> builder.header(headerName, headerValue)));
+        headers.forEach((headerName, headerValues) -> headerValues.forEach(headerValue -> builder.header(headerName, headerValue)));
         return builder;
     }
 
