@@ -79,8 +79,10 @@ public final class MergeSortedPages
                 .collect(toImmutableList());
 
         Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> comparator.compareTo(
-                firstPageWithPosition.getPage(), firstPageWithPosition.getPosition(),
-                secondPageWithPosition.getPage(), secondPageWithPosition.getPosition());
+                firstPageWithPosition.getPage(),
+                firstPageWithPosition.getPosition(),
+                secondPageWithPosition.getPage(),
+                secondPageWithPosition.getPosition());
 
         return buildPage(
                 mergeSorted(pageWithPositionProducers, pageWithPositionComparator),

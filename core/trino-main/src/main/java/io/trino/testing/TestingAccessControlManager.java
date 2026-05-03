@@ -787,10 +787,10 @@ public class TestingAccessControlManager
         Map<ColumnSchema, ViewExpression> superResult = super.getColumnMasks(context, tableName, columns);
         return columns.stream()
                 .flatMap(column ->
-                    Optional.ofNullable(columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column.getName())))
-                            .or(() -> Optional.ofNullable(superResult.get(column)))
-                            .map(viewExpression -> Map.entry(column, viewExpression))
-                            .stream())
+                        Optional.ofNullable(columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column.getName())))
+                                .or(() -> Optional.ofNullable(superResult.get(column)))
+                                .map(viewExpression -> Map.entry(column, viewExpression))
+                                .stream())
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 

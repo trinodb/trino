@@ -44,9 +44,12 @@ public final class DecimalToDecimalCasts
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 long rescale = longTenToNth(Math.abs(resultType.getScale() - argumentType.getScale()));
                                 return ImmutableList.of(
-                                        argumentType.getPrecision(), argumentType.getScale(),
-                                        resultType.getPrecision(), resultType.getScale(),
-                                        rescale, rescale / 2);
+                                        argumentType.getPrecision(),
+                                        argumentType.getScale(),
+                                        resultType.getPrecision(),
+                                        resultType.getScale(),
+                                        rescale,
+                                        rescale / 2);
                             }))
                     .implementation(methodsGroup -> methodsGroup
                             .methods("shortToLongCast", "longToShortCast", "longToLongCast")
@@ -54,8 +57,10 @@ public final class DecimalToDecimalCasts
                                 DecimalType argumentType = (DecimalType) context.getParameterTypes().get(0);
                                 DecimalType resultType = (DecimalType) context.getReturnType();
                                 return ImmutableList.of(
-                                        argumentType.getPrecision(), argumentType.getScale(),
-                                        resultType.getPrecision(), resultType.getScale());
+                                        argumentType.getPrecision(),
+                                        argumentType.getScale(),
+                                        resultType.getPrecision(),
+                                        resultType.getScale());
                             })))
             .build();
 

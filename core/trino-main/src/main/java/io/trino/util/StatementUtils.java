@@ -276,10 +276,10 @@ public final class StatementUtils
         // ExplainAnalyze is special because it has the type of the target query.
         // It is thus not in STATEMENT_QUERY_TYPES and must be added here.
         return Stream.concat(
-                Stream.of(ExplainAnalyze.class),
-                STATEMENT_QUERY_TYPES.entrySet().stream()
-                        .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
-                        .map(Map.Entry::getKey))
+                        Stream.of(ExplainAnalyze.class),
+                        STATEMENT_QUERY_TYPES.entrySet().stream()
+                                .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
+                                .map(Map.Entry::getKey))
                 .collect(toImmutableSet());
     }
 
