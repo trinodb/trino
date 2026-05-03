@@ -187,15 +187,15 @@ public class TestColumnMask
                     }
                     throw new UnsupportedOperationException();
                 })
-                .withGetViews((s, prefix) -> ImmutableMap.of(
+                .withGetViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view,
                         new SchemaTableName("default", "nation_view_uppercase"), viewUpperCase,
                         new SchemaTableName("default", "view_with_nested"), viewWithNested))
-                .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
+                .withGetMaterializedViews((_, _) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
                         new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
-                .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                .withGetMaterializedViewsFreshness((_, materializedViewName) -> {
                     if (materializedViewName.equals(new SchemaTableName("default", "nation_materialized_view"))) {
                         return new MaterializedViewFreshness(STALE, Optional.empty());
                     }

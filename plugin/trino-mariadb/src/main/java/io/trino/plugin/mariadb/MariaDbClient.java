@@ -944,7 +944,7 @@ public class MariaDbClient
                             """)
                     .bind("database", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("column_name");
                         double nullsRatio = rs.getDouble("nulls_ratio");
                         return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
@@ -971,7 +971,7 @@ public class MariaDbClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
                         boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
