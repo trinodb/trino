@@ -961,7 +961,7 @@ public abstract class BaseFailureRecoveryTest
     protected Object[] parallelTest(String name, Runnable runnable)
     {
         return new Object[] {
-                new ParallelTestRunnable(name, runnable)
+                new ParallelTestRunnable(name, runnable),
         };
     }
 
