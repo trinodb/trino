@@ -94,7 +94,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesLeftSide()
     {
-        assertQuery("SELECT max(x) FROM" +
+        assertQuery(
+                "SELECT max(x) FROM" +
                         "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
                         "GROUP BY x",
                 "VALUES 1");
@@ -103,7 +104,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testAggregationPushdownThroughOuterJoinNotFiringInCorrelatedAggregatesRightSide()
     {
-        assertQuery("SELECT max(y) FROM" +
+        assertQuery(
+                "SELECT max(y) FROM" +
                         "(SELECT * from (VALUES 1) t(x) LEFT JOIN (VALUES 1) t2(y) ON t.x = t2.y)" +
                         "GROUP BY y",
                 "VALUES 1");
@@ -458,7 +460,8 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT count(*) FILTER (WHERE x > 1), sum(x) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 3, 9");
         assertQuery("SELECT count(*) FILTER (WHERE x > 1), count(DISTINCT y) FROM (VALUES (1, 10), (2, 10), (3, 10), (4, 20)) t (x, y)", "SELECT 3, 2");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT sum(b) FILTER (WHERE true) " +
                         "FROM (SELECT count(*) FILTER (WHERE true) AS b)",
                 "SELECT 1");
@@ -473,7 +476,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testAggregationFilterWithSubquery()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "WITH company AS (SELECT * FROM (VALUES (1, 10), (2, 20)) t(dep_id, salary)), " +
                         "department AS (SELECT 1 id) " +
                         "SELECT dep_id, sum(salary), sum(salary) FILTER (WHERE EXISTS (SELECT 1 FROM department WHERE department.id = company.dep_id)) " +
@@ -507,7 +511,8 @@ public abstract class AbstractTestAggregations
         // this should return one row since value is always 'value'
         // this test verifies that the two streams produced by the right join
         // are handled gathered for the aggregation operator
-        assertQueryOrdered("" +
+        assertQueryOrdered(
+                "" +
                         "SELECT\n" +
                         "  value\n" +
                         "FROM\n" +
@@ -1082,7 +1087,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByEmptyGroupingSet()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY ()",
+        assertQuery(
+                "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY ()",
                 "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem");
     }
 
@@ -1173,7 +1179,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithMultipleDistinctNoInput()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
                         "FROM lineitem " +
                         "WHERE quantity < 0 " +
                         "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
@@ -1253,7 +1260,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsOnlyGrandTotalSet()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS (())",
+        assertQuery(
+                "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS (())",
                 "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem");
     }
 
@@ -1276,7 +1284,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsAliasedGroupingColumns()
     {
-        assertQuery("SELECT lna, lnb, SUM(quantity) " +
+        assertQuery(
+                "SELECT lna, lnb, SUM(quantity) " +
                         "FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) " +
                         "GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())",
                 "SELECT linenumber, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber UNION ALL " +
@@ -1304,7 +1313,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetSubsetAndPartitioning()
     {
-        assertQuery("SELECT COUNT_IF(x IS NULL) FROM (" +
+        assertQuery(
+                "SELECT COUNT_IF(x IS NULL) FROM (" +
                         "SELECT x, y, COUNT(z) FROM (SELECT CAST(lineitem.orderkey AS BIGINT) x, lineitem.linestatus y, SUM(lineitem.quantity) z FROM lineitem " +
                         "JOIN orders ON lineitem.orderkey = orders.orderkey GROUP BY 1, 2) GROUP BY GROUPING SETS ((x, y), ()))",
                 "SELECT 1");
@@ -1313,7 +1323,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetPredicatePushdown()
     {
-        assertQuery("SELECT * FROM (" +
+        assertQuery(
+                "SELECT * FROM (" +
                         "SELECT COALESCE(orderpriority, 'ALL'), COALESCE(shippriority, -1) sp FROM (" +
                         "SELECT orderpriority, shippriority, COUNT(1) FROM orders GROUP BY GROUPING SETS ((orderpriority), (shippriority)))) WHERE sp=-1",
                 "SELECT orderpriority, -1 FROM orders GROUP BY orderpriority");
@@ -1354,7 +1365,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithSingleDistinctAndUnion()
     {
-        assertQuery("SELECT suppkey, COUNT(DISTINCT linenumber) FROM " +
+        assertQuery(
+                "SELECT suppkey, COUNT(DISTINCT linenumber) FROM " +
                         "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
                         "GROUP BY GROUPING SETS ((suppkey), ())",
                 "SELECT suppkey, COUNT(DISTINCT linenumber) FROM lineitem GROUP BY suppkey UNION ALL " +
@@ -1364,7 +1376,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithSingleDistinctAndUnionGroupedArguments()
     {
-        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
+        assertQuery(
+                "SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
                         "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
                         "GROUP BY GROUPING SETS ((linenumber), ())",
                 "SELECT DISTINCT linenumber, 1 FROM lineitem UNION ALL " +
@@ -1374,7 +1387,8 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithMultipleDistinctAndUnion()
     {
-        assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM " +
+        assertQuery(
+                "SELECT linenumber, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM " +
                         "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
                         "GROUP BY GROUPING SETS ((linenumber), ())",
                 "SELECT linenumber, 1, SUM(DISTINCT suppkey) FROM lineitem GROUP BY linenumber UNION ALL " +

@@ -226,11 +226,11 @@ public final class TestingKafka
     private <K, V> Future<RecordMetadata> send(KafkaProducer<K, V> producer, ProducerRecord<K, V> record)
     {
         return Failsafe.with(
-                RetryPolicy.builder()
-                        .onRetry(event -> log.warn(event.getLastException(), "Retrying message send"))
-                        .withMaxAttempts(10)
-                        .withBackoff(1, 10_000, MILLIS)
-                        .build())
+                        RetryPolicy.builder()
+                                .onRetry(event -> log.warn(event.getLastException(), "Retrying message send"))
+                                .withMaxAttempts(10)
+                                .withBackoff(1, 10_000, MILLIS)
+                                .build())
                 .get(() -> producer.send(record));
     }
 

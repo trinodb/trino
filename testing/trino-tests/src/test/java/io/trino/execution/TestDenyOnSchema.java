@@ -77,7 +77,8 @@ public class TestDenyOnSchema
                             .toInstance(new DisabledSystemSecurityMetadata()
                             {
                                 @Override
-                                public void denySchemaPrivileges(Session session,
+                                public void denySchemaPrivileges(
+                                        Session session,
                                         CatalogSchemaName schemaName,
                                         Set<Privilege> privileges,
                                         TrinoPrincipal grantee)

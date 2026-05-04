@@ -115,7 +115,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus, custkey FROM orders LIMIT 10)");
         assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders WHERE custkey = 1268 LIMIT 2");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT DISTINCT x " +
                         "FROM (VALUES 1) t(x) JOIN (VALUES 10, 20) u(a) ON t.x < u.a " +
                         "LIMIT 100",

@@ -174,8 +174,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         "WHERE l2.suppkey BETWEEN 1 AND 10",
                 Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
+                        SUPP_KEY_HANDLE, multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
     }
 
     @Test
@@ -193,8 +192,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        singleValue(BIGINT, 1L))));
+                        SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
     }
 
     @Test
@@ -205,26 +203,22 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey <= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey < supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey >= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey > supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
     }
 
     @Test
@@ -235,20 +229,17 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk = store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE,
-                        Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
+                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE,
-                        Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
+                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE,
-                        Domain.onlyNull(BIGINT))));
+                        SS_SOLD_SK_HANDLE, Domain.onlyNull(BIGINT))));
     }
 
     @Test
@@ -262,8 +253,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem JOIN memory.default.supplier_decimal s ON lineitem.suppkey = s.suppkey_decimal AND s.name >= 'Supplier#000000080'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        multipleValues(BIGINT, LongStream.rangeClosed(80L, 100L).boxed().collect(toImmutableList())))));
+                        SUPP_KEY_HANDLE, multipleValues(BIGINT, LongStream.rangeClosed(80L, 100L).boxed().collect(toImmutableList())))));
 
         computeActual("CREATE TABLE memory.default.supplier_varchar AS SELECT name, CAST(address as varchar(42)) address FROM tpch.tiny.supplier");
 
@@ -276,8 +266,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM customer JOIN memory.default.supplier_varchar s ON customer.address = s.address AND s.name >= 'Supplier#000000080'",
                 Set.of(ADDRESS_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        ADDRESS_KEY_HANDLE,
-                        multipleValues(createVarcharType(40), values))));
+                        ADDRESS_KEY_HANDLE, multipleValues(createVarcharType(40), values))));
     }
 
     @Test
@@ -295,8 +284,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test
@@ -318,8 +306,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        singleValue(BIGINT, 2L))));
+                        SUPP_KEY_HANDLE, singleValue(BIGINT, 2L))));
     }
 
     @Test
@@ -340,8 +327,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test
@@ -352,8 +338,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'Supplier#000000001'",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        singleValue(BIGINT, 1L))));
+                        SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
     }
 
     @Test
@@ -405,8 +390,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        singleValue(BIGINT, 1L))));
+                        SUPP_KEY_HANDLE, singleValue(BIGINT, 1L))));
     }
 
     @Test
@@ -424,8 +408,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
+                        SUPP_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
     @Test
@@ -447,8 +430,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         "WHERE t.suppkey IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
                 Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SUPP_KEY_HANDLE,
-                        singleValue(BIGINT, 2L))));
+                        SUPP_KEY_HANDLE, singleValue(BIGINT, 2L))));
     }
 
     protected Session getDefaultSession()
