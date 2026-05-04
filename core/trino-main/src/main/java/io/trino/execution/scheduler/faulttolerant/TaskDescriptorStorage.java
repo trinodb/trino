@@ -875,13 +875,6 @@ public class TaskDescriptorStorage
             taskDescriptor = null;
         }
 
-        public void decompress()
-        {
-            checkState(isCompressed(), "TaskDescriptor is not compressed");
-            this.taskDescriptor = getTaskDescriptor();
-            this.compressedTaskDescriptor = null;
-        }
-
         public boolean isCompressed()
         {
             return compressedTaskDescriptor != null;
