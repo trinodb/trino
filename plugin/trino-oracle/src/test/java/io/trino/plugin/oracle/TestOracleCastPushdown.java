@@ -346,7 +346,6 @@ public class TestOracleCastPushdown
                 .add(new CastTestCase("c_nvarchar_unicode", "char(50)", "c_char_50"))
                 .add(new CastTestCase("c_clob_unicode", "char(50)", "c_char_50"))
                 .add(new CastTestCase("c_nclob_unicode", "char(50)", "c_char_50"))
-
                 .add(new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_varchar_10_byte", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_varchar_1001", "varchar(50)", "c_varchar_50"))
@@ -387,7 +386,6 @@ public class TestOracleCastPushdown
                 .add(new CastTestCase("c_nchar_10", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_char_unicode", "varchar(50)", "c_varchar_50"))
                 .add(new CastTestCase("c_nchar_unicode", "varchar(50)", "c_varchar_50"))
-
                 .add(new CastTestCase("c_char_10", "varchar(1001)", "c_varchar_1001"))
                 .add(new CastTestCase("c_char_501", "varchar(1001)", "c_varchar_1001"))
                 .add(new CastTestCase("c_varchar_10", "varchar(1001)", "c_varchar_1001"))
@@ -407,7 +405,6 @@ public class TestOracleCastPushdown
                 .add(new CastTestCase("c_number_15", "varchar(1001)", "c_varchar_1001"))
                 .add(new CastTestCase("c_number_10_2", "varchar(1001)", "c_varchar_1001"))
                 .add(new CastTestCase("c_number_30_2", "varchar(1001)", "c_varchar_1001"))
-
                 .add(new CastTestCase("c_char_10", "varchar", "c_clob"))
                 .add(new CastTestCase("c_char_501", "varchar", "c_clob"))
                 .add(new CastTestCase("c_varchar_10", "varchar", "c_clob"))
@@ -425,7 +422,6 @@ public class TestOracleCastPushdown
                 .add(new CastTestCase("c_number_15", "varchar", "c_clob"))
                 .add(new CastTestCase("c_number_10_2", "varchar", "c_clob"))
                 .add(new CastTestCase("c_number_30_2", "varchar", "c_clob"))
-
                 .add(new CastTestCase("c_char_10", "varchar", "c_nclob"))
                 .add(new CastTestCase("c_char_501", "varchar", "c_nclob"))
                 .add(new CastTestCase("c_varchar_10", "varchar", "c_nclob"))
@@ -443,7 +439,6 @@ public class TestOracleCastPushdown
                 .add(new CastTestCase("c_number_15", "varchar", "c_nclob"))
                 .add(new CastTestCase("c_number_10_2", "varchar", "c_nclob"))
                 .add(new CastTestCase("c_number_30_2", "varchar", "c_nclob"))
-
                 .add(new CastTestCase("c_number_3", "tinyint", "c_number_5"))
                 .add(new CastTestCase("c_number_3", "smallint", "c_number_10"))
                 .add(new CastTestCase("c_number_3", "integer", "c_number_19"))
@@ -494,7 +489,6 @@ public class TestOracleCastPushdown
                 .add(new InvalidCastTestCase("c_timestamptz", "char(50)"))
                 .add(new InvalidCastTestCase("c_blob", "char(50)"))
                 .add(new InvalidCastTestCase("c_raw_200", "char(50)"))
-
                 .add(new InvalidCastTestCase("c_number_3", "char(501)"))
                 .add(new InvalidCastTestCase("c_number_5", "char(501)"))
                 .add(new InvalidCastTestCase("c_number_10", "char(501)"))
@@ -511,7 +505,6 @@ public class TestOracleCastPushdown
                 .add(new InvalidCastTestCase("c_timestamptz", "char(501)"))
                 .add(new InvalidCastTestCase("c_blob", "char(501)"))
                 .add(new InvalidCastTestCase("c_raw_200", "char(501)"))
-
                 .add(new InvalidCastTestCase("c_blob", "varchar(50)"))
                 .add(new InvalidCastTestCase("c_raw_200", "varchar(50)"))
                 .build();

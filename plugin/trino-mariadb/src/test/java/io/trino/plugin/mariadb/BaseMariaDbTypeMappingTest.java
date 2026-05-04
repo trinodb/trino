@@ -755,7 +755,6 @@ public abstract class BaseMariaDbTypeMappingTest
                 .addRoundTrip("TIME '23:59:59.9999999999'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_time"));
     }
 
@@ -900,7 +899,6 @@ public abstract class BaseMariaDbTypeMappingTest
                 // exceeds max epoch
                 .addRoundTrip("datetime(3)", "TIMESTAMP '3555-01-01 13:18:03.123'", createTimestampType(3), "TIMESTAMP '3555-01-01 13:18:03.123'")
                 .addRoundTrip("datetime(6)", "TIMESTAMP '5555-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '5555-12-31 23:59:59.999995'")
-
                 .execute(getQueryRunner(), session, mariaDbCreateAndInsert("tpch.test_datetime"));
     }
 

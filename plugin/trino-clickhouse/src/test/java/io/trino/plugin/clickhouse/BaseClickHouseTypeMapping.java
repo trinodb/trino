@@ -143,7 +143,6 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in ClickHouse and Trino
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"))
-
                 .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_tinyint"));
 
@@ -172,7 +171,6 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in ClickHouse and Trino
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"))
-
                 .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_smallint"));
 
@@ -201,7 +199,6 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("integer", "2147483647", INTEGER, "2147483647") // max value in ClickHouse and Trino
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_int"))
-
                 .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_int"));
 
@@ -230,7 +227,6 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in ClickHouse and Trino
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"))
-
                 .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_bigint"));
 
@@ -430,7 +426,6 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS DOUBLE)")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS DOUBLE)")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
 
         SqlDataTypeTest.create()
@@ -461,12 +456,9 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
-
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
-
                 .addRoundTrip("decimal(3, 1)", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
                 .addRoundTrip("decimal(30, 5)", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
         SqlDataTypeTest.create()

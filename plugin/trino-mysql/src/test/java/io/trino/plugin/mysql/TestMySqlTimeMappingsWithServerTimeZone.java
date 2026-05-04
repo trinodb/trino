@@ -129,7 +129,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("TIME(4)", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
                 .addRoundTrip("TIME(5)", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
                 .addRoundTrip("TIME(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
-
                 .addRoundTrip("TIME", "NULL", createTimeType(0), "CAST(NULL AS TIME(0))")
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_time"));
     }
@@ -230,7 +229,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("TIME(4)", "NULL", createTimeType(4), "CAST(NULL AS TIME(4))")
                 .addRoundTrip("TIME(5)", "NULL", createTimeType(5), "CAST(NULL AS TIME(5))")
                 .addRoundTrip("TIME(6)", "NULL", createTimeType(6), "CAST(NULL AS TIME(6))")
-
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
@@ -309,7 +307,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("datetime(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
                 .addRoundTrip("datetime(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
                 .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
-
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_datetime"));
     }
 
@@ -373,7 +370,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.123 UTC'")
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.999 UTC'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-26 22:34:56.123456 UTC'")
-
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
     }
 
@@ -427,7 +423,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("timestamp(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
                 .addRoundTrip("timestamp(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
-
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
@@ -539,7 +534,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("timestamp(3) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.123 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
                 .addRoundTrip("timestamp(3) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.999 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.999 UTC'")
                 .addRoundTrip("timestamp(6) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.123456 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'")
-
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp_with_time_zone"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_with_time_zone"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp_with_time_zone"))
@@ -591,7 +585,6 @@ public class TestMySqlTimeMappingsWithServerTimeZone
                 .addRoundTrip("timestamp(3) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.123 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.123 UTC'")
                 .addRoundTrip("timestamp(3) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.999 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-26 22:34:56.999 UTC'")
                 .addRoundTrip("timestamp(6) WITH TIME ZONE", "TIMESTAMP '2020-09-27 12:34:56.123456 %s'".formatted(sessionZone), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-09-26 22:34:56.123456 UTC'")
-
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp_with_time_zone"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_with_time_zone"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp_with_time_zone"))

@@ -85,7 +85,6 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 2.67, null))
-
                 .addColumn("c_nan_real", "real", asList("'Nan'", "'-Nan'", null))
                 .addColumn("c_nan_double", "double precision", asList("'Nan'", "'-Nan'", null))
                 .addColumn("c_infinity_real", "real", asList("'Infinity'", "'-Infinity'", null))
@@ -100,7 +99,6 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_varchar_decimal", "varchar(50)", asList("'1.23'", "'2.34'", null))
                 .addColumn("c_varchar_decimal_sign", "varchar(50)", asList("'+1.23'", "'-2.34'", null))
                 .addColumn("c_varchar_alpha_numeric", "varchar(50)", asList("'H311o'", "'123Hey'", null))
-
                 .addColumn("c_small_serial", "smallserial", asList("SMALLINT '-1'", "SMALLINT '1'", "SMALLINT '2'")) // smallserial don't accept NULLS
                 .addColumn("c_serial", "serial", asList("-1", "1", "2")) // serial don't accept NULLS
                 .addColumn("c_big_serial", "bigserial", asList("-1", "1", "2")) // bigserial don't accept NULLS
@@ -135,7 +133,6 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 22.67, null))
-
                 .addColumn("c_nan_real", "real", asList("'Nan'", "'-Nan'", null))
                 .addColumn("c_nan_double", "double precision", asList("'Nan'", "'-Nan'", null))
                 .addColumn("c_infinity_real", "real", asList("'Infinity'", "'-Infinity'", null))
@@ -150,7 +147,6 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_varchar_decimal", "varchar(50)", asList("'1.23'", "'22.34'", null))
                 .addColumn("c_varchar_decimal_sign", "varchar(50)", asList("'+1.23'", "'-22.34'", null))
                 .addColumn("c_varchar_alpha_numeric", "varchar(50)", asList("'H311o'", "'123Bye'", null))
-
                 .addColumn("c_small_serial", "smallserial", asList("SMALLINT '-1'", "SMALLINT '1'", "SMALLINT '2'")) // smallserial don't accept NULLS
                 .addColumn("c_serial", "serial", asList("-1", "1", "2")) // serial don't accept NULLS
                 .addColumn("c_big_serial", "bigserial", asList("-1", "1", "2")) // bigserial don't accept NULLS
@@ -238,7 +234,6 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_int_2", "integer", List.of("65536"))
                 .addColumn("c_bigint_1", "bigint", List.of("-2147483649"))
                 .addColumn("c_bigint_2", "bigint", List.of("2147483648"))
-
                 .addColumn("c_decimal_1", "decimal(25, 2)", List.of("-129.49"))
                 .addColumn("c_decimal_2", "decimal(25, 2)", List.of("-128.94"))
                 .addColumn("c_decimal_3", "decimal(25, 2)", List.of("127.94"))
@@ -255,12 +250,10 @@ final class TestPostgreSqlCastPushdown
                 .addColumn("c_decimal_14", "decimal(25, 2)", List.of("-9223372036854775808.94"))
                 .addColumn("c_decimal_15", "decimal(25, 2)", List.of("9223372036854775807.94"))
                 .addColumn("c_decimal_16", "decimal(25, 2)", List.of("9223372036854775808.49"))
-
                 .addColumn("c_infinity_real_1", "real", List.of("'Infinity'"))
                 .addColumn("c_infinity_real_2", "real", List.of("'-Infinity'"))
                 .addColumn("c_infinity_double_1", "double precision", List.of("'Infinity'"))
                 .addColumn("c_infinity_double_2", "double precision", List.of("'-Infinity'"))
-
                 .addColumn("c_small_serial_1", "smallserial", List.of("SMALLINT '-32768'"))
                 .addColumn("c_small_serial_2", "smallserial", List.of("SMALLINT '32767'"))
                 .addColumn("c_serial_1", "serial", List.of("-2147483648"))
@@ -285,7 +278,6 @@ final class TestPostgreSqlCastPushdown
                         .add(new InvalidCastTestCase("c_bigint_2", "tinyint", "Out of range for tinyint: 2147483648"))
                         .add(new InvalidCastTestCase("c_big_serial_1", "tinyint", "Out of range for tinyint: -9223372036854775808"))
                         .add(new InvalidCastTestCase("c_big_serial_2", "tinyint", "Out of range for tinyint: 9223372036854775807"))
-
                         .add(new InvalidCastTestCase("c_int_1", "smallint", "Out of range for smallint: -65537", "ERROR: smallint out of range"))
                         .add(new InvalidCastTestCase("c_int_2", "smallint", "Out of range for smallint: 65536", "ERROR: smallint out of range"))
                         .add(new InvalidCastTestCase("c_serial_1", "smallint", "Out of range for smallint: -2147483648", "ERROR: smallint out of range"))
@@ -302,7 +294,6 @@ final class TestPostgreSqlCastPushdown
                         .add(new InvalidCastTestCase("c_decimal_2", "tinyint", "Cannot cast '-128.94' to TINYINT"))
                         .add(new InvalidCastTestCase("c_decimal_3", "tinyint", "Cannot cast '127.94' to TINYINT"))
                         .add(new InvalidCastTestCase("c_decimal_4", "tinyint", "Cannot cast '128.49' to TINYINT"))
-
                         .add(new InvalidCastTestCase("c_decimal_5", "smallint", "Cannot cast '-65537.49' to SMALLINT", "ERROR: smallint out of range"))
                         .add(new InvalidCastTestCase("c_decimal_6", "smallint", "Cannot cast '-65536.94' to SMALLINT", "ERROR: smallint out of range"))
                         .add(new InvalidCastTestCase("c_decimal_7", "smallint", "Cannot cast '65535.94' to SMALLINT", "ERROR: smallint out of range"))
@@ -361,7 +352,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_decimal_30_2", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_decimal_negative", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_small_serial", "smallint", "c_smallint"))
-
                 .add(new CastTestCase("c_boolean", "integer", "c_integer"))
                 .add(new CastTestCase("c_smallint", "integer", "c_integer"))
                 .add(new CastTestCase("c_int2", "integer", "c_integer"))
@@ -378,7 +368,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_numeric_30_2", "integer", "c_integer"))
                 .add(new CastTestCase("c_decimal_negative", "integer", "c_integer"))
                 .add(new CastTestCase("c_serial", "integer", "c_integer"))
-
                 .add(new CastTestCase("c_boolean", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_smallint", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_integer", "bigint", "c_bigint"))
@@ -407,7 +396,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_decimal_30_2", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_decimal_negative", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_numeric_negative", "tinyint", "c_smallint"))
-
                 .add(new CastTestCase("c_real", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_float4", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_double_precision", "tinyint", "c_smallint"))
@@ -417,7 +405,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_varchar_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "tinyint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "tinyint", "c_smallint"))
-
                 .add(new CastTestCase("c_real", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_float4", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_double_precision", "smallint", "c_smallint"))
@@ -427,7 +414,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_varchar_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_text_numeric", "smallint", "c_smallint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "smallint", "c_smallint"))
-
                 .add(new CastTestCase("c_real", "integer", "c_integer"))
                 .add(new CastTestCase("c_float4", "integer", "c_integer"))
                 .add(new CastTestCase("c_double_precision", "integer", "c_integer"))
@@ -437,7 +423,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_varchar_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_text_numeric", "integer", "c_integer"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "integer", "c_integer"))
-
                 .add(new CastTestCase("c_real", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_float4", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_double_precision", "bigint", "c_bigint"))
@@ -447,7 +432,6 @@ final class TestPostgreSqlCastPushdown
                 .add(new CastTestCase("c_varchar_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_text_numeric", "bigint", "c_bigint"))
                 .add(new CastTestCase("c_varchar_numeric_sign", "bigint", "c_bigint"))
-
                 .add(new CastTestCase("c_smallint", "boolean", "c_boolean"))
                 .add(new CastTestCase("c_smallint_negative", "boolean", "c_boolean"))
                 .add(new CastTestCase("c_real", "double", "c_double_precision"))

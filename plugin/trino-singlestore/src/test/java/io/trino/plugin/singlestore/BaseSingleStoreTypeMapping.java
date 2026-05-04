@@ -827,7 +827,6 @@ public abstract class BaseSingleStoreTypeMapping
                 // null
                 .addRoundTrip("datetime", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
-
                 .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_datetime"));
     }
 
@@ -885,7 +884,6 @@ public abstract class BaseSingleStoreTypeMapping
                 // null
                 .addRoundTrip("timestamp", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
-
                 .execute(getQueryRunner(), session, singleStoreCreateAndInsert("tpch.test_timestamp"));
     }
 
@@ -955,7 +953,6 @@ public abstract class BaseSingleStoreTypeMapping
                 // null
                 .addRoundTrip("timestamp(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
                 .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
-
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_datetime"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_datetime"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_datetime"))

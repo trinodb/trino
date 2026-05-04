@@ -1328,7 +1328,6 @@ public abstract class BasePostgreSqlTypeMappingTest
     public void testTimeCoercion()
     {
         SqlDataTypeTest.create()
-
                 .addRoundTrip("TIME '00:00:00'", "TIME '00:00:00'")
                 .addRoundTrip("TIME '00:00:00.000000'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '00:00:00.123456'", "TIME '00:00:00.123456'")
@@ -1343,7 +1342,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .addRoundTrip("TIME '23:59:59.999900'", "TIME '23:59:59.999900'")
                 .addRoundTrip("TIME '23:59:59.999990'", "TIME '23:59:59.999990'")
                 .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
-
                 .addRoundTrip("TIME '23:59:59'", "TIME '23:59:59'")
                 .addRoundTrip("TIME '23:59:59.9'", "TIME '23:59:59.9'")
                 .addRoundTrip("TIME '23:59:59.99'", "TIME '23:59:59.99'")
@@ -1499,7 +1497,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 // before epoch with second fraction
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123000'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123000'")
                 .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123456'")
-
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp"))
@@ -1560,7 +1557,6 @@ public abstract class BasePostgreSqlTypeMappingTest
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'")
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_coercion"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_coercion"));
     }
@@ -1698,9 +1694,7 @@ public abstract class BasePostgreSqlTypeMappingTest
     public void testTimestampWithTimeZoneCoercion()
     {
         SqlDataTypeTest.create()
-
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'")
-
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1 UTC'")
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.9 UTC'")
                 .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
@@ -1874,12 +1868,10 @@ public abstract class BasePostgreSqlTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("uuid[]", "NULL", new ArrayType(UUID), "CAST(NULL AS ARRAY(UUID))")
                 .addRoundTrip("uuid[]", "ARRAY[]::uuid[]", new ArrayType(UUID), "CAST(ARRAY[] AS ARRAY(UUID))")
-
                 .addRoundTrip("uuid[]", "ARRAY[UUID 'a0ee-bc99-9c0b-4ef8-bb6d-6bb9-bd38-0a11', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
                 .addRoundTrip("uuid[]", "ARRAY[UUID 'a0eebc999c0b4ef8bb6d6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
                 .addRoundTrip("uuid[]", "ARRAY[UUID '{a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11}', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
                 .addRoundTrip("uuid[]", "ARRAY[UUID '{a0eebc99-9c0b4ef8-bb6d6bb9-bd380a11}', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
-
                 .addRoundTrip("uuid[]", "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']", new ArrayType(UUID), "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']")
                 .addRoundTrip("uuid[]", "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']", new ArrayType(UUID), "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']")
                 .addRoundTrip("uuid[]", "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']", new ArrayType(UUID), "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']")
@@ -1888,7 +1880,6 @@ public abstract class BasePostgreSqlTypeMappingTest
         SqlDataTypeTest.create()
                 .addRoundTrip("ARRAY(uuid)", "NULL", new ArrayType(UUID), "CAST(NULL AS ARRAY(UUID))")
                 .addRoundTrip("ARRAY(uuid)", "ARRAY[]", new ArrayType(UUID), "CAST(ARRAY[] AS ARRAY(UUID))")
-
                 .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']", new ArrayType(UUID), "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']")
                 .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']", new ArrayType(UUID), "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']")
                 .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']", new ArrayType(UUID), "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']")

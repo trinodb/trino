@@ -534,7 +534,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("time(5)", "'23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
                 .addRoundTrip("time(6)", "'23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
                 .addRoundTrip("time(7)", "'23:59:59.9999999'", createTimeType(7), "TIME '23:59:59.9999999'")
-
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_time"));
 
         SqlDataTypeTest.create()
@@ -553,7 +552,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("TIME '23:59:59.99999'", "TIME '23:59:59.99999'")
                 .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
                 .addRoundTrip("TIME '23:59:59.9999999'", "TIME '23:59:59.9999999'")
-
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_time"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_time"));
 
@@ -725,7 +723,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIME2(6)", "'2020-09-27 12:34:56.123000'", createTimestampType(6), "TIMESTAMP '2020-09-27 12:34:56.123000'")
                 .addRoundTrip("DATETIME2(3)", "'2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567'")
-
                 .addRoundTrip("DATETIME2(7)", "'1970-01-01 00:00:00'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000'")
                 .addRoundTrip("DATETIME2(7)", "'1970-01-01 00:00:00.1'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1000000'")
                 .addRoundTrip("DATETIME2(7)", "'1970-01-01 00:00:00.9'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.9000000'")
@@ -739,7 +736,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.123000'", createTimestampType(7), "TIMESTAMP '2020-09-27 12:34:56.1230000'")
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.999'", createTimestampType(7), "TIMESTAMP '2020-09-27 12:34:56.9990000'")
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567'")
-
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
     }
 
@@ -788,7 +784,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 12:34:56.9999999'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.9999999+00:00'")
                 .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 12:34:56.999'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 12:34:56.999+00:00'")
                 .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 12:34:56.1234567'", createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-09-27 12:34:56.1234567+00:00'")
-
                 .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000+00:00'")
                 .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1000000+00:00'")
                 .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.9'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.9000000+00:00'")
@@ -812,7 +807,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1970-01-01 00:00:00.123456+04:00'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.123456+04:00'")
                 .addRoundTrip("DATETIMEOFFSET(7)", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
                 .addRoundTrip("DATETIMEOFFSET", "'1970-01-01 00:00:00.1234567+07:00'", createTimestampWithTimeZoneType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567+07:00'")
-
                 .addRoundTrip("DATETIMEOFFSET(1)", "'2020-09-27 00:00:00.1+01:00'", createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-09-27 00:00:00.1+01:00'")
                 .addRoundTrip("DATETIMEOFFSET(2)", "'2020-09-27 00:00:00.12+03:00'", createTimestampWithTimeZoneType(2), "TIMESTAMP '2020-09-27 00:00:00.12+03:00'")
                 .addRoundTrip("DATETIMEOFFSET(3)", "'2020-09-27 00:00:00.123+03:00'", createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-09-27 00:00:00.123+03:00'")
@@ -845,7 +839,6 @@ public abstract class BaseSqlServerTypeMapping
                 // negative epoch
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999995'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1970-01-01 00:00:00.000000+00:00'")
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
-
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
     }
 

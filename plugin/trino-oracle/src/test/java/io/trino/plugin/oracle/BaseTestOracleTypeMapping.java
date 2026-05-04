@@ -1050,7 +1050,6 @@ public abstract class BaseTestOracleTypeMapping
                 .addRoundTrip("TIMESTAMP(9)", "TIMESTAMP '2020-09-27 12:34:56.123000'", createTimestampType(9), "TIMESTAMP '2020-09-27 12:34:56.123000000'")
                 .addRoundTrip("TIMESTAMP(9)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(9), "TIMESTAMP '2020-09-27 12:34:56.999000000'")
                 .addRoundTrip("TIMESTAMP(9)", "TIMESTAMP '2020-09-27 12:34:56.1234567'", createTimestampType(9), "TIMESTAMP '2020-09-27 12:34:56.123456700'")
-
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_ts_oracle"));
     }
 
