@@ -14,9 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.Session;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -28,6 +31,7 @@ import java.util.Map;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -156,5 +160,38 @@ public class TestIcebergMaterializedView
         assertUpdate(secondIceberg, "DROP TABLE common_base_table");
         assertUpdate(defaultIceberg, "DROP TABLE common_base_table");
         assertUpdate("DROP MATERIALIZED VIEW mv_on_iceberg2");
+    }
+
+    @Test
+    public void testReplaceAndDropMaterializedView()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE base_table AS SELECT 10 value", 1);
+
+        // Create materialized view using catalog with hidden storage table
+        assertUpdate("CREATE MATERIALIZED VIEW mv_replace AS SELECT sum(value) AS s FROM base_table");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_replace", 1);
+        assertThat(query("TABLE mv_replace")).matches("VALUES BIGINT '10'");
+
+        // Replace materialized view and verify it still works
+        assertUpdate("INSERT INTO base_table VALUES 7", 1);
+        assertUpdate("CREATE OR REPLACE MATERIALIZED VIEW mv_replace AS SELECT sum(value) AS s FROM base_table");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_replace", 1);
+        assertThat(query("TABLE mv_replace")).matches("VALUES BIGINT '17'");
+
+        // Store the storage metadata location before drop
+        String storageMetadataLocation = getStorageMetadataLocation("mv_replace");
+        assertThat(storageMetadataLocation).isNotNull();
+        Location storageLocation = Location.of(storageMetadataLocation).parentDirectory();
+
+        // Drop materialized view and verify storage files are cleaned up
+        assertUpdate("DROP MATERIALIZED VIEW mv_replace");
+
+        TrinoFileSystem fileSystem = getFileSystemFactory(getQueryRunner()).create(ConnectorIdentity.ofUser("test"));
+        assertThat(fileSystem.listFiles(storageLocation).hasNext())
+                .describedAs("Storage files should be cleaned up after drop")
+                .isFalse();
+
+        assertUpdate("DROP TABLE base_table");
     }
 }

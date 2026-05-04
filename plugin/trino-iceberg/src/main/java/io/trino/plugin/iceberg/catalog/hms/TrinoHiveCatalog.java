@@ -580,6 +580,10 @@ public class TrinoHiveCatalog
         }
 
         if (hideMaterializedViewStorageTable) {
+            if (replace) {
+                existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
+            }
+
             Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
 
             Map<String, String> viewProperties = createMaterializedViewProperties(session, storageMetadataLocation);
@@ -620,8 +624,6 @@ public class TrinoHiveCatalog
                 }
                 throw e;
             }
-
-            existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
         }
         else {
             createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
@@ -724,8 +726,46 @@ public class TrinoHiveCatalog
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
         }
 
-        dropMaterializedViewStorage(session, view);
+        String storageTableName = view.getParameters().get(STORAGE_TABLE);
+        if (storageTableName != null) {
+            String storageSchema = Optional.ofNullable(view.getParameters().get(STORAGE_SCHEMA))
+                    .orElse(viewName.getSchemaName());
+            metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
+            try {
+                dropTable(session, new SchemaTableName(storageSchema, storageTableName));
+            }
+            catch (TrinoException e) {
+                log.warn(e, "Failed to drop storage table '%s.%s' for materialized view '%s'", storageSchema, storageTableName, viewName);
+            }
+            return;
+        }
+
+        // Hidden storage table: the metastore directory may overlap with the Iceberg storage location
+        // (e.g. file metastore stores .trinoSchema in the same directory as Iceberg metadata).
+        // Resolve the storage data location BEFORE dropping the metastore entry so the metadata file is still readable.
+        String storageMetadataLocation = view.getParameters().get(METADATA_LOCATION_PROP);
+        checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", viewName);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        Optional<Location> storageDataLocation = Optional.empty();
+        try {
+            TableMetadata metadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
+            storageDataLocation = Optional.of(Location.of(metadata.location()));
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to read storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
+        }
+
         metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
+        invalidateTableCache(viewName);
+
+        if (storageDataLocation.isPresent()) {
+            try {
+                fileSystem.deleteDirectory(storageDataLocation.get());
+            }
+            catch (IOException e) {
+                log.warn(e, "Failed to delete storage data '%s' for materialized view '%s'", storageDataLocation.get(), viewName);
+            }
+        }
     }
 
     private void dropMaterializedViewStorage(ConnectorSession session, Table view)
@@ -751,6 +791,7 @@ public class TrinoHiveCatalog
             catch (IOException e) {
                 log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
             }
+            invalidateTableCache(viewName);
         }
     }
 
