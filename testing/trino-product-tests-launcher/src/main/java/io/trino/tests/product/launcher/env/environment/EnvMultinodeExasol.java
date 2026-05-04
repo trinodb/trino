@@ -70,20 +70,21 @@ public class EnvMultinodeExasol
 
     private static WaitStrategy exasolReadyViaCurl()
     {
-        String command = """
-            bash -c '
-            while true; do
-              resp=$(curl -sk --max-time 5 https://localhost:%d/ 2>/dev/null || true)
-              if [ -n "$resp" ] && (
-                   echo "$resp" | grep -q "status" ||
-                   echo "$resp" | grep -q "WebSocket" ||
-                   echo "$resp" | grep -q "error"
-                 ); then
-                exit 0
-              fi
-              sleep 0.5
-            done'
-            """.formatted(EXASOL_PORT);
+        String command =
+                """
+                bash -c '
+                while true; do
+                  resp=$(curl -sk --max-time 5 https://localhost:%d/ 2>/dev/null || true)
+                  if [ -n "$resp" ] && (
+                       echo "$resp" | grep -q "status" ||
+                       echo "$resp" | grep -q "WebSocket" ||
+                       echo "$resp" | grep -q "error"
+                     ); then
+                    exit 0
+                  fi
+                  sleep 0.5
+                done'
+                """.formatted(EXASOL_PORT);
 
         return Wait.forSuccessfulCommand(command)
                 .withStartupTimeout(Duration.ofMinutes(5));
