@@ -790,7 +790,7 @@ public class S3FileSystemExchangeStorage
                         .storageClass(storageClass)
                         .applyMutation(builder -> {
                             switch (s3SseContext.sseType()) {
-                                case NONE -> { /* ignored */ }
+                                case NONE -> {}
                                 case S3 -> builder.serverSideEncryption(AES256);
                                 case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId().get());
                             }
@@ -879,7 +879,7 @@ public class S3FileSystemExchangeStorage
                     .storageClass(storageClass)
                     .applyMutation(builder -> {
                         switch (s3SseContext.sseType()) {
-                            case NONE -> { /* ignored */ }
+                            case NONE -> {}
                             case S3 -> builder.serverSideEncryption(AES256);
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId().get());
                         }
