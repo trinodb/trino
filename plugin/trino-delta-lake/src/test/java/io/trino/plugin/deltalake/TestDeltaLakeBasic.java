@@ -2902,13 +2902,13 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(sourceTable, sourceLocation.toUri()));
 
         @Language("SQL") String sourceTableValues =
-        """
-        VALUES
-        (1, 'A', TIMESTAMP '2024-01-01'),
-        (2, 'B', TIMESTAMP '2024-01-01'),
-        (3, 'C', TIMESTAMP '2024-02-02'),
-        (4, 'D', TIMESTAMP '2024-02-02')
-        """;
+                """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'B', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'D', TIMESTAMP '2024-02-02')
+                """;
 
         assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
 
@@ -2927,35 +2927,35 @@ public class TestDeltaLakeBasic
 
         // update on cloned table
         @Language("SQL") String expectedValuesAfterUpdate =
-        """
-        VALUES
-        (1, 'A', TIMESTAMP '2024-01-01'),
-        (2, 'updated', TIMESTAMP '2024-01-01'),
-        (3, 'C', TIMESTAMP '2024-02-02'),
-        (4, 'updated', TIMESTAMP '2024-02-02')
-        """;
+                """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'updated', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02')
+                """;
         assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);
 
         // merge on cloned table, including insert,update,delete
         String mergeSql =
-        """
-        MERGE INTO %s t
-        USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
-        ON (t.id = s.id)
-        WHEN MATCHED AND s.v = 'yyy' THEN DELETE
-        WHEN MATCHED THEN UPDATE SET v = s.v
-        WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
-        """.formatted(clonedTable);
+                """
+                MERGE INTO %s t
+                USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                ON (t.id = s.id)
+                WHEN MATCHED AND s.v = 'yyy' THEN DELETE
+                WHEN MATCHED THEN UPDATE SET v = s.v
+                WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                """.formatted(clonedTable);
 
         @Language("SQL") String expectedValuesAfterMerge =
-        """
-        VALUES
-        (2, 'merged', TIMESTAMP '2024-01-01'),
-        (3, 'C', TIMESTAMP '2024-02-02'),
-        (4, 'updated', TIMESTAMP '2024-02-02'),
-        (5, 'kkk', TIMESTAMP '2025-03-03')
-        """;
+                """
+                VALUES
+                (2, 'merged', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02'),
+                (5, 'kkk', TIMESTAMP '2025-03-03')
+                """;
 
         assertUpdate(mergeSql, 3);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterMerge);
