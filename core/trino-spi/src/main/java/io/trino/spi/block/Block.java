@@ -19,7 +19,9 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public sealed interface Block
-        permits DictionaryBlock, RunLengthEncodedBlock, ValueBlock
+        permits DictionaryBlock,
+                RunLengthEncodedBlock,
+                ValueBlock
 {
     /**
      * Gets the value at the specified position as a single element block.  The method

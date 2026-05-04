@@ -21,7 +21,9 @@ import static java.lang.String.format;
 
 @Immutable
 public sealed interface TypeParameter
-        permits TypeParameter.Type, TypeParameter.Numeric, TypeParameter.Variable
+        permits TypeParameter.Numeric,
+                TypeParameter.Type,
+                TypeParameter.Variable
 {
     static TypeParameter typeParameter(TypeSignature typeSignature)
     {

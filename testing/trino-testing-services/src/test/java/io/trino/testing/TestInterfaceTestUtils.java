@@ -65,7 +65,9 @@ class TestInterfaceTestUtils
     }
 
     private static class ImplementationWithMultipleInterfaces
-            implements Cloneable, Interface, Serializable
+            implements Cloneable,
+                       Interface,
+                       Serializable
     {
         @Override
         public void foo(String unused) {}

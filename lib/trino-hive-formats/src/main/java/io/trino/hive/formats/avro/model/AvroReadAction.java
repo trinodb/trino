@@ -36,23 +36,22 @@ import static io.trino.hive.formats.avro.model.SkipFieldRecordFieldReadAction.cr
 import static java.util.Objects.requireNonNull;
 
 public sealed interface AvroReadAction
-        permits
-        NullRead,
-        BooleanRead,
-        IntRead,
-        LongRead,
-        FloatRead,
-        DoubleRead,
-        StringRead,
-        BytesRead,
-        FixedRead,
-        ArrayReadAction,
-        EnumReadAction,
-        MapReadAction,
-        ReadingUnionReadAction,
-        RecordReadAction,
-        WrittenUnionReadAction,
-        ReadErrorReadAction
+        permits ArrayReadAction,
+                BooleanRead,
+                BytesRead,
+                DoubleRead,
+                EnumReadAction,
+                FixedRead,
+                FloatRead,
+                IntRead,
+                LongRead,
+                MapReadAction,
+                NullRead,
+                ReadErrorReadAction,
+                ReadingUnionReadAction,
+                RecordReadAction,
+                StringRead,
+                WrittenUnionReadAction
 {
     static byte[] getDefaultByes(Schema.Field field)
             throws AvroTypeException

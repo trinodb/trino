@@ -54,7 +54,10 @@ public record PatternRecognitionAnalysis(Set<String> allLabels, Set<String> unde
     }
 
     public sealed interface Descriptor
-            permits ScalarInputDescriptor, AggregationDescriptor, ClassifierDescriptor, MatchNumberDescriptor {}
+            permits AggregationDescriptor,
+                    ClassifierDescriptor,
+                    MatchNumberDescriptor,
+                    ScalarInputDescriptor {}
 
     public record AggregationDescriptor(
             ResolvedFunction function,

@@ -28,7 +28,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract sealed class Pattern<T>
-        permits CapturePattern, CustomPattern, EqualsPattern, FilterPattern, OrPattern, TypeOfPattern, WithPattern
+        permits CapturePattern,
+                CustomPattern,
+                EqualsPattern,
+                FilterPattern,
+                OrPattern,
+                TypeOfPattern,
+                WithPattern
 {
     private final Optional<Pattern<?>> previous;
 

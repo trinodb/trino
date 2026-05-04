@@ -26,4 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = JsonTablePlanUnion.class, name = "union"),
 })
 public sealed interface JsonTablePlanNode
-        permits JsonTablePlanCross, JsonTablePlanLeaf, JsonTablePlanSingle, JsonTablePlanUnion {}
+        permits JsonTablePlanCross,
+                JsonTablePlanLeaf,
+                JsonTablePlanSingle,
+                JsonTablePlanUnion {}

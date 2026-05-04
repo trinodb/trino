@@ -227,7 +227,9 @@ public class TableFunctionMatcher
     }
 
     public sealed interface ArgumentValue
-            permits DescriptorArgumentValue, ScalarArgumentValue, TableArgumentValue {}
+            permits DescriptorArgumentValue,
+                    ScalarArgumentValue,
+                    TableArgumentValue {}
 
     public record DescriptorArgumentValue(Optional<Descriptor> descriptor)
             implements ArgumentValue

@@ -150,7 +150,9 @@ public class ApplyNode
     }
 
     public sealed interface SetExpression
-            permits In, Exists, QuantifiedComparison
+            permits Exists,
+                    In,
+                    QuantifiedComparison
     {
         List<Symbol> inputs();
     }
