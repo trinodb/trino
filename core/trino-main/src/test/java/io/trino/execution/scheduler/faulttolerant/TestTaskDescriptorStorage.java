@@ -116,7 +116,7 @@ public class TestTaskDescriptorStorage
     public void testDestroy()
     {
         // disable compression to get expected memory usage
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(5, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(10, KILOBYTE), jsonCodec(TaskDescriptor.class), jsonCodec(Split.class));
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(5, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(10, KILOBYTE), jsonCodec(TaskDescriptor.class));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
@@ -365,9 +365,8 @@ public class TestTaskDescriptorStorage
 
         Injector injector = app.initialize();
         JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
-        JsonCodec<Split> splitJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
 
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(maxMemory, compressingHighWaterMark, compressingLowWaterMark, taskDescriptorJsonCodec, splitJsonCodec);
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(maxMemory, compressingHighWaterMark, compressingLowWaterMark, taskDescriptorJsonCodec);
         return manager;
     }
 
