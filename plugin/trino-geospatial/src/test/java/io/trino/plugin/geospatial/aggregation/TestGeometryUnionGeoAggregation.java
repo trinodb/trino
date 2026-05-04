@@ -63,18 +63,22 @@ public class TestGeometryUnionGeoAggregation
     {
         test("identity",
                 "POINT (1 2)",
-                "POINT (1 2)", "POINT (1 2)", "POINT (1 2)");
+                "POINT (1 2)",
+                "POINT (1 2)",
+                "POINT (1 2)");
 
         test("no input yields null",
                 null);
 
         test("empty with non-empty",
                 "POINT (1 2)",
-                "POINT EMPTY", "POINT (1 2)");
+                "POINT EMPTY",
+                "POINT (1 2)");
 
         test("disjoint returns multipoint",
                 "MULTIPOINT ((1 2), (3 4))",
-                "POINT (1 2)", "POINT (3 4)");
+                "POINT (1 2)",
+                "POINT (3 4)");
     }
 
     @Test
@@ -210,19 +214,25 @@ public class TestGeometryUnionGeoAggregation
     {
         test("identity",
                 "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
-                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
 
         test("empty with non-empty",
                 "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))",
-                "MULTILINESTRING EMPTY", "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
+                "MULTILINESTRING EMPTY",
+                "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1))");
 
         test("disjoint",
                 "MULTILINESTRING ((1 5, 4 1), (2 5, 5 1), (3 5, 6 1), (4 5, 7 1))",
-                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))");
+                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))",
+                "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))");
 
         test("disjoint aggregates with cut through",
                 "MULTILINESTRING ((2.5 3, 4 1), (3.5 3, 5 1), (4.5 3, 6 1), (5.5 3, 7 1), (1 3, 2.5 3), (2.5 3, 3.5 3), (1 5, 2.5 3), (3.5 3, 4.5 3), (2 5, 3.5 3), (4.5 3, 5.5 3), (3 5, 4.5 3), (5.5 3, 8 3), (4 5, 5.5 3))",
-                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))", "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))", "LINESTRING (1 3, 8 3)");
+                "MULTILINESTRING ((1 5, 4 1), (3 5, 6 1))",
+                "MULTILINESTRING ((2 5, 5 1), (4 5, 7 1))",
+                "LINESTRING (1 3, 8 3)");
     }
 
     @Test
@@ -235,7 +245,8 @@ public class TestGeometryUnionGeoAggregation
 
         test("empty with non-empty",
                 "MULTIPOLYGON (((4 2, 3 1, 5 1, 4 2)), ((14 12, 13 11, 15 11, 14 12)))",
-                "MULTIPOLYGON EMPTY", "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))");
+                "MULTIPOLYGON EMPTY",
+                "MULTIPOLYGON (((4 2, 5 1, 3 1, 4 2)), ((14 12, 15 11, 13 11, 14 12)))");
 
         test("disjoint",
                 "MULTIPOLYGON (((0 0, 2 0, 2 2, 0 2, 0 0)), ((3 0, 5 0, 5 2, 3 2, 3 0)), ((0 3, 2 3, 2 5, 0 5, 0 3)), ((3 3, 5 3, 5 5, 3 5, 3 3)))",
@@ -244,7 +255,8 @@ public class TestGeometryUnionGeoAggregation
 
         test("overlapping multipolygons are simplified",
                 "POLYGON ((1 1, 2 1, 3 1, 4 1, 5 1, 4 2, 3.5 1.5, 3 2, 2.5 1.5, 2 2, 1 1))",
-                "MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))", "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))");
+                "MULTIPOLYGON (((2 2, 3 1, 1 1, 2 2)), ((3 2, 4 1, 2 1, 3 2)))",
+                "MULTIPOLYGON(((4 2, 5 1, 3 1, 4 2)))");
 
         test("overlapping multipolygons become single cross",
                 "POLYGON ((3 1, 4 1, 4 3, 6 3, 6 4, 4 4, 4 6, 3 6, 3 4, 1 4, 1 3, 3 3, 3 1))",
@@ -283,15 +295,18 @@ public class TestGeometryUnionGeoAggregation
 
         test("square with a line crossed becomes geometry collection",
                 "GEOMETRYCOLLECTION (MULTILINESTRING ((0 2, 1 2), (3 2, 5 2)), POLYGON ((1 1, 3 1, 3 2, 3 3, 1 3, 1 2, 1 1)))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 2, 5 2)");
 
         test("square with adjacent line becomes geometry collection",
                 "GEOMETRYCOLLECTION (LINESTRING (0 5, 5 5), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 5, 5 5)");
 
         test("square with adjacent point becomes geometry collection",
                 "GEOMETRYCOLLECTION (POINT (5 2), POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1)))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "POINT (5 2)");
     }
 
     private void test(String testDescription, String expectedWkt, String... wkts)
@@ -324,13 +339,15 @@ public class TestGeometryUnionGeoAggregation
     public void testSridMismatchInAggregation()
     {
         // geometry_union (array version) should throw when geometries have mismatched SRIDs
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_union",
-                        "ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 3857)]").evaluate())
+        assertTrinoExceptionThrownBy(() -> assertions.function(
+                "geometry_union",
+                "ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 3857)]").evaluate())
                 .hasMessage("SRID mismatch: 4326 vs 3857");
 
         // Matching SRIDs should preserve SRID
-        assertThat(assertions.function("ST_SRID",
-                        "geometry_union(ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 4326)])"))
+        assertThat(assertions.function(
+                "ST_SRID",
+                "geometry_union(ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 4326)])"))
                 .isEqualTo(4326);
     }
 

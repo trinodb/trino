@@ -220,7 +220,9 @@ public class PinotSegmentPageSource
                     PINOT_UNSUPPORTED_COLUMN_TYPE,
                     format(
                             "Failed to write column %s. pinotColumnType %s, javaType %s",
-                            columnHandles.get(columnIdx).getColumnName(), pinotColumnType, javaType));
+                            columnHandles.get(columnIdx).getColumnName(),
+                            pinotColumnType,
+                            javaType));
         }
     }
 

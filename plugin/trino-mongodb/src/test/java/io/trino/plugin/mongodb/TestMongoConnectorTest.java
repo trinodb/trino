@@ -139,7 +139,7 @@ public class TestMongoConnectorTest
         assertThat(query("SHOW COLUMNS FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
+                        "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
 
         assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
                 .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
@@ -852,7 +852,8 @@ public class TestMongoConnectorTest
         String listMapToVarcharTable = "test_list_map_to_varchar" + randomNameSuffix();
         assertUpdate("CREATE TABLE test." + listMapToVarcharTable + " (col VARCHAR)");
         client.getDatabase("test").getCollection(listMapToVarcharTable).insertOne(new Document(
-                ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
+                ImmutableMap.of("col", ImmutableList.of(
+                        new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
         assertQuery("SELECT col FROM test." + listMapToVarcharTable, "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
         assertUpdate("DROP TABLE test." + listMapToVarcharTable);
@@ -1159,7 +1160,7 @@ public class TestMongoConnectorTest
                 "Only lowercase database name is supported");
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
-                 "Only lowercase collection name is supported");
+                "Only lowercase collection name is supported");
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",

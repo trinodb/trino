@@ -302,7 +302,9 @@ public class CassandraSession
                     throw new TrinoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
-                                    caseInsensitiveSchemaName, result.getName(), keyspace.getName()));
+                                    caseInsensitiveSchemaName,
+                                    result.getName(),
+                                    keyspace.getName()));
                 }
                 result = keyspace;
             }
@@ -333,7 +335,8 @@ public class CassandraSession
         throw new TrinoException(
                 NOT_SUPPORTED,
                 format("More than one table has been found for the case insensitive table name: %s -> (%s)",
-                        caseInsensitiveTableName, tableNames));
+                        caseInsensitiveTableName,
+                        tableNames));
     }
 
     public boolean isMaterializedView(SchemaTableName schemaTableName)
@@ -351,7 +354,9 @@ public class CassandraSession
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
+                                lowercaseName,
+                                lowercaseNameToColumnMap.get(lowercaseName).getName(),
+                                column.getName()));
             }
             lowercaseNameToColumnMap.put(lowercaseName, column);
         }

@@ -57,7 +57,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p -> {
                     Symbol b = p.symbol("b", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(),
                             p.values(b),
                             containsCall(geometryFromTextCall("POLYGON ..."), b.toSymbolReference()));
@@ -87,7 +88,8 @@ public class TestExtractSpatialLeftJoin
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
                     Symbol name2 = p.symbol("name_2", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt, name1),
                             p.values(point, name2),
                             not(FUNCTIONS.getMetadata(), containsCall(geometryFromTextCall(wkt), point.toSymbolReference())));
@@ -102,7 +104,8 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(a),
                             p.values(b),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            new Comparison(
+                                    Comparison.Operator.GREATER_THAN,
                                     distanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -116,7 +119,8 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(a),
                             p.values(b),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            new Comparison(
+                                    Comparison.Operator.GREATER_THAN,
                                     sphericalDistanceCall(a.toSymbolReference(), b.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -130,7 +134,8 @@ public class TestExtractSpatialLeftJoin
                     return p.join(LEFT,
                             p.values(wkt),
                             p.values(point),
-                            new Comparison(Comparison.Operator.GREATER_THAN,
+                            new Comparison(
+                                    Comparison.Operator.GREATER_THAN,
                                     sphericalDistanceCall(toSphericalGeographyCall(wkt), point.toSymbolReference()),
                                     new Constant(DOUBLE, 5.0)));
                 })
@@ -145,7 +150,8 @@ public class TestExtractSpatialLeftJoin
                 .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(a),
                             p.values(b),
                             containsCall(a.toSymbolReference(), b.toSymbolReference()));
@@ -204,7 +210,8 @@ public class TestExtractSpatialLeftJoin
                 .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(point),
                             containsCall(geometryFromTextCall(wkt), point.toSymbolReference()));
@@ -219,7 +226,8 @@ public class TestExtractSpatialLeftJoin
         assertRuleApplication()
                 .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(),
                             containsCall(geometryFromTextCall(wkt), toPointCall(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0))));
@@ -235,7 +243,8 @@ public class TestExtractSpatialLeftJoin
                     Symbol polygon = p.symbol("polygon", GEOMETRY);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(polygon),
                             p.values(lat, lng),
                             containsCall(polygon.toSymbolReference(), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -251,7 +260,8 @@ public class TestExtractSpatialLeftJoin
                 .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(),
                             p.values(lat, lng),
                             containsCall(geometryFromTextCall("POLYGON ..."), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -267,7 +277,8 @@ public class TestExtractSpatialLeftJoin
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(wkt),
                             p.values(lat, lng),
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));
@@ -289,7 +300,8 @@ public class TestExtractSpatialLeftJoin
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     Symbol wkt = p.symbol("wkt", VARCHAR);
-                    return p.join(LEFT,
+                    return p.join(
+                            LEFT,
                             p.values(lat, lng),
                             p.values(wkt),
                             containsCall(geometryFromTextCall(wkt), toPointCall(lng.toSymbolReference(), lat.toSymbolReference())));

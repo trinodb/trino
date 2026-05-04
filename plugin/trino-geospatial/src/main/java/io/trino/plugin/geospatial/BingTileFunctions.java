@@ -237,7 +237,9 @@ public final class BingTileFunctions
         int totalTileCount = tileCountX * tileCountY;
         checkCondition(totalTileCount <= 1_000_000,
                 "The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: %d. Radius: %.1f km. Zoom level: %d.",
-                totalTileCount, radiusInKm, zoomLevel);
+                totalTileCount,
+                radiusInKm,
+                zoomLevel);
 
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(totalTileCount);
 
@@ -423,9 +425,15 @@ public final class BingTileFunctions
     private static void checkGeometryToBingTilesLimits(Geometry geometry, Envelope envelope, boolean pointOrRectangle, long tileCount, int zoomLevel)
     {
         if (pointOrRectangle) {
-            checkCondition(tileCount <= 1_000_000, "The number of tiles covering input rectangle exceeds the limit of 1M. " +
+            checkCondition(tileCount <= 1_000_000,
+                    "The number of tiles covering input rectangle exceeds the limit of 1M. " +
                             "Number of tiles: %d. Rectangle: xMin=%.2f, yMin=%.2f, xMax=%.2f, yMax=%.2f. Zoom level: %d.",
-                    tileCount, envelope.getMinX(), envelope.getMinY(), envelope.getMaxX(), envelope.getMaxY(), zoomLevel);
+                    tileCount,
+                    envelope.getMinX(),
+                    envelope.getMinY(),
+                    envelope.getMaxX(),
+                    envelope.getMaxY(),
+                    zoomLevel);
         }
         else {
             checkCondition((int) tileCount == tileCount, "The zoom level is too high to compute a set of covering Bing tiles.");

@@ -732,7 +732,8 @@ public class BigQueryMetadata
 
             String columns = columnNames.stream().map(BigQueryUtil::quote).collect(Collectors.joining(", "));
 
-            String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
+            String insertSql = format(
+                    "INSERT INTO %s (%s) SELECT %s FROM %s temp_table " +
                             "WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
                     quoted(targetTable),
                     columns,

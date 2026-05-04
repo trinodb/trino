@@ -262,7 +262,8 @@ public final class DynamicTableBuilder
             aggregationTypesBuilder.put(
                     // ExpressionContext#toString performs quoting of literals
                     // Quoting of identifiers is not done to match the corresponding column name in the ResultTable returned from Pinot. Quoting will be done by `DynamicTablePqlExtractor`.
-                    rewriteExpression(schemaTableName,
+                    rewriteExpression(
+                            schemaTableName,
                             aggregateColumnExpressions.get(index),
                             columnHandles).toString(),
                     new PinotColumnNameAndTrinoType(

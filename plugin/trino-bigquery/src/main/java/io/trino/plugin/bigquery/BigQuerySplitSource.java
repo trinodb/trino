@@ -77,7 +77,8 @@ public class BigQuerySplitSource
     private List<BigQuerySplit> splits;
     private int offset;
 
-    public BigQuerySplitSource(ConnectorSession session,
+    public BigQuerySplitSource(
+            ConnectorSession session,
             BigQueryTableHandle table,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,

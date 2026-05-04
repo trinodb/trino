@@ -204,8 +204,7 @@ public class TestDynamicTable
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         PinotColumnHandle columnHandle = new PinotColumnHandle("OriginCityName", VARCHAR);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columnHandle,
-                Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
+                columnHandle, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, Slices.utf8Slice("Catfish Paradise"))), false)));
         String expectedPql =
                 """
                 SELECT "FlightNum"\

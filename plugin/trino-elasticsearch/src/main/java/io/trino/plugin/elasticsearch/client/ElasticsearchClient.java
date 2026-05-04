@@ -506,7 +506,8 @@ public class ElasticsearchClient
             // this route, as it will likely lead to confusion in dealing with array syntax in Trino and potentially nested array and other
             // syntax when parsing the raw json.
             if (isArray && asRawJson) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_METADATA,
+                throw new TrinoException(
+                        ELASTICSEARCH_INVALID_METADATA,
                         format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
             }
 

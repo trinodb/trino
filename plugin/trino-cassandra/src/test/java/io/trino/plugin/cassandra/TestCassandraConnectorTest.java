@@ -445,7 +445,8 @@ public class TestCassandraConnectorTest
             String sql = format(
                     "SELECT * " +
                             "FROM %s " +
-                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'", testCassandraTable.getTableName());
+                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'",
+                    testCassandraTable.getTableName());
             MaterializedResult result = computeActual(sql);
 
             assertThat(result.getRowCount()).isEqualTo(1);
@@ -1428,51 +1429,53 @@ public class TestCassandraConnectorTest
             // TODO Following types are not supported now. We need to change null into the value after fixing it
             // blob, frozen<set<type>>, list<type>, map<type,type>, set<type>, decimal, varint
             // timestamp can be inserted but the expected and actual values are not same
-            assertUpdate("INSERT INTO " + testCassandraTable.getTableName() + " (" +
-                    "key," +
-                    "typeuuid," +
-                    "typeinteger," +
-                    "typelong," +
-                    "typebytes," +
-                    "typetimestamp," +
-                    "typeansi," +
-                    "typeboolean," +
-                    "typedecimal," +
-                    "typedouble," +
-                    "typefloat," +
-                    "typeinet," +
-                    "typevarchar," +
-                    "typevarint," +
-                    "typetimeuuid," +
-                    "typelist," +
-                    "typemap," +
-                    "typeset" +
-                    ") VALUES (" +
-                    "'key1', " +
-                    "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
-                    "1, " +
-                    "1000, " +
-                    "null, " +
-                    "timestamp '1970-01-01 08:34:05.0Z', " +
-                    "'ansi1', " +
-                    "true, " +
-                    "null, " +
-                    "0.3, " +
-                    "cast('0.4' as real), " +
-                    "IPADDRESS '10.10.10.1', " +
-                    "'varchar1', " +
-                    "null, " +
-                    "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
-                    "null, " +
-                    "null, " +
-                    "null " +
-                    ")",
+            assertUpdate(
+                    "INSERT INTO " + testCassandraTable.getTableName() + " (" +
+                            "key," +
+                            "typeuuid," +
+                            "typeinteger," +
+                            "typelong," +
+                            "typebytes," +
+                            "typetimestamp," +
+                            "typeansi," +
+                            "typeboolean," +
+                            "typedecimal," +
+                            "typedouble," +
+                            "typefloat," +
+                            "typeinet," +
+                            "typevarchar," +
+                            "typevarint," +
+                            "typetimeuuid," +
+                            "typelist," +
+                            "typemap," +
+                            "typeset" +
+                            ") VALUES (" +
+                            "'key1', " +
+                            "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
+                            "1, " +
+                            "1000, " +
+                            "null, " +
+                            "timestamp '1970-01-01 08:34:05.0Z', " +
+                            "'ansi1', " +
+                            "true, " +
+                            "null, " +
+                            "0.3, " +
+                            "cast('0.4' as real), " +
+                            "IPADDRESS '10.10.10.1', " +
+                            "'varchar1', " +
+                            "null, " +
+                            "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
+                            "null, " +
+                            "null, " +
+                            "null " +
+                            ")",
                     1);
 
             MaterializedResult result = computeActual(sql);
             int rowCount = result.getRowCount();
             assertThat(rowCount).isEqualTo(1);
-            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(
+                    DEFAULT_PRECISION,
                     "key1",
                     java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59"),
                     1,
@@ -1493,12 +1496,13 @@ public class TestCassandraConnectorTest
                     null));
 
             // insert null for all datatypes
-            assertUpdate("INSERT INTO " + testCassandraTable.getTableName() + " (" +
-                    "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
-                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                    ") VALUES (" +
-                    "'key2', null, null, null, null, null, null, null, null," +
-                    "null, null, null, null, null, null, null, null, null)",
+            assertUpdate(
+                    "INSERT INTO " + testCassandraTable.getTableName() + " (" +
+                            "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
+                            "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                            ") VALUES (" +
+                            "'key2', null, null, null, null, null, null, null, null," +
+                            "null, null, null, null, null, null, null, null, null)",
                     1);
             sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                     "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
@@ -1506,8 +1510,26 @@ public class TestCassandraConnectorTest
             result = computeActual(sql);
             rowCount = result.getRowCount();
             assertThat(rowCount).isEqualTo(1);
-            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
-                    "key2", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(
+                    DEFAULT_PRECISION,
+                    "key2",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
 
             // insert into only a subset of columns
             assertUpdate("INSERT INTO " + testCassandraTable.getTableName() + " (" +
@@ -1519,8 +1541,26 @@ public class TestCassandraConnectorTest
             result = computeActual(sql);
             rowCount = result.getRowCount();
             assertThat(rowCount).isEqualTo(1);
-            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
-                    "key3", null, 999, null, null, null, "ansi", false, null, null, null, null, null, null, null, null, null, null));
+            assertThat(result.getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(
+                    DEFAULT_PRECISION,
+                    "key3",
+                    null,
+                    999,
+                    null,
+                    null,
+                    null,
+                    "ansi",
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
         }
     }
 
@@ -1845,7 +1885,8 @@ public class TestCassandraConnectorTest
     @Test
     public void testNationJoinNation()
     {
-        assertQuery("SELECT n1.name, n2.regionkey " +
+        assertQuery(
+                "SELECT n1.name, n2.regionkey " +
                         "FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.regionkey " +
                         "WHERE n1.nationkey = 3",
                 "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
@@ -1854,7 +1895,8 @@ public class TestCassandraConnectorTest
     @Test
     public void testNationJoinRegion()
     {
-        assertQuery("SELECT c.name, t.name " +
+        assertQuery(
+                "SELECT c.name, t.name " +
                         "FROM nation c JOIN tpch.tiny.region t ON c.regionkey = t.regionkey " +
                         "WHERE c.nationkey = 3",
                 "VALUES ('CANADA', 'AMERICA')");
@@ -1912,7 +1954,8 @@ public class TestCassandraConnectorTest
                 .collect(toList());
 
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
-            assertThat(sortedRows.get(rowNumber - 1)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+            assertThat(sortedRows.get(rowNumber - 1)).isEqualTo(new MaterializedRow(
+                    DEFAULT_PRECISION,
                     "key " + rowNumber,
                     java.util.UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)),
                     rowNumber,

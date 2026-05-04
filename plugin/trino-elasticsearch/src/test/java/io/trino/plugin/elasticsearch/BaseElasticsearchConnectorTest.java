@@ -173,7 +173,8 @@ public abstract class BaseElasticsearchConnectorTest
 
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey::bigint", "::\\s\\[\\[42\\]\\]");
+                "nationkey::bigint",
+                "::\\s\\[\\[42\\]\\]");
     }
 
     @Test
@@ -1055,18 +1056,18 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
-                                ImmutableMap.of("c",
-                                        "value1"))));
+                                ImmutableMap.of(
+                                        "c", "value1"))));
 
         index(indexName,
                 ImmutableMap.of("a.b",
-                        ImmutableMap.of("c",
-                                "value2")));
+                        ImmutableMap.of(
+                                "c", "value2")));
 
         index(indexName,
                 ImmutableMap.of("a",
-                        ImmutableMap.of("b.c",
-                                "value3")));
+                        ImmutableMap.of(
+                                "b.c", "value3")));
 
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
@@ -1763,8 +1764,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, properties);
 
         index(indexName, ImmutableMap.of(
-                "field",
-                ImmutableMap.<String, Object>builder()
+                "field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1796,8 +1796,17 @@ public abstract class BaseElasticsearchConnectorTest
                 """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -1837,8 +1846,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.of(
-                "nested_field",
-                ImmutableMap.<String, Object>builder()
+                "nested_field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1870,8 +1878,17 @@ public abstract class BaseElasticsearchConnectorTest
                 """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -2025,10 +2042,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select single record
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
                 .matches("VALUES VARCHAR '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // parameters
@@ -2042,10 +2059,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select multiple records by range. Use array wrapper to wrap multiple results
         assertThat(query("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
                 .matches("VALUES CAST(ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA'] AS ARRAY(VARCHAR))");
 
         // use aggregations
@@ -2076,10 +2093,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // no matches
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
                 .matches("VALUES VARCHAR '[]'");
 
         // syntax error

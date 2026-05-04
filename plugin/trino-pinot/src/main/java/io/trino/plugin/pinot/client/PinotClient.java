@@ -557,7 +557,10 @@ public class PinotClient
 
             ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
-            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
+            BrokerResponseNative response = doHttpActionWithHeadersJson(
+                    builder,
+                    Optional.of(queryRequest),
+                    brokerResponseCodec,
                     additionalHeadersBuilder.build());
 
             if (response.getExceptionsSize() > 0 && !response.getExceptions().isEmpty()) {
