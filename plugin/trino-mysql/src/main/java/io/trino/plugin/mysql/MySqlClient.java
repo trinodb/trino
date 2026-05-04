@@ -614,9 +614,9 @@ public class MySqlClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        mySqlDateWriteFunctionUsingLocalDate()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    mySqlDateWriteFunctionUsingLocalDate()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));

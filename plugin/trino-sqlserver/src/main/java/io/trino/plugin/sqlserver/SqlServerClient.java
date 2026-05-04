@@ -653,9 +653,9 @@ public class SqlServerClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        sqlServerDateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    sqlServerDateWriteFunction()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());

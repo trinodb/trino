@@ -1920,18 +1920,18 @@ public class TestMongoConnectorTest
     {
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer",
-                    "bigint -> smallint",
-                    "bigint -> tinyint",
-                    "decimal(5,3) -> decimal(5,2)",
-                    "time(3) -> time(6)",
-                    "time(6) -> time(3)",
-                    "timestamp(3) -> timestamp(6)",
-                    "timestamp(6) -> timestamp(3)",
-                    "timestamp(3) with time zone -> timestamp(6) with time zone",
-                    "timestamp(6) with time zone -> timestamp(3) with time zone",
-                    "map(integer, varchar) -> map(bigint, varchar)",
-                    "map(varchar, integer) -> map(varchar, bigint)",
-                    "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "time(3) -> time(6)",
+                 "time(6) -> time(3)",
+                 "timestamp(3) -> timestamp(6)",
+                 "timestamp(6) -> timestamp(3)",
+                 "timestamp(3) with time zone -> timestamp(6) with time zone",
+                 "timestamp(6) with time zone -> timestamp(3) with time zone",
+                 "map(integer, varchar) -> map(bigint, varchar)",
+                 "map(varchar, integer) -> map(varchar, bigint)",
+                 "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
             default -> Optional.of(setup);
         };
     }

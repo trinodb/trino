@@ -685,19 +685,19 @@ public class RedshiftClient
             }
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        RedshiftClient::readDate,
-                        RedshiftClient::writeDate));
+                    DATE,
+                    RedshiftClient::readDate,
+                    RedshiftClient::writeDate));
 
             case Types.TIMESTAMP -> Optional.of(ColumnMapping.longMapping(
-                        TIMESTAMP_MICROS,
-                        RedshiftClient::readTimestamp,
-                        RedshiftClient::writeShortTimestamp));
+                    TIMESTAMP_MICROS,
+                    RedshiftClient::readTimestamp,
+                    RedshiftClient::writeShortTimestamp));
 
             case Types.TIMESTAMP_WITH_TIMEZONE -> Optional.of(ColumnMapping.objectMapping(
-                        TIMESTAMP_TZ_MICROS,
-                        longTimestampWithTimeZoneReadFunction(),
-                        longTimestampWithTimeZoneWriteFunction()));
+                    TIMESTAMP_TZ_MICROS,
+                    longTimestampWithTimeZoneReadFunction(),
+                    longTimestampWithTimeZoneWriteFunction()));
             default -> getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(type) : Optional.empty();
         };
     }

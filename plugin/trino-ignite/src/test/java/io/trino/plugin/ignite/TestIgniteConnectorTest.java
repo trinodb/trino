@@ -480,11 +480,11 @@ public class TestIgniteConnectorTest
             }
 
             case "time",
-                    "time(6)",
-                    "timestamp",
-                    "timestamp(6)",
-                    "timestamp(3) with time zone",
-                    "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+                 "time(6)",
+                 "timestamp",
+                 "timestamp(6)",
+                 "timestamp(3) with time zone",
+                 "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
             default -> Optional.of(dataMappingTestSetup);
         };
     }
