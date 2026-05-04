@@ -324,7 +324,7 @@ public class TestIcebergV2
             throws Exception
     {
         String tableDefinition = "AS SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
-                                 "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation";
+                "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation";
         try (TestTable table = newTrinoTable("test_v2_equality_delete_column_nested", tableDefinition)) {
             String tableName = table.getName();
             Table icebergTable = loadTable(tableName);
@@ -441,7 +441,8 @@ public class TestIcebergV2
     public void testMergePopulateSplitOffsets()
     {
         try (TestTable table = newTrinoTable("test_merge_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
-            assertUpdate("MERGE INTO " + table.getName() + " t " +
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
                             "USING " + table.getName() + " s " +
                             "ON t.nationkey = s.nationkey " +
                             "WHEN MATCHED THEN UPDATE SET name = CONCAT(t.name, '_updated')",
@@ -962,7 +963,8 @@ public class TestIcebergV2
     @Test
     public void testUnsettingAllTableProperties()
     {
-        try (TestTable testTable = newTrinoTable("test_unsetting_all_table_properties_",
+        try (TestTable testTable = newTrinoTable(
+                "test_unsetting_all_table_properties_",
                 "WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) AS SELECT * FROM tpch.tiny.nation")) {
             String tableName = testTable.getName();
             BaseTable table = loadTable(tableName);
@@ -1035,7 +1037,8 @@ public class TestIcebergV2
         String tableName = "test_deleting_entire_file_with_multiple_splits" + randomNameSuffix();
         assertUpdate(
                 Session.builder(getSession()).setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "5").build(),
-                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
+                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation",
+                25);
         // Set the split size to a small number of bytes so each ORC stripe gets its own split
         this.loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
 
@@ -1217,8 +1220,7 @@ public class TestIcebergV2
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
-                            Domain.singleValue(INTEGER, 10L))),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     ImmutableSet.of(),
                     newDirectExecutorService());
@@ -1231,8 +1233,7 @@ public class TestIcebergV2
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            column,
-                            Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
+                            column, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
                     newDirectExecutorService());
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
@@ -1283,8 +1284,7 @@ public class TestIcebergV2
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(),
-                            Domain.singleValue(INTEGER, 10L))),
+                            IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(2, "b")).columnType(INTEGER).build(), Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
                     newDirectExecutorService());
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
@@ -1391,17 +1391,17 @@ public class TestIcebergV2
 
             assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
                     "VALUES ('name', 'varchar', '', '')," +
-                    "('type', 'varchar', '', '')," +
-                    "('snapshot_id', 'bigint', '', '')," +
-                    "('max_reference_age_in_ms', 'bigint', '', '')," +
-                    "('min_snapshots_to_keep', 'integer', '', '')," +
-                    "('max_snapshot_age_in_ms', 'bigint', '', '')");
+                            "('type', 'varchar', '', '')," +
+                            "('snapshot_id', 'bigint', '', '')," +
+                            "('max_reference_age_in_ms', 'bigint', '', '')," +
+                            "('min_snapshots_to_keep', 'integer', '', '')," +
+                            "('max_snapshot_age_in_ms', 'bigint', '', '')");
 
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
-                    "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
-                    "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
-                    "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
+                            "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
+                            "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
+                            "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
         }
     }
 
@@ -1418,8 +1418,8 @@ public class TestIcebergV2
                     .commit();
             assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
                     "VALUES ('test-tag', 'TAG', " + refSnapshotId + ", null, null, null)," +
-                    "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
-                    "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
+                            "('test-branch', 'BRANCH', " + refSnapshotId + ", null, null, null)," +
+                            "('main', 'BRANCH', " + refSnapshotId + ", null, null, null)");
 
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
             assertQuery("SELECT * FROM " + tableName + " FOR VERSION AS OF " + refSnapshotId,
@@ -1443,17 +1443,17 @@ public class TestIcebergV2
             String tableName = table.getName();
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('Patna'), ROW('BH')), " +
-                    "(2, ROW('Patna'), ROW('BH')), " +
-                    "(3, ROW('Bengaluru'), ROW('KA')), " +
-                    "(4, ROW('Bengaluru'), ROW('KA'))",
+                            "(1, ROW('Patna'), ROW('BH')), " +
+                            "(2, ROW('Patna'), ROW('BH')), " +
+                            "(3, ROW('Bengaluru'), ROW('KA')), " +
+                            "(4, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(5, ROW('Patna'), ROW('BH')), " +
-                    "(6, ROW('Patna'), ROW('BH')), " +
-                    "(7, ROW('Bengaluru'), ROW('KA')), " +
-                    "(8, ROW('Bengaluru'), ROW('KA'))",
+                            "(5, ROW('Patna'), ROW('BH')), " +
+                            "(6, ROW('Patna'), ROW('BH')), " +
+                            "(7, ROW('Bengaluru'), ROW('KA')), " +
+                            "(8, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
@@ -1467,10 +1467,10 @@ public class TestIcebergV2
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(9, ROW('Patna'), ROW('BH')), " +
-                    "(10, ROW('Bengaluru'), ROW('BH')), " +
-                    "(11, ROW('Bengaluru'), ROW('KA')), " +
-                    "(12, ROW('Bengaluru'), ROW('KA'))",
+                            "(9, ROW('Patna'), ROW('BH')), " +
+                            "(10, ROW('Bengaluru'), ROW('BH')), " +
+                            "(11, ROW('Bengaluru'), ROW('KA')), " +
+                            "(12, ROW('Bengaluru'), ROW('KA'))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
 
@@ -1494,22 +1494,22 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])")) {
+                        " WITH (partitioning = ARRAY['\"country.state.district.name\"'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
@@ -1525,10 +1525,10 @@ public class TestIcebergV2
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
-                    "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
-                    "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
+                            "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                            "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
@@ -1553,15 +1553,15 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])")) {
+                        " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
-                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                    "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
+                            "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                            "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
@@ -1586,15 +1586,15 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_highly_nested_field_partitioning_with_transform_cleanup_",
                 "(id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
-                " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])")) {
+                        " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])")) {
             String tableName = table.getName();
 
             assertUpdate(
                     "INSERT INTO " + tableName + " VALUES " +
-                    "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
-                    "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
-                    "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
-                    "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                            "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                            "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
+                            "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                            "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
                     4);
 
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
@@ -1642,8 +1642,8 @@ public class TestIcebergV2
         SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
 
         List<Types.NestedField> fields = IntStream.rangeClosed(1, 10000)
-            .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
-            .collect(toImmutableList());
+                .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
+                .collect(toImmutableList());
 
         Types.NestedField column = Types.NestedField.optional(10001, "row_col", Types.StructType.of(fields));
 

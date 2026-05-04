@@ -550,8 +550,10 @@ public abstract class BaseIcebergConnectorTest
     private void testSelectOrPartitionedByTimestamp(boolean partitioned)
     {
         String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
-        assertUpdate(format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
-                tableName, partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
+        assertUpdate(format(
+                "CREATE TABLE %s (_timestamp timestamp(6)) %s",
+                tableName,
+                partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
         @Language("SQL") String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
         @Language("SQL") String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
         @Language("SQL") String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
@@ -1550,7 +1552,8 @@ public abstract class BaseIcebergConnectorTest
                 SELECT v.*
                 FROM (VALUES %s, %s, %s) v
                 CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
-                """.formatted(tableName, values, highValues, lowValues), 30000);
+                """.formatted(tableName, values, highValues, lowValues),
+                30000);
 
         computeActual("SELECT sort_order_id from \"" + tableName + "$files\"")
                 .getOnlyColumn()
@@ -2115,7 +2118,8 @@ public abstract class BaseIcebergConnectorTest
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
-        assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
+        assertQueryFails(
+                "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
                 "Cannot create a table on a non-empty location.*");
 
         assertQueryFails(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat),
@@ -4432,7 +4436,8 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_predicate_with_structural_types";
         assertUpdate("CREATE TABLE " + tableName + " (id INT, array_t ARRAY(BIGINT), map_t MAP(BIGINT, BIGINT), struct_t ROW(f1 BIGINT, f2 BIGINT))");
-        assertUpdate("INSERT INTO " + tableName + " VALUES " +
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
                         "(1, ARRAY[1, 2, 3], MAP(ARRAY[1,3], ARRAY[2,4]), ROW(1, 2)), " +
                         "(11, ARRAY[11, 12, 13], MAP(ARRAY[11, 13], ARRAY[12, 14]), ROW(11, 12)), " +
                         "(11, ARRAY[111, 112, 113], MAP(ARRAY[111, 13], ARRAY[112, 114]), ROW(111, 112)), " +
@@ -5737,7 +5742,8 @@ public abstract class BaseIcebergConnectorTest
 
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
             assertUpdate(
-                    withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    withSingleWriterPerTask(getSession()),
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
                     "VALUES ('rewritten_data_files_count', 5), ('removed_delete_files_count', 0), ('added_data_files_count', 1)");
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
@@ -5944,7 +5950,8 @@ public abstract class BaseIcebergConnectorTest
 
         // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertUpdate(
-                withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                withSingleWriterPerTask(getSession()),
+                "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
                 "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
 
         List<String> updatedFiles = getActiveFiles(tableName);
@@ -7011,7 +7018,9 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
-        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+        assertExplain(
+                sessionWithIgnoreStatsCalculatorFailuresFalse,
+                "EXPLAIN ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
                 ".*Output layout:.*");
     }
 
@@ -7025,7 +7034,9 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
-        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ANALYZE ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+        assertExplain(
+                sessionWithIgnoreStatsCalculatorFailuresFalse,
+                "EXPLAIN ANALYZE ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
                 ".*Output layout:.*");
     }
 
@@ -8309,7 +8320,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(session,
+        assertUpdate(
+                session,
                 format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
@@ -8329,7 +8341,8 @@ public abstract class BaseIcebergConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
                 .collect(joining(", "));
 
-        assertUpdate(session,
+        assertUpdate(
+                session,
                 format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
@@ -8404,7 +8417,8 @@ public abstract class BaseIcebergConnectorTest
                 "    WHEN MATCHED THEN UPDATE SET address = s.address"))
                 .hasMessage("One MERGE target table row matched more than one source row");
 
-        assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        assertUpdate(
+                format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
@@ -9211,7 +9225,8 @@ public abstract class BaseIcebergConnectorTest
                     VALUES
                         (DATE '2023-01-01' , false, 2023),
                         (DATE '2023-01-02' , true, 2023),
-                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
+                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()),
+                    3);
             assertUpdate(
                     """
                     INSERT INTO %s
@@ -9225,7 +9240,8 @@ public abstract class BaseIcebergConnectorTest
                         (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
                         (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
                         (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
-                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
+                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()),
+                    10);
 
             String selectQuery =
                     """

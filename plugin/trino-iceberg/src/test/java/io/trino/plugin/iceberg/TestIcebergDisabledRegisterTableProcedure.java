@@ -31,7 +31,8 @@ public class TestIcebergDisabledRegisterTableProcedure
     @Test
     public void testDisabledRegisterTableProcedure()
     {
-        assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, 'test_table', '/var/test/location/test_table/')",
+        assertQueryFails(
+                "CALL iceberg.system.register_table (CURRENT_SCHEMA, 'test_table', '/var/test/location/test_table/')",
                 "register_table procedure is disabled");
     }
 }
