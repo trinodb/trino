@@ -547,110 +547,93 @@ public class MySqlClient
             return mapping;
         }
 
-        switch (jdbcTypeName.toLowerCase(ENGLISH)) {
-            case "tinyint unsigned":
-                return Optional.of(smallintColumnMapping());
-            case "smallint unsigned":
-                return Optional.of(integerColumnMapping());
-            case "int unsigned":
-                return Optional.of(bigintColumnMapping());
-            case "bigint unsigned":
-                return Optional.of(decimalColumnMapping(createDecimalType(20)));
-            case "json":
-                return Optional.of(jsonColumnMapping());
-            case "enum":
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
-            case "datetime":
-                return mysqlDateTimeToTrinoTimestamp(typeHandle);
+        Optional<ColumnMapping> jdbcTypeNameMapping = switch (jdbcTypeName.toLowerCase(ENGLISH)) {
+            case "tinyint unsigned" -> Optional.of(smallintColumnMapping());
+            case "smallint unsigned" -> Optional.of(integerColumnMapping());
+            case "int unsigned" -> Optional.of(bigintColumnMapping());
+            case "bigint unsigned" -> Optional.of(decimalColumnMapping(createDecimalType(20)));
+            case "json" -> Optional.of(jsonColumnMapping());
+            case "enum" -> Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+            case "datetime" -> mysqlDateTimeToTrinoTimestamp(typeHandle);
+            default -> Optional.empty();
+        };
+        if (jdbcTypeNameMapping.isPresent()) {
+            return jdbcTypeNameMapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
+        Optional<ColumnMapping> jdbcTypeMapping = switch (typeHandle.jdbcType()) {
+            case Types.BIT -> {
                 if (typeHandle.requiredColumnSize() == 1) {
-                    return Optional.of(booleanColumnMapping());
+                    yield Optional.of(booleanColumnMapping());
                 }
-                break;
+                yield Optional.empty();
+            }
 
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
 
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
 
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
 
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL:
+            case Types.REAL ->
                 // Disable pushdown because floating-point values are approximate and not stored as exact values,
                 // attempts to treat them as exact in comparisons may lead to problems
-                return Optional.of(ColumnMapping.longMapping(
+                Optional.of(ColumnMapping.longMapping(
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                         realWriteFunction(),
                         DISABLE_PUSHDOWN));
 
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
-            case Types.NUMERIC:
-            case Types.DECIMAL:
+            case Types.NUMERIC, Types.DECIMAL -> {
                 int decimalDigits = typeHandle.decimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 int precision = typeHandle.requiredColumnSize();
                 // TODO does mysql support negative scale?
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision <= Decimals.MAX_PRECISION) {
-                    return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                    yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
                 }
                 // precision > MAX_PRECISION
-                switch (getDecimalRounding(session)) {
-                    case MAP_TO_NUMBER -> {
-                        return Optional.of(numberColumnMapping());
-                    }
-                    case STRICT -> {
-                        // skipped (unhandled type)
-                    }
+                yield switch (getDecimalRounding(session)) {
+                    case MAP_TO_NUMBER -> Optional.of(numberColumnMapping());
+                    case STRICT -> Optional.empty();
                     case ALLOW_OVERFLOW -> {
                         int scale = min(max(decimalDigits, 0), getDecimalDefaultScale(session));
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                        yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                     }
-                }
-                break;
+                };
+            }
 
-            case Types.CHAR:
-                return Optional.of(mySqlDefaultCharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
+            case Types.CHAR -> Optional.of(mySqlDefaultCharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
 
             // TODO not all these type constants are necessarily used by the JDBC driver
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(mySqlDefaultVarcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
+            case Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR -> Optional.of(mySqlDefaultVarcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
 
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
 
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
                         DATE,
                         dateReadFunctionUsingLocalDate(),
                         mySqlDateWriteFunctionUsingLocalDate()));
 
-            case Types.TIME:
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 requireNonNull(timeType, "timeType is null");
                 checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(ColumnMapping.longMapping(
                         timeType,
                         mySqlTimeReadFunction(timeType),
                         timeWriteFunction(timeType.getPrecision())));
+            }
 
-            case Types.TIMESTAMP:
-                return mysqlTimestampToTrinoTimestampWithTz(typeHandle);
+            case Types.TIMESTAMP -> mysqlTimestampToTrinoTimestampWithTz(typeHandle);
+            default -> Optional.empty();
+        };
+        if (jdbcTypeMapping.isPresent()) {
+            return jdbcTypeMapping;
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

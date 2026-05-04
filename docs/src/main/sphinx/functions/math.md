@@ -9,7 +9,7 @@
 | `-`      | Subtraction                                     |
 | `*`      | Multiplication                                  |
 | `/`      | Division (integer division performs truncation) |
-| `%`      | Modulus (remainder)                             |
+| `%`      | Modulo (remainder)                              |
 
 ## Mathematical functions
 
@@ -62,7 +62,7 @@ Returns the base 10 logarithm of `x`.
 :::
 
 :::{function} mod(n, m) -> [same as input]
-Returns the modulus (remainder) of `n` divided by `m`.
+Returns the modulo (remainder) of `n` divided by `m`.
 :::
 
 :::{function} pi() -> double

@@ -95,7 +95,7 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -125,7 +125,7 @@ public class TestFileSingleStreamSpillerFactory
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         int numberOfSpills = 10;
         for (int i = 0; i < numberOfSpills; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -153,7 +153,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths, 0.0);
 
-        assertThatThrownBy(() -> spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
+        assertThatThrownBy(() -> spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("No free or healthy space available for spill");
     }
@@ -165,7 +165,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        assertThatThrownBy(() -> spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
+        assertThatThrownBy(() -> spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("No spill paths configured");
     }
@@ -210,11 +210,11 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
 
-        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
         getUnchecked(singleStreamSpiller.spill(page));
         spillers.add(singleStreamSpiller);
 
-        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
         // Set second spiller path to read-only after initialization to emulate a disk failing during runtime
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
 
@@ -249,11 +249,11 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
 
-        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
         getUnchecked(singleStreamSpiller.spill(page));
         spillers.add(singleStreamSpiller);
 
-        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, _ -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
         getUnchecked(singleStreamSpiller2.spill(page));
         spillers.add(singleStreamSpiller2);
 

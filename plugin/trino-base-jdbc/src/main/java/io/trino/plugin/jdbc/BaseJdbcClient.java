@@ -617,7 +617,7 @@ public abstract class BaseJdbcClient
         return Optional.of(ColumnMapping.sliceMapping(
                 unboundedVarcharType,
                 varcharReadFunction(unboundedVarcharType),
-                (statement, index, value) -> {
+                (_, _, _) -> {
                     throw new TrinoException(
                             NOT_SUPPORTED,
                             "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.jdbcTypeName().get());

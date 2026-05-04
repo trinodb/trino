@@ -68,10 +68,10 @@ public class TestFixedCountScheduler
     public void testSingleNode()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, _) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId(new StageId("test", 1), 1, 0),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {}))),
+                        new PartitionedSplitCountTracker(_ -> {}))),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -85,10 +85,10 @@ public class TestFixedCountScheduler
     public void testMultipleNodes()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, _) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId(new StageId("test", 1), 1, 0),
                         node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {}))),
+                        new PartitionedSplitCountTracker(_ -> {}))),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();

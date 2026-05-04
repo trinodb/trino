@@ -41,7 +41,7 @@ public class Timestamps
             1_000_000_000L,
             10_000_000_000L,
             100_000_000_000L,
-            1000_000_000_000L
+            1000_000_000_000L,
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1_000;

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
+import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -192,7 +192,7 @@ public class TestIcebergSplitSource
                 TESTING_TYPE_MANAGER,
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
-                new DefaultCachingHostAddressProvider(),
+                new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
                 newDirectExecutorService())) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
@@ -223,14 +223,14 @@ public class TestIcebergSplitSource
         IcebergTableHandle tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.all());
 
         IcebergSplit split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.all());
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.all());
 
         IcebergColumnHandle nationKey = IcebergColumnHandle.optional(new ColumnIdentity(1, "nationkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
                 .columnType(BIGINT)
                 .build();
         tableHandle = createTableHandle(schemaTableName, nationTable, TupleDomain.fromFixedValues(ImmutableMap.of(nationKey, NullableValue.of(BIGINT, 1L))));
         split = generateSplit(nationTable, tableHandle, DynamicFilter.EMPTY);
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
                 ImmutableMap.of(nationKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 24L, true)), false))));
 
         IcebergColumnHandle regionKey = IcebergColumnHandle.optional(new ColumnIdentity(3, "regionkey", ColumnIdentity.TypeCategory.PRIMITIVE, ImmutableList.of()))
@@ -268,7 +268,7 @@ public class TestIcebergSplitSource
                 return TupleDomain.all();
             }
         });
-        assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
+        assertThat(split.fileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         nationKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 24L, true)), false),
                         regionKey, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 4L, true)), false))));
@@ -418,7 +418,7 @@ public class TestIcebergSplitSource
                 TESTING_TYPE_MANAGER,
                 false,
                 0,
-                new DefaultCachingHostAddressProvider(),
+                new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
                 newDirectExecutorService())) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();

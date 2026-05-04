@@ -1782,7 +1782,7 @@ public class TestHiveTransactionalTable
         return new Object[][] {
                 {Engine.HIVE, Engine.TRINO},
                 {Engine.TRINO, Engine.TRINO},
-                {Engine.TRINO, Engine.HIVE}
+                {Engine.TRINO, Engine.HIVE},
         };
     }
 
@@ -1852,7 +1852,7 @@ public class TestHiveTransactionalTable
     @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS})
     public void testDoubleUpdateAndThenReadFromHive()
     {
-        withTemporaryTable("test_double_update", false, NONE, tableName -> {
+        withTemporaryTable("test_double_update", false, NONE, _ -> {
             onTrino().executeQuery(
                     "CREATE TABLE test_double_update ( " +
                             "column1 INT, " +

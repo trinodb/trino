@@ -102,28 +102,27 @@ public class BenchmarkCastTimestampToVarchar
 
             Type sourceType;
             switch (type) {
-                case "TIME":
+                case "TIME" -> {
                     TimeType timeType = TimeType.createTimeType(precision);
                     sourceType = timeType;
                     page = createTimePage(random, timeType);
-                    break;
-                case "TIME_WITH_TIME_ZONE":
+                }
+                case "TIME_WITH_TIME_ZONE" -> {
                     TimeWithTimeZoneType timeTzType = TimeWithTimeZoneType.createTimeWithTimeZoneType(precision);
                     sourceType = timeTzType;
                     page = createTimeTzPage(random, timeTzType);
-                    break;
-                case "TIMESTAMP":
+                }
+                case "TIMESTAMP" -> {
                     TimestampType timestampType = TimestampType.createTimestampType(precision);
                     sourceType = timestampType;
                     page = createTimestampPage(random, timestampType);
-                    break;
-                case "TIMESTAMP_WITH_TIME_ZONE":
+                }
+                case "TIMESTAMP_WITH_TIME_ZONE" -> {
                     TimestampWithTimeZoneType timestampTzType = TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision);
                     sourceType = timestampTzType;
                     page = createTimestampTzPage(random, timestampTzType);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + type);
+                }
+                default -> throw new IllegalArgumentException("Unsupported type: " + type);
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();

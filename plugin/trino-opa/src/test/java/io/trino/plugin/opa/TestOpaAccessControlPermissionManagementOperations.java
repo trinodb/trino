@@ -110,7 +110,7 @@ final class TestOpaAccessControlPermissionManagementOperations
 
     private static void testOperationAllowedOrDeniedByConfig(Consumer<OpaAccessControl> methodToTest)
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> null);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> null);
         OpaAccessControl permissiveAuthorizer = createAuthorizer(true, mockClient);
         OpaAccessControl restrictiveAuthorizer = createAuthorizer(false, mockClient);
 
@@ -123,7 +123,7 @@ final class TestOpaAccessControlPermissionManagementOperations
 
     private static void testOperationAlwaysAllowedRegardlessOfConfig(Consumer<OpaAccessControl> methodToTest)
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> null);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> null);
         OpaAccessControl permissiveAuthorizer = createAuthorizer(true, mockClient);
         OpaAccessControl restrictiveAuthorizer = createAuthorizer(false, mockClient);
         methodToTest.accept(permissiveAuthorizer);

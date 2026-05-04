@@ -419,7 +419,7 @@ class InMemoryGlueCache
             Supplier<V> loader)
     {
         if (expiresAfterWriteMillis.isEmpty()) {
-            return SafeCaches.emptyLoadingCache(CacheLoader.from(ignores -> loader.get()), true);
+            return SafeCaches.emptyLoadingCache(CacheLoader.from(_ -> loader.get()), true);
         }
 
         CacheLoader<? super K, V> cacheLoader = CacheLoader.from(loader::get);

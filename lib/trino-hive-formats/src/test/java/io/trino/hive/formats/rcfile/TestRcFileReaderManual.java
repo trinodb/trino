@@ -209,7 +209,7 @@ public class TestRcFileReaderManual
         // key section: column lengths uncompressed size
         output.writeByte(columnLengthsLength);
         // key section: column lengths
-        for (int ignored : shortValues) {
+        for (int _ : shortValues) {
             output.write(2);
         }
 

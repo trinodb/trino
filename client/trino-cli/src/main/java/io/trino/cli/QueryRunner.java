@@ -13,6 +13,7 @@
  */
 package io.trino.cli;
 
+import io.trino.client.ClientCapabilities;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.client.uri.HttpClientFactory;
@@ -20,17 +21,25 @@ import io.trino.client.uri.TrinoUri;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.client.UserAgentBuilder.createUserAgent;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class QueryRunner
         implements Closeable
 {
     private static final String USER_AGENT = createUserAgent("trino-cli");
+    private static final Set<String> CLIENT_CAPABILITIES = stream(ClientCapabilities.values())
+            .filter(capability -> capability != ClientCapabilities.VARIANT_BINARY)
+            .map(Enum::name)
+            .collect(toUnmodifiableSet());
 
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
@@ -78,7 +87,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return newStatementClient(httpClient, segmentHttpClient, session, query);
+        return newStatementClient(httpClient, segmentHttpClient, session, query, Optional.of(CLIENT_CAPABILITIES));
     }
 
     @Override

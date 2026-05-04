@@ -291,17 +291,18 @@ public class HashBuilderOperator
         }
 
         switch (state) {
-            case CONSUMING_INPUT:
+            case CONSUMING_INPUT -> {
                 finishInput();
                 return;
-
-            case LOOKUP_SOURCE_BUILT:
+            }
+            case LOOKUP_SOURCE_BUILT -> {
                 disposeLookupSourceIfRequested();
                 return;
-
-            case CLOSED:
+            }
+            case CLOSED -> {
                 // no-op
                 return;
+            }
         }
 
         throw new IllegalStateException("Unhandled state: " + state);

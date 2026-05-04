@@ -273,7 +273,7 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableList());
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTable;
         Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
-        String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.getSpecId());
+        String partitionSpecJson = tableHandle.getPartitionSpecJsons().get(split.specId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
         org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
                 .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
@@ -284,20 +284,20 @@ public class IcebergPageSourceProvider
                 icebergColumns,
                 schema,
                 partitionSpec,
-                PartitionData.fromBlocks(split.getPartitionValues(), partitionColumnTypes, typeManager),
-                split.getDeletes(),
+                PartitionData.fromBlocks(split.partitionValues(), partitionColumnTypes, typeManager),
+                split.deletes(),
                 dynamicFilter,
                 tableHandle.getUnenforcedPredicate(),
-                split.getFileStatisticsDomain(),
-                split.getPath(),
-                split.getStart(),
-                split.getLength(),
-                split.getFileSize(),
-                split.getFileRecordCount(),
-                split.getFileFormat(),
+                split.fileStatisticsDomain(),
+                split.path(),
+                split.start(),
+                split.length(),
+                split.fileSize(),
+                split.fileRecordCount(),
+                split.fileFormat(),
                 getFileIoProperties(connectorTableCredentials),
-                split.getDataSequenceNumber(),
-                split.getFileFirstRowId(),
+                split.dataSequenceNumber(),
+                split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
     }
 
@@ -438,7 +438,7 @@ public class IcebergPageSourceProvider
                 })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, ignored -> new DeleteManager(typeManager));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
@@ -1774,7 +1774,7 @@ public class IcebergPageSourceProvider
                     rowPosition,
                     RunLengthEncodedBlock.create(partitionSpecId, positionCount),
                     RunLengthEncodedBlock.create(partitionData, positionCount),
-                    sourceRowIdBlock
+                    sourceRowIdBlock,
             };
             return RowBlock.fromFieldBlocks(positionCount, fields);
         }

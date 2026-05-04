@@ -77,6 +77,20 @@ class TestInterfaceTestUtils
         InterfaceTestUtils.assertAllMethodsOverridden(AbstractClass.class, ImplementationOfAbstractClass.class);
     }
 
+    @Test
+    public void testReportNotOverriddenAbstractClassMethods()
+    {
+        // public methods
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(AbstractClass.class, ImplementationOfAbstractClassNotOverridingAPublicMethod.class))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$ImplementationOfAbstractClassNotOverridingAPublicMethod does not override [public void io.trino.testing.TestInterfaceTestUtils$AbstractClass.foo(java.lang.String)]");
+
+        // protected methods such as in a visitor
+        assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(AbstractClassWithProtectedMethod.class, ImplementationOfAbstractClassNotOverridingAProtectedMethod.class))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$ImplementationOfAbstractClassNotOverridingAProtectedMethod does not override [protected void io.trino.testing.TestInterfaceTestUtils$AbstractClassWithProtectedMethod.foo(java.lang.String)]");
+    }
+
     private abstract static class AbstractClass
     {
         public void foo(String unused) {}
@@ -88,6 +102,17 @@ class TestInterfaceTestUtils
         @Override
         public void foo(String unused) {}
     }
+
+    private static class ImplementationOfAbstractClassNotOverridingAPublicMethod
+            extends AbstractClass {}
+
+    private abstract static class AbstractClassWithProtectedMethod
+    {
+        protected void foo(String unused) {}
+    }
+
+    private static class ImplementationOfAbstractClassNotOverridingAProtectedMethod
+            extends AbstractClassWithProtectedMethod {}
 
     @Test
     public void testAssertProperForwardingMethodsAreCalledWithPrivateMethods()

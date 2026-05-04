@@ -32,6 +32,7 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
@@ -207,14 +208,21 @@ public class TestScaledWriterScheduler
                 new TestingStageExecution(createFragment()),
                 taskStatusProvider::get,
                 taskStatusProvider::get,
-                new UniformNodeSelectorFactory(
-                        CURRENT_NODE,
-                        TestingInternalNodeManager.createDefault(NODE_1, NODE_2, NODE_3),
-                        new NodeSchedulerConfig().setIncludeCoordinator(true),
-                        new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),
+                createUniformNodeSelectorFactory(TestingInternalNodeManager.createDefault(NODE_1, NODE_2, NODE_3))
+                        .createNodeSelector(testSessionBuilder().build()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 maxWritersNodesCount);
+    }
+
+    private static UniformNodeSelectorFactory createUniformNodeSelectorFactory(InternalNodeManager nodeManager)
+    {
+        return new UniformNodeSelectorFactory(
+                CURRENT_NODE,
+                nodeManager,
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(new FinalizerService()),
+                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)

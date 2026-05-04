@@ -113,7 +113,7 @@ public class TestBlockBuilder
 
         // assert we should not copy ids
         AtomicBoolean isIdentical = new AtomicBoolean(false);
-        block.getPositions(positions, 0, positions.length - 1).retainedBytesForEachPart((part, size) -> {
+        block.getPositions(positions, 0, positions.length - 1).retainedBytesForEachPart((part, _) -> {
             if (part == positions) {
                 isIdentical.set(true);
             }

@@ -174,7 +174,7 @@ public class DecorrelateUnnest
         // 1. find EnforceSingleRowNode in the subquery
         Optional<PlanNode> enforceSingleRow = PlanNodeSearcher.searchFrom(searchRoot, context.getLookup())
                 .where(EnforceSingleRowNode.class::isInstance)
-                .recurseOnlyWhen(planNode -> false)
+                .recurseOnlyWhen(_ -> false)
                 .findFirst();
 
         if (enforceSingleRow.isPresent()) {

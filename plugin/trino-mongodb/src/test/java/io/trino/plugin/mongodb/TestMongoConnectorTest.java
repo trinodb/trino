@@ -1918,23 +1918,22 @@ public class TestMongoConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "bigint -> integer":
-            case "bigint -> smallint":
-            case "bigint -> tinyint":
-            case "decimal(5,3) -> decimal(5,2)":
-            case "time(3) -> time(6)":
-            case "time(6) -> time(3)":
-            case "timestamp(3) -> timestamp(6)":
-            case "timestamp(6) -> timestamp(3)":
-            case "timestamp(3) with time zone -> timestamp(6) with time zone":
-            case "timestamp(6) with time zone -> timestamp(3) with time zone":
-            case "map(integer, varchar) -> map(bigint, varchar)":
-            case "map(varchar, integer) -> map(varchar, bigint)":
-            case "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))":
-                return Optional.of(setup.asUnsupported());
-        }
-        return Optional.of(setup);
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer",
+                    "bigint -> smallint",
+                    "bigint -> tinyint",
+                    "decimal(5,3) -> decimal(5,2)",
+                    "time(3) -> time(6)",
+                    "time(6) -> time(3)",
+                    "timestamp(3) -> timestamp(6)",
+                    "timestamp(6) -> timestamp(3)",
+                    "timestamp(3) with time zone -> timestamp(6) with time zone",
+                    "timestamp(6) with time zone -> timestamp(3) with time zone",
+                    "map(integer, varchar) -> map(bigint, varchar)",
+                    "map(varchar, integer) -> map(varchar, bigint)",
+                    "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
+            default -> Optional.of(setup);
+        };
     }
 
     private void assertOneNotNullResult(String query)

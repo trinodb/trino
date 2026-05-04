@@ -166,8 +166,8 @@ public class Console
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             exiting.set(true);
             interruptor.interrupt();
-            @SuppressWarnings("CheckReturnValue")
-            boolean ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+            @SuppressWarnings("UnusedLocalVariable")
+            var ignored = awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
             // Terminal closing restores terminal settings and releases underlying system resources
             closeTerminal();
         }));

@@ -125,6 +125,7 @@ class TestNodeLocalDynamicSplitPruning
                 new Schema(hiveConfig.getHiveStorageFormat().getSerde(), false, ImmutableMap.of()),
                 ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "42")),
                 ImmutableList.of(),
+                Optional.empty(),
                 OptionalInt.of(1),
                 OptionalInt.of(1),
                 false,

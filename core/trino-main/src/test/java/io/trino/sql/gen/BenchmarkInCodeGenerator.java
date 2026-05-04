@@ -105,29 +105,28 @@ public class BenchmarkInCodeGenerator
             List<Object> inList = new ArrayList<>();
             List<Expression> valueList = new ArrayList<>();
             switch (type) {
-                case StandardTypes.BIGINT:
+                case StandardTypes.BIGINT -> {
                     for (int i = 1; i <= inListCount; i++) {
                         int value = random.nextInt();
                         inList.add((long) value);
                         valueList.add(new Constant(BIGINT, (long) value));
                     }
-                    break;
-                case StandardTypes.DOUBLE:
+                }
+                case StandardTypes.DOUBLE -> {
                     for (int i = 1; i <= inListCount; i++) {
                         double value = random.nextDouble();
                         inList.add(value);
                         valueList.add(new Constant(DOUBLE, value));
                     }
-                    break;
-                case StandardTypes.VARCHAR:
+                }
+                case StandardTypes.VARCHAR -> {
                     for (int i = 1; i <= inListCount; i++) {
                         Slice value = Slices.utf8Slice(Long.toString(random.nextLong()));
                         inList.add(value);
                         valueList.add(new Constant(VARCHAR, value));
                     }
-                    break;
-                default:
-                    throw new IllegalStateException();
+                }
+                default -> throw new IllegalStateException();
             }
 
             String colName = "$col_0";
@@ -141,29 +140,17 @@ public class BenchmarkInCodeGenerator
                 if (random.nextDouble() <= hitRate) {
                     // pick one of the values from in list as value written to page
                     switch (type) {
-                        case StandardTypes.BIGINT:
-                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
-                            break;
-                        case StandardTypes.DOUBLE:
-                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
-                            break;
-                        case StandardTypes.VARCHAR:
-                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
-                            break;
+                        case StandardTypes.BIGINT -> BIGINT.writeLong(pageBuilder.getBlockBuilder(0), (long) inList.get(random.nextInt(inList.size())));
+                        case StandardTypes.DOUBLE -> DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), (double) inList.get(random.nextInt(inList.size())));
+                        case StandardTypes.VARCHAR -> VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), (Slice) inList.get(random.nextInt(inList.size())));
                     }
                 }
                 else {
                     // use random value; universum is wide so we can safely assume it will not be on of values in inList
                     switch (type) {
-                        case StandardTypes.BIGINT:
-                            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
-                            break;
-                        case StandardTypes.DOUBLE:
-                            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
-                            break;
-                        case StandardTypes.VARCHAR:
-                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
-                            break;
+                        case StandardTypes.BIGINT -> BIGINT.writeLong(pageBuilder.getBlockBuilder(0), random.nextInt());
+                        case StandardTypes.DOUBLE -> DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), random.nextDouble());
+                        case StandardTypes.VARCHAR -> VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), Slices.utf8Slice(Long.toString(random.nextLong())));
                     }
                 }
             }

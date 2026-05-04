@@ -197,7 +197,7 @@ public class TestQueryStateMachine
     public void testQueued()
     {
         // all time before the first state transition is accounted to queueing
-        assertAllTimeSpentInQueueing(QUEUED, queryStateMachine -> {});
+        assertAllTimeSpentInQueueing(QUEUED, _ -> {});
         assertAllTimeSpentInQueueing(WAITING_FOR_RESOURCES, QueryStateMachine::transitionToWaitingForResources);
         assertAllTimeSpentInQueueing(DISPATCHING, QueryStateMachine::transitionToDispatching);
         assertAllTimeSpentInQueueing(PLANNING, QueryStateMachine::transitionToPlanning);

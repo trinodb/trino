@@ -302,47 +302,50 @@ public class PinotSegmentPageSource
     {
         Type elementType = ((ArrayType) getType(columnIndex)).getElementType();
         DataSchema.ColumnDataType columnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
-        BlockBuilder blockBuilder;
-        switch (columnType) {
-            case INT_ARRAY:
+        BlockBuilder blockBuilder = switch (columnType) {
+            case INT_ARRAY -> {
                 int[] intArray = currentDataTable.dataTable().getIntArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, intArray.length);
+                BlockBuilder intBlockBuilder = elementType.createBlockBuilder(null, intArray.length);
                 for (int element : intArray) {
-                    INTEGER.writeInt(blockBuilder, element);
+                    INTEGER.writeInt(intBlockBuilder, element);
                 }
-                break;
-            case LONG_ARRAY:
+                yield intBlockBuilder;
+            }
+            case LONG_ARRAY -> {
                 long[] longArray = currentDataTable.dataTable().getLongArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, longArray.length);
+                BlockBuilder longBlockBuilder = elementType.createBlockBuilder(null, longArray.length);
                 for (long element : longArray) {
-                    BIGINT.writeLong(blockBuilder, element);
+                    BIGINT.writeLong(longBlockBuilder, element);
                 }
-                break;
-            case FLOAT_ARRAY:
+                yield longBlockBuilder;
+            }
+            case FLOAT_ARRAY -> {
                 float[] floatArray = currentDataTable.dataTable().getFloatArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
+                BlockBuilder floatBlockBuilder = elementType.createBlockBuilder(null, floatArray.length);
                 for (float element : floatArray) {
-                    REAL.writeFloat(blockBuilder, element);
+                    REAL.writeFloat(floatBlockBuilder, element);
                 }
-                break;
-            case DOUBLE_ARRAY:
+                yield floatBlockBuilder;
+            }
+            case DOUBLE_ARRAY -> {
                 double[] doubleArray = currentDataTable.dataTable().getDoubleArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
+                BlockBuilder doubleBlockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
                 for (double element : doubleArray) {
-                    elementType.writeDouble(blockBuilder, element);
+                    elementType.writeDouble(doubleBlockBuilder, element);
                 }
-                break;
-            case STRING_ARRAY:
+                yield doubleBlockBuilder;
+            }
+            case STRING_ARRAY -> {
                 String[] stringArray = currentDataTable.dataTable().getStringArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, stringArray.length);
+                BlockBuilder stringBlockBuilder = elementType.createBlockBuilder(null, stringArray.length);
                 for (String element : stringArray) {
                     Slice slice = getUtf8Slice(element);
-                    elementType.writeSlice(blockBuilder, slice, 0, slice.length());
+                    elementType.writeSlice(stringBlockBuilder, slice, 0, slice.length());
                 }
-                break;
-            default:
-                throw new UnsupportedOperationException(format("Unexpected pinot type '%s'", columnType));
-        }
+                yield stringBlockBuilder;
+            }
+            default -> throw new UnsupportedOperationException(format("Unexpected pinot type '%s'", columnType));
+        };
         return blockBuilder.build();
     }
 

@@ -237,7 +237,7 @@ public class BenchmarkArrayFilter
 
         private static Block createChannel(int positionCount, ArrayType arrayType)
         {
-            return createRandomBlockForType(arrayType, positionCount, 0.2F);
+            return createRandomBlockForType(arrayType, positionCount, 0.2f);
         }
 
         public PageProcessor getPageProcessor()

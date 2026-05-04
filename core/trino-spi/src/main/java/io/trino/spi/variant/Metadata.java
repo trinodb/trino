@@ -390,7 +390,7 @@ public final class Metadata
             checkNotBuilt();
             if (names.isEmpty()) {
                 Metadata empty = EMPTY_METADATA;
-                return new SortedMetadata(empty, index -> {
+                return new SortedMetadata(empty, _ -> {
                     throw new IndexOutOfBoundsException("Metadata is empty");
                 });
             }

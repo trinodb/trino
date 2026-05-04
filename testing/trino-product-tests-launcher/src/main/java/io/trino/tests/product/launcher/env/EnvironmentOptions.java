@@ -73,13 +73,9 @@ public final class EnvironmentOptions
     public void setBindOnHost(String value)
     {
         switch (value.toLowerCase(ENGLISH)) {
-            case BIND_ON_HOST:
-                this.bindPorts = true;
-                break;
-            case DO_NOT_BIND:
-                this.bindPorts = false;
-                break;
-            default:
+            case BIND_ON_HOST -> this.bindPorts = true;
+            case DO_NOT_BIND -> this.bindPorts = false;
+            default -> {
                 try {
                     this.bindPortsBase = Integer.parseInt(value);
                     this.bindPorts = true;
@@ -88,6 +84,7 @@ public final class EnvironmentOptions
                 catch (Exception e) {
                     throw new CommandLine.ParameterException(spec.commandLine(), "Port bind base is invalid", e);
                 }
+            }
         }
     }
 

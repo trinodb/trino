@@ -86,7 +86,7 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), prodEnvironment);
         List<ResourceGroupSpec> groups = manager.getRootGroups();
         assertThat(groups).hasSize(1);
-        InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
+        InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (_, _) -> {}, directExecutor());
         manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
@@ -97,7 +97,7 @@ public class TestDbResourceGroupConfigurationManager
         // check the dev configuration
         manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
         assertThat(groups).hasSize(1);
-        InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
+        InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (_, _) -> {}, directExecutor());
         manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
@@ -120,7 +120,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, "10GB", 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
-        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());
+        InternalResourceGroup global = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
         manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "1TB");
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
@@ -176,7 +176,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertSelector(2, 1, null, null, null, null, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
-        InternalResourceGroup missing = new InternalResourceGroup("missing", (group, export) -> {}, directExecutor());
+        InternalResourceGroup missing = new InternalResourceGroup("missing", (_, _) -> {}, directExecutor());
 
         assertThatThrownBy(() -> manager.configure(missing, new SelectionContext<>(missing.getId(), new ResourceGroupIdTemplate("missing"))))
                 .isInstanceOf(IllegalStateException.class)
@@ -200,7 +200,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("physical_data_scan_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         manager.start();
-        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());
+        InternalResourceGroup global = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
         manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
         manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new ResourceGroupIdTemplate("global.sub")));

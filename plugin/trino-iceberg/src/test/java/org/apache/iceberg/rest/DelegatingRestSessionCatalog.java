@@ -36,7 +36,7 @@ public class DelegatingRestSessionCatalog
 
     DelegatingRestSessionCatalog(RESTCatalogAdapter adapter, Catalog delegate)
     {
-        super(properties -> adapter, null);
+        super(_ -> adapter, null);
         this.adapter = requireNonNull(adapter, "adapter is null");
         this.delegate = requireNonNull(delegate, "delegate catalog is null");
     }

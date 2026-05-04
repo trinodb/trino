@@ -11,25 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.cache;
+package io.trino.execution.scheduler;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.Min;
 
-public class ConsistentHashingHostAddressProviderConfig
+public class ConsistentHashingAddressProviderConfig
 {
     private int preferredHostsCount = 2;
 
-    @Config("fs.cache.preferred-hosts-count")
-    @ConfigDescription("The number of preferred nodes for caching a file. Defaults to 2.")
-    public ConsistentHashingHostAddressProviderConfig setPreferredHostsCount(int preferredHostsCount)
+    @Min(1)
+    public int getPreferredHostsCount()
+    {
+        return preferredHostsCount;
+    }
+
+    @Config("node-scheduler.cache-preferred-hosts-count")
+    @ConfigDescription("Number of preferred worker hosts the scheduler derives from a split's cache key")
+    public ConsistentHashingAddressProviderConfig setPreferredHostsCount(int preferredHostsCount)
     {
         this.preferredHostsCount = preferredHostsCount;
         return this;
-    }
-
-    public int getPreferredHostsCount()
-    {
-        return this.preferredHostsCount;
     }
 }

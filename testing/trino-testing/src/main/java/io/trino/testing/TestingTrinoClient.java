@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.client.EncodedVariant;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.client.QueryStatusInfo;
@@ -36,6 +37,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Metadata;
+import io.trino.spi.variant.Variant;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantWriter;
@@ -335,6 +338,11 @@ public class TestingTrinoClient
             return (String) value;
         }
         if (type == VARIANT) {
+            if (value instanceof EncodedVariant encodedVariant) {
+                return Variant.from(
+                        Metadata.from(Slices.wrappedBuffer(encodedVariant.getMetadataBytes())),
+                        Slices.wrappedBuffer(encodedVariant.getValueBytes()));
+            }
             return JSON_VARIANT_WRITER.write(Slices.utf8Slice((String) value));
         }
         if (type instanceof ArrayType arrayType) {

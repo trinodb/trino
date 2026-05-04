@@ -173,10 +173,10 @@ public class TestTableScanNodePartitioning
     {
         return MockConnectorFactory.builder()
                 .withPartitionProvider(new TestPartitioningProvider())
-                .withGetColumns(schemaTableName -> ImmutableList.of(
+                .withGetColumns(_ -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))
-                .withGetTableProperties((session, tableHandle) -> {
+                .withGetTableProperties((_, tableHandle) -> {
                     String tableName = ((MockConnectorTableHandle) tableHandle).getTableName().getTableName();
                     if (tableName.equals(PARTITIONED_TABLE)) {
                         return new ConnectorTableProperties(

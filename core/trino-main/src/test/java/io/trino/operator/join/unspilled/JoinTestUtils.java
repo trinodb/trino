@@ -129,7 +129,7 @@ public final class JoinTestUtils
             boolean enableSingleChannelBigintLookupSource)
     {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
+                .map(function -> (_, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();

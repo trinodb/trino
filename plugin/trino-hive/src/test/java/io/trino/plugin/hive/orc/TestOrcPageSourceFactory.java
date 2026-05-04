@@ -75,14 +75,14 @@ public class TestOrcPageSourceFactory
     public void testFullFileRead()
             throws IOException
     {
-        assertRead(ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3), OptionalLong.empty(), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3), OptionalLong.empty(), Optional.empty(), _ -> false);
     }
 
     @Test
     public void testSingleColumnRead()
             throws IOException
     {
-        assertRead(ImmutableMap.of(REGION_KEY, ALL_COLUMNS.get(REGION_KEY)), OptionalLong.empty(), Optional.empty(), nationKey -> false);
+        assertRead(ImmutableMap.of(REGION_KEY, ALL_COLUMNS.get(REGION_KEY)), OptionalLong.empty(), Optional.empty(), _ -> false);
     }
 
     /**
@@ -92,7 +92,7 @@ public class TestOrcPageSourceFactory
     public void testFullFileSkipped()
             throws IOException
     {
-        assertRead(ALL_COLUMNS, OptionalLong.of(100L), Optional.empty(), nationKey -> false);
+        assertRead(ALL_COLUMNS, OptionalLong.of(100L), Optional.empty(), _ -> false);
     }
 
     /**
@@ -102,7 +102,7 @@ public class TestOrcPageSourceFactory
     public void testSomeStripesAndRowGroupRead()
             throws IOException
     {
-        assertRead(ALL_COLUMNS, OptionalLong.of(5L), Optional.empty(), nationKey -> false);
+        assertRead(ALL_COLUMNS, OptionalLong.of(5L), Optional.empty(), _ -> false);
     }
 
     @Test

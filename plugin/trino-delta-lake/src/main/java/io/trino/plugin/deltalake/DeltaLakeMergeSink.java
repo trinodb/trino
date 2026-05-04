@@ -284,24 +284,23 @@ public class DeltaLakeMergeSink
         for (int position = 0; position < positionCount; position++) {
             byte operation = TINYINT.getByte(operationBlock, position);
             switch (operation) {
-                case DELETE_OPERATION_NUMBER:
+                case DELETE_OPERATION_NUMBER -> {
                     deletePositions[deletePositionCount] = position;
                     deletePositionCount++;
-                    break;
-                case INSERT_OPERATION_NUMBER:
+                }
+                case INSERT_OPERATION_NUMBER -> {
                     insertPositions[insertPositionCount] = position;
                     insertPositionCount++;
-                    break;
-                case UPDATE_INSERT_OPERATION_NUMBER:
+                }
+                case UPDATE_INSERT_OPERATION_NUMBER -> {
                     updateInsertPositions[updateInsertPositionCount] = position;
                     updateInsertPositionCount++;
-                    break;
-                case UPDATE_DELETE_OPERATION_NUMBER:
+                }
+                case UPDATE_DELETE_OPERATION_NUMBER -> {
                     updateDeletePositions[updateDeletePositionCount] = position;
                     updateDeletePositionCount++;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid merge operation: " + operation);
+                }
+                default -> throw new IllegalArgumentException("Invalid merge operation: " + operation);
             }
         }
         Optional<Page> deletePage = Optional.empty();

@@ -34,35 +34,29 @@ public final class DateFormatParser
         DateTimeFormatterBuilder builder = new DateTimeFormatterBuilder();
         for (Token token : tokenize(format)) {
             switch (token.getType()) {
-                case DateFormat.TEXT:
+                case DateFormat.TEXT ->
                     builder.appendLiteral(token.getText());
-                    break;
-                case DateFormat.DD:
+                case DateFormat.DD ->
                     builder.appendDayOfMonth(2);
-                    break;
-                case DateFormat.HH24:
+                case DateFormat.HH24 ->
                     builder.appendHourOfDay(2);
-                    break;
-                case DateFormat.HH:
+                case DateFormat.HH ->
                     builder.appendHourOfHalfday(2);
-                    break;
-                case DateFormat.MI:
+                case DateFormat.MI ->
                     builder.appendMinuteOfHour(2);
-                    break;
-                case DateFormat.MM:
+                case DateFormat.MM ->
                     builder.appendMonthOfYear(2);
-                    break;
-                case DateFormat.SS:
+                case DateFormat.SS ->
                     builder.appendSecondOfMinute(2);
-                    break;
-                case DateFormat.YY:
+                case DateFormat.YY ->
                     builder.appendTwoDigitYear(2050);
-                    break;
-                case DateFormat.YYYY:
+                case DateFormat.YYYY ->
                     builder.appendYear(4, 4);
-                    break;
-                case DateFormat.UNRECOGNIZED:
-                default:
+                case DateFormat.UNRECOGNIZED ->
+                    throw new TrinoException(
+                            StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
+                            format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
+                default ->
                     throw new TrinoException(
                             StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
                             format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));

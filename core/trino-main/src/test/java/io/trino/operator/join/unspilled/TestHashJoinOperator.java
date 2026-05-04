@@ -235,7 +235,7 @@ public class TestHashJoinOperator
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> {
+                (_, _, _, _) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
@@ -541,7 +541,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025);
+                (_, _, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -648,7 +648,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), rightPosition) == 1L);
+                (_, _, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), rightPosition) == 1L);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
@@ -750,7 +750,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) ->
+                (_, _, rightPosition, rightPage) ->
                         ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
 
         // build factory
@@ -853,7 +853,7 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
 
         InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
-                (leftPosition, leftPage, rightPosition, rightPage) ->
+                (_, _, rightPosition, rightPage) ->
                         ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
 
         // build factory

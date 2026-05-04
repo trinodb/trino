@@ -100,7 +100,7 @@ final class SerializedPageReference
 
         static PagesReleasedListener forOutputBufferMemoryManager(OutputBufferMemoryManager memoryManager)
         {
-            return (releasedPagesCount, releasedMemorySizeInBytes) -> memoryManager.updateMemoryUsage(-releasedMemorySizeInBytes);
+            return (_, releasedMemorySizeInBytes) -> memoryManager.updateMemoryUsage(-releasedMemorySizeInBytes);
         }
     }
 }

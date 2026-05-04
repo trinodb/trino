@@ -164,7 +164,7 @@ public final class LongDecode
                 output.write((byte) value);
                 return;
             }
-            output.write((byte) (0x80 | (value & 0x7f)));
+            output.write((byte) (0x80 | (value & 0x7F)));
             value >>>= 7;
         }
     }

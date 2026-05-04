@@ -85,8 +85,8 @@ import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -253,7 +253,7 @@ public final class JsonUtil
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
             if (type.equals(UNKNOWN)) {
-                return (block, position) -> null;
+                return (_, _) -> null;
             }
             if (type.equals(BOOLEAN)) {
                 return (block, position) -> BOOLEAN.getBoolean(block, position) ? "true" : "false";
@@ -880,31 +880,24 @@ public final class JsonUtil
     {
         BigDecimal result;
         switch (parser.getCurrentToken()) {
-            case VALUE_NULL:
+            case VALUE_NULL -> {
                 return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
+            }
+            case VALUE_STRING, FIELD_NAME -> {
                 result = new BigDecimal(parser.getText());
                 result = result.setScale(scale, HALF_UP);
-                break;
-            case VALUE_NUMBER_FLOAT:
-            case VALUE_NUMBER_INT:
+            }
+            case VALUE_NUMBER_FLOAT, VALUE_NUMBER_INT -> {
                 result = parser.getDecimalValue();
                 result = result.setScale(scale, HALF_UP);
-                break;
-            case VALUE_TRUE:
-                result = BigDecimal.ONE.setScale(scale, HALF_UP);
-                break;
-            case VALUE_FALSE:
-                result = BigDecimal.ZERO.setScale(scale, HALF_UP);
-                break;
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
+            }
+            case VALUE_TRUE -> result = BigDecimal.ONE.setScale(scale, HALF_UP);
+            case VALUE_FALSE -> result = BigDecimal.ZERO.setScale(scale, HALF_UP);
+            default -> throw new JsonCastException(format("Unexpected token when cast to DECIMAL(%s,%s): %s", precision, scale, parser.getText()));
         }
 
         if (result.precision() > precision) {
-            // TODO: Should we use NUMERIC_VALUE_OUT_OF_RANGE instead?
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
         }
         return result;
     }

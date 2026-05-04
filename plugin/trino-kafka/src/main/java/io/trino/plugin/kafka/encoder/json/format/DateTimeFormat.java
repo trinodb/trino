@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
 public enum DateTimeFormat
 {
     CUSTOM_DATE_TIME(CustomDateTimeFormatter::new, CustomDateTimeFormatter::isSupportedType),
-    ISO8601(pattern -> new ISO8601DateTimeFormatter(), ISO8601DateTimeFormatter::isSupportedType),
-    RFC2822(pattern -> new RFC2822DateTimeFormatter(), RFC2822DateTimeFormatter::isSupportedType),
-    MILLISECONDS_SINCE_EPOCH(pattern -> new MillisecondsSinceEpochFormatter(), MillisecondsSinceEpochFormatter::isSupportedType),
-    SECONDS_SINCE_EPOCH(pattern -> new SecondsSinceEpochFormatter(), SecondsSinceEpochFormatter::isSupportedType);
+    ISO8601(_ -> new ISO8601DateTimeFormatter(), ISO8601DateTimeFormatter::isSupportedType),
+    RFC2822(_ -> new RFC2822DateTimeFormatter(), RFC2822DateTimeFormatter::isSupportedType),
+    MILLISECONDS_SINCE_EPOCH(_ -> new MillisecondsSinceEpochFormatter(), MillisecondsSinceEpochFormatter::isSupportedType),
+    SECONDS_SINCE_EPOCH(_ -> new SecondsSinceEpochFormatter(), SecondsSinceEpochFormatter::isSupportedType);
 
     private final Function<Optional<String>, JsonDateTimeFormatter> formatterConstructor;
     private final Function<Type, Boolean> isSupportedType;

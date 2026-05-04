@@ -1226,7 +1226,7 @@ public class TestDeltaLakeColumnMappingMode
         return new Object[][] {
                 {"none"},
                 {"name"},
-                {"id"}
+                {"id"},
         };
     }
 }

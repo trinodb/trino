@@ -50,7 +50,7 @@ public final class MergeSortedPages
                 comparator,
                 IntStream.range(0, outputTypes.size()).boxed().collect(toImmutableList()),
                 outputTypes,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 aggregatedMemoryContext,
                 yieldSignal);

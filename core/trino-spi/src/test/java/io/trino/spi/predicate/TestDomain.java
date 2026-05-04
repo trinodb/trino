@@ -132,7 +132,7 @@ class TestDomain
         assertThat(domain.includesNullableValue((long) floatToRawIntBits(Float.MIN_VALUE))).isTrue();
         assertThat(domain.includesNullableValue(null)).isTrue();
         assertThat(domain.includesNullableValue((long) floatToRawIntBits(Float.NaN))).isTrue();
-        assertThat(domain.includesNullableValue((long) 0x7fc01234)).isTrue(); // different NaN representation
+        assertThat(domain.includesNullableValue((long) 0x7FC01234)).isTrue(); // different NaN representation
         assertThat(domain.complement()).isEqualTo(Domain.none(REAL));
         assertThat(domain.toString()).isEqualTo("ALL");
 
@@ -151,7 +151,7 @@ class TestDomain
         assertThat(domain.includesNullableValue(Double.MIN_VALUE)).isTrue();
         assertThat(domain.includesNullableValue(null)).isTrue();
         assertThat(domain.includesNullableValue(Double.NaN)).isTrue();
-        assertThat(domain.includesNullableValue(longBitsToDouble(0x7ff8123412341234L))).isTrue(); // different NaN representation
+        assertThat(domain.includesNullableValue(longBitsToDouble(0x7FF8123412341234L))).isTrue(); // different NaN representation
         assertThat(domain.complement()).isEqualTo(Domain.none(DOUBLE));
         assertThat(domain.toString()).isEqualTo("ALL");
     }

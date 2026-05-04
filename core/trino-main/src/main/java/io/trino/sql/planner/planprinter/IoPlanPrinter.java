@@ -787,7 +787,7 @@ public class IoPlanPrinter
                                     .map(value -> new FormattedMarker(Optional.of(value), Bound.EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
-                    allOrNone -> {
+                    _ -> {
                         throw new IllegalStateException("Unreachable AllOrNone consumer");
                     });
 

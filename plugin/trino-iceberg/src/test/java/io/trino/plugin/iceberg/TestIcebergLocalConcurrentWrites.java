@@ -266,7 +266,7 @@ final class TestIcebergLocalConcurrentWrites
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         getQueryRunner().execute("DELETE FROM " + tableName + "  WHERE part = 10");
                         return true;

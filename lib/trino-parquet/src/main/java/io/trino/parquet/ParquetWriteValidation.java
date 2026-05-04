@@ -312,7 +312,7 @@ public class ParquetWriteValidation
                     .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
-            for (Type ignored : types) {
+            for (var _ : types) {
                 columnHashes.add(new XxHash64());
             }
             this.columnHashes = columnHashes.build();
@@ -465,7 +465,7 @@ public class ParquetWriteValidation
                     types.size(),
                     columnNames.size());
             this.checksum = new WriteChecksumBuilder(types);
-            retainedSize += estimatedSizeOf(types, type -> 0)
+            retainedSize += estimatedSizeOf(types, _ -> 0)
                     + estimatedSizeOf(columnNames, SizeOf::estimatedSizeOf);
         }
 

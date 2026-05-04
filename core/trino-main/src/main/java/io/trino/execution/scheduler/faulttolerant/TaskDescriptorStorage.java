@@ -346,7 +346,7 @@ public class TaskDescriptorStorage
     private void checkStatsNotNegative()
     {
         checkState(reservedUncompressedBytes >= 0, "reservedUncompressedBytes is negative");
-        checkState(reservedUncompressedBytes >= 0, "reservedCompressedBytes is negative");
+        checkState(reservedCompressedBytes >= 0, "reservedCompressedBytes is negative");
         checkState(originalCompressedBytes >= 0, "originalCompressedBytes is negative");
     }
 

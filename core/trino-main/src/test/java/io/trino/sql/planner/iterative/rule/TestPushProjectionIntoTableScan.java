@@ -165,7 +165,7 @@ public class TestPushProjectionIntoTableScan
                                         .setTableHandle(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE))
                                         .setSymbols(ImmutableList.copyOf(types.keySet()))
                                         .setAssignments(types.keySet().stream()
-                                                .collect(Collectors.toMap(Function.identity(), v -> columnHandle)))
+                                                .collect(Collectors.toMap(Function.identity(), _ -> columnHandle)))
                                         .setStatistics(Optional.of(PlanNodeStatsEstimate.builder()
                                                 .setOutputRowCount(42)
                                                 .addSymbolStatistics(baseColumn, SymbolStatsEstimate.builder().setNullsFraction(0).setDistinctValuesCount(33).build())
@@ -226,10 +226,10 @@ public class TestPushProjectionIntoTableScan
                 .collect(toImmutableList());
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
-                .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
-                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
-                .withGetColumns(schemaTableName -> metadata)
-                .withGetTableProperties((session, tableHandle) -> {
+                .withListSchemaNames(_ -> ImmutableList.of(TEST_SCHEMA))
+                .withListTables((_, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
+                .withGetColumns(_ -> metadata)
+                .withGetTableProperties((_, tableHandle) -> {
                     MockConnectorTableHandle mockTableHandle = (MockConnectorTableHandle) tableHandle;
                     if (mockTableHandle.getTableName().getTableName().equals(TEST_TABLE)) {
                         return new ConnectorTableProperties(

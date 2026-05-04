@@ -63,7 +63,7 @@ public final class GeometryUtils
      */
     private static double translateFromAVNaN(double n)
     {
-        return n < -1.0E38D ? (0.0D / 0.0) : n;
+        return n < -1.0e38d ? (0.0d / 0.0) : n;
     }
 
     /**

@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExponentialGrowthPartitionMemoryEstimator
 {
-    private static final Function<PlanFragmentId, PlanFragment> THROWING_PLAN_FRAGMENT_LOOKUP = planFragmentId -> {
+    private static final Function<PlanFragmentId, PlanFragment> THROWING_PLAN_FRAGMENT_LOOKUP = _ -> {
         throw new RuntimeException("should not be used");
     };
 

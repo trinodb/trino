@@ -147,21 +147,17 @@ public abstract class BaseJdbcConnectorTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
-            case SUPPORTS_DEFAULT_COLUMN_VALUE: // not supported by DefaultJdbcMetadata
-                return false;
+        return switch (connectorBehavior) {
+            // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_DEFAULT_COLUMN_VALUE -> false;
 
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
-            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
-                return super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
+            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN -> super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
 
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test
@@ -1038,7 +1034,7 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        // some databases calculate remainder instead of modulus when one of the values is negative
+        // some databases calculate remainder instead of modulo when one of the values is negative
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
@@ -1046,7 +1042,7 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
                 .failure().hasMessageContaining("by zero");
 
-        // Expression that evaluates to 0 for some rows on RHS of modulus
+        // Expression that evaluates to 0 for some rows on RHS of modulo
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
                 .failure().hasMessageContaining("by zero");
 

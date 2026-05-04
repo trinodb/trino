@@ -350,7 +350,7 @@ public class BackgroundHiveSplitLoader
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     private ListenableFuture<Void> loadSplits()
@@ -922,7 +922,7 @@ public class BackgroundHiveSplitLoader
             List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.bucketsToKeep()::contains)
-                    .orElse(bucket -> true);
+                    .orElse(_ -> true);
             return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }
 

@@ -82,20 +82,11 @@ public class BenchmarkArrayAggregation
             Block block;
             Type elementType;
             switch (type) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "BOOLEAN":
-                    elementType = BOOLEAN;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "VARCHAR" -> elementType = VARCHAR;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "BOOLEAN" -> elementType = BOOLEAN;
+                default -> throw new UnsupportedOperationException();
             }
             TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction("array_agg", fromTypes(elementType));
             aggregator = function.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()).createAggregator(new AggregationMetrics());

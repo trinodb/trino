@@ -141,7 +141,7 @@ public class TestHiveSparkCompatibility
                             (short) 32767, // a_smallint
                             1000000000, // an_integer
                             1000000000000000L, // a_bigint
-                            10000000.123F, // a_real
+                            10000000.123f, // a_real
                             100000000000.123, // a_double
                             new BigDecimal("1234567.8901"), // a_short_decimal
                             new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
@@ -158,7 +158,7 @@ public class TestHiveSparkCompatibility
                             (short) -32768, // a_smallint
                             -1000000012, // an_integer
                             -1000000000000012L, // a_bigint
-                            -10000000.123F, // a_real
+                            -10000000.123f, // a_real
                             -100000000000.123, // a_double
                             new BigDecimal("-1234567.8901"), // a_short_decimal
                             new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
@@ -563,7 +563,7 @@ public class TestHiveSparkCompatibility
                             (short) 32767, // a_smallint
                             1000000000, // an_integer
                             1000000000000000L, // a_bigint
-                            10000000.123F, // a_real
+                            10000000.123f, // a_real
                             100000000000.123, // a_double
                             new BigDecimal("1234567.8901"), // a_short_decimal
                             new BigDecimal("1234567890123456789.0123456"), // a_long_decimal
@@ -579,7 +579,7 @@ public class TestHiveSparkCompatibility
                             (short) -32768, // a_smallint
                             -1000000012, // an_integer
                             -1000000000000012L, // a_bigint
-                            -10000000.123F, // a_real
+                            -10000000.123f, // a_real
                             -100000000000.123, // a_double
                             new BigDecimal("-1234567.8901"), // a_short_decimal
                             new BigDecimal("-1234567890123456789.0123456"), // a_long_decimal
@@ -768,10 +768,10 @@ public class TestHiveSparkCompatibility
                     sparkTableName));
 
             List<Row> expected = List.of(
-                    row("one", 1000000000000000L, 1000000000, 10000000.123F, 100000000000.123, true),
-                    row("two", -1000000000000000L, -1000000000, -10000000.123F, -100000000000.123, false),
-                    row("three", 2000000000000000L, 2000000000, 20000000.123F, 200000000000.123, true),
-                    row("four", -2000000000000000L, -2000000000, -20000000.123F, -200000000000.123, false));
+                    row("one", 1000000000000000L, 1000000000, 10000000.123f, 100000000000.123, true),
+                    row("two", -1000000000000000L, -1000000000, -10000000.123f, -100000000000.123, false),
+                    row("three", 2000000000000000L, 2000000000, 20000000.123f, 200000000000.123, true),
+                    row("four", -2000000000000000L, -2000000000, -20000000.123f, -200000000000.123, false));
             assertThat(onSpark().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + sparkTableName))
                     .containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean FROM " + trinoTableName))

@@ -583,7 +583,7 @@ public class OrcPageSourceFactory
                     new Block[] {
                             page.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
                             page.getBlock(BUCKET_CHANNEL),
-                            page.getBlock(ROW_ID_CHANNEL)
+                            page.getBlock(ROW_ID_CHANNEL),
                     });
         }
     }
@@ -624,7 +624,7 @@ public class OrcPageSourceFactory
                     new Block[] {
                             RunLengthEncodedBlock.create(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),
-                            rowNumberBlock
+                            rowNumberBlock,
                     });
         }
     }

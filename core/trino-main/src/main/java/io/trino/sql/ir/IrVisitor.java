@@ -27,9 +27,14 @@ public abstract class IrVisitor<R, C>
         return node.accept(this, context);
     }
 
-    protected R visitExpression(Expression node, C context)
+    protected R visitConstant(Constant node, C context)
     {
-        return null;
+        return visitExpression(node, context);
+    }
+
+    protected R visitReference(Reference node, C context)
+    {
+        return visitExpression(node, context);
     }
 
     protected R visitArray(Array node, C context)
@@ -37,27 +42,17 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitBetween(Between node, C context)
+    protected R visitRow(Row node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitCoalesce(Coalesce node, C context)
+    protected R visitFieldReference(FieldReference node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitComparison(Comparison node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitConstant(Constant node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
-    protected R visitIn(In node, C context)
+    protected R visitCast(Cast node, C context)
     {
         return visitExpression(node, context);
     }
@@ -72,17 +67,22 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitSwitch(Switch node, C context)
+    protected R visitBind(Bind node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitNullIf(NullIf node, C context)
+    protected R visitComparison(Comparison node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitCase(Case node, C context)
+    protected R visitBetween(Between node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitIn(In node, C context)
     {
         return visitExpression(node, context);
     }
@@ -92,33 +92,33 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitFieldReference(FieldReference node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitLogical(Logical node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitRow(Row node, C context)
+    protected R visitCase(Case node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitCast(Cast node, C context)
+    protected R visitSwitch(Switch node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitReference(Reference node, C context)
+    protected R visitCoalesce(Coalesce node, C context)
     {
         return visitExpression(node, context);
     }
 
-    protected R visitBind(Bind node, C context)
+    protected R visitNullIf(NullIf node, C context)
     {
         return visitExpression(node, context);
+    }
+
+    protected R visitExpression(Expression node, C context)
+    {
+        return null;
     }
 }

@@ -134,7 +134,7 @@ public class RcFileReader
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
-        this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
+        this.writeChecksumBuilder = writeValidation.map(_ -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
 
         verify(offset >= 0, "offset is negative");
         verify(offset < fileSize, "offset is greater than data size");
@@ -155,7 +155,7 @@ public class RcFileReader
                 compressed = input.readBoolean();
             }
             else if (SEQUENCE_FILE_MAGIC.equals(magic)) {
-                validateWrite(validation -> false, "Expected file to start with RCFile magic");
+                validateWrite(_ -> false, "Expected file to start with RCFile magic");
 
                 // first version of RCFile used magic SEQ with version 6
                 byte sequenceFileVersion = input.readByte();
@@ -362,7 +362,7 @@ public class RcFileReader
             unusedRowGroupSize = Integer.reverseBytes(input.readInt());
         }
         else if (rowsRead > 0) {
-            validateWrite(writeValidation -> false, "Expected sync sequence for every row group except the first one");
+            validateWrite(_ -> false, "Expected sync sequence for every row group except the first one");
         }
         verify(unusedRowGroupSize > 0, "Invalid uncompressed row group length %s", unusedRowGroupSize);
 

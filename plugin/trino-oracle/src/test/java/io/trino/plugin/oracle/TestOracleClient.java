@@ -56,7 +56,7 @@ public class TestOracleClient
     private static final JdbcClient CLIENT = new OracleClient(
             new BaseJdbcConfig(),
             new OracleConfig(),
-            session -> {
+            _ -> {
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
@@ -99,7 +99,7 @@ public class TestOracleClient
 
         assertThat(writeFunction.getBindExpression()).isEqualTo(bindExpression);
 
-        PreparedStatement statementProxy = newProxy(PreparedStatement.class, (proxy, method, args) -> {
+        PreparedStatement statementProxy = newProxy(PreparedStatement.class, (_, method, args) -> {
             // Calling setNull with a proper JDBC type is important for Oracle as it
             // allows prepared statement to be cached and reused by the database cursor
             // while writing. If the default implementation of the WriteFunction is used,

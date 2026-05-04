@@ -69,7 +69,7 @@ public class TestTableFunctionInvocation
                                     new TestingTableFunctions.TestSingleInputRowSemanticsFunction(),
                                     new TestingTableFunctions.ConstantFunction(),
                                     new TestingTableFunctions.EmptySourceFunction()))
-                            .withApplyTableFunction((session, handle) -> {
+                            .withApplyTableFunction((_, handle) -> {
                                 if (handle instanceof TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle functionHandle) {
                                     return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                                 }

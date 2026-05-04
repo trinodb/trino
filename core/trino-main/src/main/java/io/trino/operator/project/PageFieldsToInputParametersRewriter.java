@@ -13,6 +13,7 @@
  */
 package io.trino.operator.project;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -21,6 +22,7 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -28,7 +30,6 @@ import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -53,15 +54,14 @@ public final class PageFieldsToInputParametersRewriter
     {
         // Collect all unique channel indices referenced by the expression,
         // and track which are unconditionally evaluated
-        Set<Integer> referencedChannels = new LinkedHashSet<>();
-        Set<Integer> eagerlyLoadedChannels = new HashSet<>();
-        collectReferencedChannels(expression, layout, true, referencedChannels, eagerlyLoadedChannels);
+        Visitor visitor = new Visitor(layout);
+        visitor.process(expression, true);
 
         // Create compact mapping: original channel index → parameter index (0, 1, 2, ...)
-        List<Integer> inputChannelsList = new ArrayList<>(referencedChannels);
+        List<Integer> inputChannels = visitor.getInputChannels();
         Map<Integer, Integer> channelToParameter = new HashMap<>();
-        for (int i = 0; i < inputChannelsList.size(); i++) {
-            channelToParameter.put(inputChannelsList.get(i), i);
+        for (int i = 0; i < inputChannels.size(); i++) {
+            channelToParameter.put(inputChannels.get(i), i);
         }
 
         // Create compact layout: symbol → compact parameter index
@@ -73,92 +73,143 @@ public final class PageFieldsToInputParametersRewriter
             }
         }
 
-        InputChannels inputChannels = new InputChannels(inputChannelsList, ImmutableSet.copyOf(eagerlyLoadedChannels));
-        return new Result(compactLayout.buildOrThrow(), inputChannels);
+        return new Result(compactLayout.buildOrThrow(), new InputChannels(inputChannels, visitor.getEagerlyLoadedChannels()));
     }
 
-    private static void collectReferencedChannels(
-            Expression expression,
-            Map<Symbol, Integer> layout,
-            boolean unconditionallyEvaluated,
-            Set<Integer> channels,
-            Set<Integer> eagerlyLoadedChannels)
+    private static final class Visitor
+            extends IrVisitor<Void, Boolean>
     {
-        if (expression instanceof Reference reference) {
-            Integer channel = layout.get(Symbol.from(reference));
+        private final Set<Integer> inputChannels = new LinkedHashSet<>();
+        private final Set<Integer> eagerlyLoadedChannels = new HashSet<>();
+        private Map<Symbol, Integer> layout;
+
+        private Visitor(Map<Symbol, Integer> layout)
+        {
+            this.layout = layout;
+        }
+
+        public List<Integer> getInputChannels()
+        {
+            return ImmutableList.copyOf(inputChannels);
+        }
+
+        public Set<Integer> getEagerlyLoadedChannels()
+        {
+            return ImmutableSet.copyOf(eagerlyLoadedChannels);
+        }
+
+        @Override
+        protected Void visitReference(Reference node, Boolean unconditionallyEvaluated)
+        {
+            Integer channel = layout.get(Symbol.from(node));
             if (channel != null) {
-                channels.add(channel);
+                inputChannels.add(channel);
                 if (unconditionallyEvaluated) {
                     eagerlyLoadedChannels.add(channel);
                 }
             }
-            return;
+            return null;
         }
 
-        switch (expression) {
-            // Short-circuit expressions: only the first operand is unconditionally evaluated
-            case Logical logical -> {
-                List<Expression> terms = logical.terms();
-                for (int i = 0; i < terms.size(); i++) {
-                    collectReferencedChannels(terms.get(i), layout, i == 0 && unconditionallyEvaluated, channels, eagerlyLoadedChannels);
+        @Override
+        protected Void visitLogical(Logical node, Boolean unconditionallyEvaluated)
+        {
+            // Short-circuit: only the first term is unconditionally evaluated
+            List<Expression> terms = node.terms();
+            for (int i = 0; i < terms.size(); i++) {
+                process(terms.get(i), i == 0 && unconditionallyEvaluated);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitCoalesce(Coalesce node, Boolean unconditionallyEvaluated)
+        {
+            List<Expression> operands = node.operands();
+            for (int i = 0; i < operands.size(); i++) {
+                process(operands.get(i), i == 0 && unconditionallyEvaluated);
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitCase(Case node, Boolean unconditionallyEvaluated)
+        {
+            // First condition is unconditional; everything else is conditional
+            List<WhenClause> whenClauses = node.whenClauses();
+            if (!whenClauses.isEmpty()) {
+                process(whenClauses.getFirst().getOperand(), unconditionallyEvaluated);
+                process(whenClauses.getFirst().getResult(), false);
+                for (int i = 1; i < whenClauses.size(); i++) {
+                    process(whenClauses.get(i).getOperand(), false);
+                    process(whenClauses.get(i).getResult(), false);
                 }
             }
-            case Coalesce coalesce -> {
-                List<Expression> operands = coalesce.operands();
-                for (int i = 0; i < operands.size(); i++) {
-                    collectReferencedChannels(operands.get(i), layout, i == 0 && unconditionallyEvaluated, channels, eagerlyLoadedChannels);
+            process(node.defaultValue(), false);
+            return null;
+        }
+
+        @Override
+        protected Void visitSwitch(Switch node, Boolean unconditionallyEvaluated)
+        {
+            // Operand and first when-clause operand are unconditional; remaining clauses and default are conditional
+            process(node.operand(), unconditionallyEvaluated);
+            List<WhenClause> whenClauses = node.whenClauses();
+            if (!whenClauses.isEmpty()) {
+                process(whenClauses.getFirst().getOperand(), unconditionallyEvaluated);
+                process(whenClauses.getFirst().getResult(), false);
+                for (int i = 1; i < whenClauses.size(); i++) {
+                    process(whenClauses.get(i).getOperand(), false);
+                    process(whenClauses.get(i).getResult(), false);
                 }
             }
-            case Case caseExpr -> {
-                List<WhenClause> whenClauses = caseExpr.whenClauses();
-                // First condition is unconditional; everything else is conditional
-                if (!whenClauses.isEmpty()) {
-                    collectReferencedChannels(whenClauses.getFirst().getOperand(), layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                    collectReferencedChannels(whenClauses.getFirst().getResult(), layout, false, channels, eagerlyLoadedChannels);
-                    for (int i = 1; i < whenClauses.size(); i++) {
-                        collectReferencedChannels(whenClauses.get(i).getOperand(), layout, false, channels, eagerlyLoadedChannels);
-                        collectReferencedChannels(whenClauses.get(i).getResult(), layout, false, channels, eagerlyLoadedChannels);
-                    }
-                }
-                collectReferencedChannels(caseExpr.defaultValue(), layout, false, channels, eagerlyLoadedChannels);
+            process(node.defaultValue(), false);
+            return null;
+        }
+
+        @Override
+        protected Void visitBetween(Between node, Boolean unconditionallyEvaluated)
+        {
+            // Value and min are unconditional; max is conditional on the second comparison
+            process(node.value(), unconditionallyEvaluated);
+            process(node.min(), unconditionallyEvaluated);
+            process(node.max(), false);
+            return null;
+        }
+
+        @Override
+        protected Void visitLambda(Lambda node, Boolean unconditionallyEvaluated)
+        {
+            // Lambda parameters are locally bound — exclude them from the layout so they are not
+            // mistaken for input channel references when traversing the body
+            Map<Symbol, Integer> previousLayout = layout;
+            layout = Maps.filterKeys(layout, key -> !node.arguments().contains(key));
+            try {
+                process(node.body(), unconditionallyEvaluated);
             }
-            case Switch switchExpr -> {
-                // Operand and first when-clause operand are unconditional; remaining clauses and default are conditional
-                collectReferencedChannels(switchExpr.operand(), layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                List<WhenClause> whenClauses = switchExpr.whenClauses();
-                if (!whenClauses.isEmpty()) {
-                    collectReferencedChannels(whenClauses.getFirst().getOperand(), layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                    collectReferencedChannels(whenClauses.getFirst().getResult(), layout, false, channels, eagerlyLoadedChannels);
-                    for (int i = 1; i < whenClauses.size(); i++) {
-                        collectReferencedChannels(whenClauses.get(i).getOperand(), layout, false, channels, eagerlyLoadedChannels);
-                        collectReferencedChannels(whenClauses.get(i).getResult(), layout, false, channels, eagerlyLoadedChannels);
-                    }
-                }
-                collectReferencedChannels(switchExpr.defaultValue(), layout, false, channels, eagerlyLoadedChannels);
+            finally {
+                layout = previousLayout;
             }
-            case Between between -> {
-                // Value and min are unconditional; max is conditional on the second comparison
-                collectReferencedChannels(between.value(), layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                collectReferencedChannels(between.min(), layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                collectReferencedChannels(between.max(), layout, false, channels, eagerlyLoadedChannels);
+            return null;
+        }
+
+        @Override
+        protected Void visitCall(Call node, Boolean unconditionallyEvaluated)
+        {
+            for (Expression argument : node.arguments()) {
+                process(argument, unconditionallyEvaluated && !(argument instanceof Lambda));
             }
-            case Lambda lambda -> {
-                // Lambda parameters are locally bound — exclude them from the layout so they are not
-                // mistaken for input channel references when traversing the body
-                Map<Symbol, Integer> bodyLayout = Maps.filterKeys(layout, key -> !lambda.arguments().contains(key));
-                collectReferencedChannels(lambda.body(), bodyLayout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-            }
-            case Call call -> {
-                for (Expression argument : call.arguments()) {
-                    collectReferencedChannels(argument, layout, unconditionallyEvaluated && !(argument instanceof Lambda), channels, eagerlyLoadedChannels);
-                }
-            }
+            return null;
+        }
+
+        @Override
+        protected Void visitExpression(Expression node, Boolean unconditionallyEvaluated)
+        {
             // All other expressions: children inherit the parent's unconditional context
-            default -> {
-                for (Expression child : expression.children()) {
-                    collectReferencedChannels(child, layout, unconditionallyEvaluated, channels, eagerlyLoadedChannels);
-                }
+            for (Expression child : node.children()) {
+                process(child, unconditionallyEvaluated);
             }
+            return null;
         }
     }
 

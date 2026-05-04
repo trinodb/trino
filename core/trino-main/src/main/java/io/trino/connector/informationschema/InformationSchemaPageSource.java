@@ -206,30 +206,14 @@ public class InformationSchemaPageSource
         while (pages.isEmpty() && prefixIterator.get().hasNext() && !closed && !isLimitExhausted()) {
             QualifiedTablePrefix prefix = prefixIterator.get().next();
             switch (table) {
-                case COLUMNS:
-                    addColumnsRecords(prefix);
-                    break;
-                case TABLES:
-                    addTablesRecords(prefix);
-                    break;
-                case VIEWS:
-                    addViewsRecords(prefix);
-                    break;
-                case SCHEMATA:
-                    addSchemataRecords();
-                    break;
-                case TABLE_PRIVILEGES:
-                    addTablePrivilegesRecords(prefix);
-                    break;
-                case ROLES:
-                    addRolesRecords();
-                    break;
-                case APPLICABLE_ROLES:
-                    addApplicableRolesRecords();
-                    break;
-                case ENABLED_ROLES:
-                    addEnabledRolesRecords();
-                    break;
+                case COLUMNS -> addColumnsRecords(prefix);
+                case TABLES -> addTablesRecords(prefix);
+                case VIEWS -> addViewsRecords(prefix);
+                case SCHEMATA -> addSchemataRecords();
+                case TABLE_PRIVILEGES -> addTablePrivilegesRecords(prefix);
+                case ROLES -> addRolesRecords();
+                case APPLICABLE_ROLES -> addApplicableRolesRecords();
+                case ENABLED_ROLES -> addEnabledRolesRecords();
             }
         }
         if (!prefixIterator.get().hasNext() || isLimitExhausted()) {

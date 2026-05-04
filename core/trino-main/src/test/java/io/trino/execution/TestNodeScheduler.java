@@ -22,6 +22,8 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
+import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.execution.scheduler.NetworkLocation;
 import io.trino.execution.scheduler.NetworkTopology;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -115,7 +117,7 @@ public class TestNodeScheduler
                 .setMaxAdjustedPendingSplitsWeightPerTask(100)
                 .setIncludeCoordinator(false);
 
-        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, nodeTaskMap, new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig())));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(session);
@@ -190,7 +192,8 @@ public class TestNodeScheduler
                 nodeManager,
                 nodeSchedulerConfig,
                 nodeTaskMap,
-                getNetworkTopologyConfig());
+                getNetworkTopologyConfig(),
+                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 
@@ -258,14 +261,9 @@ public class TestNodeScheduler
         for (Split split : unassigned) {
             String rack = topology.locate(split.getAddresses().get(0)).getSegments().get(0);
             switch (rack) {
-                case "rack1":
-                    rack1++;
-                    break;
-                case "rack2":
-                    rack2++;
-                    break;
-                default:
-                    throw new AssertionError("Unexpected rack: " + rack);
+                case "rack1" -> rack1++;
+                case "rack2" -> rack2++;
+                default -> throw new AssertionError("Unexpected rack: " + rack);
             }
         }
         assertThat(rack1).isEqualTo(2);
@@ -613,7 +611,8 @@ public class TestNodeScheduler
                 nodeManager,
                 nodeSchedulerConfig,
                 nodeTaskMap,
-                getNetworkTopologyConfig());
+                getNetworkTopologyConfig(),
+                new ConsistentHashingAddressProvider(nodeManager, new ConsistentHashingAddressProviderConfig()));
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session);
 

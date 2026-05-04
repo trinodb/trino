@@ -94,7 +94,7 @@ public class LookupJoinOperator
         WorkProcessor<Page> pages = flatten(WorkProcessor.create(joinProcessor));
         if (waitForBuild) {
             // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceProviderFuture, ignored -> null, directExecutor()));
+            pages = pages.blocking(() -> transform(lookupSourceProviderFuture, _ -> null, directExecutor()));
         }
         this.pages = pages;
     }

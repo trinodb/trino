@@ -32,7 +32,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 
 public class PagesInputStreamFactory
 {
-    public static final int SERIALIZED_PAGES_MAGIC = 0xfea4f001;
+    public static final int SERIALIZED_PAGES_MAGIC = 0xFEA4F001;
 
     private final boolean dataIntegrityVerificationEnabled;
 

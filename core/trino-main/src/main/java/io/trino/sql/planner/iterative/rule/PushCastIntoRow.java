@@ -45,7 +45,7 @@ public class PushCastIntoRow
 {
     public PushCastIntoRow()
     {
-        super((expression, context) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(), expression, null));
+        super((expression, _) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(), expression, null));
     }
 
     private static class Rewriter

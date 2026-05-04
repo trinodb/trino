@@ -202,7 +202,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <excludes>
+                    <excludes combine.children="append">
                         <!-- TestFullOrcReader takes a long time and might produce no output leading to Travis aborting the build -->
                         <!-- TODO https://github.com/trinodb/trino/issues/612 run TestFullOrcReader on CI -->
                         <exclude>**/TestFullOrcReader.java</exclude>

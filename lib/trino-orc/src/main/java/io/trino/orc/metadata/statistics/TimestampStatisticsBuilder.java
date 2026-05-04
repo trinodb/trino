@@ -93,7 +93,7 @@ public class TimestampStatisticsBuilder
         Optional<TimestampStatistics> timestampStatistics = buildTimestampStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                timestampStatistics.map(s -> TIMESTAMP_VALUE_BYTES).orElse(0L),
+                timestampStatistics.map(_ -> TIMESTAMP_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,

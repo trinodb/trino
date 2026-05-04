@@ -69,7 +69,7 @@ public class TestCachingOrcDataSource
                 ZLIB,
                 ImmutableList.of("test"),
                 ImmutableList.of(VARCHAR),
-                Stream.generate(() -> (Function<Integer, Object>) (fieldIndex) -> Long.toHexString(random.nextLong()))
+                Stream.generate(() -> (Function<Integer, Object>) _ -> Long.toHexString(random.nextLong()))
                         .limit(POSITION_COUNT).iterator());
     }
 
@@ -202,7 +202,7 @@ public class TestCachingOrcDataSource
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(VARCHAR),
                 false,
-                (numberOfRows, statisticsByColumnIndex) -> true,
+                (_, _) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,

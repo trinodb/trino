@@ -82,7 +82,7 @@ public class BenchmarkPageProcessor2
     private static final FunctionManager FUNCTION_MANAGER = FUNCTIONS.getPlannerContext().getFunctionManager();
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
 
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
     private static final int POSITIONS = 1024;
@@ -139,10 +139,10 @@ public class BenchmarkPageProcessor2
     private Expression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return new Comparison(EQUAL, call(MODULUS_BIGINT, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
+            return new Comparison(EQUAL, call(MODULO_BIGINT, new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         if (type == BIGINT) {
-            return new Comparison(EQUAL, call(MODULUS_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
+            return new Comparison(EQUAL, call(MODULO_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L)), new Constant(BIGINT, 0L));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }

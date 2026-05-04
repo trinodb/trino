@@ -234,7 +234,7 @@ public class PushJoinIntoTableScan
     private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> constraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
         if (nullable) {
-            constraint = constraint.transformDomains((columnHandle, domain) -> domain.union(onlyNull(domain.getType())));
+            constraint = constraint.transformDomains((_, domain) -> domain.union(onlyNull(domain.getType())));
         }
         return constraint.transformKeys(columnMapping::get);
     }

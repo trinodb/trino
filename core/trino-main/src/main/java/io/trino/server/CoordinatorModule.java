@@ -70,6 +70,8 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
+import io.trino.execution.scheduler.ConsistentHashingAddressProviderConfig;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.SplitSchedulerStats;
@@ -271,6 +273,10 @@ public class CoordinatorModule
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
+
+        // consistent hashing address provider used by the scheduler to place splits that carry a cache key
+        configBinder(binder).bindConfig(ConsistentHashingAddressProviderConfig.class);
+        binder.bind(ConsistentHashingAddressProvider.class).in(Scopes.SINGLETON);
 
         // network topology
         switch (buildConfigObject(NodeSchedulerConfig.class).getNodeSchedulerPolicy()) {

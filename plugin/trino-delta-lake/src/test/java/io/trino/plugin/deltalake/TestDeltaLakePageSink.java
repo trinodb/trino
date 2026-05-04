@@ -125,7 +125,7 @@ public class TestDeltaLakePageSink
             assertThat(dataFileInfos).hasSize(1);
             DataFileInfo dataFileInfo = dataFileInfos.get(0);
 
-            List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((dir, name) -> !name.endsWith(".crc")));
+            List<File> files = ImmutableList.copyOf(new File(tablePath).listFiles((_, name) -> !name.endsWith(".crc")));
             assertThat(files).hasSize(1);
             File outputFile = files.get(0);
 

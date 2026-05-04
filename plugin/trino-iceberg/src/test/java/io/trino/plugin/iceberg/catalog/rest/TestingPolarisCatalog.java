@@ -49,7 +49,8 @@ public final class TestingPolarisCatalog
 
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
-    private static final HeaderName POLARIS_REALM_HEADER = HeaderName.of("Polaris-Realm");
+    public static final HeaderName POLARIS_REALM_HEADER = HeaderName.of("Polaris-Realm");
+    public static final String POLARIS_REALM_NAME = "default-realm";
 
     private final GenericContainer<?> polarisCatalog;
     private final String token;
@@ -64,8 +65,10 @@ public final class TestingPolarisCatalog
         polarisCatalog.addExposedPort(POLARIS_PORT);
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
-        polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
-        polarisCatalog.withEnv("polaris.realm-context.realms", "default-realm");
+        polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", POLARIS_REALM_NAME.concat(",root,s3cr3t"));
+        polarisCatalog.withEnv("polaris.realm-context.realms", POLARIS_REALM_NAME);
+        polarisCatalog.withEnv("polaris.realm-context.header-name", POLARIS_REALM_HEADER.toString());
+        polarisCatalog.withEnv("polaris.realm-context.require-header", "true");
         polarisCatalog.withEnv("polaris.readiness.ignore-severe-issues", "true");
         polarisCatalog.withEnv("polaris.features.\"SUPPORTED_CATALOG_STORAGE_TYPES\"", "[\"FILE\"]");
         polarisCatalog.withEnv("polaris.features.\"ALLOW_INSECURE_STORAGE_TYPES\"", "true");
@@ -83,7 +86,7 @@ public final class TestingPolarisCatalog
         String body = "grant_type=client_credentials&client_id=root&client_secret=s3cr3t&scope=PRINCIPAL_ROLE:ALL";
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/catalog/v1/oauth/tokens"))
-                .setHeader(POLARIS_REALM_HEADER, "default-realm")
+                .setHeader(POLARIS_REALM_HEADER, POLARIS_REALM_NAME)
                 .setHeader(CONTENT_TYPE, "application/x-www-form-urlencoded")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
@@ -111,6 +114,7 @@ public final class TestingPolarisCatalog
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
                 .setHeader(CONTENT_TYPE, "application/json")
+                .setHeader(POLARIS_REALM_HEADER, POLARIS_REALM_NAME)
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
         StatusResponseHandler.StatusResponse response = HTTP_CLIENT.execute(request, createStatusResponseHandler());
@@ -125,6 +129,7 @@ public final class TestingPolarisCatalog
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs/polaris/catalog-roles/catalog_admin/grants"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
                 .setHeader(CONTENT_TYPE, "application/json")
+                .setHeader(POLARIS_REALM_HEADER, POLARIS_REALM_NAME)
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
         HTTP_CLIENT.execute(request, createStatusResponseHandler());
@@ -136,6 +141,7 @@ public final class TestingPolarisCatalog
                 .setUri(URI.create(restUri() + "/api/catalog/v1/polaris/namespaces/" + schema + "/tables/" + table))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
                 .setHeader(CONTENT_TYPE, "application/json")
+                .setHeader(POLARIS_REALM_HEADER, POLARIS_REALM_NAME)
                 .build();
         HTTP_CLIENT.execute(request, createStatusResponseHandler());
     }

@@ -99,7 +99,7 @@ public class TestHivePageSource
 
         Block[] blocks = {
                 nativeValueToBlock(VARCHAR, utf8Slice("a")),
-                nativeValueToBlock(BIGINT, 1L)
+                nativeValueToBlock(BIGINT, 1L),
         };
         SourcePage page = SourcePage.create(new Page(1, blocks));
 

@@ -109,24 +109,23 @@ public class BenchmarkArraySubscript
             ArrayType arrayType;
             Block elementsBlock;
             switch (name) {
-                case "fix-width":
+                case "fix-width" -> {
                     arrayType = new ArrayType(DOUBLE);
                     elementsBlock = createFixWidthValueBlock(POSITIONS, arraySize);
-                    break;
-                case "var-width":
+                }
+                case "var-width" -> {
                     arrayType = new ArrayType(createUnboundedVarcharType());
                     elementsBlock = createVarWidthValueBlock(POSITIONS, arraySize);
-                    break;
-                case "dictionary":
+                }
+                case "dictionary" -> {
                     arrayType = new ArrayType(createUnboundedVarcharType());
                     elementsBlock = createDictionaryValueBlock(POSITIONS, arraySize);
-                    break;
-                case "array":
+                }
+                case "array" -> {
                     arrayType = new ArrayType(new ArrayType(createUnboundedVarcharType()));
                     elementsBlock = createArrayBlock(POSITIONS * arraySize, createVarWidthValueBlock(POSITIONS, arraySize));
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
 
             Block block = createArrayBlock(POSITIONS, elementsBlock);

@@ -2481,7 +2481,7 @@ public class TestExpressionCompiler
                 "{\"fuu\": null}",
                 "{\"fuu\": 1}",
                 "{\"fuu\": 1, \"bar\": \"abc\"}",
-                null
+                null,
         };
 
         String[] jsonPatterns = {
@@ -2489,7 +2489,7 @@ public class TestExpressionCompiler
                 "$.fuu",
                 "$.fuu[0]",
                 "$.bar",
-                null
+                null,
         };
 
         for (String value : jsonValues) {
@@ -2555,7 +2555,7 @@ public class TestExpressionCompiler
                 new DateTime(2001, 1, 22, 3, 4, 5, 321, UTC),
                 new DateTime(1960, 1, 22, 3, 4, 5, 321, UTC),
                 new DateTime(1970, 1, 1, 0, 0, 0, 0, UTC),
-                null
+                null,
         };
 
         for (DateTime left : dateTimeValues) {

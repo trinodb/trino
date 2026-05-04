@@ -95,17 +95,10 @@ public class BenchmarkJsonToMapCast
         {
             Type valueType;
             switch (valueTypeName) {
-                case "BIGINT":
-                    valueType = BIGINT;
-                    break;
-                case "DOUBLE":
-                    valueType = DOUBLE;
-                    break;
-                case "VARCHAR":
-                    valueType = VARCHAR;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> valueType = BIGINT;
+                case "DOUBLE" -> valueType = DOUBLE;
+                case "VARCHAR" -> valueType = VARCHAR;
+                default -> throw new UnsupportedOperationException();
             }
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();

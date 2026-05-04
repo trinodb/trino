@@ -584,28 +584,27 @@ public class InternalResourceGroup
             Queue<InternalResourceGroup> queue;
             UpdateablePriorityQueue<ManagedQueryExecution> queryQueue;
             switch (policy) {
-                case FAIR:
+                case FAIR -> {
                     queue = new FifoQueue<>();
                     queryQueue = new FifoQueue<>();
-                    break;
-                case WEIGHTED:
+                }
+                case WEIGHTED -> {
                     queue = new StochasticPriorityQueue<>();
                     queryQueue = new StochasticPriorityQueue<>();
-                    break;
-                case WEIGHTED_FAIR:
+                }
+                case WEIGHTED_FAIR -> {
                     queue = new WeightedFairQueue<>();
                     queryQueue = new IndexedPriorityQueue<>();
-                    break;
-                case QUERY_PRIORITY:
+                }
+                case QUERY_PRIORITY -> {
                     // Sub groups must use query priority to ensure ordering
                     for (InternalResourceGroup group : subGroups.values()) {
                         group.setSchedulingPolicy(QUERY_PRIORITY);
                     }
                     queue = new IndexedPriorityQueue<>();
                     queryQueue = new IndexedPriorityQueue<>();
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
+                }
+                default -> throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
             }
             schedulingPolicy = policy;
             while (!eligibleSubGroups.isEmpty()) {

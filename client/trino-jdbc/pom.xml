@@ -15,10 +15,17 @@
 
     <properties>
         <project.build.targetJdk>11</project.build.targetJdk>
+        <checkstyle.violation.ignore>UnusedLambdaParameterShouldBeUnnamed,UseEnhancedSwitch</checkstyle.violation.ignore>
         <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -99,6 +106,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -184,6 +197,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>security</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
             <scope>test</scope>
         </dependency>
 

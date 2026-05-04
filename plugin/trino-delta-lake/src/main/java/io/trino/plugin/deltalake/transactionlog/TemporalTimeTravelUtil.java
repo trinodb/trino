@@ -25,17 +25,17 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.extractCommitVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
@@ -44,7 +44,6 @@ import static java.lang.String.format;
 
 public final class TemporalTimeTravelUtil
 {
-    private static final Pattern TRANSACTION_LOG_PATTERN = Pattern.compile("^(\\d{20})\\.json$");
     private static final int VERSION_NOT_FOUND = -1;
 
     private TemporalTimeTravelUtil() {}
@@ -227,11 +226,11 @@ public final class TemporalTimeTravelUtil
         long version = VERSION_NOT_FOUND;
         while (fileIterator.hasNext()) {
             Location location = fileIterator.next().location();
-            Matcher matcher = TRANSACTION_LOG_PATTERN.matcher(location.fileName());
-            if (!matcher.matches()) {
+            OptionalLong commitVersion = extractCommitVersion(location.fileName());
+            if (commitVersion.isEmpty()) {
                 continue;
             }
-            long entryNumber = Long.parseLong(matcher.group(1));
+            long entryNumber = commitVersion.getAsLong();
 
             Stream<DeltaLakeTransactionLogEntry> logEntryStream = getEntriesFromJson(entryNumber, fileSystem.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DataSize.ofBytes(0))
                     .map(entry -> entry.getEntries(fileSystem))

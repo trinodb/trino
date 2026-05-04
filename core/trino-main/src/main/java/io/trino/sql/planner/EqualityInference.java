@@ -283,7 +283,7 @@ public class EqualityInference
         extractSubExpressions(expression)
                 .stream()
                 .filter(allowFullReplacement
-                        ? subExpression -> true
+                        ? _ -> true
                         : subExpression -> !subExpression.equals(expression))
                 .forEach(subExpression -> {
                     Expression canonical = getScopedCanonical(subExpression, symbolScope);
@@ -363,7 +363,7 @@ public class EqualityInference
 
     private Set<Symbol> extractUniqueSymbols(Expression expression)
     {
-        return uniqueSymbolsCache.computeIfAbsent(expression, e -> ImmutableSet.copyOf(extractAllSymbols(expression)));
+        return uniqueSymbolsCache.computeIfAbsent(expression, _ -> ImmutableSet.copyOf(extractAllSymbols(expression)));
     }
 
     private List<Symbol> extractAllSymbols(Expression expression)

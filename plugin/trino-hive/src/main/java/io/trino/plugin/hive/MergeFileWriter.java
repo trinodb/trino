@@ -162,7 +162,7 @@ public final class MergeFileWriter
                 RunLengthEncodedBlock.create(bucketValueBlock, positionCount),
                 createRowIdBlock(positionCount, insertRowCount),
                 currentTransactionBlock,
-                mergedColumnsBlock
+                mergedColumnsBlock,
         };
 
         return new Page(blockArray);

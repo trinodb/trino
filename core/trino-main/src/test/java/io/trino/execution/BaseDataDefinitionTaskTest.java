@@ -347,7 +347,7 @@ public abstract class BaseDataDefinitionTaskTest
         public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
         {
             return Optional.ofNullable(tables.get(tableName.asSchemaTableName()))
-                    .map(tableMetadata -> new TableHandle(
+                    .map(_ -> new TableHandle(
                             TEST_CATALOG_HANDLE,
                             new TestingTableHandle(tableName.asSchemaTableName()),
                             TestingConnectorTransactionHandle.INSTANCE));

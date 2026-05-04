@@ -84,14 +84,14 @@ public final class FormatDateTime
             }
 
             switch (c) {
-                case 'z':
-                case 'Z':
+                case 'z', 'Z' -> {
                     return true;
-                case '\'':
+                }
+                case '\'' -> {
                     // '' (two apostrophes) in a pattern denote single apostrophe and here we interpret this as "start quote" + "end quote".
                     // This has no impact on method's result value.
                     quoted = true;
-                    break;
+                }
             }
         }
         return false;

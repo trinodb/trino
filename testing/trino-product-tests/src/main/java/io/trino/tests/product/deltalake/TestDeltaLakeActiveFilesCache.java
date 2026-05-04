@@ -61,14 +61,17 @@ public class TestDeltaLakeActiveFilesCache
         String tableName = "test_dl_cached_table_files_refresh_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
+        // Disable delta.load_metadata_from_checksum_file. When delta.load_metadata_from_checksum_file is enabled, the stale
+        // cache issue from https://github.com/trinodb/trino/issues/13737 does not reproduce
+        String selectWithChecksumFilesDisabled = "WITH SESSION delta.load_metadata_from_checksum_file = false SELECT * FROM delta.default." + tableName;
+
         onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1");
-        // Add the files of the table in the active files cache
-        assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(1));
+        assertThat(onTrino().executeQuery(selectWithChecksumFilesDisabled)).containsOnly(row(1));
 
         // Recreate the table outside Trino to avoid updating the Trino table active files cache
         dropDeltaTableWithRetry("default." + tableName);
@@ -82,12 +85,12 @@ public class TestDeltaLakeActiveFilesCache
         onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 2");
 
         // TODO https://github.com/trinodb/trino/issues/13737 Fix failure when active files cache is stale
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+        assertQueryFailure(() -> onTrino().executeQuery(selectWithChecksumFilesDisabled))
                 .hasMessageContaining("Error opening Hive split");
 
         // Verify flushing cache resolve the query failure
         onTrino().executeQuery("CALL delta.system.flush_metadata_cache(schema_name => 'default', table_name => '" + tableName + "')");
-        assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(2));
+        assertThat(onTrino().executeQuery(selectWithChecksumFilesDisabled)).containsOnly(row(2));
 
         onTrino().executeQuery("DROP TABLE delta.default." + tableName);
     }

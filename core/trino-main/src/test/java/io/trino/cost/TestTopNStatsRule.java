@@ -81,12 +81,12 @@ public class TestTopNStatsRule
         tester().assertStatsFor(pb -> pb
                 .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 10.0)));
 
         tester().assertStatsFor(pb -> pb
                         .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
-                .withSourceStats(0, sourceStats.mapOutputRowCount(ignore -> 5000000.0))
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 50.0)));
+                .withSourceStats(0, sourceStats.mapOutputRowCount(_ -> 5000000.0))
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 50.0)));
 
         tester().assertStatsFor(pb -> pb
                         .topN(
@@ -95,7 +95,7 @@ public class TestTopNStatsRule
                                 TopNNode.Step.FINAL,
                                 pb.topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE)))))
                 .withSourceStats(0, sourceStats)
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 10.0)));
     }
 
     @Test

@@ -151,7 +151,7 @@ public final class TableStatisticsReader
 
         Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Expression filter = toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId())));
+        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !isMetadataColumnId(column.getId())));
 
         NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1000),

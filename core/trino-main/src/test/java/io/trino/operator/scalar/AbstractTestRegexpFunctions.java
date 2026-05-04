@@ -77,8 +77,8 @@ public abstract class AbstractTestRegexpFunctions
     {
         return Slices.wrappedBuffer(new byte[] {
                 // AAA\uD800AAAA\uDFFFAAA, D800 and DFFF are valid unicode code points, but not valid UTF8
-                (byte) 0x41, 0x41, (byte) 0xed, (byte) 0xa0, (byte) 0x80, 0x41, 0x41,
-                0x41, 0x41, (byte) 0xed, (byte) 0xbf, (byte) 0xbf, 0x41, 0x41, 0x41,
+                (byte) 0x41, 0x41, (byte) 0xED, (byte) 0xA0, (byte) 0x80, 0x41, 0x41,
+                0x41, 0x41, (byte) 0xED, (byte) 0xBF, (byte) 0xBF, 0x41, 0x41, 0x41,
         });
     }
 

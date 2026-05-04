@@ -19,12 +19,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.ishugaliy</groupId>
-            <artifactId>allgood-consistent-hash</artifactId>
-            <version>1.0.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -88,11 +82,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>

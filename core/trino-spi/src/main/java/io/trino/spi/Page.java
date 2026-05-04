@@ -203,7 +203,7 @@ public final class Page
         for (int i = 0; i < blocks.length; i++) {
             Block block = blocks[i];
             if (block instanceof DictionaryBlock dictionaryBlock) {
-                relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), id -> new DictionaryBlockIndexes())
+                relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), _ -> new DictionaryBlockIndexes())
                         .addBlock(dictionaryBlock, i);
             }
         }

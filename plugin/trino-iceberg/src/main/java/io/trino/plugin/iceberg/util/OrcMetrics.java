@@ -207,13 +207,13 @@ public final class OrcMetrics
         }
         OrcType orcColumn = orcColumns.get(orcColumnId);
         switch (orcColumn.getOrcTypeKind()) {
-            case LIST:
-            case MAP:
+            case LIST, MAP -> {
                 for (OrcColumnId child : orcColumn.getFieldTypeIndexes()) {
                     populateExcludedColumns(orcColumns, child, true, excludedColumns);
                 }
                 return;
-            case STRUCT:
+            }
+            case STRUCT -> {
                 // Variant types are stored as STRUCT with iceberg.variant-type=true
                 // The children (metadata, value) are internal and should be excluded
                 boolean isVariantType = "true".equals(orcColumn.getAttributes().get(OrcTypeConverter.ICEBERG_VARIANT_TYPE_KIND));
@@ -221,8 +221,10 @@ public final class OrcMetrics
                     populateExcludedColumns(orcColumns, child, exclude || isVariantType, excludedColumns);
                 }
                 return;
-            default:
+            }
+            default -> {
                 // unexpected, TODO throw
+            }
         }
     }
 
@@ -342,18 +344,18 @@ public final class OrcMetrics
             else if (metricsMode instanceof MetricsModes.Truncate truncateMode) {
                 int truncateLength = truncateMode.length();
                 switch (type.typeId()) {
-                    case STRING:
+                    case STRING -> {
                         this.min = UnicodeUtil.truncateStringMin(Literal.of((CharSequence) min), truncateLength).toByteBuffer();
                         this.max = UnicodeUtil.truncateStringMax(Literal.of((CharSequence) max), truncateLength).toByteBuffer();
-                        break;
-                    case FIXED:
-                    case BINARY:
+                    }
+                    case FIXED, BINARY -> {
                         this.min = BinaryUtil.truncateBinaryMin(Literal.of((ByteBuffer) min), truncateLength).toByteBuffer();
                         this.max = BinaryUtil.truncateBinaryMax(Literal.of((ByteBuffer) max), truncateLength).toByteBuffer();
-                        break;
-                    default:
+                    }
+                    default -> {
                         this.min = Conversions.toByteBuffer(type, min);
                         this.max = Conversions.toByteBuffer(type, max);
+                    }
                 }
             }
             else {

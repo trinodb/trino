@@ -109,20 +109,19 @@ public class BenchmarkTransformValue
             Type elementType;
             Object compareValue;
             switch (type) {
-                case "BIGINT":
+                case "BIGINT" -> {
                     elementType = BIGINT;
                     compareValue = 0L;
-                    break;
-                case "DOUBLE":
+                }
+                case "DOUBLE" -> {
                     elementType = DOUBLE;
                     compareValue = 0.0d;
-                    break;
-                case "VARCHAR":
+                }
+                case "VARCHAR" -> {
                     elementType = VARCHAR;
                     compareValue = Slices.utf8Slice("0");
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                }
+                default -> throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
             ResolvedFunction resolvedFunction = functionResolution.resolveFunction(

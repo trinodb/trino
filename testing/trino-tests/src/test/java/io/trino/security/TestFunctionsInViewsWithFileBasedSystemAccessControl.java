@@ -70,7 +70,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new TestingTableFunctions.SimpleTableFunction()))
-                .withApplyTableFunction((session, handle) -> {
+                .withApplyTableFunction((_, handle) -> {
                     if (handle instanceof TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                     }

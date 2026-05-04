@@ -87,7 +87,7 @@ import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NA
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.MODULUS_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MULTIPLY_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -98,7 +98,7 @@ import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.TRY_CAST_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -476,8 +476,8 @@ public final class ConnectorExpressionTranslator
             if (DIVIDE_FUNCTION_NAME.equals(functionName)) {
                 return Optional.of(DIVIDE);
             }
-            if (MODULUS_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(MODULUS);
+            if (MODULO_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(MODULO);
             }
             return Optional.empty();
         }
@@ -709,9 +709,9 @@ public final class ConnectorExpressionTranslator
                 return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
                         new io.trino.spi.expression.Call(node.type(), DIVIDE_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
-            else if (functionName.equals(builtinFunctionName(MODULUS))) {
+            else if (functionName.equals(builtinFunctionName(MODULO))) {
                 return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
-                        new io.trino.spi.expression.Call(node.type(), MODULUS_FUNCTION_NAME, ImmutableList.of(left, right))));
+                        new io.trino.spi.expression.Call(node.type(), MODULO_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();

@@ -838,7 +838,9 @@
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefreshTest.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefreshTest.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
@@ -907,7 +909,9 @@
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefreshTest.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefreshTest.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>

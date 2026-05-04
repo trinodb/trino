@@ -1900,7 +1900,7 @@ public abstract class AbstractTestParquetReader
         Random random = new Random(2342890824L);
         int typeLength = 5;
         List<byte[]> writeValues = IntStream.range(0, 30_000)
-                .mapToObj(i -> {
+                .mapToObj(_ -> {
                     byte[] value = new byte[typeLength];
                     random.nextBytes(value);
                     return value;

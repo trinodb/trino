@@ -82,7 +82,7 @@ public class ValuesStatsRule
         if (UNKNOWN.equals(symbolType)) {
             // special casing for UNKNOWN as evaluateConstantExpression does not handle that
             return IntStream.range(0, valuesNode.getRowCount())
-                    .mapToObj(rowId -> null)
+                    .mapToObj(_ -> null)
                     .collect(toList());
         }
         checkState(valuesNode.getRows().isPresent(), "rows is empty");

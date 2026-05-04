@@ -389,14 +389,9 @@ public final class PatternRecognitionPartition
     {
         ArrayView labels = matchResult.getLabels();
         switch (skipToPosition) {
-            case PAST_LAST:
-                lastSkippedPosition = patternStart + labels.length() - 1;
-                break;
-            case NEXT:
-                lastSkippedPosition = currentPosition;
-                break;
-            case LAST:
-            case FIRST:
+            case PAST_LAST -> lastSkippedPosition = patternStart + labels.length() - 1;
+            case NEXT -> lastSkippedPosition = currentPosition;
+            case LAST, FIRST -> {
                 checkState(skipToNavigation.isPresent(), "skip to navigation is missing for SKIP TO %s", skipToPosition.name());
                 int position = skipToNavigation.get().resolvePosition(patternStart + labels.length() - 1, labels, searchStart, searchEnd, patternStart);
                 if (position == -1) {
@@ -406,9 +401,8 @@ public final class PatternRecognitionPartition
                     throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, "AFTER MATCH SKIP failed: cannot skip to first row of match");
                 }
                 lastSkippedPosition = position - 1;
-                break;
-            default:
-                throw new IllegalStateException("unexpected SKIP TO position: " + skipToPosition);
+            }
+            default -> throw new IllegalStateException("unexpected SKIP TO position: " + skipToPosition);
         }
     }
 

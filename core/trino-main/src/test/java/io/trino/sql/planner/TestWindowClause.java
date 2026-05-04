@@ -196,7 +196,7 @@ public class TestWindowClause
                                                                         // frame offset based on "a" in output scope
                                                                         "frame_offset", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "new_a"), new Constant(DOUBLE, 1.0))))),
                                                                 project(// output expression
-                                                                        ImmutableMap.of("new_a", expression(new Constant(DOUBLE, 2E0))),
+                                                                        ImmutableMap.of("new_a", expression(new Constant(DOUBLE, 2e0))),
                                                                         project(project(values("a")))))))))))));
 
         assertPlan(sql, CREATED, pattern);

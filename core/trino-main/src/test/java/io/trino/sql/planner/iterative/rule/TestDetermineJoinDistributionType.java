@@ -917,7 +917,7 @@ public class TestDetermineJoinDistributionType
         assertThat(getSourceTablesSizeInBytes(
                 planBuilder.values(symbol),
                 noLookup(),
-                node -> PlanNodeStatsEstimate.unknown())).isNaN();
+                _ -> PlanNodeStatsEstimate.unknown())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -957,7 +957,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(sourceSymbol1),
                         planBuilder.values(sourceSymbol2)),
                 noLookup(),
-                node -> sourceStatsEstimate1)).isNaN();
+                _ -> sourceStatsEstimate1)).isNaN();
 
         // unnest node
         assertThat(getSourceTablesSizeInBytes(
@@ -966,7 +966,7 @@ public class TestDetermineJoinDistributionType
                         ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
                         planBuilder.values(sourceSymbol1)),
                 noLookup(),
-                node -> sourceStatsEstimate1)).isNaN();
+                _ -> sourceStatsEstimate1)).isNaN();
     }
 
     @Test
@@ -981,7 +981,7 @@ public class TestDetermineJoinDistributionType
         assertThat(getFirstKnownOutputSizeInBytes(
                 planBuilder.values(symbol),
                 noLookup(),
-                node -> PlanNodeStatsEstimate.unknown())).isNaN();
+                _ -> PlanNodeStatsEstimate.unknown())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -1038,7 +1038,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(sourceSymbol1),
                         planBuilder.values(sourceSymbol2)),
                 noLookup(),
-                node -> sourceStatsEstimate1)).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
+                _ -> sourceStatsEstimate1)).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
 
         // un-estimated join with non-expanding source
         assertThat(getFirstKnownOutputSizeInBytes(

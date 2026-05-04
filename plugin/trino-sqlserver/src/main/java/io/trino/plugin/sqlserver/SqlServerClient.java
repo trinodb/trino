@@ -80,7 +80,6 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -137,6 +136,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -335,7 +335,7 @@ public class SqlServerClient
                 .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
                 .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
                 .map("$divide(left: integer_type, right: integer_type)").to("left / right")
-                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$modulo(left: integer_type, right: integer_type)").to("left % right")
                 .map("$negate(value: integer_type)").to("-value")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
@@ -512,7 +512,7 @@ public class SqlServerClient
             throws SQLException
     {
         // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
-        // The second arqgument is treated literally.
+        // The second argument is treated literally.
         String columnFrom = DOT_JOINER.join(
                 quoted(remoteTableName.getCatalogName().orElseThrow()),
                 quoted(remoteTableName.getSchemaName().orElseThrow()),
@@ -571,27 +571,25 @@ public class SqlServerClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(remoteTableName)), ImmutableList.of());
+        return Jdbi.open(connection).createQuery("""
+                                                 SELECT c.name AS column_name, c.collation_name FROM sys.columns c
+                                                 INNER JOIN sys.tables t ON c.object_id = t.object_id
+                                                 INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                                                 WHERE s.name = :schema_name AND t.name = :table_name
+                                                 """)
+                .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
+                .bind("table_name", remoteTableName.getTableName())
+                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                        rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
+    }
 
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
-            ResultSetMetaData metadata = preparedStatement.getMetaData();
-            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
-            for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                String name = metadata.getColumnName(column);
-                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
-            }
-            return columns.buildOrThrow();
+    private static CaseSensitivity toCaseSensitivity(String collation)
+    {
+        if (collation == null || collation.isEmpty()) {
+            return CASE_INSENSITIVE;
         }
-        catch (SQLException e) {
-            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
-                // The 208 indicates that the object doesn't exist or lack of permission.
-                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
-                // TableNotFoundException will be suppressed when listing information_schema.
-                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
-                throw new TableNotFoundException(schemaTableName);
-            }
-            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + requireNonNullElse(e.getMessage(), e), e);
-        }
+        // https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support
+        return collation.contains("_BIN") || collation.contains("_BIN2") || collation.contains("_CS") ? CASE_SENSITIVE : CASE_INSENSITIVE;
     }
 
     @Override
@@ -605,91 +603,74 @@ public class SqlServerClient
         String jdbcTypeName = typeHandle.jdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
-        switch (jdbcTypeName) {
-            case "varbinary":
-                return Optional.of(varbinaryColumnMapping());
-            case "datetimeoffset":
-                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
-            case "json":
-                return Optional.of(jsonColumnMapping());
+        Optional<ColumnMapping> typeNameMapping = switch (jdbcTypeName) {
+            case "varbinary" -> Optional.of(varbinaryColumnMapping());
+            case "datetimeoffset" -> Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
+            case "json" -> Optional.of(jsonColumnMapping());
+            default -> Optional.empty();
+        };
+        if (typeNameMapping.isPresent()) {
+            return typeNameMapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BIT:
-                return Optional.of(booleanColumnMapping());
+        return switch (typeHandle.jdbcType()) {
+            case Types.BIT -> Optional.of(booleanColumnMapping());
 
-            case Types.TINYINT:
+            case Types.TINYINT -> {
                 // Map SQL Server TINYINT to Trino SMALLINT because SQL Server TINYINT is actually "unsigned tinyint"
                 // We don't check the range of values, because SQL Server will do it for us, and this behavior has already
                 // been tested in `BaseSqlServerTypeMapping#testUnsupportedTinyint`
-                return Optional.of(smallintColumnMapping());
+                yield Optional.of(smallintColumnMapping());
+            }
 
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
 
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
 
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping());
 
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
-            case Types.NUMERIC:
-            case Types.DECIMAL: {
+            case Types.NUMERIC, Types.DECIMAL -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 // TODO does sql server support negative scale?
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                    yield getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
             }
 
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+            case Types.CHAR, Types.NCHAR -> Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
+            case Types.VARCHAR, Types.NVARCHAR -> Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(longVarcharColumnMapping(typeHandle.requiredColumnSize()));
+            case Types.LONGVARCHAR, Types.LONGNVARCHAR -> Optional.of(longVarcharColumnMapping(typeHandle.requiredColumnSize()));
 
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
+            case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
                         DATE,
                         dateReadFunctionUsingLocalDate(),
                         sqlServerDateWriteFunction()));
 
-            case Types.TIME:
+            case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(ColumnMapping.longMapping(
                         timeType,
                         timeReadFunction(timeType),
                         sqlServerTimeWriteFunction(timeType.getPrecision())));
+            }
 
-            case Types.TIMESTAMP:
+            case Types.TIMESTAMP -> {
                 int precision = typeHandle.requiredDecimalDigits();
-                return Optional.of(timestampColumnMapping(createTimestampType(precision)));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+                yield Optional.of(timestampColumnMapping(createTimestampType(precision)));
+            }
+            default -> getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR ? mapToUnboundedVarchar(typeHandle) : Optional.empty();
+        };
     }
 
     @Override

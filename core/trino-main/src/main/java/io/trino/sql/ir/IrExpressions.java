@@ -38,7 +38,7 @@ import java.util.List;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -144,7 +144,7 @@ public final class IrExpressions
 
     private static boolean isModulsOrDivide(ResolvedFunction function)
     {
-        return (function.name().equals(builtinFunctionName(MODULUS)) || function.name().equals(builtinFunctionName(DIVIDE))) && function.signature().getArity() == 2;
+        return (function.name().equals(builtinFunctionName(MODULO)) || function.name().equals(builtinFunctionName(DIVIDE))) && function.signature().getArity() == 2;
     }
 
     private static boolean canCauseDivisionByZeroError(Constant divisor)

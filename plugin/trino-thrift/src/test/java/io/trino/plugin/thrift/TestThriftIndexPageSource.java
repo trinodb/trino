@@ -66,10 +66,10 @@ public class TestThriftIndexPageSource
         final int lookupRequestsConcurrency = 2;
         final int rowsPerSplit = 1;
         List<SettableFuture<TrinoThriftPageResult>> futures = IntStream.range(0, splits)
-                .mapToObj(i -> SettableFuture.<TrinoThriftPageResult>create())
+                .mapToObj(_ -> SettableFuture.<TrinoThriftPageResult>create())
                 .collect(toImmutableList());
         List<CountDownLatch> signals = IntStream.range(0, splits)
-                .mapToObj(i -> new CountDownLatch(1))
+                .mapToObj(_ -> new CountDownLatch(1))
                 .collect(toImmutableList());
         TestingThriftService client = new TestingThriftService(rowsPerSplit, false, false)
         {
@@ -84,7 +84,7 @@ public class TestThriftIndexPageSource
         ThriftConnectorStats stats = new ThriftConnectorStats();
         long pageSizeReceived = 0;
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                (context, headers) -> client,
+                (_, _) -> client,
                 ImmutableMap.of(),
                 stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
@@ -191,7 +191,7 @@ public class TestThriftIndexPageSource
     {
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                (context, headers) -> client,
+                (_, _) -> client,
                 ImmutableMap.of(),
                 new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),

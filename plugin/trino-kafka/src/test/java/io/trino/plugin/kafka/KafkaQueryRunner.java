@@ -140,7 +140,7 @@ public final class KafkaQueryRunner
                 Supplier<Module> extensions;
                 if (schemaRegistryEnabled) {
                     checkState(extraTopicDescription.isEmpty(), "unsupported extraTopicDescription with schema registry enabled");
-                    extensions = () -> (_) -> {};
+                    extensions = () -> _ -> {};
                 }
                 else {
                     ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()

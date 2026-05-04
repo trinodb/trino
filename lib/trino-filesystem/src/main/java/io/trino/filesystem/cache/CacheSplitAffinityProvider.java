@@ -13,16 +13,14 @@
  */
 package io.trino.filesystem.cache;
 
-import io.trino.spi.HostAddress;
+import java.util.Optional;
 
-import java.util.List;
-
-public class DefaultCachingHostAddressProvider
-        implements CachingHostAddressProvider
+public class CacheSplitAffinityProvider
+        implements SplitAffinityProvider
 {
     @Override
-    public List<HostAddress> getHosts(String splitKey, List<HostAddress> defaultAddresses)
+    public Optional<String> getKey(String path, long offset, long length)
     {
-        return defaultAddresses;
+        return Optional.of(path + ":" + offset + ":" + length);
     }
 }

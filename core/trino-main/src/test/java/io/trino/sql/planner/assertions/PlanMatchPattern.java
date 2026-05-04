@@ -188,7 +188,7 @@ public final class PlanMatchPattern
             TupleDomain<Predicate<ColumnHandle>> enforcedConstraints,
             Map<String, Predicate<ColumnHandle>> expectedColumns)
     {
-        return tableScan(expectedTable, enforcedConstraints, expectedColumns, statistics -> true);
+        return tableScan(expectedTable, enforcedConstraints, expectedColumns, _ -> true);
     }
 
     public static PlanMatchPattern tableScan(
@@ -660,7 +660,7 @@ public final class PlanMatchPattern
         for (int i = 0; i < outputSymbolAliases.size(); i++) {
             String outputSymbol = outputSymbolAliases.get(i);
             int index = i;
-            result.withAlias(outputSymbol, (node, session, metadata, symbolAliases) -> {
+            result.withAlias(outputSymbol, (node, _, _, _) -> {
                 ExchangeNode exchangeNode = (ExchangeNode) node;
                 List<Symbol> outputSymbols = exchangeNode.getPartitioningScheme().getOutputLayout();
                 checkState(index < outputSymbols.size(), "outputSymbolAliases size is more than exchange output symbols");

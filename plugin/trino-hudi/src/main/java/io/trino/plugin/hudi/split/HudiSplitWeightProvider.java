@@ -21,6 +21,6 @@ public interface HudiSplitWeightProvider
 
     static HudiSplitWeightProvider uniformStandardWeightProvider()
     {
-        return splitSizeInBytes -> SplitWeight.standard();
+        return _ -> SplitWeight.standard();
     }
 }
