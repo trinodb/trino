@@ -100,13 +100,13 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                         LOWERCASE_SCHEMA);
 
         assertQuery("SELECT * FROM information_schema.schemata",
-                        """
-                        VALUES
-                        ('iceberg', 'information_schema'),
-                        ('iceberg', 'system'),
-                        ('iceberg', '%s'),
-                        ('iceberg', 'tpch')
-                        """.formatted(LOWERCASE_SCHEMA));
+                """
+                VALUES
+                ('iceberg', 'information_schema'),
+                ('iceberg', 'system'),
+                ('iceberg', '%s'),
+                ('iceberg', 'tpch')
+                """.formatted(LOWERCASE_SCHEMA));
     }
 
     @Test
@@ -151,11 +151,11 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(lowercaseTableName1, lowercaseTableName2);
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_table%'").getOnlyColumnAsSet()).isEqualTo(Set.of(lowercaseTableName1, lowercaseTableName2));
         assertQuery("SELECT * FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'system') AND table_type = 'BASE TABLE'",
-                        """
-                        VALUES
-                        ('iceberg', '%1$s', '%2$s', 'BASE TABLE'),
-                        ('iceberg', '%1$s', '%3$s', 'BASE TABLE')
-                        """.formatted(LOWERCASE_SCHEMA, lowercaseTableName1, lowercaseTableName2));
+                """
+                VALUES
+                ('iceberg', '%1$s', '%2$s', 'BASE TABLE'),
+                ('iceberg', '%1$s', '%3$s', 'BASE TABLE')
+                """.formatted(LOWERCASE_SCHEMA, lowercaseTableName1, lowercaseTableName2));
 
         // Add table comment
         assertUpdate("COMMENT ON TABLE " + tableName1 + " IS 'test comment' ");
@@ -213,11 +213,11 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(lowercaseViewName1, lowercaseViewName2);
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_view%'").getOnlyColumnAsSet()).contains(lowercaseViewName1, lowercaseViewName2);
         assertQuery("SELECT * FROM information_schema.tables WHERE table_schema != 'information_schema' AND table_type = 'VIEW'",
-                        """
-                        VALUES
-                        ('iceberg', '%1$s', '%2$s', 'VIEW'),
-                        ('iceberg', '%1$s', '%3$s', 'VIEW')
-                        """.formatted(LOWERCASE_SCHEMA, lowercaseViewName1, lowercaseViewName2));
+                """
+                VALUES
+                ('iceberg', '%1$s', '%2$s', 'VIEW'),
+                ('iceberg', '%1$s', '%3$s', 'VIEW')
+                """.formatted(LOWERCASE_SCHEMA, lowercaseViewName1, lowercaseViewName2));
 
         // Add view comment
         assertUpdate("COMMENT ON VIEW " + viewName1 + " IS 'test comment' ");

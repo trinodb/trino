@@ -136,7 +136,7 @@ public class TestDynamicTable
                  WHERE AND(("string_col") = 'string', ("long_col") = '12345678901',\
                  ("int_col") = '123456789', ("double_col") = '3.56', ("float_col") = '3.56', ("bytes_col") = 'abcd')\
                  LIMIT 60\
-                """;
+                 """;
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }

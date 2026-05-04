@@ -201,7 +201,7 @@ final class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = tables.stream()
                 .map(table ->
-                """
+                        """
                 {
                     "operation": "FilterTables",
                     "resource": {
@@ -306,7 +306,7 @@ final class TestOpaAccessControlFiltering
 
         Set<String> expectedRequests = requestedFunctions.stream()
                 .map(function ->
-                """
+                        """
                 {
                     "operation": "FilterFunctions",
                     "resource": {

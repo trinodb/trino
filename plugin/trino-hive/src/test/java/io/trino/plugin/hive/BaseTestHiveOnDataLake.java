@@ -2455,18 +2455,18 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(
                 "SHOW STATS FOR " + testTable,
                 """
-                        VALUES
-                              ('vendorid', null, '2.0', '0.0', null, '1', '2'),
-                              ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:01.000'),
-                              ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:11.000'),
-                              ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
-                              ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
-                              ('payment_type', null, '2.0', '0.0', null, '1', '2'),
-                              ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
-                              ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
-                              ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
-                              (null, null, null, null, '2.0', null, null)
-                        """);
+                VALUES
+                      ('vendorid', null, '2.0', '0.0', null, '1', '2'),
+                      ('tpep_pickup_datetime', null, '2.0', '0.0', null, '2025-09-19 11:00:00.000', '2025-09-19 12:30:01.000'),
+                      ('tpep_dropoff_datetime', null, '2.0', '0.0', null, '2025-09-19 10:10:00.000', '2025-09-20 15:40:11.000'),
+                      ('passenger_count', null, '2.0', '0.0', null, '2.0', '4.0'),
+                      ('trip_distance', null, '2.0', '0.0', null, '3.5', '8.0'),
+                      ('payment_type', null, '2.0', '0.0', null, '1', '2'),
+                      ('fare_amount', null, '2.0', '0.0', null, '10.0', '12.0'),
+                      ('tip_amount', null, '2.0', '0.0', null, '2.0', '5.0'),
+                      ('total_amount', null, '2.0', '0.0', null, '12.0', '19.0'),
+                      (null, null, null, null, '2.0', null, null)
+                """);
 
         assertUpdate(session, "DROP TABLE " + testTable);
     }
