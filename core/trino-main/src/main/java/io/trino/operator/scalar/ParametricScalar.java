@@ -106,7 +106,8 @@ public class ParametricScalar
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder,
+    private static void declareDependencies(
+            FunctionDependencyDeclarationBuilder builder,
             Collection<ParametricScalarImplementation> implementations)
     {
         for (ParametricScalarImplementation implementation : implementations) {

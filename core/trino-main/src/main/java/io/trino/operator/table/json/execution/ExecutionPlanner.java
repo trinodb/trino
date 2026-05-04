@@ -129,8 +129,8 @@ public final class ExecutionPlanner
                 Map<Symbol, Integer> defaultInputLayout = valueColumn.defaultInputLayout().isEmpty()
                         ? Map.of()
                         : IntStream.range(0, valueColumn.defaultInputLayout().size())
-                                .boxed()
-                                .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
+                          .boxed()
+                          .collect(toImmutableMap(valueColumn.defaultInputLayout()::get, i -> i));
                 PageProjection emptyDefaultProjection = valueColumn.emptyDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.emptyDefault(), defaultInputLayout, Optional.empty()).get();
                 PageProjection errorDefaultProjection = valueColumn.errorDefault() == null ? null : pageFunctionCompiler.compileProjection(valueColumn.errorDefault(), defaultInputLayout, Optional.empty()).get();
                 yield new ValueColumn(

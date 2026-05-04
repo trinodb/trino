@@ -120,7 +120,8 @@ public class WindowInfo
                     .mapToLong(IndexInfo::getNumberOfPartitions)
                     .sum();
 
-            return new DriverWindowInfo(squaredDifferencesPositionsOfIndex,
+            return new DriverWindowInfo(
+                    squaredDifferencesPositionsOfIndex,
                     squaredDifferencesSizeOfIndex,
                     squaredDifferencesSizeInPartition,
                     totalPartitionsCount,

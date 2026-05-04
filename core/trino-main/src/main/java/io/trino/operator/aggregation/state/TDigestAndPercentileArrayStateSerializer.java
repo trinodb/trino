@@ -49,10 +49,10 @@ public class TDigestAndPercentileArrayStateSerializer
             Slice digest = state.getDigest().serialize();
 
             SliceOutput output = Slices.allocate(
-                    SIZE_OF_INT + // number of percentiles
-                            state.getPercentiles().size() * SIZE_OF_DOUBLE + // percentiles
-                            SIZE_OF_INT + // digest length
-                            digest.length()) // digest
+                            SIZE_OF_INT + // number of percentiles
+                                    state.getPercentiles().size() * SIZE_OF_DOUBLE + // percentiles
+                                    SIZE_OF_INT + // digest length
+                                    digest.length()) // digest
                     .getOutput();
 
             // write percentiles

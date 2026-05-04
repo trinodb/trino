@@ -64,8 +64,7 @@ public class SequenceFunction
 
     public SequenceFunction()
     {
-        super(
-                BUILTIN_SCHEMA,
+        super(BUILTIN_SCHEMA,
                 NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()

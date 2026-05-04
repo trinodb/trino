@@ -85,7 +85,6 @@ public class RegularTableFunctionPartition
             List<List<Integer>> requiredChannels,
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications)
-
     {
         checkArgument(pagesIndex.getPositionCount() != 0, "PagesIndex is empty for regular table function partition");
         this.pagesIndex = pagesIndex;
