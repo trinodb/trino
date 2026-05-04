@@ -566,8 +566,10 @@ public class TestPostgreSqlConnectorTest
                                     .equals(ImmutableList.of(
                                             Range.range(
                                                     createVarcharType(25),
-                                                    utf8Slice("POLAND"), true,
-                                                    utf8Slice("VIETNAM"), true)));
+                                                    utf8Slice("POLAND"),
+                                                    true,
+                                                    utf8Slice("VIETNAM"),
+                                                    true)));
                         },
                         TupleDomain.all(),
                         ImmutableMap.of())));
@@ -597,7 +599,8 @@ public class TestPostgreSqlConnectorTest
                 node(JoinNode.class,
                         node(TableScanNode.class),
                         exchange(ExchangeNode.Scope.LOCAL,
-                                exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.REPLICATE,
+                                exchange(ExchangeNode.Scope.REMOTE,
+                                        ExchangeNode.Type.REPLICATE,
                                         node(TableScanNode.class))));
 
         Session sessionWithCollatePushdown = Session.builder(getSession())
@@ -1263,15 +1266,13 @@ public class TestPostgreSqlConnectorTest
                     .hasPlan(output(
                             project(
                                     ImmutableMap.of(
-                                            "reverse_col_money",
-                                            expression(
+                                            "reverse_col_money", expression(
                                                     new Call(
                                                             FUNCTIONS.resolveFunction(
                                                                     "reverse",
                                                                     ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
                                                             ImmutableList.of(new Reference(VARCHAR, "col_money")))),
-                                            "reverse_col_enum",
-                                            expression(
+                                            "reverse_col_enum", expression(
                                                     new Call(
                                                             FUNCTIONS.resolveFunction(
                                                                     "reverse",

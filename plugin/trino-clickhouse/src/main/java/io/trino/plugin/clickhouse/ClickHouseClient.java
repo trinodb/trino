@@ -595,7 +595,8 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format("RENAME TABLE %s TO %s",
+        execute(session, connection, format(
+                "RENAME TABLE %s TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }

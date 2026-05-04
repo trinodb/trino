@@ -1034,8 +1034,7 @@ public abstract class BaseJdbcClient
             addColumn(session, connection, new RemoteTableName(
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(remoteSchema),
-                    remoteTemporaryTableName
-            ), pageSinkIdColumn.get());
+                    remoteTemporaryTableName), pageSinkIdColumn.get());
         }
 
         return new JdbcOutputTableHandle(
@@ -1129,10 +1128,12 @@ public abstract class BaseJdbcClient
 
         String pageSinkIdColumnName = handle.getPageSinkIdColumnName().get();
 
-        String pageSinkTableSql = format("CREATE TABLE %s (%s)",
+        String pageSinkTableSql = format(
+                "CREATE TABLE %s (%s)",
                 quoted(pageSinkTable),
                 getColumnDefinitionSql(session, new ColumnMetadata(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE), pageSinkIdColumnName));
-        String pageSinkInsertSql = format("INSERT INTO %s (%s) VALUES (?)",
+        String pageSinkInsertSql = format(
+                "INSERT INTO %s (%s) VALUES (?)",
                 quoted(pageSinkTable),
                 pageSinkIdColumnName);
         pageSinkInsertSql = queryModifier.apply(session, pageSinkInsertSql);
@@ -1185,7 +1186,8 @@ public abstract class BaseJdbcClient
                     .map(this::quoted)
                     .collect(joining(", "));
 
-            String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table",
+            String insertSql = format(
+                    "INSERT INTO %s (%s) SELECT %s FROM %s temp_table",
                     postProcessInsertTableNameClause(session, quoted(handle.getRemoteTableName())),
                     columns,
                     columns,
@@ -1194,7 +1196,8 @@ public abstract class BaseJdbcClient
             if (handle.getPageSinkIdColumnName().isPresent()) {
                 RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
 
-                insertSql += format(" WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
+                insertSql += format(
+                        " WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
                         quoted(pageSinkTable),
                         handle.getPageSinkIdColumnName().get(),
                         handle.getPageSinkIdColumnName().get());
@@ -1464,7 +1467,8 @@ public abstract class BaseJdbcClient
     public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         if (handle.getTemporaryTableName().isPresent()) {
-            dropTable(session,
+            dropTable(
+                    session,
                     new RemoteTableName(
                             handle.getRemoteTableName().getCatalogName(),
                             handle.getRemoteTableName().getSchemaName(),

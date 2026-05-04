@@ -94,8 +94,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
-                            .map(row -> row.getField(0))
-                            .collect(toImmutableSet()))
+                    .map(row -> row.getField(0))
+                    .collect(toImmutableSet()))
                     .containsOnly("lower_case_name", "mixed_case_name", "upper_case_name");
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.

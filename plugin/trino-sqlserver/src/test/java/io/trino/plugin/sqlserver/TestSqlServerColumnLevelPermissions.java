@@ -40,7 +40,9 @@ final class TestSqlServerColumnLevelPermissions
         sqlServer.execute("CREATE USER %s FOR LOGIN %s".formatted(limitedUser, limitedUser));
 
         testTable = closeAfterClass(
-                new TestTable(sqlServer::execute, "test_column_permissions",
+                new TestTable(
+                        sqlServer::execute,
+                        "test_column_permissions",
                         "(id INT, allowed_column VARCHAR(50), denied_column VARCHAR(50))",
                         ImmutableList.of("1, 'foo', 'secret'")));
         sqlServer.execute("GRANT SELECT ON dbo.%s TO %s".formatted(testTable.getName(), limitedUser));

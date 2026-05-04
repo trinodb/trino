@@ -580,7 +580,8 @@ public class SqlServerClient
                         """)
                 .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
                 .bind("table_name", remoteTableName.getTableName())
-                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                .collectRows(toImmutableMap(
+                        rowView -> rowView.getColumn("column_name", String.class),
                         rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
     }
 

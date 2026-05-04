@@ -632,7 +632,8 @@ public final class StandardColumnMappings
     public static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION && timestampType.getPrecision() <= MAX_LOCAL_DATE_TIME_PRECISION,
-                "Precision is out of range: %s", timestampType.getPrecision());
+                "Precision is out of range: %s",
+                timestampType.getPrecision());
         return ObjectReadFunction.of(
                 LongTimestamp.class,
                 (resultSet, columnIndex) -> toLongTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
