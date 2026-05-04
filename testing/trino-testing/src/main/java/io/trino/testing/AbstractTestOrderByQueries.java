@@ -111,7 +111,8 @@ public abstract class AbstractTestOrderByQueries
     @Test
     public void testOrderByWithAggregation()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT x, sum(cast(x AS double))\n" +
                         "FROM (VALUES '1.0') t(x)\n" +
                         "GROUP BY x\n" +

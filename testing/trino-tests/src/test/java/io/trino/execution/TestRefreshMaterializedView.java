@@ -95,8 +95,7 @@ public class TestRefreshMaterializedView
                                 .withGetColumns(_ -> ImmutableList.of(new ColumnMetadata("nationkey", BIGINT)))
                                 .withGetTableHandle((_, tableName) -> new MockConnectorTableHandle(tableName))
                                 .withGetMaterializedViews((_, _) -> ImmutableMap.of(
-                                        new SchemaTableName("default", "delegate_refresh_to_connector"),
-                                        new ConnectorMaterializedViewDefinition(
+                                        new SchemaTableName("default", "delegate_refresh_to_connector"), new ConnectorMaterializedViewDefinition(
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),

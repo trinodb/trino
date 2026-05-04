@@ -512,7 +512,8 @@ public class TestAccessControl
                 .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
 
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                viewOwnerSession,
                 "SELECT * FROM " + viewName))
                 .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
 

@@ -83,12 +83,9 @@ public class TestTableRedirection
     private static final String C4 = "c4";
 
     private static final Map<String, Set<String>> SCHEMA_TABLE_MAPPING = ImmutableMap.of(
-            SCHEMA_ONE,
-            ImmutableSet.of(TABLE_FOO, VALID_REDIRECTION_SRC, BAD_REDIRECTION_SRC, REDIRECTION_TWICE_SRC, REDIRECTION_LOOP_PING),
-            SCHEMA_TWO,
-            ImmutableSet.of(TABLE_BAR, VALID_REDIRECTION_TARGET, INTERMEDIATE_TABLE, REDIRECTION_LOOP_PONG),
-            SCHEMA_THREE,
-            ImmutableSet.copyOf(REDIRECTION_CHAIN));
+            SCHEMA_ONE, ImmutableSet.of(TABLE_FOO, VALID_REDIRECTION_SRC, BAD_REDIRECTION_SRC, REDIRECTION_TWICE_SRC, REDIRECTION_LOOP_PING),
+            SCHEMA_TWO, ImmutableSet.of(TABLE_BAR, VALID_REDIRECTION_TARGET, INTERMEDIATE_TABLE, REDIRECTION_LOOP_PONG),
+            SCHEMA_THREE, ImmutableSet.copyOf(REDIRECTION_CHAIN));
 
     private static final Map<SchemaTableName, SchemaTableName> REDIRECTIONS = ImmutableMap.<SchemaTableName, SchemaTableName>builder()
             // Redirection to a valid table
@@ -110,16 +107,13 @@ public class TestTableRedirection
             .buildOrThrow();
 
     private static final Map<String, List<ColumnMetadata>> columnMetadatas = ImmutableMap.of(
-            SCHEMA_ONE,
-            ImmutableList.of(
+            SCHEMA_ONE, ImmutableList.of(
                     new ColumnMetadata(C0, BIGINT),
                     new ColumnMetadata(C1, BIGINT)),
-            SCHEMA_TWO,
-            ImmutableList.of(
+            SCHEMA_TWO, ImmutableList.of(
                     new ColumnMetadata(C2, BIGINT),
                     new ColumnMetadata(C3, BIGINT)),
-            SCHEMA_THREE,
-            ImmutableList.of(new ColumnMetadata(C4, BIGINT)));
+            SCHEMA_THREE, ImmutableList.of(new ColumnMetadata(C4, BIGINT)));
 
     private static final Function<SchemaTableName, List<ColumnMetadata>> columnsGetter = table -> {
         List<ColumnMetadata> columns = columnMetadatas.get(table.getSchemaName());
