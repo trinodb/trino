@@ -2597,7 +2597,8 @@ abstract class BaseTestHiveOnDataLake
 
     private String createInsertAsSelectFromTpchStatement(String testTable)
     {
-        return format("INSERT INTO %s " +
+        return format(
+                "INSERT INTO %s " +
                         "SELECT name, comment, nationkey, regionkey " +
                         "FROM tpch.tiny.nation",
                 testTable);
@@ -2685,8 +2686,8 @@ abstract class BaseTestHiveOnDataLake
                         "    nationkey bigint, " +
                         "    regionkey bigint) " +
                         (propertiesEntries.isEmpty() ? "" : propertiesEntries
-                                .stream()
-                                .collect(joining(",", "WITH (", ")"))),
+                                                            .stream()
+                                                            .collect(joining(",", "WITH (", ")"))),
                 tableName);
     }
 
