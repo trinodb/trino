@@ -223,8 +223,16 @@ public class MetadataEntry
     @Override
     public String toString()
     {
-        return format("MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
-                id, name, description, format, schemaString, partitionColumns, configuration, createdTime);
+        return format(
+                "MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
+                id,
+                name,
+                description,
+                format,
+                schemaString,
+                partitionColumns,
+                configuration,
+                createdTime);
     }
 
     public long getRetainedSizeInBytes()

@@ -191,8 +191,15 @@ public class AddFileEntry
     @Override
     public String toString()
     {
-        return format("AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}",
-                path, partitionValues, size, modificationTime, dataChange, parsedStats, tags);
+        return format(
+                "AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}",
+                path,
+                partitionValues,
+                size,
+                modificationTime,
+                dataChange,
+                parsedStats,
+                tags);
     }
 
     @Override

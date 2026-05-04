@@ -1127,7 +1127,8 @@ public class TestDeltaLakeBasic
         assertThat(protocolEntry.writerFeatures()).hasValue(ImmutableSet.of("timestampNtz"));
 
         // Insert rows and verify results
-        assertUpdate(session,
+        assertUpdate(
+                session,
                 "INSERT INTO " + tableName + " " +
                         """
                         VALUES
@@ -1885,11 +1886,11 @@ public class TestDeltaLakeBasic
         assertThat(query("TABLE " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
-                         "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
-                         "(3, JSON 'null', NULL)," +
-                         "(4, NULL, NULL)," +
-                         "(5, JSON '{\"a\":5}', NULL)");
+                        "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                        "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                        "(3, JSON 'null', NULL)," +
+                        "(4, NULL, NULL)," +
+                        "(5, JSON '{\"a\":5}', NULL)");
     }
 
     /**

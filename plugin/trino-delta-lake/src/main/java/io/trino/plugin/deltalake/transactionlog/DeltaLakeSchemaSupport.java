@@ -202,7 +202,9 @@ public final class DeltaLakeSchemaSupport
                 boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
                 checkArgument(
                         supportsColumnMappingReader == supportsColumnMappingWriter,
-                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s",
+                        supportsColumnMappingReader,
+                        supportsColumnMappingWriter);
                 if (!supportsColumnMappingReader) {
                     return ColumnMappingMode.NONE;
                 }

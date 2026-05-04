@@ -640,9 +640,12 @@ public class DeltaLakeMetadata
             return findLatestVersionUsingTemporal(fileSystem, tableLocation, epochMillis, executor, TEMPORAL_TIME_TRAVEL_LINEAR_SEARCH_MAX_SIZE);
         }
         catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR,
+            throw new TrinoException(
+                    DELTA_LAKE_FILESYSTEM_ERROR,
                     format("Unexpected IO exception occurred while reading the entries under the location %s for finding latest snapshot id before or at %s",
-                            tableLocation, Instant.ofEpochMilli(epochMillis)), e);
+                            tableLocation,
+                            Instant.ofEpochMilli(epochMillis)),
+                    e);
         }
     }
 
@@ -1825,7 +1828,8 @@ public class DeltaLakeMetadata
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session, location);
                 commitVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), handle.readVersion().getAsLong()) + 1;
                 if (commitVersion != handle.readVersion().getAsLong() + 1) {
-                    throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
+                    throw new TransactionConflictException(format(
+                            "Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s",
                             handle.readVersion().getAsLong(),
                             commitVersion - 1));
                 }
@@ -3591,7 +3595,9 @@ public class DeltaLakeMetadata
     {
         String basePathDirectory = basePath.endsWith("/") ? basePath : basePath + "/";
         checkArgument(path.startsWith(basePathDirectory) && (path.length() > basePathDirectory.length()),
-                "path [%s] must be a subdirectory of basePath [%s]", path, basePath);
+                "path [%s] must be a subdirectory of basePath [%s]",
+                path,
+                basePath);
         return path.substring(basePathDirectory.length());
     }
 
@@ -4120,7 +4126,8 @@ public class DeltaLakeMetadata
                 getSnapshot(session, tableHandle),
                 TupleDomain.all(),
                 alwaysTrue())) {
-            addFileEntriesWithNoStats = activeFiles.filter(addFileEntry -> addFileEntry.getStats().isEmpty()
+            addFileEntriesWithNoStats = activeFiles
+                    .filter(addFileEntry -> addFileEntry.getStats().isEmpty()
                             || addFileEntry.getStats().get().getNumRecords().isEmpty()
                             || addFileEntry.getStats().get().getMaxValues().isEmpty()
                             || addFileEntry.getStats().get().getMinValues().isEmpty()

@@ -238,9 +238,12 @@ public class DeltaLakePartitionsTable
                     DeltaLakeColumnMetadata columnMetadata = columnsMetadataByName.get(partitionColumnName);
                     return new DeltaLakeColumnHandle(
                             columnMetadata.name(),
-                            columnMetadata.type(), OptionalInt.empty(),
+                            columnMetadata.type(),
+                            OptionalInt.empty(),
                             columnMetadata.physicalName(),
-                            columnMetadata.physicalColumnType(), PARTITION_KEY, Optional.empty());
+                            columnMetadata.physicalColumnType(),
+                            PARTITION_KEY,
+                            Optional.empty());
                 })
                 .collect(toImmutableList());
     }

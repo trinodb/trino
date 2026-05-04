@@ -462,15 +462,15 @@ public class TestCheckpointEntryIterator
 
         int countAddEntries = 30;
         Set<AddFileEntry> addFileEntries = IntStream.rangeClosed(1, countAddEntries).mapToObj(fileIndex -> new AddFileEntry(
-                "addFilePathParquetStats" + fileIndex,
-                ImmutableMap.of(),
-                1000,
-                1001,
-                true,
-                Optional.empty(),
-                Optional.of(createDeltaLakeParquetFileStatistics(countIntegerColumns, countStringColumns)),
-                ImmutableMap.of(),
-                Optional.empty()))
+                        "addFilePathParquetStats" + fileIndex,
+                        ImmutableMap.of(),
+                        1000,
+                        1001,
+                        true,
+                        Optional.empty(),
+                        Optional.of(createDeltaLakeParquetFileStatistics(countIntegerColumns, countStringColumns)),
+                        ImmutableMap.of(),
+                        Optional.empty()))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(
@@ -713,8 +713,7 @@ public class TestCheckpointEntryIterator
                 Optional.of(metadataEntry),
                 Optional.of(protocolEntry),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        partitionKeyField,
-                        Domain.create(ValueSet.ofRanges(range(INTEGER, 9L, true, 11L, true)), false))),
+                        partitionKeyField, Domain.create(ValueSet.ofRanges(range(INTEGER, 9L, true, 11L, true)), false))),
                 Optional.of(alwaysTrue()));
 
         assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);

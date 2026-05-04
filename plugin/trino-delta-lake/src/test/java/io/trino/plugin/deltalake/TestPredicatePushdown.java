@@ -187,7 +187,7 @@ public class TestPredicatePushdown
         assertThat(actualRows).isEqualTo(expectedRows);
         assertThat(getProcessedPositions(result.queryId()))
                 .describedAs("Wrong number of rows processed after pushdown to Parquet")
-                        .isEqualTo(countProcessed);
+                .isEqualTo(countProcessed);
     }
 
     /**
@@ -208,7 +208,7 @@ public class TestPredicatePushdown
 
         assertThat(actualCount.getAsLong())
                 .describedAs("Wrong number of rows updated")
-                        .isEqualTo(count);
+                .isEqualTo(count);
 
         assertThat(getProcessedPositions(result.queryId()))
                 .describedAs("Wrong amount of data filtered by pushdown to Parquet")

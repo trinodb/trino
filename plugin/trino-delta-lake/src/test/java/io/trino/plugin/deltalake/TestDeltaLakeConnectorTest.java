@@ -366,7 +366,8 @@ public class TestDeltaLakeConnectorTest
     public void testQueryNullPartitionWithNotPushdownablePredicate()
     {
         String tableName = "test_null_partitions_" + randomNameSuffix();
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
                 "VALUES 5");
@@ -1460,7 +1461,8 @@ public class TestDeltaLakeConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+        assertUpdate(
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
@@ -1479,7 +1481,8 @@ public class TestDeltaLakeConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+        assertUpdate(
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
@@ -1553,7 +1556,8 @@ public class TestDeltaLakeConnectorTest
                 "    WHEN MATCHED THEN UPDATE SET address = s.address"))
                 .hasMessage("One MERGE target table row matched more than one source row");
 
-        assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        assertUpdate(
+                format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
@@ -2911,7 +2915,8 @@ public class TestDeltaLakeConnectorTest
                    'a',
                    DATE '2020-08-21',
                    TIMESTAMP '2020-10-21 01:00:00.123 UTC')
-                """.formatted(tableName), 1);
+                """.formatted(tableName),
+                1);
         assertUpdate(
                 """
                 INSERT INTO %s
@@ -2929,7 +2934,8 @@ public class TestDeltaLakeConnectorTest
                         'b',
                         DATE '2020-08-22',
                         TIMESTAMP '2020-10-22 02:00:00.456 UTC')
-                """.formatted(tableName), 1);
+                """.formatted(tableName),
+                1);
         assertUpdate(
                 """
                 INSERT INTO %s
@@ -2947,7 +2953,8 @@ public class TestDeltaLakeConnectorTest
                         NULL,
                         NULL,
                         NULL)
-                """.formatted(tableName), 1);
+                """.formatted(tableName),
+                1);
 
         // Make sure that the checkpoint is being processed
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
@@ -3204,16 +3211,17 @@ public class TestDeltaLakeConnectorTest
 
         assertUpdate("UPDATE " + tableName + " SET domain = 'domain4' WHERE views = 2", 2);
         assertQuery(
-                "SELECT * FROM " + tableName, "" +
-                """
-                VALUES
-                    ('url1', 'domain1', 1),
-                    ('url2', 'domain4', 2),
-                    ('url3', 'domain1', 3),
-                    ('url4', 'domain1', 400),
-                    ('url5', 'domain2', 500),
-                    ('url6', 'domain4', 2)
-                """);
+                "SELECT * FROM " + tableName,
+                "" +
+                        """
+                        VALUES
+                            ('url1', 'domain1', 1),
+                            ('url2', 'domain4', 2),
+                            ('url3', 'domain1', 3),
+                            ('url4', 'domain1', 400),
+                            ('url5', 'domain2', 500),
+                            ('url6', 'domain4', 2)
+                        """);
 
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
@@ -3659,7 +3667,8 @@ public class TestDeltaLakeConnectorTest
     private void testReadChangesFromCtasTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
+        assertUpdate(
+                "CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
                         "AS SELECT * FROM (VALUES" +
                         "('url1', 'domain1', 1), " +
                         "('url2', 'domain2', 2)) t(page_url, domain, views)",
@@ -4239,7 +4248,8 @@ public class TestDeltaLakeConnectorTest
             assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
 
@@ -4249,13 +4259,15 @@ public class TestDeltaLakeConnectorTest
             assertThat(beforeActiveFiles).isEqualTo(getActiveFiles(table.getName()));
 
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 1, 'Dave', 'Doe'", 1);
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
             assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
         }
@@ -4272,7 +4284,8 @@ public class TestDeltaLakeConnectorTest
             assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
 
@@ -4280,7 +4293,8 @@ public class TestDeltaLakeConnectorTest
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE (file_size_threshold => '10kB')");
 
             assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
         }
