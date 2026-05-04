@@ -158,7 +158,9 @@ public class OrderedWindowAccumulator
         sortKeysArguments.forEach(argument -> {
             checkArgument(
                     argument < argumentTypes.size(),
-                    "invalid argument %s referenced; total number of arguments is %s", argument, argumentTypes.size());
+                    "invalid argument %s referenced; total number of arguments is %s",
+                    argument,
+                    argumentTypes.size());
         });
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, 10_000);
         PagesIndexOrdering pagesIndexOrdering = pagesIndex.createPagesIndexComparator(sortKeysArguments, sortOrders);

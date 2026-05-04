@@ -300,7 +300,11 @@ public final class FunctionsParserHelper
             checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);
             Class<?> existingSpecialization = specializedTypeParameters.get(specialization.name());
             checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()),
-                    "%s has conflicting specializations %s and %s [%s]", specialization.name(), existingSpecialization, specialization.nativeContainerType(), method);
+                    "%s has conflicting specializations %s and %s [%s]",
+                    specialization.name(),
+                    existingSpecialization,
+                    specialization.nativeContainerType(),
+                    method);
             specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
         }
         return specializedTypeParameters;

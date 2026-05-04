@@ -608,22 +608,22 @@ public final class FlatHashStrategyCompiler
         //   return -1;
         // }
         body.append(new IfStatement().condition(invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(keyField.identicalFlatBlockMethod()).getBindingId()),
-                "identical",
-                boolean.class,
-                leftFixedChunk,
-                add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())),
-                leftVariableChunk,
-                leftVariableChunkOffset,
-                rightBlock,
-                rightPosition))
-                        .ifTrue(add(leftVariableChunkOffset, constantType(callSiteBinder, keyField.type()).invoke(
-                                "getFlatVariableWidthLength",
-                                int.class,
-                                leftFixedChunk,
-                                add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())))).ret())
-                        .ifFalse(constantInt(-1).ret()));
+                        BOOTSTRAP_METHOD,
+                        ImmutableList.of(callSiteBinder.bind(keyField.identicalFlatBlockMethod()).getBindingId()),
+                        "identical",
+                        boolean.class,
+                        leftFixedChunk,
+                        add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())),
+                        leftVariableChunk,
+                        leftVariableChunkOffset,
+                        rightBlock,
+                        rightPosition))
+                .ifTrue(add(leftVariableChunkOffset, constantType(callSiteBinder, keyField.type()).invoke(
+                        "getFlatVariableWidthLength",
+                        int.class,
+                        leftFixedChunk,
+                        add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())))).ret())
+                .ifFalse(constantInt(-1).ret()));
         return methodDefinition;
     }
 

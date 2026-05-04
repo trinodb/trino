@@ -184,8 +184,8 @@ public class OutputSpoolingOperatorFactory
             this.controller = new PipelineSpoolingController(
                     operatorContext.getDriverContext().getPipelineContext(),
                     new OperatorSpoolingController(
-                        getInitialSegmentSize(operatorContext.getSession()).toBytes(),
-                        getMaxSegmentSize(operatorContext.getSession()).toBytes()));
+                            getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                            getMaxSegmentSize(operatorContext.getSession()).toBytes()));
 
             this.minSegmentSize = getInitialSegmentSize(operatorContext.getSession()).toBytes();
             this.maxSegmentSize = getMaxSegmentSize(operatorContext.getSession()).toBytes();

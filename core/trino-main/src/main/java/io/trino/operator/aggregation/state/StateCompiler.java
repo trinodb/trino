@@ -1002,9 +1002,9 @@ public final class StateCompiler
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getGetterName(), type(stateField.getType()));
         getter.getBody()
                 .append(getter.getThis().getField(field).invoke(
-                        "get",
-                        stateField.getType(),
-                        getter.getThis().invoke("getGroupId", int.class).cast(long.class))
+                                "get",
+                                stateField.getType(),
+                                getter.getThis().invoke("getGroupId", int.class).cast(long.class))
                         .ret());
 
         // Generate setter
@@ -1131,14 +1131,19 @@ public final class StateCompiler
             if (method.getName().startsWith("get")) {
                 String name = method.getName().substring(3);
                 checkArgument(fieldTypes.get(name).equals(method.getReturnType()),
-                        "Expected %s to return type %s, but found %s", method.getName(), fieldTypes.get(name), method.getReturnType());
+                        "Expected %s to return type %s, but found %s",
+                        method.getName(),
+                        fieldTypes.get(name),
+                        method.getReturnType());
                 checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
                 getters.add(name);
             }
             else if (method.getName().startsWith("is")) {
                 String name = method.getName().substring(2);
                 checkArgument(fieldTypes.get(name) == boolean.class,
-                        "Expected %s to have type boolean, but found %s", name, fieldTypes.get(name));
+                        "Expected %s to have type boolean, but found %s",
+                        name,
+                        fieldTypes.get(name));
                 checkArgument(method.getParameterTypes().length == 0, "Expected %s to have zero parameters", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "Expected %s to return boolean", method.getName());
                 isGetters.add(name);
@@ -1147,7 +1152,10 @@ public final class StateCompiler
                 String name = method.getName().substring(3);
                 checkArgument(method.getParameterTypes().length == 1, "Expected setter to have one parameter");
                 checkArgument(fieldTypes.get(name).equals(method.getParameterTypes()[0]),
-                        "Expected %s to accept type %s, but found %s", method.getName(), fieldTypes.get(name), method.getParameterTypes()[0]);
+                        "Expected %s to accept type %s, but found %s",
+                        method.getName(),
+                        fieldTypes.get(name),
+                        method.getParameterTypes()[0]);
                 checkArgument(getInitialValue(method) == null, "initial value annotation not allowed on setter");
                 checkArgument(method.getReturnType().equals(void.class), "%s may not return a value", method.getName());
                 setters.add(name);
@@ -1180,7 +1188,9 @@ public final class StateCompiler
                         type.isAssignableFrom(sqlType.get().getJavaType()) ||
                                 ((type == byte.class) && TINYINT.equals(sqlType.get())) ||
                                 ((type == int.class) && INTEGER.equals(sqlType.get())),
-                        "Stack type (%s) and provided sql type (%s) are incompatible", type.getName(), sqlType.get().getDisplayName());
+                        "Stack type (%s) and provided sql type (%s) are incompatible",
+                        type.getName(),
+                        sqlType.get().getDisplayName());
             }
             else {
                 sqlType = sqlTypeFromStackType(type);

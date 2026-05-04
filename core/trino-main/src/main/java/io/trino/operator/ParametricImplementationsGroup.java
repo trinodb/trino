@@ -69,7 +69,8 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 allImplementations.stream()
                         .map(T::getFunctionNullability)
                         .allMatch(functionNullability::equals),
-                "all implementations must have the nullability: %s", signature);
+                "all implementations must have the nullability: %s",
+                signature);
     }
 
     public FunctionNullability getFunctionNullability()

@@ -385,7 +385,8 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                            throw new TrinoException(REMOTE_TASK_MISMATCH, format(
+                                    "%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
                                     REMOTE_TASK_MISMATCH_ERROR,
                                     fromUri(uri),
                                     taskInstanceId,
@@ -493,7 +494,8 @@ public final class HttpPageBufferClient
 
                 t = rewriteException(t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = format(
+                            "%s (%s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
                             uri,
                             backoff.getFailureCount(),
@@ -552,7 +554,8 @@ public final class HttpPageBufferClient
 
                 log.error("Request to delete %s failed %s", location, t);
                 if (!(t instanceof TrinoException) && backoff.failure()) {
-                    String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
+                    String message = format(
+                            "Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
                             location,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),

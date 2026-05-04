@@ -412,8 +412,8 @@ public class JsonValueFunction
         }
         ResolvedFunction coercion = metadata.getCoercion(defaultType, returnType);
         MethodHandle coercionHandle = functionManager.getScalarFunctionImplementation(
-                coercion,
-                new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
+                        coercion,
+                        new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
         if (!coercionHandle.type().parameterType(0).equals(ConnectorSession.class)) {
             coercionHandle = dropArguments(coercionHandle, 0, ConnectorSession.class);

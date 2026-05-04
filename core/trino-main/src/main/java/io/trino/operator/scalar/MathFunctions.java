@@ -1504,7 +1504,10 @@ public final class MathFunctions
     private static void checkRadix(long radix)
     {
         checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
-                INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
+                INVALID_FUNCTION_ARGUMENT,
+                "Radix must be between %d and %d",
+                MIN_RADIX,
+                MAX_RADIX);
     }
 
     @Description("The bucket number of a value given a lower and upper bound and the number of buckets")

@@ -105,7 +105,8 @@ public final class ChoicesSpecializedSqlScalarFunction
             }
         }
         if (choices.isEmpty()) {
-            throw new TrinoException(FUNCTION_NOT_FOUND,
+            throw new TrinoException(
+                    FUNCTION_NOT_FOUND,
                     format("Function implementation for (%s) cannot be adapted to convention (%s)", boundSignature, invocationConvention));
         }
 
