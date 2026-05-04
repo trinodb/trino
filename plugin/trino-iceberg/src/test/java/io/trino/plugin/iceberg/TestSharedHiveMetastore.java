@@ -125,7 +125,11 @@ public class TestSharedHiveMetastore
                 CREATE SCHEMA %s.%s
                 WITH (
                    location = '%s/%s'
-                )""", catalogName, tpchSchema, dataDirectory, tpchSchema);
+                )""",
+                catalogName,
+                tpchSchema,
+                dataDirectory,
+                tpchSchema);
     }
 
     @Override
