@@ -183,7 +183,7 @@ public class VerifyCommand
                 }
             }
             // TODO: construct this with Guice
-            int numFailedQueries = new Verifier(System.out, config, injector.getInstance(new Key<>(){}))
+            int numFailedQueries = new Verifier(System.out, config, injector.getInstance(new Key<>() {}))
                     .run(queries);
             System.exit((numFailedQueries > 0) ? 1 : 0);
         }

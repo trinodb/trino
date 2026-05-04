@@ -733,7 +733,8 @@ public class MockConnector
                 ConnectorMaterializedViewDefinition definition,
                 Map<String, Object> properties,
                 boolean replace,
-                boolean ignoreExisting) {}
+                boolean ignoreExisting)
+        {}
 
         @Override
         public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)

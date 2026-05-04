@@ -364,7 +364,7 @@ public class TestTaskDescriptorStorage
                 });
 
         Injector injector = app.initialize();
-        JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
+        JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() {}));
 
         TaskDescriptorStorage manager = new TaskDescriptorStorage(maxMemory, compressingHighWaterMark, compressingLowWaterMark, taskDescriptorJsonCodec);
         return manager;

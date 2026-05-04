@@ -33,5 +33,6 @@ public interface TableFunctionSplitProcessor
     TableFunctionProcessorState process();
 
     default void close()
-            throws IOException {}
+            throws IOException
+    {}
 }

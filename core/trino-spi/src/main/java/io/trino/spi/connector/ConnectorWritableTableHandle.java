@@ -13,6 +13,4 @@
  */
 package io.trino.spi.connector;
 
-public interface ConnectorWritableTableHandle
-{
-}
+public interface ConnectorWritableTableHandle {}
