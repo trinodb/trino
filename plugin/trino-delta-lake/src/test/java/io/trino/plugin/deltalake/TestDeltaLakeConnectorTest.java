@@ -3235,11 +3235,11 @@ public class TestDeltaLakeConnectorTest
         assertQuery(
                 "SELECT * FROM " + tableName,
                 """
-                    VALUES
-                        ('url1', 'domain1', 1),
-                        ('url3', 'domain1', 3),
-                        ('url4', 'domain1', 400),
-                        ('url5', 'domain2', 500)
+                VALUES
+                    ('url1', 'domain1', 1),
+                    ('url3', 'domain1', 3),
+                    ('url4', 'domain1', 400),
+                    ('url5', 'domain2', 500)
                 """);
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 3))",
@@ -3321,11 +3321,11 @@ public class TestDeltaLakeConnectorTest
         assertQuery(
                 "SELECT * FROM " + tableName1,
                 """
-                    VALUES
-                        ('url2', 'domain2', 22),
-                        ('url3', 'domain3', 3),
-                        ('url4', 'domain4', 44),
-                        ('url5', 'domain5', 50)
+                VALUES
+                    ('url2', 'domain2', 22),
+                    ('url3', 'domain3', 3),
+                    ('url4', 'domain4', 44),
+                    ('url5', 'domain5', 50)
                 """);
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName1 + "', 0))",
