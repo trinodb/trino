@@ -42,32 +42,32 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "features": [
+                """
                 {
-                    "attributes": {
-                        "id": 1,
-                        "name": "Feature 1"
-                    },
-                    "geometry": {
-                        "x": 10,
-                        "y": 20
-                    }
-                },
-                {
-                    "attributes": {
-                        "id": 2,
-                        "name": "Feature 2"
-                    },
-                    "geometry": {
-                        "x": 30,
-                        "y": 40
-                    }
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 1,
+                                "name": "Feature 1"
+                            },
+                            "geometry": {
+                                "x": 10,
+                                "y": 20
+                            }
+                        },
+                        {
+                            "attributes": {
+                                "id": 2,
+                                "name": "Feature 2"
+                            },
+                            "geometry": {
+                                "x": 30,
+                                "y": 40
+                            }
+                        }
+                    ]
                 }
-            ]
-        }
-        """;
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isEqualTo(2);
@@ -78,11 +78,11 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "features": []
-        }
-        """;
+                """
+                {
+                    "features": []
+                }
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isZero();
@@ -93,11 +93,11 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "features": null
-        }
-        """;
+                """
+                {
+                    "features": null
+                }
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isZero();
@@ -107,11 +107,11 @@ public class TestEsriReader
     public void testNumberFeaturesFails()
     {
         String json =
-        """
-        {
-            "features": 42
-        }
-        """;
+                """
+                {
+                    "features": 42
+                }
+                """;
 
         assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS, ESRI)))
                 .isInstanceOf(IOException.class)
@@ -122,11 +122,11 @@ public class TestEsriReader
     public void testObjectFeaturesFails()
     {
         String json =
-        """
-        {
-            "features": {}
-        }
-        """;
+                """
+                {
+                    "features": {}
+                }
+                """;
 
         assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS, ESRI)))
                 .isInstanceOf(IOException.class)
@@ -138,11 +138,11 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "someOtherField": []
-        }
-        """;
+                """
+                {
+                    "someOtherField": []
+                }
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isZero();
@@ -191,17 +191,17 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "features": [
+                """
                 {
-                    "attributes": {
-                        "id": 1
-                    }
-                }
-            ]
-            EVERYTHING AFTER ARRAY CLOSE IS IGNORED
-        """;
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 1
+                            }
+                        }
+                    ]
+                    EVERYTHING AFTER ARRAY CLOSE IS IGNORED
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isEqualTo(1);
@@ -212,24 +212,24 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "features": [
+                """
                 {
-                    "attributes": {
-                        "id": 1
-                    }
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 1
+                            }
+                        }
+                    ],
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 2
+                            }
+                        }
+                    ]
                 }
-            ],
-            "features": [
-                {
-                    "attributes": {
-                        "id": 2
-                    }
-                }
-            ]
-        }
-        """;
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isEqualTo(1);
@@ -240,26 +240,26 @@ public class TestEsriReader
             throws IOException
     {
         String json =
-        """
-        {
-            "bad": {
-                "features": [
-                    {
-                        "attributes": {
-                            "id": 1
-                        }
-                    }
-                ]
-            },
-            "features": [
+                """
                 {
-                    "attributes": {
-                        "id": 77
-                    }
+                    "bad": {
+                        "features": [
+                            {
+                                "attributes": {
+                                    "id": 1
+                                }
+                            }
+                        ]
+                    },
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 77
+                            }
+                        }
+                    ]
                 }
-            ]
-        }
-        """;
+                """;
 
         Page page = readAll(json);
         assertThat(page.getPositionCount()).isEqualTo(1);

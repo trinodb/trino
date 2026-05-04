@@ -73,24 +73,24 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "id": 1,
-                "name": "Test Feature",
-                "active": true,
-                "value": 123.45,
-                "date": 1741034025839,
-                "timestamp": 1741034025839,
-                "count": 42,
-                "price": "1234.56"
-            },
-            "geometry": {
-                "x": 10,
-                "y": 20
-            }
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "id": 1,
+                        "name": "Test Feature",
+                        "active": true,
+                        "value": 123.45,
+                        "date": 1741034025839,
+                        "timestamp": 1741034025839,
+                        "count": 42,
+                        "price": "1234.56"
+                    },
+                    "geometry": {
+                        "x": 10,
+                        "y": 20
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertThat(page.getPositionCount()).isEqualTo(1);
@@ -119,21 +119,21 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "id": null,
-                "name": null,
-                "active": null,
-                "value": null,
-                "date": null,
-                "timestamp": null,
-                "count": null,
-                "price": null
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "id": null,
+                        "name": null,
+                        "active": null,
+                        "value": null,
+                        "date": null,
+                        "timestamp": null,
+                        "count": null,
+                        "price": null
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(json);
         for (int i = 0; i < 9; i++) {
@@ -148,24 +148,24 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "id": 9223372036854775807,
-                "name": "string value",
-                "active": true,
-                "value": 123.456789,
-                "date": "2025-03-03",
-                "timestamp": "2025-03-03 12:34:56.789",
-                "count": 2147483647,
-                "price": "99999999.99",
-                "small_num": 32767,
-                "tiny_num": 127,
-                "real_num": 3.14159,
-                "fixed_text": "FIXED      "
-            }
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "id": 9223372036854775807,
+                        "name": "string value",
+                        "active": true,
+                        "value": 123.456789,
+                        "date": "2025-03-03",
+                        "timestamp": "2025-03-03 12:34:56.789",
+                        "count": 2147483647,
+                        "price": "99999999.99",
+                        "small_num": 32767,
+                        "tiny_num": 127,
+                        "real_num": 3.14159,
+                        "fixed_text": "FIXED      "
+                    }
+                }
+                """;
 
         Page page = parse(json);
 
@@ -214,20 +214,20 @@ public class TestEsriDeserializer
     public void testUnsupportedAttributeTypes()
     {
         String json =
-        """
-        {
-            "attributes": {
-                "id": 1,
-                "name": "Test Feature",
-                "varbinary_field": "Some binary data",
-                "value": 123.45
-            },
-            "geometry": {
-                "x": 10,
-                "y": 20
-            }
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "id": 1,
+                        "name": "Test Feature",
+                        "varbinary_field": "Some binary data",
+                        "value": 123.45
+                    },
+                    "geometry": {
+                        "x": 10,
+                        "y": 20
+                    }
+                }
+                """;
 
         List<Column> columns = ImmutableList.of(
                 new Column("id", BIGINT, 0),
@@ -246,13 +246,13 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(json);
         for (int i = 0; i < 9; i++) {
@@ -276,14 +276,14 @@ public class TestEsriDeserializer
     {
         // Test valid epoch milliseconds (as number)
         String jsonEpoch =
-        """
-        {
-            "attributes": {
-                "date": 1741034025839
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "date": 1741034025839
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(jsonEpoch);
         assertThat(DATE.getLong(page.getBlock(4), 0)).isEqualTo(20150);
@@ -356,14 +356,14 @@ public class TestEsriDeserializer
 
         // Test valid epoch milliseconds (as number)
         String jsonEpoch =
-        """
-        {
-            "attributes": {
-                "timestamp": 1741034025839
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "timestamp": 1741034025839
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(jsonEpoch);
         assertThat(TIMESTAMP_MILLIS.getLong(page.getBlock(5), 0))
@@ -410,14 +410,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "date": "invalid-date"
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "date": "invalid-date"
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(json);
         assertThat(page.getBlock(4).isNull(0)).isTrue();
@@ -428,14 +428,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "timestamp": "invalid-timestamp"
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "timestamp": "invalid-timestamp"
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(json);
         assertThat(page.getBlock(5).isNull(0)).isTrue();
@@ -446,14 +446,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "date": "9999-12-31"
-            },
-            "geometry": null
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "date": "9999-12-31"
+                    },
+                    "geometry": null
+                }
+                """;
 
         Page page = parse(json);
         assertThat(page.getBlock(4).isNull(0)).isFalse();
@@ -465,23 +465,23 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "extra-junk": {
-                "geometry": null,
-                "attributes": {
-                    "id": 42
+                """
+                {
+                    "extra-junk": {
+                        "geometry": null,
+                        "attributes": {
+                            "id": 42
+                        }
+                    },
+                    "attributes": {
+                        "id": 1
+                    },
+                    "geometry": {
+                        "x": 10,
+                        "y": 20
+                    }
                 }
-            },
-            "attributes": {
-                "id": 1
-            },
-            "geometry": {
-                "x": 10,
-                "y": 20
-            }
-        }
-        """;
+                """;
 
         Page page = parse(json);
         assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(1L);
@@ -494,14 +494,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": 10,
-                "y": 20
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": 10,
+                        "y": 20
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (10 20)");
@@ -512,14 +512,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": "not-a-number",
-                "y": 2
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": "not-a-number",
+                        "y": 2
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (0 2)");
@@ -530,14 +530,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": true,
-                "y": false
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": true,
+                        "y": false
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (1 0)");
@@ -548,14 +548,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": "NaN",
-                "y": 2
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": "NaN",
+                        "y": 2
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT EMPTY");
@@ -565,14 +565,14 @@ public class TestEsriDeserializer
     public void testDeserializePointWithArrayCoordinateFails()
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": [],
-                "y": 2
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": [],
+                        "y": 2
+                    }
+                }
+                """;
 
         assertThatThrownBy(() -> parse(json))
                 .isInstanceOf(IOException.class)
@@ -584,18 +584,18 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": 88,
-                "y": 99
-            },
-            "geometry": {
-                "x": 10,
-                "y": 20
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": 88,
+                        "y": 99
+                    },
+                    "geometry": {
+                        "x": 10,
+                        "y": 20
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (10 20)");
@@ -606,17 +606,17 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": 10,
-                "y": 20,
-                "spatialReference": {
-                    "wkid": 4326
+                """
+                {
+                    "geometry": {
+                        "x": 10,
+                        "y": 20,
+                        "spatialReference": {
+                            "wkid": 4326
+                        }
+                    }
                 }
-            }
-        }
-        """;
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (10 20)", 4326);
@@ -627,18 +627,18 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": 10,
-                "y": 20,
-                "spatialReference": {
-                    "wkid": 102100,
-                    "latestWkid": 3857
+                """
+                {
+                    "geometry": {
+                        "x": 10,
+                        "y": 20,
+                        "spatialReference": {
+                            "wkid": 102100,
+                            "latestWkid": 3857
+                        }
+                    }
                 }
-            }
-        }
-        """;
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (10 20)", 3857);
@@ -649,16 +649,16 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "rings": [
-                    [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
-                    [[20, 0], [30, 0], [30, 10], [20, 10], [20, 0]]
-                ]
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "rings": [
+                            [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+                            [[20, 0], [30, 0], [30, 10], [20, 10], [20, 0]]
+                        ]
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0)), ((20 0, 30 0, 30 10, 20 10, 20 0)))");
@@ -669,16 +669,16 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "rings": [
-                    [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
-                    [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
-                ]
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "rings": [
+                            [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
+                            [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
+                        ]
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POLYGON ((2 2, 8 2, 8 8, 2 8, 2 2), (0 0, 0 10, 10 10, 10 0, 0 0))");
@@ -689,17 +689,17 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "rings": [
-                    [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
-                    [[20, 20], [30, 20], [30, 30], [20, 30], [20, 20]],
-                    [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
-                ]
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "rings": [
+                            [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]],
+                            [[20, 20], [30, 20], [30, 30], [20, 30], [20, 20]],
+                            [[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]
+                        ]
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "MULTIPOLYGON (((2 2, 8 2, 8 8, 2 8, 2 2)), ((20 20, 30 20, 30 30, 20 30, 20 20), (0 0, 0 10, 10 10, 10 0, 0 0)))");
@@ -709,11 +709,11 @@ public class TestEsriDeserializer
     public void testArrayGeometryFails()
     {
         String json =
-        """
-        {
-            "geometry": []
-        }
-        """;
+                """
+                {
+                    "geometry": []
+                }
+                """;
 
         assertThatThrownBy(() -> parse(json))
                 .isInstanceOf(IOException.class)
@@ -724,11 +724,11 @@ public class TestEsriDeserializer
     public void testNumberGeometryFails()
     {
         String json =
-        """
-        {
-            "geometry": 42
-        }
-        """;
+                """
+                {
+                    "geometry": 42
+                }
+                """;
 
         assertThatThrownBy(() -> parse(json))
                 .isInstanceOf(IOException.class)
@@ -740,14 +740,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "geometry": {
-                "x": 5,
-                "y": 7
-            }
-        }
-        """;
+                """
+                {
+                    "geometry": {
+                        "x": 5,
+                        "y": 7
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertGeometry(page, "POINT (5 7)");
@@ -757,11 +757,11 @@ public class TestEsriDeserializer
     public void testArrayAttributes()
     {
         String json =
-        """
-        {
-            "attributes": []
-        }
-        """;
+                """
+                {
+                    "attributes": []
+                }
+                """;
 
         assertThatThrownBy(() -> parse(json))
                 .isInstanceOf(IOException.class)
@@ -772,11 +772,11 @@ public class TestEsriDeserializer
     public void testNumberAttributes()
     {
         String json =
-        """
-        {
-            "attributes": 42
-        }
-        """;
+                """
+                {
+                    "attributes": 42
+                }
+                """;
 
         assertThatThrownBy(() -> parse(json))
                 .isInstanceOf(IOException.class)
@@ -788,14 +788,14 @@ public class TestEsriDeserializer
             throws IOException
     {
         String json =
-        """
-        {
-            "attributes": {
-                "id": 1,
-                "id": 2
-            }
-        }
-        """;
+                """
+                {
+                    "attributes": {
+                        "id": 1,
+                        "id": 2
+                    }
+                }
+                """;
 
         Page page = parse(json);
         assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(2L);
