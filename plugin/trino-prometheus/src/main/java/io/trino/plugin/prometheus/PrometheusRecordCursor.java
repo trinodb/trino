@@ -186,11 +186,12 @@ public class PrometheusRecordCursor
     private List<PrometheusStandardizedRow> prometheusResultsInStandardizedForm(List<PrometheusMetricResult> results)
     {
         return results.stream().map(result ->
-                result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
-                        result.getMetricHeader(),
-                        prometheusTimeSeriesValue.getTimestamp(),
-                        Double.parseDouble(prometheusTimeSeriesValue.getValue())))
-                        .collect(Collectors.toList()))
+                        result.getTimeSeriesValues().getValues().stream()
+                                .map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
+                                        result.getMetricHeader(),
+                                        prometheusTimeSeriesValue.getTimestamp(),
+                                        Double.parseDouble(prometheusTimeSeriesValue.getValue())))
+                                .collect(Collectors.toList()))
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
     }

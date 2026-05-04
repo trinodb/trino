@@ -529,7 +529,8 @@ public class FakerMetadata
         boolean isSchemaSequenceDetectionEnabled = (boolean) schema.properties().getOrDefault(SchemaInfo.SEQUENCE_DETECTION_ENABLED, isSequenceDetectionEnabled);
         boolean isTableSequenceDetectionEnabled = (boolean) info.properties().getOrDefault(TableInfo.SEQUENCE_DETECTION_ENABLED, isSchemaSequenceDetectionEnabled);
         Map<String, List<Object>> columnValues = getColumnValues(tableName, info, distinctValues, minimums, maximums);
-        return info.withColumns(columns.stream().map(column -> createColumnInfoFromStats(
+        return info.withColumns(columns.stream()
+                .map(column -> createColumnInfoFromStats(
                         column,
                         minimums.get(column.name()),
                         maximums.get(column.name()),

@@ -217,7 +217,8 @@ public class OpaHttpClient
                         .transform(result -> parser.apply(item, result), executor))
                 .collect(toImmutableList());
         return consumeOpaResponse(
-                Futures.whenAllComplete(allFutures).call(() -> allFutures.stream()
+                Futures.whenAllComplete(allFutures).call(
+                        () -> allFutures.stream()
                                 .map(this::consumeOpaResponse)
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)

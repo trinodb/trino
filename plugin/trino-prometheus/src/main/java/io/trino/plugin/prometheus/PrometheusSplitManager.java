@@ -128,7 +128,10 @@ public class PrometheusSplitManager
      *
      * @return list of end times as decimal epoch seconds, like ["1568053244.143", "1568926595.321"]
      */
-    protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
+    protected static List<String> generateTimesForSplits(
+            Instant defaultUpperBound,
+            Duration maxQueryRangeDurationRequested,
+            Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
         Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.predicate()

@@ -116,7 +116,9 @@ final class TestHttpEventListener
                 Optional.of(new ResourceGroupId("name")),
                 new HashMap<>(), // sessionProperties
                 new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(1000L)),
-                "serverAddress", "serverVersion", "environment",
+                "serverAddress",
+                "serverVersion",
+                "environment",
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.QUERY.toString());
 

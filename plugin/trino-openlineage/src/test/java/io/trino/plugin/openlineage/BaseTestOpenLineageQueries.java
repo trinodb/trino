@@ -152,7 +152,8 @@ public abstract class BaseTestOpenLineageQueries
                 JOIN tpch.tiny.orders o ON c.custkey = o.custkey
                 WHERE o.orderdate BETWEEN DATE '1995-01-01' AND DATE '1996-12-31'
                 GROUP BY n.name
-                ORDER BY total_revenue DESC""", outputTable);
+                ORDER BY total_revenue DESC""",
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithJoinQuery)
@@ -225,7 +226,8 @@ public abstract class BaseTestOpenLineageQueries
                 ORDER BY
                   d_year,
                   d_moy,
-                  store_rank""", outputTable);
+                  store_rank""",
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithCTEQuery)
@@ -267,7 +269,8 @@ public abstract class BaseTestOpenLineageQueries
                       l.suppkey = s.suppkey
                       AND o.orderdate >= DATE '1996-01-01'
                       AND l.quantity > 30
-                  )""", outputTable);
+                  )""",
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableWithSubqueryQuery)
@@ -311,7 +314,9 @@ public abstract class BaseTestOpenLineageQueries
                       tpcds.tiny.store_sales ss
                       JOIN tpcds.tiny.date_dim d ON ss.ss_sold_date_sk = d.d_date_sk
                     WHERE
-                      d.d_year >= 1998""", outputTable, setOperator);
+                      d.d_year >= 1998""",
+                    outputTable,
+                    setOperator);
 
             String createTableQueryId = this.getQueryRunner()
                     .executeWithPlan(this.getSession(), createTableWithUnionQuery)
@@ -390,7 +395,8 @@ public abstract class BaseTestOpenLineageQueries
                      mktsegment,
                      nationkey
                  FROM tpch.tiny.customer
-                """, outputTable);
+                """,
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableQuery)
@@ -405,7 +411,8 @@ public abstract class BaseTestOpenLineageQueries
                     FROM tpch.tiny.customer c
                     WHERE c.acctbal < 5000.0
                 )
-                """, outputTable);
+                """,
+                outputTable);
 
         String deleteQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), deleteQuery)
@@ -457,7 +464,8 @@ public abstract class BaseTestOpenLineageQueries
                      mktsegment,
                      nationkey
                  FROM tpch.tiny.customer
-                """, outputTable);
+                """,
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableQuery)
@@ -477,7 +485,8 @@ public abstract class BaseTestOpenLineageQueries
                  WHEN NOT MATCHED THEN
                      INSERT (custkey, name, mktsegment, nationkey)
                      VALUES (building_customers.custkey, building_customers.name, building_customers.mktsegment, building_customers.nationkey)
-                """, outputTable);
+                """,
+                outputTable);
 
         String mergeQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), mergeQuery)

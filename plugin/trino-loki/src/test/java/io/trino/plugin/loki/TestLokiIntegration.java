@@ -59,27 +59,31 @@ final class TestLokiIntegration
         client.flush();
 
         assertQuery(format(
-                """
-                SELECT value FROM
-                TABLE(system.query_range(
-                 '{test="logs_query"}',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s'
-                ))
-                LIMIT 1
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT value FROM
+                        TABLE(system.query_range(
+                         '{test="logs_query"}',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        LIMIT 1
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 "VALUES ('line 1')");
 
         assertQuery(format(
-                """
-                SELECT value FROM
-                TABLE(system.query_range(
-                 '{test="logs_query"}',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s'
-                ))
-                LIMIT 1
-                """, timestampFormatterAtEasternTime.format(start), timestampFormatterAtEasternTime.format(end)),
+                        """
+                        SELECT value FROM
+                        TABLE(system.query_range(
+                         '{test="logs_query"}',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        LIMIT 1
+                        """,
+                        timestampFormatterAtEasternTime.format(start),
+                        timestampFormatterAtEasternTime.format(end)),
                 "VALUES ('line 1')");
     }
 
@@ -95,15 +99,17 @@ final class TestLokiIntegration
         client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "metrics_query"));
         client.flush();
         assertQuery(format(
-                """
-                SELECT value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="metrics_query"}[5m])',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s'
-                ))
-                LIMIT 1
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="metrics_query"}[5m])',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        LIMIT 1
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 "VALUES (1.0)");
     }
 
@@ -119,15 +125,17 @@ final class TestLokiIntegration
         client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels"));
         client.flush();
         assertQuery(format(
-                """
-                SELECT labels['test'] FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="labels"}[5m])',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s'
-                ))
-                LIMIT 1
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT labels['test'] FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="labels"}[5m])',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        LIMIT 1
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 "VALUES ('labels')");
     }
 
@@ -143,15 +151,17 @@ final class TestLokiIntegration
         client.pushLogLine("line 3", end.minus(Duration.ofMinutes(1)), ImmutableMap.of("test", "labels_complex", "service", "one"));
         client.flush();
         assertQuery(format(
-                """
-                SELECT labels['service'], COUNT(*) FROM
-                TABLE(system.query_range(
-                  '{test="labels_complex"}',
-                  TIMESTAMP '%s',
-                  TIMESTAMP '%s'
-                ))
-                GROUP BY labels['service']
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT labels['service'], COUNT(*) FROM
+                        TABLE(system.query_range(
+                          '{test="labels_complex"}',
+                          TIMESTAMP '%s',
+                          TIMESTAMP '%s'
+                        ))
+                        GROUP BY labels['service']
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 "VALUES ('one', 2.0), ('two', 1.0)");
     }
 
@@ -168,19 +178,21 @@ final class TestLokiIntegration
         client.pushLogLine("line 3", firstLineTimestamp.plus(Duration.ofMinutes(2)), ImmutableMap.of("test", "select_timestamp_query"));
         client.flush();
         assertQuery(format(
-                """
-                SELECT
-                  -- H2 does not support TIMESTAMP WITH TIME ZONE so cast to VARCHAR
-                  to_iso8601(timestamp), value
-                FROM
-                TABLE(system.query_range(
-                 '{test="select_timestamp_query"}',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s'
-                ))
-                ORDER BY timestamp
-                LIMIT 1
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT
+                          -- H2 does not support TIMESTAMP WITH TIME ZONE so cast to VARCHAR
+                          to_iso8601(timestamp), value
+                        FROM
+                        TABLE(system.query_range(
+                         '{test="select_timestamp_query"}',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        ORDER BY timestamp
+                        LIMIT 1
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 format("VALUES ('%s', 'line 1')", isoTimestampFormatter.format(firstLineTimestamp)));
     }
 
@@ -196,16 +208,18 @@ final class TestLokiIntegration
         this.client.pushLogLine("line 3", start.plus(Duration.ofHours(3)), ImmutableMap.of("test", "timestamp_metrics_query"));
         this.client.flush();
         assertQuery(format(
-                """
-                SELECT to_iso8601(timestamp), value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="timestamp_metrics_query"}[5m])',
-                 TIMESTAMP '%s',
-                 TIMESTAMP '%s',
-                 300
-                ))
-                LIMIT 1
-                """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                        """
+                        SELECT to_iso8601(timestamp), value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s',
+                         300
+                        ))
+                        LIMIT 1
+                        """,
+                        timestampFormatter.format(start),
+                        timestampFormatter.format(end)),
                 "VALUES ('%s', 1.0)".formatted(isoTimestampFormatter.format(start.plus(Duration.ofMinutes(5)))));
     }
 

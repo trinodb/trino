@@ -196,7 +196,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s'))".formatted(DATA_SHEET_ID) +
-                "WHERE number = '1' and text = 'one'",
+                        "WHERE number = '1' and text = 'one'",
                 "VALUES " +
                         "('1', 'one')");
     }
@@ -245,7 +245,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!A1:A6") +
-                "WHERE number = number",
+                        "WHERE number = number",
                 "VALUES " +
                         "('1')," +
                         "('2')," +
@@ -259,7 +259,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!B3:B5") +
-                "WHERE \"two\" = \"two\"",
+                        "WHERE \"two\" = \"two\"",
                 "VALUES " +
                         "('three')," +
                         "('four')");
@@ -313,7 +313,8 @@ public class TestGoogleSheets
     private Sheets getSheetsService()
             throws Exception
     {
-        return new Sheets.Builder(newTrustedTransport(),
+        return new Sheets.Builder(
+                newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
                 setTimeout(getCredentials()))
                 .setApplicationName(APPLICATION_NAME)
