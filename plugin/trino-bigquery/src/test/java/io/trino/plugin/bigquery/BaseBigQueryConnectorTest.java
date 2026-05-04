@@ -876,11 +876,11 @@ public abstract class BaseBigQueryConnectorTest
     private long getTableReferenceCountInJob(String tableName)
     {
         return bigQuerySqlExecutor.executeQuery(
-                """
-                SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
-                    SELECT * FROM UNNEST(referenced_tables) AS referenced_table
-                        WHERE referenced_table.table_id = '%s')
-                """.formatted(tableName)).streamValues()
+                        """
+                        SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                            SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                WHERE referenced_table.table_id = '%s')
+                        """.formatted(tableName)).streamValues()
                 .map(List::getFirst)
                 .map(FieldValue::getLongValue)
                 .collect(onlyElement());

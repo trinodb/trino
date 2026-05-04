@@ -571,12 +571,13 @@ public class SqlServerClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        return Jdbi.open(connection).createQuery("""
-                                                 SELECT c.name AS column_name, c.collation_name FROM sys.columns c
-                                                 INNER JOIN sys.tables t ON c.object_id = t.object_id
-                                                 INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
-                                                 WHERE s.name = :schema_name AND t.name = :table_name
-                                                 """)
+        return Jdbi.open(connection).createQuery(
+                        """
+                        SELECT c.name AS column_name, c.collation_name FROM sys.columns c
+                        INNER JOIN sys.tables t ON c.object_id = t.object_id
+                        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                        WHERE s.name = :schema_name AND t.name = :table_name
+                        """)
                 .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
                 .bind("table_name", remoteTableName.getTableName())
                 .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),

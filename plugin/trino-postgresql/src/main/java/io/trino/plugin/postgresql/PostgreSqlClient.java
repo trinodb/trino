@@ -1042,19 +1042,19 @@ public class PostgreSqlClient
                 .collect(joining(", "));
 
         String insertSql =
-        """
-        INSERT INTO %s (%s)
-        SELECT %s FROM %s temp_table
-        WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
-        """
-                .formatted(
-                        quoted(handle.getRemoteTableName()),
-                        columns,
-                        columns,
-                        quoted(temporaryTable),
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                INSERT INTO %s (%s)
+                SELECT %s FROM %s temp_table
+                WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)
+                """
+                        .formatted(
+                                quoted(handle.getRemoteTableName()),
+                                columns,
+                                columns,
+                                quoted(temporaryTable),
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         execute(session, connection, insertSql);
     }
@@ -1095,20 +1095,20 @@ public class PostgreSqlClient
                 .collect(joining(", "));
 
         String updateSql =
-        """
-        UPDATE %s SET %s FROM
-          %s AS temp_table
-            JOIN
-          %s AS page_sink_table
-            ON page_sink_table.%s = temp_table.%s
-        """
-                .formatted(
-                        targetTableName,
-                        updateAssigns,
-                        sourceTableName,
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                UPDATE %s SET %s FROM
+                  %s AS temp_table
+                    JOIN
+                  %s AS page_sink_table
+                    ON page_sink_table.%s = temp_table.%s
+                """
+                        .formatted(
+                                targetTableName,
+                                updateAssigns,
+                                sourceTableName,
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         ImmutableList.Builder<String> conditions = ImmutableList.builder();
         for (int i = 0; i < keyNamesSize; i++) {
@@ -1140,16 +1140,16 @@ public class PostgreSqlClient
         String pageSinkIdName = handle.getPageSinkIdColumnName().orElseThrow();
 
         String deleteSql =
-        """
-        DELETE FROM %s USING %s AS temp_table
-        JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
-        """
-                .formatted(
-                        targetTableName,
-                        sourceTableName,
-                        quoted(pageSinkTable),
-                        pageSinkIdName,
-                        pageSinkIdName);
+                """
+                DELETE FROM %s USING %s AS temp_table
+                JOIN %s AS page_sink_table ON page_sink_table.%s = temp_table.%s
+                """
+                        .formatted(
+                                targetTableName,
+                                sourceTableName,
+                                quoted(pageSinkTable),
+                                pageSinkIdName,
+                                pageSinkIdName);
 
         String condition = handle.getColumnNames().stream()
                 .map(this::quoted)

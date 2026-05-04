@@ -74,10 +74,11 @@ final class TestSqlServerColumnLevelPermissions
     @Test
     void testDescribe()
     {
-        assertQuery("DESCRIBE " + testTable.getName(), """
-                                                       VALUES ('id', 'integer', '', ''),
-                                                              ('allowed_column', 'varchar(50)', '', ''),
-                                                              ('denied_column', 'varchar(50)', '', '')
-                                                       """);
+        assertQuery("DESCRIBE " + testTable.getName(),
+                """
+                VALUES ('id', 'integer', '', ''),
+                       ('allowed_column', 'varchar(50)', '', ''),
+                       ('denied_column', 'varchar(50)', '', '')
+                """);
     }
 }
