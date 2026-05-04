@@ -1762,11 +1762,11 @@ public class TestIcebergV2
                 .commitTransaction();
 
         String expectedStats =
-        """
-        VALUES
-        ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
-        (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
-        """;
+                """
+                VALUES
+                ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+                (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+                """;
 
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()
