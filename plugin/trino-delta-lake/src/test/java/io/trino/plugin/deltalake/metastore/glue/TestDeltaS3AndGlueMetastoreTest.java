@@ -55,8 +55,7 @@ public class TestDeltaS3AndGlueMetastoreTest
     @Override
     protected void validateDataFiles(String partitionColumn, String tableName, String location)
     {
-        getActiveFiles(tableName).forEach(dataFile ->
-        {
+        getActiveFiles(tableName).forEach(dataFile -> {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
             assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + partitionPart + "[a-zA-Z0-9_-]+$");
@@ -68,8 +67,7 @@ public class TestDeltaS3AndGlueMetastoreTest
     protected void validateMetadataFiles(String location)
     {
         String locationDirectory = location.endsWith("/") ? location : location + "/";
-        getAllMetadataDataFilesFromTableDirectory(location).forEach(metadataFile ->
-        {
+        getAllMetadataDataFilesFromTableDirectory(location).forEach(metadataFile -> {
             assertThat(metadataFile).matches("^" + Pattern.quote(locationDirectory) + "_delta_log/[0-9]+.json$");
             verifyPathExist(metadataFile);
         });

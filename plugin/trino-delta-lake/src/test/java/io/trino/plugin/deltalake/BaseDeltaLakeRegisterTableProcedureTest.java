@@ -272,7 +272,8 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 ".*'TABLE_LOCATION' is missing.*");
         assertQueryFails(format("CALL system.register_table('%s')", schema),
                 ".*'TABLE_NAME' is missing.*");
-        assertQueryFails("CALL system.register_table()",
+        assertQueryFails(
+                "CALL system.register_table()",
                 ".*'SCHEMA_NAME' is missing.*");
 
         assertQueryFails(format("CALL system.register_table(NULL, '%s', '%s')", tableName, tableLocation),
