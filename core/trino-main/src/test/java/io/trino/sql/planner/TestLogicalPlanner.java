@@ -1951,7 +1951,6 @@ public class TestLogicalPlanner
                                                 .maxRankingPerPartition(6)
                                                 .partial(false),
                                         anyTree(
-
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("name", "name", "regionkey", "regionkey")))))));

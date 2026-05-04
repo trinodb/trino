@@ -49,7 +49,6 @@ public class RowBlockBuildingDecoder
 
     public RowBlockBuildingDecoder(AvroReadAction action, AvroTypeBlockHandler typeManager)
             throws AvroTypeException
-
     {
         if (!(action instanceof RecordReadAction recordReadAction)) {
             throw new AvroTypeException("Write and Read Schemas must be records when building a row block building decoder. Illegal action: " + action);

@@ -1215,6 +1215,7 @@ class TestVariantOperators
                                     Map.of("a", "y", "b", 2)));
                 });
     }
+
     private static Variant objectVariantWithManyFields(int fieldCount, String prefix)
     {
         List<Slice> names = new ArrayList<>(fieldCount);

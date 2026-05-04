@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 public class TestIcebergDisabledRegisterTableProcedure
         extends AbstractTestQueryFramework
-
 {
     @Override
     protected QueryRunner createQueryRunner()

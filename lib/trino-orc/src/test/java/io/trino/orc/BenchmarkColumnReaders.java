@@ -446,17 +446,13 @@ public class BenchmarkColumnReaders
         @SuppressWarnings("unused")
         @Param({
                 "boolean",
-
                 "tinyint",
                 "integer",
                 "bigint",
                 "decimal(10,5)",
-
                 "timestamp",
-
                 "real",
                 "double",
-
                 "varchar",
                 "varbinary",
                 "uuid"

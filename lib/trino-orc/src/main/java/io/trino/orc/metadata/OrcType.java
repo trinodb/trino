@@ -56,26 +56,20 @@ public class OrcType
     public enum OrcTypeKind
     {
         BOOLEAN,
-
         BYTE,
         SHORT,
         INT,
         LONG,
         DECIMAL,
-
         FLOAT,
         DOUBLE,
-
         STRING,
         VARCHAR,
         CHAR,
-
         BINARY,
-
         DATE,
         TIMESTAMP,
         TIMESTAMP_INSTANT,
-
         LIST,
         MAP,
         STRUCT,

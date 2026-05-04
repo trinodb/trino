@@ -1570,7 +1570,6 @@ public class TestRowPatternMatching
                 "                                  FIRST(CLASSIFIER(), 5) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 6) = 'B' AND " +
                 "                                  FIRST(CLASSIFIER(), 7) = 'B' " +
-
                 "                ) AS m"))
                 .matches("VALUES (VARCHAR 'B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('LAST') ");
     }

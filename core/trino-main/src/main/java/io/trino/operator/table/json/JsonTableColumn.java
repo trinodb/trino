@@ -24,6 +24,5 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = JsonTableQueryColumn.class, name = "query"),
         @JsonSubTypes.Type(value = JsonTableValueColumn.class, name = "value"),
 })
-
 public sealed interface JsonTableColumn
         permits JsonTableOrdinalityColumn, JsonTableQueryColumn, JsonTableValueColumn {}

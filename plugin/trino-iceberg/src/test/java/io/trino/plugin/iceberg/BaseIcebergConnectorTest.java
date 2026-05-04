@@ -8753,6 +8753,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE rollback_to_snapshot(8954597067493422955)", "Metadata not found in metadata location for table " + schemaTableName);
 
         // Avoid failing metadata queries
+
         assertQuery("SHOW TABLES LIKE 'test_corrupted_table_location_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
         assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM information_schema.columns " +
                 "WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
@@ -8766,8 +8767,6 @@ public abstract class BaseIcebergConnectorTest
                 .describedAs("Table location should not exist")
                 .isFalse();
     }
-
-
 
     @Test
     @Timeout(10)

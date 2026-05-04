@@ -88,5 +88,4 @@ public class EnvMultinodeExasol
         return Wait.forSuccessfulCommand(command)
                 .withStartupTimeout(Duration.ofMinutes(5));
     }
-
 }

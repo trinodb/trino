@@ -53,7 +53,6 @@ import java.util.Optional;
         @JsonSubTypes.Type(value = IrStartsWithPredicate.class, name = "startswith"),
         @JsonSubTypes.Type(value = IrTypeMethod.class, name = "type"),
 })
-
 public sealed interface IrPathNode
         permits
         IrAbsMethod,

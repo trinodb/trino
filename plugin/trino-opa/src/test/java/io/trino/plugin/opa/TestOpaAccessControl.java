@@ -992,17 +992,16 @@ final class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
-
         // Same test with only one column having the valid but illegal JSON response
         assertAccessControlMethodThrowsForResponseHandler(
                 createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), response)),
+
                 OPA_COLUMN_MASKING_URI,
                 opaConfig,
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
     }
-
 
     @Test
     public void testQueryIdPropagation()

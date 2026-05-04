@@ -115,7 +115,6 @@ public enum HiveStorageFormat
             ESRI_SERDE_CLASS,
             ESRI_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
-
     ESRI_GEO_JSON(
             ESRI_GEO_JSON_SERDE_CLASS,
             ESRI_GEO_JSON_INPUT_FORMAT_CLASS,

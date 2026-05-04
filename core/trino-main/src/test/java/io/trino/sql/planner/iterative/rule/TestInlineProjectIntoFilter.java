@@ -39,7 +39,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestInlineProjectIntoFilter
         extends BaseRuleTest
-
 {
     @Test
     public void testInlineProjection()

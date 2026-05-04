@@ -35,6 +35,7 @@ public class StatisticRange
     private static final double DENSITY_HEURISTIC_THRESHOLD = 1e-3;
 
     // TODO unify field and method names with SymbolStatsEstimate
+
     /**
      * {@code NaN} represents empty range ({@code high} must be {@code NaN} too)
      */

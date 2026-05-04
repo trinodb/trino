@@ -205,7 +205,6 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL_A", "DEST_COL_B"),
                             filter(
-
                                     new Comparison(EQUAL, new Reference(INTEGER, "DEST_COL_A"), new Constant(INTEGER, 1L)),
                                     tableScan(
                                             new MockConnectorTableHandle(
