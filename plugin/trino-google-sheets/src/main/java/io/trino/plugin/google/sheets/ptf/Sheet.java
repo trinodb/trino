@@ -80,8 +80,7 @@ public class Sheet
 
         public SheetFunction(SheetsMetadata metadata)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     ImmutableList.of(
                             ScalarArgumentSpecification.builder()

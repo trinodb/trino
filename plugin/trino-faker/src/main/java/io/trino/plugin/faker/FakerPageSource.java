@@ -1070,7 +1070,8 @@ class FakerPageSource
                         (byte) (random.nextInt(254) + 2),
                         (byte) (random.nextInt(254) + 2),
                         (byte) (random.nextInt(254) + 2),
-                        (byte) (random.nextInt(254) + 2)}).getAddress();
+                        (byte) (random.nextInt(254) + 2),
+                }).getAddress();
             }
             catch (UnknownHostException e) {
                 // ignore

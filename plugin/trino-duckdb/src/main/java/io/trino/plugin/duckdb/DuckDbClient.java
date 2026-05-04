@@ -207,9 +207,9 @@ public final class DuckDbClient
                 yield Optional.of(varcharColumnMapping(VarcharType.VARCHAR, true));
             }
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
-                        dateWriteFunction()));
+                    DATE,
+                    (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
+                    dateWriteFunction()));
             default -> {
                 if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
                     yield mapToUnboundedVarchar(typeHandle);

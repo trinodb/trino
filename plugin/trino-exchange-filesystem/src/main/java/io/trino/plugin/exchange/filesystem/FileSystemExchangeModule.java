@@ -75,7 +75,8 @@ public class FileSystemExchangeModule
             configBinder(binder).bindConfig(ExchangeAlluxioConfig.class);
         }
         else {
-            binder.addError(new TrinoException(NOT_SUPPORTED,
+            binder.addError(new TrinoException(
+                    NOT_SUPPORTED,
                     format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
         }
     }

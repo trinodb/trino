@@ -250,16 +250,16 @@ public class TestLakehouseConnectorTest
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "row(x integer) -> row(\"y\" integer)" -> Optional.of(setup.withNewValueLiteral("NULL"));
             case "tinyint -> smallint",
-                    "bigint -> integer",
-                    "bigint -> smallint",
-                    "bigint -> tinyint",
-                    "decimal(5,3) -> decimal(5,2)",
-                    "char(25) -> char(20)",
-                    "varchar -> char(20)",
-                    "time(6) -> time(3)",
-                    "timestamp(6) -> timestamp(3)",
-                    // Iceberg cannot update map keys
-                    "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
+                 "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "char(25) -> char(20)",
+                 "varchar -> char(20)",
+                 "time(6) -> time(3)",
+                 "timestamp(6) -> timestamp(3)",
+                 // Iceberg cannot update map keys
+                 "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)" -> Optional.empty();
             default -> Optional.of(setup);
         };
@@ -274,17 +274,17 @@ public class TestLakehouseConnectorTest
         }
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "tinyint -> smallint",
-                    "bigint -> integer",
-                    "bigint -> smallint",
-                    "bigint -> tinyint",
-                    "decimal(5,3) -> decimal(5,2)",
-                    "char(25) -> char(20)",
-                    "varchar -> char(20)",
-                    "time(6) -> time(3)",
-                    "timestamp(6) -> timestamp(3)",
-                    "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
+                 "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "char(25) -> char(20)",
+                 "varchar -> char(20)",
+                 "time(6) -> time(3)",
+                 "timestamp(6) -> timestamp(3)",
+                 "map(integer, varchar) -> map(bigint, varchar)" -> Optional.of(setup.asUnsupported());
             case "varchar(100) -> varchar(50)",
-                    "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
+                 "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
             default -> Optional.of(setup);
         };
     }

@@ -58,7 +58,11 @@ public class KafkaEventPublisher
 
         Map<String, String> configOverrides = readProperties(config.getResourceConfigFiles());
         LOG.info("Creating Kafka publisher (SSL=%s) for topics: %s/%s with excluded fields: %s and kafka config overrides: %s",
-                producerFactory instanceof SSLKafkaProducerFactory, createdTopic, completedTopic, config.getExcludedFields(), configOverrides);
+                producerFactory instanceof SSLKafkaProducerFactory,
+                createdTopic,
+                completedTopic,
+                config.getExcludedFields(),
+                configOverrides);
         kafkaProducer = producerFactory.producer(configOverrides);
         checkConnectivityToBrokers(config.getPublishCreatedEvent() ? createdTopic : completedTopic, config.getRequestTimeout().toMillis());
         kafkaRecordBuilder = new KafkaRecordBuilder(createdTopic, completedTopic, config.getExcludedFields(), metadataProvider(config));
@@ -104,8 +108,11 @@ public class KafkaEventPublisher
                         case InvalidRecordException e -> stats.completedEventSendFailureInvalidRecord();
                         default -> stats.completedEventSendFailureOther();
                     }
-                    LOG.warn(exception, "failed to send QueryCompletedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
-                            queryId, metadata.serializedValueSize(), metadata.partition());
+                    LOG.warn(exception,
+                            "failed to send QueryCompletedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
+                            queryId,
+                            metadata.serializedValueSize(),
+                            metadata.partition());
                 }
                 else {
                     stats.completedEventSuccessfulDispatch();
@@ -137,8 +144,11 @@ public class KafkaEventPublisher
                         case InvalidRecordException e -> stats.createdEventSendFailureInvalidRecord();
                         default -> stats.createdEventSendFailureOther();
                     }
-                    LOG.warn(exception, "failed to send QueryCreatedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
-                            queryId, metadata.serializedValueSize(), metadata.partition());
+                    LOG.warn(exception,
+                            "failed to send QueryCreatedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
+                            queryId,
+                            metadata.serializedValueSize(),
+                            metadata.partition());
                 }
                 else {
                     stats.createdEventSuccessfulDispatch();

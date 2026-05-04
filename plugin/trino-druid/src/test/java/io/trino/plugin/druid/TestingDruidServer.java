@@ -79,7 +79,7 @@ public class TestingDruidServer
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
             hostWorkingDirectory = Files.createDirectory(
-                    Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
+                            Path.of("/tmp/docker-tests-files-" + randomUUID().toString()))
                     .toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
@@ -244,7 +244,8 @@ public class TestingDruidServer
     void ingestData(String datasource, Optional<String> fileName, String indexTask, String dataFilePath)
             throws IOException, InterruptedException
     {
-        middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
+        middleManager.withCopyFileToContainer(
+                forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
 
         indexTask = getReplacedIndexTask(datasource, fileName, indexTask);

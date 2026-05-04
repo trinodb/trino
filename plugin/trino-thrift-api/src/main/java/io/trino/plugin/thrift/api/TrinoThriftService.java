@@ -69,7 +69,8 @@ public interface TrinoThriftService
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
      * @return a batch of splits
      */
-    @ThriftMethod(value = "trinoGetSplits",
+    @ThriftMethod(
+            value = "trinoGetSplits",
             exception = @ThriftException(type = TrinoThriftServiceException.class, id = 1))
     ListenableFuture<TrinoThriftSplitBatch> getSplits(
             @ThriftField(name = "schemaTableName") TrinoThriftSchemaTableName schemaTableName,
@@ -91,7 +92,8 @@ public interface TrinoThriftService
      * @param nextToken token from a previous split batch or {@literal null} if it is the first call
      * @return a batch of splits
      */
-    @ThriftMethod(value = "trinoGetIndexSplits",
+    @ThriftMethod(
+            value = "trinoGetIndexSplits",
             exception = @ThriftException(type = TrinoThriftServiceException.class, id = 1))
     ListenableFuture<TrinoThriftSplitBatch> getIndexSplits(
             @ThriftField(name = "schemaTableName") TrinoThriftSchemaTableName schemaTableName,
@@ -111,7 +113,8 @@ public interface TrinoThriftService
      * @param nextToken token from a previous batch or {@literal null} if it is the first call
      * @return a batch of table data
      */
-    @ThriftMethod(value = "trinoGetRows",
+    @ThriftMethod(
+            value = "trinoGetRows",
             exception = @ThriftException(type = TrinoThriftServiceException.class, id = 1))
     ListenableFuture<TrinoThriftPageResult> getRows(
             @ThriftField(name = "splitId") TrinoThriftId splitId,

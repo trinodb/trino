@@ -165,17 +165,16 @@ public class OpaHttpClient
                 .map(entry -> Map.entry(entry.getKey(), ImmutableList.copyOf(entry.getValue())))
                 .collect(toImmutableList());
         return parallelRequest(
-                    parallelRequestItems,
-                    entry -> requestBuilder.apply(entry.getKey(), entry.getValue()),
-                    (entry, result) ->
-                            Optional.of(requireNonNullElse(result.result(), ImmutableList.<Integer>of()))
-                                    .flatMap(indices -> indices.isEmpty() ? Optional.empty() : Optional.of(indices))
-                                    .map(indices -> indices.stream()
-                                        .map(index -> entry.getValue().get(index))
-                                        .collect(toImmutableSet()))
-                                    .map(values -> Map.entry(entry.getKey(), values)),
-                    uri,
-                    deserializer)
+                parallelRequestItems,
+                entry -> requestBuilder.apply(entry.getKey(), entry.getValue()),
+                (entry, result) -> Optional.of(requireNonNullElse(result.result(), ImmutableList.<Integer>of()))
+                        .flatMap(indices -> indices.isEmpty() ? Optional.empty() : Optional.of(indices))
+                        .map(indices -> indices.stream()
+                                .map(index -> entry.getValue().get(index))
+                                .collect(toImmutableSet()))
+                        .map(values -> Map.entry(entry.getKey(), values)),
+                uri,
+                deserializer)
                 .stream()
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
@@ -218,7 +217,8 @@ public class OpaHttpClient
                         .transform(result -> parser.apply(item, result), executor))
                 .collect(toImmutableList());
         return consumeOpaResponse(
-                Futures.whenAllComplete(allFutures).call(() -> allFutures.stream()
+                Futures.whenAllComplete(allFutures).call(
+                        () -> allFutures.stream()
                                 .map(this::consumeOpaResponse)
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)

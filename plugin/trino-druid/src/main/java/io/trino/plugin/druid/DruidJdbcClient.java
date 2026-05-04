@@ -212,7 +212,8 @@ public class DruidJdbcClient
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(DRUID_CATALOG,
+        return metadata.getTables(
+                DRUID_CATALOG,
                 DRUID_SCHEMA,
                 tableName.orElse(null),
                 null);

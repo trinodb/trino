@@ -166,7 +166,7 @@ public class AlluxioFileSystemExchangeStorage
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
         try {
             fileSystem.listStatus(convertToAlluxioURI(dir),
-                    ListStatusPOptions.newBuilder().setRecursive(true).build())
+                            ListStatusPOptions.newBuilder().setRecursive(true).build())
                     .stream()
                     .map(status -> new FileStatus(status.getPath(), status.getLength()))
                     .forEach(builder::add);
