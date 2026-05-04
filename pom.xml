@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>372</version>
+        <version>373</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2368,6 +2368,13 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- TODO: remove when airbase is updated -->
+                <plugin>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>airstyle-maven-plugin</artifactId>
+                    <version>2</version>
+                </plugin>
+
                 <plugin>
                     <groupId>com.github.eirslett</groupId>
                     <artifactId>frontend-maven-plugin</artifactId>
