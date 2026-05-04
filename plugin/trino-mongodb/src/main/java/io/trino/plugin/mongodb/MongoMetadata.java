@@ -534,10 +534,10 @@ public class MongoMetadata
 
             MongoCollection<Document> temporaryCollection = mongoSession.getCollection(temporaryTable);
             temporaryCollection.aggregate(ImmutableList.of(
-                    lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
-                    match(ne("page_sink_id", ImmutableList.of())),
-                    project(exclude("page_sink_id")),
-                    merge(targetTable.collectionName())))
+                            lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
+                            match(ne("page_sink_id", ImmutableList.of())),
+                            project(exclude("page_sink_id")),
+                            merge(targetTable.collectionName())))
                     .toCollection();
         }
         finally {
@@ -823,7 +823,7 @@ public class MongoMetadata
                 && fields.get(1).getName().orElseThrow().equals(COLLECTION_NAME)
                 && fields.get(1).getType().equals(VARCHAR)
                 && fields.get(2).getName().orElseThrow().equals(ID);
-               // Id type can be of any type
+        // Id type can be of any type
     }
 
     @Override

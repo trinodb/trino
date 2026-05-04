@@ -73,7 +73,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
+                                        ImmutableMap.of(
+                                                "partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new Call(ST_ENVELOPE, ImmutableList.of(new Reference(GEOMETRY, "geometry"))))),
                                         values("geometry"))));
 
@@ -87,7 +88,8 @@ public class TestRewriteSpatialPartitioningAggregation
                         aggregation(
                                 ImmutableMap.of("sp", aggregationFunction("spatial_partitioning", ImmutableList.of("envelope", "partition_count"))),
                                 project(
-                                        ImmutableMap.of("partition_count", expression(new Constant(INTEGER, 100L)),
+                                        ImmutableMap.of(
+                                                "partition_count", expression(new Constant(INTEGER, 100L)),
                                                 "envelope", expression(new Call(ST_ENVELOPE, ImmutableList.of(new Reference(GEOMETRY, "geometry"))))),
                                         values("geometry"))));
     }

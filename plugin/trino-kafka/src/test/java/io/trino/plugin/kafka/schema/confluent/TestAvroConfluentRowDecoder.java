@@ -73,7 +73,6 @@ public class TestAvroConfluentRowDecoder
                 .name("col3").type().intType().intDefault(42)
                 .name("col4").type().nullable().intType().noDefault()
                 .name("col5").type().nullable().bytesType().noDefault()
-
                 .endRecord();
 
         Schema evolvedSchema = SchemaBuilder.record(TOPIC)

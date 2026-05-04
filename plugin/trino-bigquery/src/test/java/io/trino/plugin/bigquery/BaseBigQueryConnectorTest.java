@@ -102,20 +102,20 @@ public abstract class BaseBigQueryConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DEFAULT_COLUMN_VALUE,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -857,8 +857,8 @@ public abstract class BaseBigQueryConnectorTest
 
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + objectExternalTable +
-                       " WITH CONNECTION `" + bigQueryConnectionId + "`" +
-                       " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'", "VALUES 'BASE TABLE'");
 
             assertThat(query("SELECT uri FROM test." + objectExternalTable)).succeeds();
@@ -1457,14 +1457,16 @@ public abstract class BaseBigQueryConnectorTest
         return anyNot(
                 LimitNode.class,
                 node(
-                        AggregationNode.class, anyTree(node(
+                        AggregationNode.class,
+                        anyTree(node(
                                 AggregationNode.class,
-                                tableScan(table -> {
-                                    BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
-                                    return actualTableHandle.limit().equals(limit);
-                                },
-                                TupleDomain.all(),
-                                ImmutableMap.of())))));
+                                tableScan(
+                                        table -> {
+                                            BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
+                                            return actualTableHandle.limit().equals(limit);
+                                        },
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())))));
     }
 
     private void assertLimitPushdownReadsLessData(Session session, String tableName)

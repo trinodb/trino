@@ -47,7 +47,8 @@ public class TestGeometryConvexHullGeoAggregation
         assertAggregatedGeometries(
                 "null before value yields the value",
                 "POINT (1 2)",
-                null, "POINT (1 2)");
+                null,
+                "POINT (1 2)");
 
         assertAggregatedGeometries(
                 "null after value yields the value",
@@ -334,17 +335,20 @@ public class TestGeometryConvexHullGeoAggregation
         assertAggregatedGeometries(
                 "square with a line crossed",
                 "POLYGON ((0 2, 1 1, 3 1, 5 2, 3 3, 1 3, 0 2))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 2, 5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 2, 5 2)");
 
         assertAggregatedGeometries(
                 "square with adjacent line",
                 "POLYGON ((0 5, 1 1, 3 1, 5 5, 0 5))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "LINESTRING (0 5, 5 5)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "LINESTRING (0 5, 5 5)");
 
         assertAggregatedGeometries(
                 "square with adjacent point",
                 "POLYGON ((5 2, 3 3, 1 3, 1 1, 3 1, 5 2))",
-                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", "POINT (5 2)");
+                "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))",
+                "POINT (5 2)");
     }
 
     @Test

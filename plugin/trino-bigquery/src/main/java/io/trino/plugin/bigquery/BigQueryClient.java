@@ -570,7 +570,8 @@ public class BigQueryClient
 
     public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter, OptionalLong limit)
     {
-        return selectSql(table,
+        return selectSql(
+                table,
                 requiredColumns.stream()
                         .map(column -> Joiner.on('.')
                                 .join(ImmutableList.<String>builder()

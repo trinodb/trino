@@ -83,7 +83,7 @@ public final class GeoTestUtils
         // Evaluate Actual to WKT List
         @SuppressWarnings("unchecked")
         List<String> actualWkts = (List<String>) assertions.expression(
-                "transform(%s, g -> ST_AsText(g))".formatted(actualExpression))
+                        "transform(%s, g -> ST_AsText(g))".formatted(actualExpression))
                 .evaluate()
                 .value();
 
