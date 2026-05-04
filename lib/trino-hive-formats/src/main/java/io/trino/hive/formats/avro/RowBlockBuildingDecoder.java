@@ -97,7 +97,9 @@ public class RowBlockBuildingDecoder
     }
 
     sealed interface RowBuildingAction
-            permits BuildIntoBlockAction, ConstantBlockAction, SkipSchemaBuildingAction {}
+            permits BuildIntoBlockAction,
+                    ConstantBlockAction,
+                    SkipSchemaBuildingAction {}
 
     private static final class BuildIntoBlockAction
             implements RowBuildingAction

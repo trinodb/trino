@@ -207,7 +207,9 @@ public class TrinoNumber
     }
 
     public sealed interface AsBigDecimal
-            permits NotANumber, Infinity, BigDecimalValue
+            permits BigDecimalValue,
+                    Infinity,
+                    NotANumber
     {
         /**
          * Comparator for AsBigDecimal values that treats NaN as greater than any other value, including positive infinity.

@@ -51,7 +51,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestTupleDomain
 {
-    public record TestingColumnHandle(String name) implements ColumnHandle {}
+    public record TestingColumnHandle(String name)
+            implements ColumnHandle {}
 
     private static final ColumnHandle A = new TestingColumnHandle("a");
     private static final ColumnHandle B = new TestingColumnHandle("b");

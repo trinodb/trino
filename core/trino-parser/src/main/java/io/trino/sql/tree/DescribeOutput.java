@@ -45,9 +45,11 @@ public class DescribeOutput
     public sealed interface Target
             permits Target.PreparedStatement, Target.InlineQuery
     {
-        record PreparedStatement(Identifier name) implements Target {}
+        record PreparedStatement(Identifier name)
+                implements Target {}
 
-        record InlineQuery(Query query) implements Target {}
+        record InlineQuery(Query query)
+                implements Target {}
     }
 
     @Override

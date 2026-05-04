@@ -278,7 +278,10 @@ public class NativeLogicalTypesAvroTypeManager
     }
 
     public abstract static sealed class ValidateLogicalTypeResult
-            permits NoLogicalType, NonNativeAvroLogicalType, InvalidNativeAvroLogicalType, ValidNativeAvroLogicalType {}
+            permits InvalidNativeAvroLogicalType,
+                    NoLogicalType,
+                    NonNativeAvroLogicalType,
+                    ValidNativeAvroLogicalType {}
 
     protected static final class NoLogicalType
             extends ValidateLogicalTypeResult {}

@@ -62,7 +62,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUtcConstraintExtractor
 {
-    record TestingColumnHandle(String name) implements ColumnHandle {}
+    record TestingColumnHandle(String name)
+            implements ColumnHandle {}
 
     private static final ColumnHandle A_BIGINT = new TestingColumnHandle("a_bigint");
 

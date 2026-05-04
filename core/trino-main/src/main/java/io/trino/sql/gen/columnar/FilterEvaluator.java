@@ -54,14 +54,13 @@ import static io.trino.type.UnknownType.UNKNOWN;
  * Implementations handle dictionary aware processing through {@link DictionaryAwareColumnarFilter}.
  */
 public sealed interface FilterEvaluator
-        permits
-        AndFilterEvaluator,
-        ColumnarFilterEvaluator,
-        OrFilterEvaluator,
-        PageFilterEvaluator,
-        SelectAllEvaluator,
-        SelectNoneEvaluator,
-        DynamicFilterEvaluator
+        permits AndFilterEvaluator,
+                ColumnarFilterEvaluator,
+                DynamicFilterEvaluator,
+                OrFilterEvaluator,
+                PageFilterEvaluator,
+                SelectAllEvaluator,
+                SelectNoneEvaluator
 {
     SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page);
 
