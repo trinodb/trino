@@ -185,7 +185,8 @@ public class AlluxioFileSystemExchangeStorage
 
     @Override
     public void close()
-            throws IOException {}
+            throws IOException
+    {}
 
     private static AlluxioURI convertToAlluxioURI(URI location)
     {

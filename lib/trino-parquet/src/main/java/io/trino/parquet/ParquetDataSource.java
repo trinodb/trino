@@ -49,5 +49,6 @@ public interface ParquetDataSource
 
     @Override
     default void close()
-            throws IOException {}
+            throws IOException
+    {}
 }

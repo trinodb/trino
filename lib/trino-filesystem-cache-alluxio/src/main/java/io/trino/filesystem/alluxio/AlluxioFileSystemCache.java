@@ -81,11 +81,13 @@ public class AlluxioFileSystemCache
 
     @Override
     public void expire(Location source)
-            throws IOException {}
+            throws IOException
+    {}
 
     @Override
     public void expire(Collection<Location> locations)
-            throws IOException {}
+            throws IOException
+    {}
 
     @PreDestroy
     public void shutdown()

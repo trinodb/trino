@@ -82,7 +82,8 @@ public class TestTrinoLdapCli
     private String onlyFileUserPassword;
 
     public TestTrinoLdapCli()
-            throws IOException {}
+            throws IOException
+    {}
 
     @AfterMethodWithContext
     @Override

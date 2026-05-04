@@ -405,7 +405,8 @@ public class AzureBlobFileSystemExchangeStorage
     @PreDestroy
     @Override
     public void close()
-            throws IOException {}
+            throws IOException
+    {}
 
     private ListenableFuture<List<PagedResponse<BlobItem>>> listObjectsRecursively(URI dir)
     {
