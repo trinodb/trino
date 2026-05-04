@@ -32,7 +32,9 @@ public final class S3SseRequestConfigurator
     public static void setEncryptionSettings(PutObjectRequest.Builder builder, S3SseContext context)
     {
         switch (context.sseType()) {
-            case NONE -> { /* ignored */ }
+            case NONE -> {
+                /* ignored */
+            }
             case S3 -> builder.serverSideEncryption(AES256);
             case KMS -> context.sseKmsKeyId().ifPresent(builder.serverSideEncryption(AWS_KMS)::ssekmsKeyId);
             case CUSTOMER -> {
@@ -47,7 +49,9 @@ public final class S3SseRequestConfigurator
     public static void setEncryptionSettings(CreateMultipartUploadRequest.Builder builder, S3SseContext context)
     {
         switch (context.sseType()) {
-            case NONE -> { /* ignored */ }
+            case NONE -> {
+                /* ignored */
+            }
             case S3 -> builder.serverSideEncryption(AES256);
             case KMS -> context.sseKmsKeyId().ifPresent(builder.serverSideEncryption(AWS_KMS)::ssekmsKeyId);
             case CUSTOMER -> {
