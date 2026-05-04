@@ -177,33 +177,29 @@ public class TestJdbcPageSourceProvider
 
         getCursor(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        textColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
+                        textColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
                                 false),
 
-                        textShortColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
+                        textShortColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
                                 false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        textColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
-                                Range.equal(VARCHAR, utf8Slice("apple")),
-                                Range.equal(VARCHAR, utf8Slice("banana")),
-                                Range.equal(VARCHAR, utf8Slice("zoo"))),
+                        textColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
+                                        Range.equal(VARCHAR, utf8Slice("apple")),
+                                        Range.equal(VARCHAR, utf8Slice("banana")),
+                                        Range.equal(VARCHAR, utf8Slice("zoo"))),
                                 false),
 
-                        valueColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(BIGINT, 1L, true, 5L, true),
-                                Range.range(BIGINT, 10L, false, 20L, false)),
+                        valueColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(BIGINT, 1L, true, 5L, true),
+                                        Range.range(BIGINT, 10L, false, 20L, false)),
                                 true))));
     }
 

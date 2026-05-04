@@ -52,7 +52,8 @@ public class TestFormatBasedRemoteQueryModifier
         String modifiedQuery = modifier.apply(connectorSession, "SELECT * from USERS");
 
         assertThat(modifiedQuery)
-                .isEqualTo("SELECT * from USERS /*%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s*/",
+                .isEqualTo(
+                        "SELECT * from USERS /*%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s*/",
                         connectorSession.getQueryId(),
                         connectorSession.getQueryId(),
                         connectorSession.getQueryId(),

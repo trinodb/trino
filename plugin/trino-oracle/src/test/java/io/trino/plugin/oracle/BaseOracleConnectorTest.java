@@ -403,7 +403,8 @@ public abstract class BaseOracleConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
                         .build(),
-                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+                "SELECT * from nation",
+                "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
     @Test

@@ -104,8 +104,7 @@ public class CachingJdbcClient
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
-        this(
-                Ticker.systemTicker(),
+        this(Ticker.systemTicker(),
                 delegate,
                 sessionPropertiesProviders,
                 identityMapping,

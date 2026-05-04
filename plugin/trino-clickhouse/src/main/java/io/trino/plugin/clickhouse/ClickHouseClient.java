@@ -595,7 +595,8 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format("RENAME TABLE %s TO %s",
+        execute(session, connection, format(
+                "RENAME TABLE %s TO %s",
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
@@ -645,16 +646,16 @@ public class ClickHouseClient
             case UInt16 -> Optional.of(ColumnMapping.longMapping(INTEGER, ResultSet::getInt, uInt16WriteFunction(getClickHouseServerVersion(session))));
             case UInt32 -> Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, uInt32WriteFunction(getClickHouseServerVersion(session))));
             case UInt64 -> Optional.of(ColumnMapping.objectMapping(
-                        UINT64_TYPE,
-                        longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
-                        uInt64WriteFunction(getClickHouseServerVersion(session))));
+                    UINT64_TYPE,
+                    longDecimalReadFunction(UINT64_TYPE, UNNECESSARY),
+                    uInt64WriteFunction(getClickHouseServerVersion(session))));
             case IPv4, IPv6 -> Optional.of(ipAddressColumnMapping(column.getOriginalTypeName()));
             case Enum8, Enum16 -> Optional.of(ColumnMapping.sliceMapping(
-                        createUnboundedVarcharType(),
-                        varcharReadFunction(createUnboundedVarcharType()),
-                        varcharWriteFunction(),
-                        // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
-                        DISABLE_PUSHDOWN));
+                    createUnboundedVarcharType(),
+                    varcharReadFunction(createUnboundedVarcharType()),
+                    varcharWriteFunction(),
+                    // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
+                    DISABLE_PUSHDOWN));
             case FixedString, String -> {
                 if (isMapStringAsVarchar(session)) {
                     yield Optional.of(ColumnMapping.sliceMapping(
@@ -678,10 +679,10 @@ public class ClickHouseClient
             case Types.INTEGER -> Optional.of(integerColumnMapping());
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
             case Types.FLOAT, Types.REAL -> Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();

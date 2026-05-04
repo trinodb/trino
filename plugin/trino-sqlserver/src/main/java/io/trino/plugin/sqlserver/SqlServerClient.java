@@ -580,7 +580,8 @@ public class SqlServerClient
                         """)
                 .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
                 .bind("table_name", remoteTableName.getTableName())
-                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                .collectRows(toImmutableMap(
+                        rowView -> rowView.getColumn("column_name", String.class),
                         rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
     }
 
@@ -654,9 +655,9 @@ public class SqlServerClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        sqlServerDateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    sqlServerDateWriteFunction()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
@@ -1370,8 +1371,7 @@ public class SqlServerClient
         int maxAttemptCount = 3;
         RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
-                .handleIf(throwable ->
-                {
+                .handleIf(throwable -> {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException sqlServerException &&
                             sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;

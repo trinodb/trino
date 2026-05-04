@@ -388,7 +388,8 @@ public abstract class BaseSqlServerConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("sqlserver", "domain_compaction_threshold", "10000")
                         .build(),
-                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 500");
+                "SELECT * from nation",
+                "Domain compaction threshold \\(10000\\) cannot exceed 500");
     }
 
     /**
@@ -454,7 +455,8 @@ public abstract class BaseSqlServerConnectorTest
     private void testCreateWithDataCompression(DataCompression dataCompression)
     {
         String tableName = "test_create_with_compression_" + randomNameSuffix();
-        String createQuery = format("CREATE TABLE sqlserver.dbo.%s (\n" +
+        String createQuery = format(
+                "CREATE TABLE sqlserver.dbo.%s (\n" +
                         "   a bigint,\n" +
                         "   b bigint\n" +
                         ")\n" +

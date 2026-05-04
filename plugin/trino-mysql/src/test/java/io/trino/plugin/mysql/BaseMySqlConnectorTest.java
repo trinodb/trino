@@ -209,8 +209,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['a']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint) WITH (primary_key = ARRAY['a', 'b'])",
@@ -223,8 +222,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['a','b']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint) WITH (primary_key = ARRAY['b', 'a'])",
@@ -237,8 +235,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','a']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint NOT NULL, d bigint) WITH (primary_key = ARRAY['b', 'c', 'a'])",
@@ -252,8 +249,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','c','a']
                 )\
-                """
-        );
+                """);
     }
 
     private void verifyCreateTableDefinition(String tableDefinition, String showCreateTableFormat)
@@ -288,8 +284,7 @@ public abstract class BaseMySqlConnectorTest
                    b bigint,
                    c bigint
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
                 "(a bit(10), b bigint, c bigint, PRIMARY KEY(a, b))",
@@ -301,8 +296,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
                 "(a bit(10), b bigint, c bigint, d bigint, PRIMARY KEY(a, b, c))",
@@ -315,8 +309,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','c']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
                 "(a bit(10), b bigint, c bigint, d bigint, PRIMARY KEY(a, c, b))",
@@ -329,8 +322,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['c','b']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
                 "(a bit(10), b bigint, c bit(10), d bigint, PRIMARY KEY(a, b, c))",
@@ -342,8 +334,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b']
                 )\
-                """
-        );
+                """);
     }
 
     private void verifyTableDefinitionWithUnsupportedKey(String tableDefinition, String showCreateTableFormat)

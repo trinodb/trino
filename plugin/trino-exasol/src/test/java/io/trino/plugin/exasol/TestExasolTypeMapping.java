@@ -293,9 +293,15 @@ final class TestExasolTypeMapping
                 .addRoundTrip("hashtype(16 byte)", "'{550e8400-e29b-11d4-a716-446655440000}'", VARBINARY, "from_hex('550e8400e29b11d4a716446655440000')")
 
                 // Explicit 32-byte
-                .addRoundTrip("hashtype(32 byte)", "'00112233-44556677-8899AABB-CCDDEEFF-00112233-44556677-8899AABB-CCDDEEFF'", VARBINARY,
+                .addRoundTrip(
+                        "hashtype(32 byte)",
+                        "'00112233-44556677-8899AABB-CCDDEEFF-00112233-44556677-8899AABB-CCDDEEFF'",
+                        VARBINARY,
                         "from_hex('00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF')")
-                .addRoundTrip("hashtype(32 byte)", "'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'", VARBINARY,
+                .addRoundTrip(
+                        "hashtype(32 byte)",
+                        "'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'",
+                        VARBINARY,
                         "from_hex('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')")
 
                 // Boundary: minimum size (1 byte)

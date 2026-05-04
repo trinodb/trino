@@ -920,16 +920,18 @@ public class TestRedshiftTypeMapping
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
-        verify(
-                zone.getRules().getValidOffsets(dateTime).isEmpty(),
-                "Expected %s to be a gap in %s", dateTime, zone);
+        verify(zone.getRules().getValidOffsets(dateTime).isEmpty(),
+                "Expected %s to be a gap in %s",
+                dateTime,
+                zone);
     }
 
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
-        verify(
-                zone.getRules().getValidOffsets(dateTime).size() == 2,
-                "Expected %s to be doubled in %s", dateTime, zone);
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2,
+                "Expected %s to be doubled in %s",
+                dateTime,
+                zone);
     }
 
     private static Function<String, String> padVarchar(int length)

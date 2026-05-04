@@ -170,8 +170,7 @@ public class SingleStoreClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        this(
-                config,
+        this(config,
                 connectionFactory,
                 queryBuilder,
                 typeManager,
@@ -340,9 +339,9 @@ public class SingleStoreClient
             }
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(checkNullUsingBytes(varbinaryColumnMapping()));
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    dateWriteFunction()));
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 yield Optional.of(ColumnMapping.longMapping(
