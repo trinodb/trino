@@ -2533,18 +2533,18 @@ public abstract class BaseConnectorTest
     protected @Language("SQL") String getOrdersTableWithColumns()
     {
         return
-               """
-               VALUES
-               ('orders', 'orderkey'),
-               ('orders', 'custkey'),
-               ('orders', 'orderstatus'),
-               ('orders', 'totalprice'),
-               ('orders', 'orderdate'),
-               ('orders', 'orderpriority'),
-               ('orders', 'clerk'),
-               ('orders', 'shippriority'),
-               ('orders', 'comment')
-               """;
+                """
+                VALUES
+                ('orders', 'orderkey'),
+                ('orders', 'custkey'),
+                ('orders', 'orderstatus'),
+                ('orders', 'totalprice'),
+                ('orders', 'orderdate'),
+                ('orders', 'orderpriority'),
+                ('orders', 'clerk'),
+                ('orders', 'shippriority'),
+                ('orders', 'comment')
+                """;
     }
 
     @Test
