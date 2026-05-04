@@ -68,8 +68,7 @@ public class TestExtractSpatialInnerJoin
 
         // OR operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", BIGINT);
@@ -84,8 +83,7 @@ public class TestExtractSpatialInnerJoin
 
         // NOT operator
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", BIGINT);
@@ -100,8 +98,7 @@ public class TestExtractSpatialInnerJoin
 
         // ST_Distance(...) > r
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.filter(
@@ -114,8 +111,7 @@ public class TestExtractSpatialInnerJoin
 
         // SphericalGeography operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
                     Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
                     return p.filter(
@@ -128,8 +124,7 @@ public class TestExtractSpatialInnerJoin
 
         // to_spherical_geography() operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
                     return p.filter(
@@ -146,8 +141,7 @@ public class TestExtractSpatialInnerJoin
     {
         // symbols
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.filter(
@@ -164,8 +158,7 @@ public class TestExtractSpatialInnerJoin
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -186,8 +179,7 @@ public class TestExtractSpatialInnerJoin
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a1 = p.symbol("a1", GEOMETRY);
                     Symbol a2 = p.symbol("a2", GEOMETRY);
                     Symbol b1 = p.symbol("b1", GEOMETRY);
@@ -211,8 +203,7 @@ public class TestExtractSpatialInnerJoin
     public void testPushDownFirstArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     return p.filter(
@@ -229,8 +220,7 @@ public class TestExtractSpatialInnerJoin
                                 values(ImmutableMap.of("point", 0))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     return p.filter(
                             containsCall(geometryFromTextCall(wkt), toPointCall(new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 0.0))),
@@ -245,8 +235,7 @@ public class TestExtractSpatialInnerJoin
     public void testPushDownSecondArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol polygon = p.symbol("polygon", GEOMETRY);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -264,8 +253,7 @@ public class TestExtractSpatialInnerJoin
                                         values(ImmutableMap.of("lat", 0, "lng", 1)))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     return p.filter(
@@ -281,8 +269,7 @@ public class TestExtractSpatialInnerJoin
     public void testPushDownBothArguments()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -305,8 +292,7 @@ public class TestExtractSpatialInnerJoin
     public void testPushDownOppositeOrder()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     Symbol wkt = p.symbol("wkt", VARCHAR);
@@ -328,8 +314,7 @@ public class TestExtractSpatialInnerJoin
     public void testPushDownAnd()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -353,8 +338,7 @@ public class TestExtractSpatialInnerJoin
 
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt1 = p.symbol("wkt1", VARCHAR);
                     Symbol wkt2 = p.symbol("wkt2", VARCHAR);
                     Symbol geometry1 = p.symbol("geometry1", GEOMETRY);

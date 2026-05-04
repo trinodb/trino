@@ -106,7 +106,8 @@ public final class EsriDeserializer
     private GeoJsonReader reader;
     private ObjectMapper mapper;
 
-    public enum Format {
+    public enum Format
+    {
         ESRI,
         GEO_JSON,
     }

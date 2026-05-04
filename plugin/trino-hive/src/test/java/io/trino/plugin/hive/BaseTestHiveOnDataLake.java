@@ -2690,7 +2690,8 @@ abstract class BaseTestHiveOnDataLake
                 tableName);
     }
 
-    protected void copyTpchNationToTable(String testTable) {
+    protected void copyTpchNationToTable(String testTable)
+    {
         copyTpchNationToTable(getSession(), testTable);
     }
 

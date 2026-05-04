@@ -1369,8 +1369,7 @@ public class SqlServerClient
         int maxAttemptCount = 3;
         RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
-                .handleIf(throwable ->
-                {
+                .handleIf(throwable -> {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException sqlServerException &&
                             sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;

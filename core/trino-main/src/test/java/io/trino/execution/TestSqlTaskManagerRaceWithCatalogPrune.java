@@ -207,8 +207,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new CatalogPruneTaskConfig(),
                 workerTaskManager);
 
-        Future<Void> catalogTaskFuture = Futures.submit(() ->
-        {
+        Future<Void> catalogTaskFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 CatalogName catalogName = new CatalogName("catalog_" + i);
                 CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogVersion(UUID.randomUUID().toString()));
@@ -238,8 +237,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             }
         }, threadPoolExecutor);
 
-        Future<Void> pruneCatalogsFuture = Futures.submit(() ->
-        {
+        Future<Void> pruneCatalogsFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 catalogPruneTask.pruneCatalogs();
                 try {

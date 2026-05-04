@@ -75,8 +75,7 @@ public class HiveAvroTypeManager
                         });
                     }
                     else {
-                        yield Optional.of((block, pos) ->
-                        {
+                        yield Optional.of((block, pos) -> {
                             SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
                             // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
                             return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(timestamp.getMillis(), false);

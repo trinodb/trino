@@ -55,8 +55,7 @@ public class TestExtractSpatialLeftJoin
     {
         // scalar expression
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.join(LEFT,
                             p.values(),
@@ -67,8 +66,7 @@ public class TestExtractSpatialLeftJoin
 
         // OR operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -84,8 +82,7 @@ public class TestExtractSpatialLeftJoin
 
         // NOT operator
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -99,8 +96,7 @@ public class TestExtractSpatialLeftJoin
 
         // ST_Distance(...) > r
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.join(LEFT,
@@ -114,8 +110,7 @@ public class TestExtractSpatialLeftJoin
 
         // SphericalGeography operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", SPHERICAL_GEOGRAPHY);
                     Symbol b = p.symbol("b", SPHERICAL_GEOGRAPHY);
                     return p.join(LEFT,
@@ -129,8 +124,7 @@ public class TestExtractSpatialLeftJoin
 
         // to_spherical_geography() operand
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", SPHERICAL_GEOGRAPHY);
                     return p.join(LEFT,
@@ -148,8 +142,7 @@ public class TestExtractSpatialLeftJoin
     {
         // symbols
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     return p.join(LEFT,
@@ -165,8 +158,7 @@ public class TestExtractSpatialLeftJoin
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a = p.symbol("a", GEOMETRY);
                     Symbol b = p.symbol("b", GEOMETRY);
                     Symbol name1 = p.symbol("name_1", VARCHAR);
@@ -186,8 +178,7 @@ public class TestExtractSpatialLeftJoin
 
         // AND
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol a1 = p.symbol("a1", GEOMETRY);
                     Symbol a2 = p.symbol("a2", GEOMETRY);
                     Symbol b1 = p.symbol("b1", GEOMETRY);
@@ -210,8 +201,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownFirstArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol point = p.symbol("point", GEOMETRY);
                     return p.join(LEFT,
@@ -227,8 +217,7 @@ public class TestExtractSpatialLeftJoin
                                 values(ImmutableMap.of("point", 0))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     return p.join(LEFT,
                             p.values(wkt),
@@ -242,8 +231,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownSecondArgument()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol polygon = p.symbol("polygon", GEOMETRY);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -260,8 +248,7 @@ public class TestExtractSpatialLeftJoin
                                         values(ImmutableMap.of("lat", 0, "lng", 1)))));
 
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     return p.join(LEFT,
@@ -276,8 +263,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownBothArguments()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -299,8 +285,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownOppositeOrder()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
                     Symbol wkt = p.symbol("wkt", VARCHAR);
@@ -321,8 +306,7 @@ public class TestExtractSpatialLeftJoin
     public void testPushDownAnd()
     {
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt = p.symbol("wkt", VARCHAR);
                     Symbol lat = p.symbol("lat", DOUBLE);
                     Symbol lng = p.symbol("lng", DOUBLE);
@@ -345,8 +329,7 @@ public class TestExtractSpatialLeftJoin
 
         // Multiple spatial functions - only the first one is being processed
         assertRuleApplication()
-                .on(p ->
-                {
+                .on(p -> {
                     Symbol wkt1 = p.symbol("wkt1", VARCHAR);
                     Symbol wkt2 = p.symbol("wkt2", VARCHAR);
                     Symbol geometry1 = p.symbol("geometry1", GEOMETRY);
