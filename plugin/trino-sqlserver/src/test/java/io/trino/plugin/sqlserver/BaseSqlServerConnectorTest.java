@@ -905,10 +905,10 @@ public abstract class BaseSqlServerConnectorTest
                 onRemoteDatabase(),
                 procedureName,
                 """
-                    CREATE PROCEDURE %s.%s %s
-                    AS BEGIN
-                        %s
-                    END
+                CREATE PROCEDURE %s.%s %s
+                AS BEGIN
+                    %s
+                END
                 """.formatted(getSession().getSchema().orElseThrow(), procedureName, inputArguments, baseQuery));
     }
 

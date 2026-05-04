@@ -701,13 +701,13 @@ public abstract class BaseMySqlConnectorTest
     {
         // MySQL JDBC driver < 8.0.29 didn't return metadata when the query contained a WITH clause
         assertQuery(
-                    """
-                    SELECT * FROM TABLE(mysql.system.query(query => '
-                    WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
-                    SELECT custkey, name FROM tpch.customer
-                    WHERE custkey = 1
-                    '))
-                    """,
+                """
+                SELECT * FROM TABLE(mysql.system.query(query => '
+                WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
+                SELECT custkey, name FROM tpch.customer
+                WHERE custkey = 1
+                '))
+                """,
                 "VALUES (1, 'Customer#000000001')");
     }
 
