@@ -3993,8 +3993,7 @@ public class TestAnalyzer
                 .hasMessageMatching(".* Lambda expression cannot contain subqueries");
 
         // GROUP BY column captured in lambda
-        analyze(
-                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
@@ -4364,7 +4363,8 @@ public class TestAnalyzer
     @Test
     public void testJoinNearest()
     {
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4373,7 +4373,8 @@ public class TestAnalyzer
                     MATCH quotes.ts < trades.ts
                 )
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4382,7 +4383,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4391,7 +4393,8 @@ public class TestAnalyzer
                     MATCH quotes.ts > trades.ts
                 )
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4400,7 +4403,8 @@ public class TestAnalyzer
                     MATCH quotes.ts >= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 INNER JOIN NEAREST (
@@ -4409,7 +4413,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= trades.ts
                 ) ON TRUE
                 """);
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4418,7 +4423,8 @@ public class TestAnalyzer
                     MATCH quotes.ts <= date_add('second', (SELECT 0), trades.ts)
                 )
                 """);
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4429,7 +4435,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(UNSUPPORTED_SUBQUERY)
                 .hasMessageContaining("Correlated subqueries are not supported in NEAREST WHERE clause");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4440,7 +4447,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(UNSUPPORTED_SUBQUERY)
                 .hasMessageContaining("Correlated subqueries are not supported in NEAREST MATCH clause");
-        analyze("""
+        analyze(
+                """
                 SELECT *
                 FROM (VALUES (TIMESTAMP '2020-01-01 00:00:02')) trades(ts),
                      NEAREST (
@@ -4449,7 +4457,8 @@ public class TestAnalyzer
                      )
                 """);
 
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 INNER JOIN NEAREST (
@@ -4460,7 +4469,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("INNER JOIN involving NEAREST is only supported with condition ON TRUE");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 RIGHT JOIN NEAREST (
@@ -4471,7 +4481,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(INVALID_COLUMN_REFERENCE)
                 .hasMessageContaining("LATERAL reference not allowed in RIGHT JOIN");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 FULL JOIN NEAREST (
@@ -4482,7 +4493,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(INVALID_COLUMN_REFERENCE)
                 .hasMessageContaining("LATERAL reference not allowed in FULL JOIN");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4493,7 +4505,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("LEFT JOIN involving NEAREST is only supported with condition ON TRUE");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 LEFT JOIN NEAREST (
@@ -4504,7 +4517,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("JOIN USING involving NEAREST is not supported");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 NATURAL JOIN NEAREST (
@@ -4514,7 +4528,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("Natural join not supported");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM NEAREST (
                     FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
@@ -4523,7 +4538,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4534,7 +4550,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4545,7 +4562,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4556,7 +4574,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must be a comparison expression");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4567,7 +4586,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4578,7 +4598,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageContaining("NEAREST WHERE clause must evaluate to a boolean");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4588,7 +4609,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageContaining("NEAREST MATCH clause must evaluate to a boolean");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4599,7 +4621,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4610,7 +4633,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4620,7 +4644,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -4630,7 +4655,8 @@ public class TestAnalyzer
                 """)
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
                 CROSS JOIN NEAREST (
@@ -6502,7 +6528,8 @@ public class TestAnalyzer
                 "                   DEFAULT 'text' ON ERROR) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM JSON_TABLE(
                     '1',
@@ -6512,7 +6539,8 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessageContaining("Function JSON_TABLE default ON EMPTY result must evaluate to a date");
 
-        assertFails("""
+        assertFails(
+                """
                 SELECT *
                 FROM JSON_TABLE(
                     '1',
