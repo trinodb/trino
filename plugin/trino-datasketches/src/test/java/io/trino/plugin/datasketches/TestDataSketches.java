@@ -16,8 +16,8 @@ package io.trino.plugin.datasketches;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.plugin.datasketches.state.SketchState;
-import io.trino.plugin.datasketches.state.SketchStateFactory;
+import io.trino.plugin.datasketches.state.UnionState;
+import io.trino.plugin.datasketches.state.UnionStateFactory;
 import io.trino.plugin.datasketches.theta.Estimate;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
@@ -67,12 +67,16 @@ public class TestDataSketches
         return queryRunner;
     }
 
+    // -------------------------------------------------------------------------
+    // Union / cardinality
+    // -------------------------------------------------------------------------
+
     @Test
     public void testSimpleMerge()
     {
-        SketchStateFactory factory = new SketchStateFactory();
-        SketchState state1 = factory.createSingleState();
-        SketchState state2 = factory.createSingleState();
+        UnionStateFactory factory = new UnionStateFactory();
+        UnionState state1 = factory.createSingleState();
+        UnionState state2 = factory.createSingleState();
 
         // 1000 unique keys
         UpdatableThetaSketch sketch1 = UpdatableThetaSketch.builder()
@@ -83,8 +87,7 @@ public class TestDataSketches
             sketch1.update(key);
         }
 
-        // 1000 unique keys
-        // the first 500 unique keys overlap with sketch1
+        // 1000 unique keys; first 500 overlap with sketch1
         UpdatableThetaSketch sketch2 = UpdatableThetaSketch.builder()
                 .setSeed(TEST_SEED)
                 .setNominalEntries(TEST_ENTRIES)
@@ -144,13 +147,13 @@ public class TestDataSketches
     @Test
     public void testMergeDoesNotDoubleCount()
     {
-        SketchStateFactory factory = new SketchStateFactory();
-        SketchState left = factory.createSingleState();
+        UnionStateFactory factory = new UnionStateFactory();
+        UnionState left = factory.createSingleState();
         left.setNominalEntries(DEFAULT_ENTRIES);
         left.setSeed(DEFAULT_UPDATE_SEED);
         left.addSketch(toSketchSlice(new int[] {1, 2, 3}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES));
 
-        SketchState right = factory.createSingleState();
+        UnionState right = factory.createSingleState();
         right.setNominalEntries(DEFAULT_ENTRIES);
         right.setSeed(DEFAULT_UPDATE_SEED);
         right.addSketch(toSketchSlice(new int[] {3, 4, 5}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES));
@@ -164,12 +167,12 @@ public class TestDataSketches
     @Test
     public void testMergeWithEmptyStateDoesNotFail()
     {
-        SketchStateFactory factory = new SketchStateFactory();
-        SketchState empty = factory.createSingleState();
+        UnionStateFactory factory = new UnionStateFactory();
+        UnionState empty = factory.createSingleState();
         empty.setNominalEntries(DEFAULT_ENTRIES);
         empty.setSeed(DEFAULT_UPDATE_SEED);
 
-        SketchState populated = factory.createSingleState();
+        UnionState populated = factory.createSingleState();
         populated.setNominalEntries(DEFAULT_ENTRIES);
         populated.setSeed(DEFAULT_UPDATE_SEED);
         populated.addSketch(toSketchSlice(new int[] {1, 2, 3, 4}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES));
@@ -229,6 +232,112 @@ public class TestDataSketches
 
         assertThat(estimate).isEqualTo((double) unionNominalEntries);
     }
+
+    // -------------------------------------------------------------------------
+    // Intersection
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testIntersectionOverlapping()
+    {
+        // {1..10} ∩ {6..15} = {6..10} → 5 distinct elements
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        String sketchB = toHexSketch(new int[] {6, 7, 8, 9, 10, 11, 12, 13, 14, 15});
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_intersection(sketch))
+                FROM (VALUES
+                        (X'%s'),
+                        (X'%s')) t(sketch)
+                """.formatted(sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(5d);
+    }
+
+    @Test
+    public void testIntersectionDisjoint()
+    {
+        // Disjoint sets → cardinality 0
+        String sketchA = toHexSketch(new int[] {1, 2, 3});
+        String sketchB = toHexSketch(new int[] {4, 5, 6});
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_intersection(sketch))
+                FROM (VALUES
+                        (X'%s'),
+                        (X'%s')) t(sketch)
+                """.formatted(sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(0d);
+    }
+
+    @Test
+    public void testIntersectionWithSingleSketch()
+    {
+        // Intersection of a single sketch is the sketch itself
+        String sketch = toHexSketch(new int[] {1, 2, 3, 4, 5});
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_intersection(sketch))
+                FROM (VALUES (X'%s')) t(sketch)
+                """.formatted(sketch));
+
+        assertThat(estimate).isEqualTo(5d);
+    }
+
+    @Test
+    public void testIntersectionGroupedByCategory()
+    {
+        // Two groups: 'a' has full overlap (5), 'b' has no overlap (0)
+        String sketchA1 = toHexSketch(new int[] {1, 2, 3, 4, 5});
+        String sketchA2 = toHexSketch(new int[] {3, 4, 5, 6, 7});  // overlap = {3,4,5}
+        String sketchB1 = toHexSketch(new int[] {10, 11, 12});
+        String sketchB2 = toHexSketch(new int[] {20, 21, 22});      // disjoint
+
+        MaterializedResult result = computeActual(
+                """
+                SELECT category, theta_sketch_cardinality(theta_sketch_intersection(sketch))
+                FROM (VALUES
+                        ('a', X'%s'),
+                        ('a', X'%s'),
+                        ('b', X'%s'),
+                        ('b', X'%s')) t(category, sketch)
+                GROUP BY category
+                ORDER BY category
+                """.formatted(sketchA1, sketchA2, sketchB1, sketchB2));
+
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, DOUBLE)
+                .row("a", 3d)
+                .row("b", 0d)
+                .build();
+        assertThat(result.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testIntersectionIgnoresNullInputs()
+    {
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5});
+        String sketchB = toHexSketch(new int[] {3, 4, 5, 6, 7});
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_intersection(sketch))
+                FROM (VALUES
+                        (CAST(NULL AS VARBINARY)),
+                        (X'%s'),
+                        (CAST(NULL AS VARBINARY)),
+                        (X'%s')) t(sketch)
+                """.formatted(sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(3d);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
     private String toHexSketch(int[] data)
     {

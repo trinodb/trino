@@ -14,7 +14,7 @@
 package io.trino.plugin.datasketches.theta;
 
 import io.airlift.slice.Slice;
-import io.trino.plugin.datasketches.state.SketchState;
+import io.trino.plugin.datasketches.state.UnionState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -31,7 +31,7 @@ public final class UnionWithParams
     private UnionWithParams() {}
 
     @InputFunction
-    public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
+    public static void input(@AggregationState UnionState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) long nominalEntries, @SqlType(StandardTypes.BIGINT) long seed)
     {
         state.setNominalEntries((int) nominalEntries);
         state.setSeed(seed);
@@ -39,7 +39,7 @@ public final class UnionWithParams
     }
 
     @CombineFunction
-    public static void combine(@AggregationState SketchState state, SketchState otherState)
+    public static void combine(@AggregationState UnionState state, UnionState otherState)
     {
         if (otherState.getSketch() == null) {
             return;
@@ -56,7 +56,7 @@ public final class UnionWithParams
     }
 
     @OutputFunction(StandardTypes.VARBINARY)
-    public static void output(@AggregationState SketchState state, BlockBuilder out)
+    public static void output(@AggregationState UnionState state, BlockBuilder out)
     {
         Slice sketch = state.getSketch();
         if (sketch == null) {

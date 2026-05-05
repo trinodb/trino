@@ -13,26 +13,8 @@
  */
 package io.trino.plugin.datasketches.state;
 
-import io.airlift.slice.Slice;
-import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
-/** Common state interface shared by union and intersection aggregations. */
-public interface SketchState
-        extends AccumulatorState
-{
-    Slice getSketch();
-
-    long getSeed();
-
-    void setSeed(long value);
-
-    void addSketch(Slice value);
-
-    /**
-     * Overwrites the accumulated sketch, discarding any prior state. Used by deserializers to avoid
-     * intersecting with stale data from a reused scratch state.
-     */
-    void setSketch(Slice value);
-
-    void merge(SketchState other);
-}
+@AccumulatorStateMetadata(stateSerializerClass = IntersectionStateSerializer.class, stateFactoryClass = IntersectionStateFactory.class)
+public interface IntersectionState
+        extends SketchState {}
