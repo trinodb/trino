@@ -86,8 +86,10 @@ public class Minio
         withRunCommand(
                 ImmutableList.of(
                         "server",
-                        "--address", "0.0.0.0:" + MINIO_API_PORT,
-                        "--console-address", "0.0.0.0:" + MINIO_CONSOLE_PORT,
+                        "--address",
+                        "0.0.0.0:" + MINIO_API_PORT,
+                        "--console-address",
+                        "0.0.0.0:" + MINIO_CONSOLE_PORT,
                         "/data"));
     }
 

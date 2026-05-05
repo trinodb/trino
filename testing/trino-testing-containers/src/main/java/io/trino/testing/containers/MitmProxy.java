@@ -67,10 +67,14 @@ public class MitmProxy
         withRunCommand(
                 ImmutableList.of(
                         "mitmdump",
-                        "--listen-port", Integer.toString(MITMPROXY_PORT),
-                        "--certs", "/tmp/cert.pem",
-                        "--set", "proxy_debug=true",
-                        "--set", "stream_large_bodies=0"));
+                        "--listen-port",
+                        Integer.toString(MITMPROXY_PORT),
+                        "--certs",
+                        "/tmp/cert.pem",
+                        "--set",
+                        "proxy_debug=true",
+                        "--set",
+                        "stream_large_bodies=0"));
 
         withLogConsumer(MitmProxy::printProxiedRequest);
     }

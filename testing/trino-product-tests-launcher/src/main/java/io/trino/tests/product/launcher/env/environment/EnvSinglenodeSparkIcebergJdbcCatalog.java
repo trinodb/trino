@@ -105,6 +105,17 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
     private DockerContainer createSpark()
     {
         try {
+            String[] command = ImmutableList.<String>builder()
+                    .add("spark-submit")
+                    .add("--master", "local[*]")
+                    .add("--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2")
+                    .add("--name", "Thrift JDBC/ODBC Server")
+                    .add("--packages", "org.apache.spark:spark-avro_2.12:3.2.1")
+                    .add("--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT)
+                    .add("spark-internal")
+                    .build()
+                    .toArray(String[]::new);
+
             DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + imagesVersion, "spark")
                     .withEnv("HADOOP_USER_NAME", "hive")
                     .withCopyFileToContainer(
@@ -113,14 +124,7 @@ public class EnvSinglenodeSparkIcebergJdbcCatalog
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")),
                             "/spark/conf/log4j2.properties")
-                    .withCommand(
-                            "spark-submit",
-                            "--master", "local[*]",
-                            "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                            "--name", "Thrift JDBC/ODBC Server",
-                            "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
-                            "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                            "spark-internal")
+                    .withCommand(command)
                     .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                     .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 

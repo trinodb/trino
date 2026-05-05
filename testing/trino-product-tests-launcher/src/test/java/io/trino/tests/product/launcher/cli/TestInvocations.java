@@ -58,10 +58,13 @@ public class TestInvocations
             throws IOException
     {
         InvocationResult invocationResult = invokeLauncher(
-                "env", "describe",
-                "--server-package", Files.createTempFile("server", ".tar.gz").toString(),
+                "env",
+                "describe",
+                "--server-package",
+                Files.createTempFile("server", ".tar.gz").toString(),
                 // This is known to work for both arm and x86
-                "--environment", "multinode-postgresql");
+                "--environment",
+                "multinode-postgresql");
 
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
@@ -73,9 +76,12 @@ public class TestInvocations
             throws IOException
     {
         InvocationResult invocationResult = invokeLauncher(
-                "suite", "describe",
-                "--server-package", Files.createTempFile("server", ".tar.gz").toString(),
-                "--suite", "suite-1");
+                "suite",
+                "describe",
+                "--server-package",
+                Files.createTempFile("server", ".tar.gz").toString(),
+                "--suite",
+                "suite-1");
 
         assertThat(invocationResult.exitCode()).isEqualTo(0);
         assertThat(invocationResult.lines())
@@ -87,14 +93,17 @@ public class TestInvocations
             throws IOException
     {
         InvocationResult upResult = invokeLauncher(
-                "env", "up",
-                "--server-package", Files.createTempFile("server", ".tar.gz").toString(),
+                "env",
+                "up",
+                "--server-package",
+                Files.createTempFile("server", ".tar.gz").toString(),
                 "--without-trino",
                 "--background",
                 "--bind",
                 "off",
                 // This is known to work for both arm and x86
-                "--environment", "multinode-postgresql");
+                "--environment",
+                "multinode-postgresql");
 
         assertThat(upResult.exitCode()).isEqualTo(0);
         InvocationResult downResult = invokeLauncher("env", "down");

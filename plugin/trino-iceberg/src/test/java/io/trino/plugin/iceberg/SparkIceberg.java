@@ -61,15 +61,15 @@ public class SparkIceberg
     protected void setupContainer()
     {
         super.setupContainer();
-        withRunCommand(
-                ImmutableList.of(
-                        "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                        "spark-internal"));
+        withRunCommand(ImmutableList.<String>builder()
+                .add("spark-submit")
+                .add("--master", "local[*]")
+                .add("--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2")
+                .add("--name", "Thrift JDBC/ODBC Server")
+                .add("--packages", "org.apache.spark:spark-avro_2.12:3.2.1")
+                .add("--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT)
+                .add("spark-internal")
+                .build());
     }
 
     public static class Builder
