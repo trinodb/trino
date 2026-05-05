@@ -991,25 +991,17 @@ public class ElasticsearchMetadata
 
     private DecoderDescriptor getAggregateOutputDecoderDescriptor(String name, Type type)
     {
-        switch (type.getBaseName()) {
-            case StandardTypes.REAL:
-                return new RealDecoder.Descriptor(name);
-            case StandardTypes.DOUBLE:
-                return new DoubleDecoder.Descriptor(name);
-            case StandardTypes.TINYINT:
-                return new TinyintDecoder.Descriptor(name);
-            case StandardTypes.SMALLINT:
-                return new SmallintDecoder.Descriptor(name);
-            case StandardTypes.INTEGER:
-                return new IntegerDecoder.Descriptor(name);
-            case StandardTypes.BIGINT:
-                return new BigintDecoder.Descriptor(name);
-            case StandardTypes.VARCHAR:
-                return new VarcharDecoder.Descriptor(name);
-            case StandardTypes.BOOLEAN:
-                return new BooleanDecoder.Descriptor(name);
-        }
-        return null;
+        return switch (type.getBaseName()) {
+            case StandardTypes.REAL -> new RealDecoder.Descriptor(name);
+            case StandardTypes.DOUBLE -> new DoubleDecoder.Descriptor(name);
+            case StandardTypes.TINYINT -> new TinyintDecoder.Descriptor(name);
+            case StandardTypes.SMALLINT -> new SmallintDecoder.Descriptor(name);
+            case StandardTypes.INTEGER -> new IntegerDecoder.Descriptor(name);
+            case StandardTypes.BIGINT -> new BigintDecoder.Descriptor(name);
+            case StandardTypes.VARCHAR -> new VarcharDecoder.Descriptor(name);
+            case StandardTypes.BOOLEAN -> new BooleanDecoder.Descriptor(name);
+            default -> null;
+        };
     }
 
     private IndexMetadata.Type getElasticsearchTypeForAggregateOutput(Type type)
