@@ -43,6 +43,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREG
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem.DEFAULT_SORT_BY_DOC;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -338,6 +339,72 @@ public class TestElasticsearchMetadata
         }
     }
 
+    @Test
+    public void testApplyAggregationRejectsDistinctAggregate()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+            ElasticsearchColumnHandle nationkey = bigintColumn("nationkey");
+
+            assertThat(metadata.applyAggregation(
+                    SESSION,
+                    scanHandle(),
+                    List.of(countDistinctAggregation("nationkey")),
+                    Map.of("nationkey", nationkey),
+                    List.of(List.of())))
+                    .isEmpty();
+        }
+        finally {
+            client.close();
+        }
+    }
+
+    @Test
+    public void testApplyAggregationRejectsFilteredAggregate()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+            ElasticsearchColumnHandle nationkey = bigintColumn("nationkey");
+
+            assertThat(metadata.applyAggregation(
+                    SESSION,
+                    scanHandle(),
+                    List.of(filteredSumAggregation("nationkey")),
+                    Map.of("nationkey", nationkey),
+                    List.of(List.of())))
+                    .isEmpty();
+        }
+        finally {
+            client.close();
+        }
+    }
+
+    @Test
+    public void testApplyAggregationRejectsOrderedAggregate()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+            ElasticsearchColumnHandle nationkey = bigintColumn("nationkey");
+
+            assertThat(metadata.applyAggregation(
+                    SESSION,
+                    scanHandle(),
+                    List.of(orderedSumAggregation("nationkey")),
+                    Map.of("nationkey", nationkey),
+                    List.of(List.of())))
+                    .isEmpty();
+        }
+        finally {
+            client.close();
+        }
+    }
+
     private static String likeToRegexp(String pattern, Optional<String> escapeChar)
     {
         return ElasticsearchMetadata.likeToRegexp(Slices.utf8Slice(pattern), escapeChar.map(Slices::utf8Slice));
@@ -418,6 +485,17 @@ public class TestElasticsearchMetadata
         return new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty());
     }
 
+    private static AggregateFunction countDistinctAggregation(String variableName)
+    {
+        return new AggregateFunction(
+                "count",
+                BIGINT,
+                List.of(new Variable(variableName, BIGINT)),
+                List.of(),
+                true,
+                Optional.empty());
+    }
+
     private static AggregateFunction sumAggregation(String variableName)
     {
         return sumAggregation(variableName, BIGINT);
@@ -430,6 +508,28 @@ public class TestElasticsearchMetadata
                 BIGINT,
                 List.of(new Variable(variableName, inputType)),
                 List.of(),
+                false,
+                Optional.empty());
+    }
+
+    private static AggregateFunction filteredSumAggregation(String variableName)
+    {
+        return new AggregateFunction(
+                "sum",
+                BIGINT,
+                List.of(new Variable(variableName, BIGINT)),
+                List.of(),
+                false,
+                Optional.of(new Variable("filter_expr", BOOLEAN)));
+    }
+
+    private static AggregateFunction orderedSumAggregation(String variableName)
+    {
+        return new AggregateFunction(
+                "sum",
+                BIGINT,
+                List.of(new Variable(variableName, BIGINT)),
+                List.of(new SortItem(variableName, SortOrder.ASC_NULLS_LAST)),
                 false,
                 Optional.empty());
     }

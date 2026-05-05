@@ -109,6 +109,10 @@ public class MetricAggregation
             Map<String, ColumnHandle> assignments,
             String alias)
     {
+        if (function.isDistinct() || function.getFilter().isPresent() || !function.getSortItems().isEmpty()) {
+            return Optional.empty();
+        }
+
         if (!SUPPORTED_AGGREGATION_FUNCTIONS.contains(function.getFunctionName())) {
             return Optional.empty();
         }
