@@ -14,16 +14,14 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -53,7 +51,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
@@ -70,6 +67,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,7 +75,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -86,7 +83,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
@@ -129,7 +125,6 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -150,8 +145,6 @@ public class BackgroundHiveSplitLoader
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final Constraint constraint;
-    private final DynamicFilter dynamicFilter;
-    private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final DirectoryLister directoryLister;
@@ -185,18 +178,17 @@ public class BackgroundHiveSplitLoader
     private final ReadWriteLock taskExecutionLock = new ReentrantReadWriteLock();
 
     private HiveSplitSource hiveSplitSource;
-    private Stopwatch stopwatch;
     private volatile boolean stopped;
     private final AtomicInteger activeLoaderCount = new AtomicInteger();
     private final AtomicInteger partitionCount = new AtomicInteger();
+    private final Set<ColumnHandle> dynamicFilterColumns;
+    private final DynamicFilterState dynamicFilterState;
 
     public BackgroundHiveSplitLoader(
             Table table,
             Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             Constraint constraint,
-            DynamicFilter dynamicFilter,
-            Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -208,13 +200,13 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             Optional<ValidWriteIdList> validWriteIds,
             Optional<Long> maxSplitFileSize,
-            int maxPartitions)
+            int maxPartitions,
+            Set<ColumnHandle> dynamicFilterColumns,
+            DynamicFilterState dynamicFilterState)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.constraint = constraint;
-        this.dynamicFilter = dynamicFilter;
-        this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
@@ -232,13 +224,14 @@ public class BackgroundHiveSplitLoader
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         this.maxPartitions = maxPartitions;
+        this.dynamicFilterColumns = ImmutableSet.copyOf(dynamicFilterColumns);
+        this.dynamicFilterState = requireNonNull(dynamicFilterState, "dynamicFilterState is null");
     }
 
     @Override
     public void start(HiveSplitSource splitSource)
     {
         this.hiveSplitSource = splitSource;
-        this.stopwatch = Stopwatch.createStarted();
         addLoaderIfNecessary();
     }
 
@@ -260,6 +253,7 @@ public class BackgroundHiveSplitLoader
     public void stop()
     {
         stopped = true;
+        dynamicFilterState.cancel();
     }
 
     private class HiveSplitLoaderTask
@@ -273,17 +267,6 @@ public class BackgroundHiveSplitLoader
                     return TaskStatus.finished();
                 }
                 ListenableFuture<Void> future;
-                // Block until one of below conditions is met:
-                // 1. Completion of DynamicFilter
-                // 2. Timeout after waiting for the configured time
-                long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
-                if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
-                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
-                            // As isBlocked() returns unmodifiableFuture, we need to create new future for correct propagation of the timeout
-                            .thenApply(Function.identity())
-                            .orTimeout(timeLeft, MILLISECONDS)));
-                    return TaskStatus.continueOn(future);
-                }
                 taskExecutionLock.readLock().lock();
                 try {
                     future = loadSplits();
@@ -304,8 +287,13 @@ public class BackgroundHiveSplitLoader
                 finally {
                     taskExecutionLock.readLock().unlock();
                 }
-                invokeNoMoreSplitsIfNecessary();
-                if (!future.isDone()) {
+                // invokeNoMoreSplitsIfNecessary must only run after the future is done,
+                // because it triggers the partition transform which reads dynamicFilterState.
+                // Running it before the DF gate clears would produce TupleDomain.all() and skip partition pruning.
+                if (future.isDone()) {
+                    invokeNoMoreSplitsIfNecessary();
+                }
+                else {
                     return TaskStatus.continueOn(future);
                 }
             }
@@ -348,14 +336,12 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, _ -> null, directExecutor());
-    }
-
     private ListenableFuture<Void> loadSplits()
             throws IOException
     {
+        if (!dynamicFilterState.isReady()) {
+            return toListenableFuture(dynamicFilterState.isBlocked());
+        }
         Iterator<InternalHiveSplit> splits = fileIterators.poll();
         if (splits == null) {
             HivePartitionMetadata partition = partitions.poll();
@@ -403,7 +389,7 @@ public class BackgroundHiveSplitLoader
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
-        BooleanSupplier partitionMatchSupplier = createPartitionMatchSupplier(dynamicFilter, hivePartition, getPartitionKeyColumnHandles(table, typeManager));
+        BooleanSupplier partitionMatchSupplier = createPartitionMatchSupplier(dynamicFilterColumns, dynamicFilterState, hivePartition, getPartitionKeyColumnHandles(table, typeManager));
         if (!partitionMatchSupplier.getAsBoolean()) {
             // Avoid listing files and creating splits from a partition if it has been pruned due to dynamic filters
             return COMPLETED_FUTURE;
