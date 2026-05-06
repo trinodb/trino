@@ -1528,4 +1528,38 @@ public abstract class AbstractTestAggregations
                 GROUP BY id
                 """);
     }
+
+    @Test
+    public void testSumDecimalOverflow()
+    {
+        // max DECIMAL(38,0)
+        assertThat(query("SELECT sum(v) FROM (VALUES (DECIMAL '99999999999999999999999999999999999999'), (DECIMAL '99999999999999999999999999999999999999')) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        assertThat(query("SELECT sum(v) FROM (VALUES (DECIMAL '-99999999999999999999999999999999999999'), (DECIMAL '-99999999999999999999999999999999999999')) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        // max DECIMAL(38,10)
+        assertThat(query("SELECT sum(v) FROM (VALUES (DECIMAL '9999999999999999999999999999.9999999999'), (DECIMAL '9999999999999999999999999999.9999999999')) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        assertThat(query("SELECT sum(v) FROM (VALUES (DECIMAL '-9999999999999999999999999999.9999999999'), (DECIMAL '-9999999999999999999999999999.9999999999')) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+
+        // Overflow after adding couple values
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '45000000000000000000000000000000000000' FROM (VALUES 1, 2) t(x)) t(v)"))
+                .matches("VALUES DECIMAL '90000000000000000000000000000000000000'");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '45000000000000000000000000000000000000' FROM (VALUES 1, 2, 3, 4) t(x)) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '-45000000000000000000000000000000000000' FROM (VALUES 1, 2) t(x)) t(v)"))
+                .matches("VALUES DECIMAL '-90000000000000000000000000000000000000'");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '-45000000000000000000000000000000000000' FROM (VALUES 1, 2, 3, 4) t(x)) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        // same with non-zero scale: DECIMAL(38,10)
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '4500000000000000000000000000.0000000000' FROM (VALUES 1, 2) t(x)) t(v)"))
+                .matches("VALUES DECIMAL '9000000000000000000000000000.0000000000'");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '4500000000000000000000000000.0000000000' FROM (VALUES 1, 2, 3, 4) t(x)) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '-4500000000000000000000000000.0000000000' FROM (VALUES 1, 2) t(x)) t(v)"))
+                .matches("VALUES DECIMAL '-9000000000000000000000000000.0000000000'");
+        assertThat(query("SELECT sum(v) FROM (SELECT DECIMAL '-4500000000000000000000000000.0000000000' FROM (VALUES 1, 2, 3, 4) t(x)) t(v)"))
+                .failure().hasMessageContaining("Decimal overflow");
+    }
 }
