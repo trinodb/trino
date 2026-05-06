@@ -80,6 +80,12 @@ public abstract class AbstractTestS3FileSystem
     }
 
     @Override
+    protected boolean supportsPrefixListing()
+    {
+        return true;
+    }
+
+    @Override
     protected final TrinoFileSystem getFileSystem()
     {
         if (useServerSideEncryptionWithCustomerKey()) {
