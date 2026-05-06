@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -37,7 +37,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.operator.join.OuterLookupSource.createOuterLookupSourceSupplier;
-import static io.trino.operator.join.unspilled.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
+import static io.trino.operator.join.nonspilling.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceFactory

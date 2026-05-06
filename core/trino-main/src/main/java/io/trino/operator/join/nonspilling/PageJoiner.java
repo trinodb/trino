@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -21,7 +21,7 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.JoinType;
 import io.trino.operator.join.LookupSource;
-import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.nonspilling.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
