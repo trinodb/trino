@@ -555,6 +555,16 @@ following properties:
   - Maximum number of entries per case-insensitive name mapping cache. Applies
     independently to the namespace cache and the table/view cache. Defaults to
     `10000`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.namespace-cache.enabled`
+  - Cache the full list of tables and views per namespace, so that resolving
+    multiple case-insensitive names in the same namespace requires a single
+    listing request. Only used when
+    `iceberg.rest-catalog.case-insensitive-name-matching` is `true`. Defaults to
+    `true`.
+* - `iceberg.rest-catalog.case-insensitive-name-matching.namespace-cache.max-size`
+  - Maximum number of table or view identifiers retained across all namespaces
+    in the case-insensitive listing cache. Applies independently to the table
+    listing cache and the view listing cache. Defaults to `10000`.
 * - `iceberg.rest-catalog.http-headers`
   - Additional *non-sensitive* HTTP headers to include with requests to the REST catalog.
     Example: `Header-1: value 1, Header-2: value 2`.
