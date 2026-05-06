@@ -48,7 +48,6 @@ public interface ConnectorPageSourceProvider
     /**
      * @param columns columns that should show up in the output page, in this order
      * @param dynamicFilter optionally remove rows that don't satisfy this predicate
-     *
      * @deprecated Implement {@link #createPageSource(ConnectorTransactionHandle, ConnectorSession, ConnectorSplit, ConnectorTableHandle, Optional, List, DynamicFilter)} instead.
      */
     @Deprecated(forRemoval = true)
