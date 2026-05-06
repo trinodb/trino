@@ -219,13 +219,15 @@ public final class ParquetMetadataConverter
         return builder.build();
     }
 
-    public static org.apache.parquet.internal.column.columnindex.ColumnIndex fromParquetColumnIndex(PrimitiveType type,
+    public static org.apache.parquet.internal.column.columnindex.ColumnIndex fromParquetColumnIndex(
+            PrimitiveType type,
             ColumnIndex parquetColumnIndex)
     {
         if (!isMinMaxStatsSupported(type)) {
             return null;
         }
-        return ColumnIndexBuilder.build(type,
+        return ColumnIndexBuilder.build(
+                type,
                 fromParquetBoundaryOrder(parquetColumnIndex.getBoundary_order()),
                 parquetColumnIndex.getNull_pages(),
                 parquetColumnIndex.getNull_counts(),

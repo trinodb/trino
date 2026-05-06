@@ -66,7 +66,10 @@ public final class VectorIntBitUnpackers
             implements IntBitUnpacker
     {
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             // Do nothing
@@ -526,7 +529,10 @@ public final class VectorIntBitUnpackers
         }
 
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             byte[] inputArray = input.getByteArray();

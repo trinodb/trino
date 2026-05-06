@@ -563,7 +563,8 @@ public final class StateCompiler
         return definition;
     }
 
-    private static void generateInOutMethods(Type type,
+    private static void generateInOutMethods(
+            Type type,
             ClassDefinition definition,
             Function<Scope, BytecodeExpression> valueGetter,
             Function<Scope, BytecodeExpression> nullGetter,

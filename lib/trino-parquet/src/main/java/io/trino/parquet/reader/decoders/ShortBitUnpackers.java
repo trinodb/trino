@@ -810,7 +810,10 @@ public final class ShortBitUnpackers
             implements ShortBitUnpacker
     {
         @Override
-        public void unpack(short[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                short[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             while (length >= 32) {

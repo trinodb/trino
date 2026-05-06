@@ -86,8 +86,8 @@ class TestSqlFunctions
     static {
         JsonMapper mapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                    TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                    Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                         Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))

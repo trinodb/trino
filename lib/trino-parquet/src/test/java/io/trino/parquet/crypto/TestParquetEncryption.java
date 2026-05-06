@@ -909,7 +909,8 @@ public final class TestParquetEncryption
      * Reads both columns and returns a map “age” → values, “id → values.
      */
     private static Map<String, List<Integer>> readTwoColumnFile(
-            File file, DecryptionKeyRetriever retriever)
+            File file,
+            DecryptionKeyRetriever retriever)
             throws IOException
     {
         ParquetDataSource source = new FileParquetDataSource(file, ParquetReaderOptions.builder().build());

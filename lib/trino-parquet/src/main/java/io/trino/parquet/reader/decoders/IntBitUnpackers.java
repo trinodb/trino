@@ -64,7 +64,10 @@ public final class IntBitUnpackers
             implements IntBitUnpacker
     {
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             // Do nothing
@@ -603,7 +606,10 @@ public final class IntBitUnpackers
         }
 
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             while (length >= 64) {
@@ -1281,7 +1287,10 @@ public final class IntBitUnpackers
         }
 
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             while (length >= 8) {
@@ -1313,7 +1322,10 @@ public final class IntBitUnpackers
         }
 
         @Override
-        public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input,
+        public void unpack(
+                int[] output,
+                int outputOffset,
+                SimpleSliceInputStream input,
                 int length)
         {
             while (length >= 8) {

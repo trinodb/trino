@@ -183,7 +183,8 @@ public final class SystemPartitioningHandle
             }
         };
 
-        public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
+        public abstract BucketFunction createBucketFunction(
+                List<Type> partitionChannelTypes,
                 int bucketCount,
                 NullSafeHashCompiler hashCompiler);
 

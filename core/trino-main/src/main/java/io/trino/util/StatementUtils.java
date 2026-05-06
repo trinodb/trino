@@ -326,7 +326,8 @@ public final class StatementUtils
         private final QueryType queryType;
         private final Optional<Class<? extends DataDefinitionTask<T>>> taskType;
 
-        private StatementTypeInfo(Class<T> statementType,
+        private StatementTypeInfo(
+                Class<T> statementType,
                 QueryType queryType,
                 Optional<Class<? extends DataDefinitionTask<T>>> taskType)
         {
