@@ -136,8 +136,7 @@ public class HiveSplitManager
             TypeManager typeManager,
             SplitAffinityProvider splitAffinityProvider)
     {
-        this(
-                transactionManager,
+        this(transactionManager,
                 partitionManager,
                 fileSystemFactory,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),

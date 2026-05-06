@@ -97,8 +97,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(LEFT, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
@@ -111,8 +110,7 @@ public class TestDynamicFilter
                 anyTree(
                         join(FULL, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
@@ -181,10 +179,8 @@ public class TestDynamicFilter
         assertPlan("SELECT o.orderkey FROM orders o CROSS JOIN lineitem l",
                 anyTree(
                         join(INNER, builder -> builder
-                                .left(
-                                        tableScan("orders"))
-                                .right(
-                                        exchange(tableScan("lineitem"))))));
+                                .left(tableScan("orders"))
+                                .right(exchange(tableScan("lineitem"))))));
     }
 
     @Test
@@ -386,8 +382,7 @@ public class TestDynamicFilter
                 anyTree(filter(
                         not(getPlanTester().getPlannerContext().getMetadata(), new Comparison(IDENTICAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"))),
                         join(INNER, builder -> builder
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
@@ -397,8 +392,7 @@ public class TestDynamicFilter
                 anyTree(filter(
                         new Comparison(IDENTICAL, new Reference(DOUBLE, "O_TOTALPRICE"), new Reference(DOUBLE, "L_EXTENDEDPRICE")),
                         join(INNER, builder -> builder
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")))
+                                .left(tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")))
                                 .right(
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_EXTENDEDPRICE", "extendedprice"))))))));
@@ -414,8 +408,7 @@ public class TestDynamicFilter
                                 .left(
                                         join(LEFT, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("nationkey", "ORDERS_OK")
-                                                .left(
-                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
+                                                .left(tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))
                                                 .right(
                                                         anyTree(
                                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))))
@@ -673,8 +666,7 @@ public class TestDynamicFilter
                                                         .left(
                                                                 join(LEFT, leftJoinBuilder -> leftJoinBuilder
                                                                         .equiCriteria("ORDERS_CK6", "ORDERS_CK16")
-                                                                        .left(
-                                                                                tableScan("orders", ImmutableMap.of("ORDERS_CK6", "clerk")))
+                                                                        .left(tableScan("orders", ImmutableMap.of("ORDERS_CK6", "clerk")))
                                                                         .right(
                                                                                 exchange(
                                                                                         tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk"))))))

@@ -262,8 +262,7 @@ public class TestAddDynamicFilterSource
                         filter(
                                 new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")), new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "expr")))),
                                 join(INNER, builder -> builder
-                                        .left(
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
+                                        .left(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))
                                         .right(
                                                 exchange(
                                                         LOCAL,

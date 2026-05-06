@@ -340,10 +340,8 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         join(LEFT, builder -> builder
                                 .equiCriteria("A", "B")
-                                .left(
-                                        assignUniqueId("unique", values("A")))
-                                .right(
-                                        values("B")))));
+                                .left(assignUniqueId("unique", values("A")))
+                                .right(values("B")))));
     }
 
     @Test

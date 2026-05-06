@@ -106,8 +106,7 @@ public class RcFileWriter
             boolean validate)
             throws IOException
     {
-        this(
-                rawOutput,
+        this(rawOutput,
                 types,
                 encoding,
                 compressionKind,

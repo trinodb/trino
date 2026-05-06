@@ -69,8 +69,7 @@ public class MemoryRevokingScheduler
             TaskManagementExecutor taskManagementExecutor,
             FeaturesConfig config)
     {
-        this(
-                localMemoryManager.getMemoryPool(),
+        this(localMemoryManager.getMemoryPool(),
                 sqlTaskManager::getAllTasks,
                 taskManagementExecutor.getExecutor(),
                 config.getMemoryRevokingThreshold(),

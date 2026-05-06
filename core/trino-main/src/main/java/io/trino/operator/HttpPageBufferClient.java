@@ -178,8 +178,7 @@ public final class HttpPageBufferClient
             ScheduledExecutorService scheduledExecutor,
             Executor pageBufferClientCallbackExecutor)
     {
-        this(
-                selfAddress,
+        this(selfAddress,
                 httpClient,
                 dataIntegrityVerification,
                 maxResponseSize,

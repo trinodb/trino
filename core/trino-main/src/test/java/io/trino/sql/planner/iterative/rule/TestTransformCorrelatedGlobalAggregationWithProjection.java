@@ -319,9 +319,9 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         SINGLE,
                                         join(LEFT, builder -> builder
                                                 .left(
-                                                        assignUniqueId("unique",
+                                                        assignUniqueId(
+                                                                "unique",
                                                                 values(ImmutableMap.of("corr", 0))))
-                                                .right(
-                                                        values(ImmutableMap.of("subquery", 0)))))));
+                                                .right(values(ImmutableMap.of("subquery", 0)))))));
     }
 }

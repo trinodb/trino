@@ -182,8 +182,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                                 filter(
                                         new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")),
                                         join(INNER, builder -> builder
-                                                .left(
-                                                        values("a"))
+                                                .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),

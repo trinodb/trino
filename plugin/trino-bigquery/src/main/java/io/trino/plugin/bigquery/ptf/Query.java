@@ -91,8 +91,7 @@ public class Query
 
         public QueryFunction(BigQueryClientFactory clientFactory, BigQueryTypeManager typeManager)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(ScalarArgumentSpecification.builder()
                             .name("QUERY")

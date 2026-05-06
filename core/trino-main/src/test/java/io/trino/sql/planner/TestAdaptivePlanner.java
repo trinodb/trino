@@ -113,26 +113,27 @@ public class TestAdaptivePlanner
                                                         remoteSource(ImmutableList.of(new PlanFragmentId("6"))))))))
                 .children(
                         spb -> spb.fragmentMatcher(fm -> fm
-                                // This fragment id should change since it has adaptive plan
-                                .fragmentId(6)
-                                .planPattern(node(AggregationNode.class,
-                                        adaptivePlan(
-                                                join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
-                                                        .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
-                                                        .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
-                                                join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
-                                                        .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
-                                                        .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
+                                        // This fragment id should change since it has adaptive plan
+                                        .fragmentId(6)
+                                        .planPattern(node(AggregationNode.class,
+                                                adaptivePlan(
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                                .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
+                                                                .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
+                                                                .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
                                 .children(
-                                        spb2 -> spb2.fragmentMatcher(fm -> fm
-                                                // This fragment id should not change
-                                                .fragmentId(3)
-                                                .planPattern(
-                                                        node(AggregationNode.class,
-                                                                exchange(
-                                                                        remoteSource(ImmutableList.of(new PlanFragmentId("4")))))))
+                                        spb2 -> spb2
+                                                .fragmentMatcher(fm -> fm
+                                                        // This fragment id should not change
+                                                        .fragmentId(3)
+                                                        .planPattern(
+                                                                node(AggregationNode.class,
+                                                                        exchange(
+                                                                                remoteSource(ImmutableList.of(new PlanFragmentId("4")))))))
                                                 .children(spb3 -> spb3.fragmentMatcher(fm -> fm
                                                         // This fragment id should not change
                                                         .fragmentId(4)

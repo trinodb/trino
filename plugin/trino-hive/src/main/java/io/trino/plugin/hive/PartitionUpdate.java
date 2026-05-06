@@ -52,8 +52,7 @@ public class PartitionUpdate
             @JsonProperty("inMemoryDataSizeInBytes") long inMemoryDataSizeInBytes,
             @JsonProperty("onDiskDataSizeInBytes") long onDiskDataSizeInBytes)
     {
-        this(
-                name,
+        this(name,
                 updateMode,
                 Location.of(requireNonNull(writePath, "writePath is null")),
                 Location.of(requireNonNull(targetPath, "targetPath is null")),

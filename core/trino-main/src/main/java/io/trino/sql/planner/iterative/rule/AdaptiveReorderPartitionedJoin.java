@@ -261,9 +261,9 @@ public class AdaptiveReorderPartitionedJoin
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> ctx)
         {
-            verify(
-                    node.getScope().equals(LOCAL) && node.getId().equals(localExchangeNodeId),
-                    "Unexpected exchange node: %s", node.getId());
+            verify(node.getScope().equals(LOCAL) && node.getId().equals(localExchangeNodeId),
+                    "Unexpected exchange node: %s",
+                    node.getId());
             // Remove local exchange if there is only one source since we are converting build side
             // to probe side
             if (node.getSources().size() == 1) {

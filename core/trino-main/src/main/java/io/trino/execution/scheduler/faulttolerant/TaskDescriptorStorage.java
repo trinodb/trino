@@ -102,8 +102,7 @@ public class TaskDescriptorStorage
             QueryManagerConfig config,
             JsonCodec<TaskDescriptor> taskDescriptorJsonCodec)
     {
-        this(
-                config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
+        this(config.getFaultTolerantExecutionTaskDescriptorStorageMaxMemory(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(),
                 config.getFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(),
                 taskDescriptorJsonCodec);

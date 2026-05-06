@@ -400,8 +400,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                new In(
-                                        new Reference(createVarcharType(10), "c_varchar"),
+                                new In(new Reference(createVarcharType(10), "c_varchar"),
                                         List.of(
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value1")),
                                                 new Constant(VARCHAR_COLUMN.getColumnType(), utf8Slice("value2")),

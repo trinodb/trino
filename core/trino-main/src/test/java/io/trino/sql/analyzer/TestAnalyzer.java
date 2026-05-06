@@ -3993,8 +3993,7 @@ public class TestAnalyzer
                 .hasMessageMatching(".* Lambda expression cannot contain subqueries");
 
         // GROUP BY column captured in lambda
-        analyze(
-                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +

@@ -619,8 +619,7 @@ public class TestSqlParser
         assertThat(expression("ROW (1, 'a', true)[1]"))
                 .isEqualTo(new SubscriptExpression(
                         location(1, 1),
-                        new Row(
-                                location(1, 1),
+                        new Row(location(1, 1),
                                 ImmutableList.of(
                                         new Row.Field(location(1, 6), Optional.empty(), new LongLiteral(location(1, 6), "1")),
                                         new Row.Field(location(1, 9), Optional.empty(), new StringLiteral(location(1, 9), "a")),

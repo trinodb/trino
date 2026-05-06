@@ -129,8 +129,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("o_custkey", "c_custkey")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey")))
+                                .left(tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey")))
                                 .right(
                                         anyTree(
                                                 filter(
@@ -152,8 +151,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                         join(LEFT, // TODO (https://github.com/trinodb/trino/issues/2392) this should be INNER also when dynamic filtering is off
                                                 leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("l_orderkey", "o_orderkey")
-                                                        .left(
-                                                                tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))
+                                                        .left(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))
                                                         .right(
                                                                 anyTree(
                                                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))))

@@ -765,8 +765,7 @@ public abstract class AbstractHiveStatisticsProvider
             return Estimate.zero();
         }
 
-        verify(
-                totalNullsCount <= totalRowCount,
+        verify(totalNullsCount <= totalRowCount,
                 "totalNullsCount must be less than or equal to totalRowCount. totalNullsCount: %s. totalRowCount: %s.",
                 totalNullsCount,
                 totalRowCount);

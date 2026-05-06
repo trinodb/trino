@@ -97,8 +97,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             @ForEnvironment String environment)
     {
-        this(
-                Optional.of(lifeCycleManager),
+        this(Optional.of(lifeCycleManager),
                 memoryPoolManager,
                 config,
                 dao,
@@ -112,8 +111,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             String environment)
     {
-        this(
-                Optional.empty(),
+        this(Optional.empty(),
                 memoryPoolManager,
                 config,
                 dao,

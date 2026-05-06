@@ -40,8 +40,7 @@ public class TestingLocalCatalogPruneTask
             CatalogPruneTaskConfig catalogPruneTaskConfig,
             SqlTaskManager sqlTaskManagerToPrune)
     {
-        super(
-                transactionManager,
+        super(transactionManager,
                 catalogManager,
                 connectorServicesProvider,
                 new InternalNode(nodeInfo.getNodeId(), URI.create("https://example.com"), new NodeVersion("test"), false),

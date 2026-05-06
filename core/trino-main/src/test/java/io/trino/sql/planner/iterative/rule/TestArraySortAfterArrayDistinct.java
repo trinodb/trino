@@ -49,8 +49,7 @@ public class TestArraySortAfterArrayDistinct
     @Test
     public void testArrayDistinctAfterArraySort()
     {
-        test(
-                new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+        test(new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
                 new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 

@@ -180,14 +180,12 @@ public class TestJoinNodeFlattener
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
                 actualSources.get(0),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         values("a"))
                         .withNumberOfOutputColumns(2));
         assertPlan(
                 actualSources.get(1),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         values("b"))
                         .withNumberOfOutputColumns(1));
         assertPlan(actualSources.get(2), values("c"));
@@ -224,8 +222,7 @@ public class TestJoinNodeFlattener
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
                 actualSources.get(0),
-                node(
-                        ProjectNode.class,
+                node(ProjectNode.class,
                         node(JoinNode.class,
                                 values("a"),
                                 values("b")))

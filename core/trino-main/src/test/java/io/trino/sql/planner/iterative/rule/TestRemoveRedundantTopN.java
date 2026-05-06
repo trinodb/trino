@@ -40,8 +40,7 @@ public class TestRemoveRedundantTopN
     {
         tester().assertThat(new RemoveRedundantTopN())
                 .on(p ->
-                        p.topN(
-                                10,
+                        p.topN(10,
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
@@ -53,8 +52,7 @@ public class TestRemoveRedundantTopN
 
         tester().assertThat(new RemoveRedundantTopN())
                 .on(p ->
-                        p.topN(
-                                10,
+                        p.topN(10,
                                 ImmutableList.of(p.symbol("a")),
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
@@ -75,8 +73,7 @@ public class TestRemoveRedundantTopN
     {
         tester().assertThat(new RemoveRedundantTopN())
                 .on(p ->
-                        p.topN(
-                                0,
+                        p.topN(0,
                                 ImmutableList.of(p.symbol("a")),
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
@@ -94,8 +91,7 @@ public class TestRemoveRedundantTopN
     {
         tester().assertThat(new RemoveRedundantTopN())
                 .on(p ->
-                        p.topN(
-                                10,
+                        p.topN(10,
                                 ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))

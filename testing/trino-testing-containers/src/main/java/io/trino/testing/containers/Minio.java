@@ -68,8 +68,7 @@ public class Minio
             Optional<Network> network,
             int retryLimit)
     {
-        super(
-                image,
+        super(image,
                 hostName,
                 exposePorts,
                 filesToMount,

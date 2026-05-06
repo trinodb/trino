@@ -58,8 +58,7 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.of(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Reference(BIGINT, "y")))))
@@ -67,8 +66,7 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "y"),
                                 new Reference(BIGINT, "z"),
@@ -81,8 +79,7 @@ public class TestRemoveRedundantInItems
                                 new Reference(BIGINT, "z")))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
@@ -90,23 +87,20 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail, duplicate removed")
                 .isEqualTo(Optional.of(
-                        new In(
-                                new Reference(BIGINT, "x"),
+                        new In(new Reference(BIGINT, "x"),
                                 ImmutableList.of(
                                         new Reference(BIGINT, "x"),
                                         new Cast(new Reference(VARCHAR, "y"), BIGINT)))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(TINYINT, "x"),
+                new In(new Reference(TINYINT, "x"),
                         ImmutableList.of(
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
@@ -114,8 +108,7 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(
-                        new Reference(TINYINT, "x"),
+                new In(new Reference(TINYINT, "x"),
                         ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Reference(TINYINT, "x"),
@@ -130,8 +123,7 @@ public class TestRemoveRedundantInItems
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
 
         assertThat(optimize(
-                new In(
-                        new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                new In(new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                         ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Reference(TINYINT, "x"),

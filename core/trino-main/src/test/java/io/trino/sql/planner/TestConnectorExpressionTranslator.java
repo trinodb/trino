@@ -541,8 +541,7 @@ public class TestConnectorExpressionTranslator
     {
         String value = "value_1";
         assertTranslationRoundTrips(
-                new In(
-                        new Reference(VARCHAR, "varchar_symbol_1"),
+                new In(new Reference(VARCHAR, "varchar_symbol_1"),
                         List.of(new Reference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
                 new io.trino.spi.expression.Call(
                     BOOLEAN,

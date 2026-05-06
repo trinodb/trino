@@ -91,8 +91,7 @@ public class OrcFileWriterFactory
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
     {
-        this(
-                typeManager,
+        this(typeManager,
                 nodeVersion,
                 readStats,
                 config.toOrcWriterOptions(),

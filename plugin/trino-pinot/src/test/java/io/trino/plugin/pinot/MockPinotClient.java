@@ -61,8 +61,7 @@ public class MockPinotClient
 
     public MockPinotClient(PinotConfig pinotConfig, Map<String, Schema> metadata, String response)
     {
-        super(
-                pinotConfig,
+        super(pinotConfig,
                 new IdentityPinotHostMapper(),
                 new TestingHttpClient(_ -> null),
                 newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),

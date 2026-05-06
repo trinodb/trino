@@ -289,8 +289,7 @@ public class ManageTestResources
     private static Optional<Rule> isInstanceTransactionManagerField()
     {
         return tryLoadClass("io.trino.transaction.TransactionManager").map(transactionManagerClass ->
-                named(
-                        "is-instance-TransactionManager-field",
+                named("is-instance-TransactionManager-field",
                         (field, value, _) -> {
                             // Exclude static fields to allow usages of the form: `static final TransactionManager TRANSACTION_MANAGER = createTestTransactionManager()`
                             if (isStatic(field.getModifiers())) {

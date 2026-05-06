@@ -699,8 +699,7 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(TaskContext taskContext)
         {
-            this(
-                    taskContext,
+            this(taskContext,
                     new ArrayList<>(),
                     Optional.empty(),
                     new AtomicInteger(0));
@@ -4260,8 +4259,7 @@ public class LocalExecutionPlanner
 
         PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
         {
-            this(
-                    ImmutableList.<OperatorFactory>builder()
+            this(ImmutableList.<OperatorFactory>builder()
                             .addAll(source.getOperatorFactories())
                             .add(operatorFactory)
                             .build(),

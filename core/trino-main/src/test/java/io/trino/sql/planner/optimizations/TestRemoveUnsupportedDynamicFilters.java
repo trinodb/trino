@@ -141,8 +141,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "ORDERS_OK"), new Constant(INTEGER, 0L)),
                                         DynamicFilterConsumerMatcher.Builder::noConsumers,
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
-                        .right(
-                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                        .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test
@@ -172,8 +171,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         TRUE,
                                         dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "ORDERS_OK")),
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
-                        .right(
-                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+                        .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
     }
 
     @Test
@@ -200,8 +198,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         filter(
                                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
@@ -236,8 +233,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                         filter(
                                                 new Comparison(GREATER_THAN, new Reference(INTEGER, "LINEITEM_OK"), new Constant(INTEGER, 0L)),
                                                 values("LINEITEM_OK")))
-                                .right(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test
@@ -268,10 +264,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
-                                .right(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .right(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
     @Test
@@ -300,8 +294,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("ORDERS_OK", "LINEITEM_OK")
-                                .left(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
+                                .left(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))
                                 .right(
                                         filter(
                                                 combineDisjuncts(
@@ -336,10 +329,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("LINEITEM_DOUBLE_OK", "ORDERS_OK")
-                                .left(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_DOUBLE_OK", "orderkey")))
-                                .right(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
+                                .left(tableScan("lineitem", ImmutableMap.of("LINEITEM_DOUBLE_OK", "orderkey")))
+                                .right(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))));
     }
 
     @Test

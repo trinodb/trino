@@ -4563,8 +4563,7 @@ class AstBuilder
 
     private static void validateArgumentAlias(Identifier alias, ParserRuleContext context)
     {
-        check(
-                alias.isDelimited() || !alias.getValue().equalsIgnoreCase("COPARTITION"),
+        check(alias.isDelimited() || !alias.getValue().equalsIgnoreCase("COPARTITION"),
                 "The word \"COPARTITION\" is ambiguous in this context. " +
                         "To alias an argument, precede the alias with \"AS\". " +
                         "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.",

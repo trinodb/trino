@@ -71,15 +71,15 @@ public class TestDereferencePushDown
                                         "b_msg_y", expression(new Reference(DOUBLE, "b_msg_y"))),
                                 join(INNER, builder -> builder
                                         .left(values("a_msg"))
-                                        .right(
-                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)), ImmutableList.of(new Constant(DOUBLE, 4e0)))))))));
+                                        .right(values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)), ImmutableList.of(new Constant(DOUBLE, 4e0)))))))));
     }
 
     @Test
     public void testDereferencePushdownJoin()
     {
         // dereference pushdown + constant folding
-        assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
+        assertPlan(
+                "WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y",

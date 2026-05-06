@@ -508,14 +508,12 @@ public abstract class BaseTestOpenLineageQueries
 
     public enum LineageTestTableType
     {
-        TABLE(
-                "TABLE",
+        TABLE("TABLE",
                 QueryType.INSERT,
                 true,
                 47,
                 true),
-        VIEW(
-                "VIEW",
+        VIEW("VIEW",
                 QueryType.DATA_DEFINITION,
                 false,
                 46,

@@ -47,8 +47,7 @@ public class TestPushLimitThroughSemiJoin
     {
         tester().assertThat(new PushLimitThroughSemiJoin())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 ImmutableList.of(p.symbol("leftKey")),
                                 buildSemiJoin(p)))
                 .matches(
@@ -63,8 +62,7 @@ public class TestPushLimitThroughSemiJoin
     {
         tester().assertThat(new PushLimitThroughSemiJoin())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 false,
                                 ImmutableList.of(p.symbol("leftKey")),
                                 buildSemiJoin(p)))

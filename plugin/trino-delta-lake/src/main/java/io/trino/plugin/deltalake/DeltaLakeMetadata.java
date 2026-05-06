@@ -1317,8 +1317,7 @@ public class DeltaLakeMetadata
                 .build();
 
         // Ensure the database has queryId set. This is relied on for exception handling
-        verify(
-                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+        verify(getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
                 "Database '%s' does not have correct query id set",
                 database.getDatabaseName());
 

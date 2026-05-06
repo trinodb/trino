@@ -144,8 +144,7 @@ public class QueryStatistics
             Map<String, Metrics> exchangeMetrics,
             Optional<String> planNodeStatsAndCosts)
     {
-        this(
-                cpuTime,
+        this(cpuTime,
                 failedCpuTime,
                 wallTime,
                 queuedTime,

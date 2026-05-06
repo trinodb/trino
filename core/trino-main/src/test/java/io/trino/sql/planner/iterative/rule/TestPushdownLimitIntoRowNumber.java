@@ -32,8 +32,7 @@ public class TestPushdownLimitIntoRowNumber
     {
         tester().assertThat(new PushdownLimitIntoRowNumber())
                 .on(p ->
-                        p.limit(
-                                3,
+                        p.limit(3,
                                 p.rowNumber(
                                         ImmutableList.of(),
                                         Optional.of(5),
@@ -103,8 +102,7 @@ public class TestPushdownLimitIntoRowNumber
     {
         tester().assertThat(new PushdownLimitIntoRowNumber())
                 .on(p ->
-                        p.limit(
-                                0,
+                        p.limit(0,
                                 p.rowNumber(ImmutableList.of(), Optional.of(5),
                                         p.symbol("row_number"), p.values(p.symbol("a")))))
                 .doesNotFire();
@@ -115,8 +113,7 @@ public class TestPushdownLimitIntoRowNumber
     {
         tester().assertThat(new PushdownLimitIntoRowNumber())
                 .on(p ->
-                        p.limit(
-                                0,
+                        p.limit(0,
                                 ImmutableList.of(p.symbol("a")),
                                 p.rowNumber(
                                         ImmutableList.of(),
@@ -131,8 +128,7 @@ public class TestPushdownLimitIntoRowNumber
     {
         tester().assertThat(new PushdownLimitIntoRowNumber())
                 .on(p ->
-                        p.limit(
-                                5,
+                        p.limit(5,
                                 ImmutableList.of(p.symbol("a")),
                                 p.rowNumber(
                                         ImmutableList.of(),

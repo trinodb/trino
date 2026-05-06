@@ -631,8 +631,7 @@ public abstract class AbstractTestParquetReader
 
         List<String> structFieldNames = asList("structField1", "structField2", "structField3", "structField4", "mapIntDoubleField", "booleanArrayField", "mapStringStringField");
         List<ObjectInspector> objectInspectors =
-                asList(
-                        struct1ObjectInspector,
+                asList(struct1ObjectInspector,
                         struct2ObjectInspector,
                         struct3ObjectInspector,
                         struct4ObjectInspector,

@@ -178,11 +178,11 @@ public class TestWindow
                                                 join(INNER, builder -> builder
                                                         .equiCriteria("orderstatus", "linestatus")
                                                         .distributionType(REPLICATED)
-                                                        .left(
-                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))
+                                                        .left(anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))
                                                         .right(
                                                                 exchange(LOCAL, GATHER,
-                                                                        exchange(REMOTE, REPLICATE,
+                                                                        exchange(REMOTE,
+                                                                                REPLICATE,
                                                                                 anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
     }
 

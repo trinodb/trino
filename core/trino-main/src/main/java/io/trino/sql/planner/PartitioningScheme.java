@@ -44,8 +44,7 @@ public class PartitioningScheme
 
     public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout)
     {
-        this(
-                partitioning,
+        this(partitioning,
                 outputLayout,
                 false,
                 Optional.empty(),

@@ -389,8 +389,7 @@ public class TestLogicalPlanner
                                                                         dynamicFilters -> dynamicFilters
                                                                                 .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
                                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
-                                                        .right(
-                                                                any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))
+                                                        .right(any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
         assertPlan(
@@ -539,8 +538,7 @@ public class TestLogicalPlanner
                                                         dynamicFilters -> dynamicFilters
                                                                 .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
-                                        .right(
-                                                any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
+                                        .right(any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -1181,8 +1179,7 @@ public class TestLogicalPlanner
                                 SINGLE,
                                 join(LEFT, builder -> builder
                                         .equiCriteria("o_orderkey", "l_orderkey")
-                                        .left(
-                                                tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))
+                                        .left(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))
                                         .right(
                                                 anyTree(
                                                         tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))))));
@@ -2227,8 +2224,7 @@ public class TestLogicalPlanner
                                                         "orders",
                                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
                                                         ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
-                                .right(
-                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")))))))));
+                                .right(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("O"))), ImmutableList.of(new Constant(createVarcharType(1), utf8Slice("F")))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.
         // It is not accepted by the connector, and remains in form of a filter over TableScan.
@@ -2247,8 +2243,7 @@ public class TestLogicalPlanner
                                                         "orders",
                                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
                                                         ImmutableMap.of())))
-                                .right(
-                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)), ImmutableList.of(new Constant(BIGINT, 3L))))))));
+                                .right(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L)), ImmutableList.of(new Constant(BIGINT, 3L))))))));
     }
 
     @Test
@@ -2674,10 +2669,8 @@ public class TestLogicalPlanner
                                                                                                 .left(tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey")))
                                                                                                 .right(anyTree(project(tableScan("orders", ImmutableMap.of("ORDERS_CUSTKEY", "custkey")))))))
                                                                                 .right(anyTree(node(ValuesNode.class))))))
-                                                        .right(
-                                                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey"))))))
-                                        .right(
-                                                anyTree(node(ValuesNode.class)))))));
+                                                        .right(anyTree(tableScan("orders", ImmutableMap.of("ORDERS2_CUSTKEY", "custkey"))))))
+                                        .right(anyTree(node(ValuesNode.class)))))));
     }
 
     @Test

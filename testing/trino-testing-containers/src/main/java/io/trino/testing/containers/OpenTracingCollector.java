@@ -41,8 +41,7 @@ public class OpenTracingCollector
 
     public OpenTracingCollector()
     {
-        super(
-                "jaegertracing/all-in-one:1.75.0",
+        super("jaegertracing/all-in-one:1.75.0",
                 "opentracing-collector",
                 Set.of(COLLECTOR_PORT, HTTP_PORT),
                 Map.of(),

@@ -190,8 +190,7 @@ public class GlueHiveMetastore
             CatalogName catalogName,
             Set<TableKind> visibleTableKinds)
     {
-        this(
-                glueClient,
+        this(glueClient,
                 glueCache,
                 glueStats,
                 fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),

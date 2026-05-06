@@ -106,11 +106,9 @@ public class TestPushProjectionThroughExchange
                 })
                 .matches(
                         exchange(
-                                project(
-                                        values(ImmutableList.of("a")))
+                                project(values(ImmutableList.of("a")))
                                         .withAlias("x1", expression(new Constant(INTEGER, 3L))),
-                                project(
-                                        values(ImmutableList.of("b")))
+                                project(values(ImmutableList.of("b")))
                                         .withAlias("x2", expression(new Constant(INTEGER, 3L))))
                                 // verify that data originally on symbols aliased as x1 and x2 is part of exchange output
                                 .withAlias("x1")

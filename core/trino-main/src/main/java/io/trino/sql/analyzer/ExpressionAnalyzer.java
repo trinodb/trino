@@ -390,8 +390,7 @@ public class ExpressionAnalyzer
             Session session,
             WarningCollector warningCollector)
     {
-        this(
-                plannerContext,
+        this(plannerContext,
                 accessControl,
                 (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,

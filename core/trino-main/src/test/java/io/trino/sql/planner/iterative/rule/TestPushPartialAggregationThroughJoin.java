@@ -90,8 +90,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR")))
-                                .right(
-                                        values("RIGHT_EQUI", "RIGHT_NON_EQUI")))));
+                                .right(values("RIGHT_EQUI", "RIGHT_NON_EQUI")))));
 
         // push to right child
         tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
@@ -116,8 +115,7 @@ public class TestPushPartialAggregationThroughJoin
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
                                 .filter(new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "LEFT_NON_EQUI"), new Reference(BIGINT, "RIGHT_NON_EQUI")))
-                                .left(
-                                        values("LEFT_EQUI", "LEFT_NON_EQUI"))
+                                .left(values("LEFT_EQUI", "LEFT_NON_EQUI"))
                                 .right(
                                         aggregation(
                                                 singleGroupingSet("RIGHT_GROUP_BY", "RIGHT_EQUI", "RIGHT_NON_EQUI"),
@@ -225,8 +223,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("FACT_DATE_ID", "AMOUNT")))
-                                .right(
-                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
+                                .right(values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
     }
 
     @Test
@@ -289,8 +286,7 @@ public class TestPushPartialAggregationThroughJoin
                                                                 Optional.empty(),
                                                                 PARTIAL,
                                                                 values("FACT_DATE_ID", "AMOUNT")))
-                                                .right(
-                                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR"))))));
+                                                .right(values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR"))))));
 
         // intermediate aggregation should not be added if pushed aggregation has same (in terms of symbols) or smaller grouping set
         tester().assertThat(new PushPartialAggregationThroughJoin().pushPartialAggregationThroughJoinWithoutProjection())
@@ -320,8 +316,7 @@ public class TestPushPartialAggregationThroughJoin
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 values("FACT_DATE_ID", "AMOUNT")))
-                                .right(
-                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
+                                .right(values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
     }
 
     @Test

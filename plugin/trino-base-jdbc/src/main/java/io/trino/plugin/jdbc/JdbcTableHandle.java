@@ -66,8 +66,7 @@ public final class JdbcTableHandle
 
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
     {
-        this(
-                new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
+        this(new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
                 TupleDomain.all(),
                 ImmutableList.of(),
                 Optional.empty(),

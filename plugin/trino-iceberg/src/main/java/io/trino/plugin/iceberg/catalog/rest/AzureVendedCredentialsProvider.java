@@ -33,8 +33,7 @@ final class AzureVendedCredentialsProvider
 {
     AzureVendedCredentialsProvider(Map<String, String> catalogProperties, Map<String, String> fileIoProperties)
     {
-        super(
-                catalogProperties,
+        super(catalogProperties,
                 fileIoProperties,
                 parseBoolean(fileIoProperties, ADLS_REFRESH_CREDENTIALS_ENABLED, true),
                 Optional.ofNullable(fileIoProperties.get(ADLS_REFRESH_CREDENTIALS_ENDPOINT)),

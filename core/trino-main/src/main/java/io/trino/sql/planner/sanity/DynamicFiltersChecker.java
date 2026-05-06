@@ -86,19 +86,21 @@ public class DynamicFiltersChecker
             public Set<DynamicFilterId> visitJoin(JoinNode node, Void context)
             {
                 boolean taskRetriesEnabled = retryPolicy == RetryPolicy.TASK;
-                verify(
-                        !taskRetriesEnabled || node.getDynamicFilters().isEmpty(),
-                        "Dynamic filters %s present in a join in task retry mode", node.getDynamicFilters());
+                verify(!taskRetriesEnabled || node.getDynamicFilters().isEmpty(),
+                        "Dynamic filters %s present in a join in task retry mode",
+                        node.getDynamicFilters());
                 Set<DynamicFilterId> currentJoinDynamicFilters = getJoinDynamicFilters(node).keySet();
                 Set<DynamicFilterId> consumedProbeSide = node.getLeft().accept(this, context);
                 Set<DynamicFilterId> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
                 verify(unconsumedByProbeSide.isEmpty(),
-                        "Dynamic filters %s present in join were not fully consumed by it's probe side.", unconsumedByProbeSide);
+                        "Dynamic filters %s present in join were not fully consumed by it's probe side.",
+                        unconsumedByProbeSide);
 
                 Set<DynamicFilterId> consumedBuildSide = node.getRight().accept(this, context);
                 Set<DynamicFilterId> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
                 verify(unconsumedByBuildSide.isEmpty(),
-                        "Dynamic filters %s present in join were consumed by it's build side.", unconsumedByBuildSide);
+                        "Dynamic filters %s present in join were consumed by it's build side.",
+                        unconsumedByBuildSide);
 
                 List<DynamicFilters.Descriptor> nonPushedDownFilters = node
                         .getFilter()
@@ -117,9 +119,9 @@ public class DynamicFiltersChecker
             public Set<DynamicFilterId> visitSemiJoin(SemiJoinNode node, Void context)
             {
                 boolean taskRetriesEnabled = retryPolicy == RetryPolicy.TASK;
-                verify(
-                        !taskRetriesEnabled || node.getDynamicFilterId().isEmpty(),
-                        "Dynamic filters %s present in a semi-join in task retry mode", node.getDynamicFilterId());
+                verify(!taskRetriesEnabled || node.getDynamicFilterId().isEmpty(),
+                        "Dynamic filters %s present in a semi-join in task retry mode",
+                        node.getDynamicFilterId());
                 Set<DynamicFilterId> consumedSourceSide = node.getSource().accept(this, context);
                 Set<DynamicFilterId> consumedFilteringSourceSide = node.getFilteringSource().accept(this, context);
 
@@ -158,8 +160,7 @@ public class DynamicFiltersChecker
             @Override
             public Set<DynamicFilterId> visitDynamicFilterSource(DynamicFilterSourceNode node, Void context)
             {
-                verify(
-                        retryPolicy == RetryPolicy.TASK,
+                verify(retryPolicy == RetryPolicy.TASK,
                         "Found DynamicFilterSourceNode %s with retry policy %s",
                         node,
                         retryPolicy);

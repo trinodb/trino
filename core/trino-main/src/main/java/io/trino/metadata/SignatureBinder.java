@@ -836,8 +836,7 @@ public class SignatureBinder
                             if (type.isEmpty()) {
                                 return SolverReturnStatus.UNSOLVABLE;
                             }
-                            verify(
-                                    type.get().getBaseName().equals(formalTypeSignature.getBase()),
+                            verify(type.get().getBaseName().equals(formalTypeSignature.getBase()),
                                     "Unexpected coerce result for %s and %s: %s",
                                     actualType,
                                     formalTypeSignature.getBase(),

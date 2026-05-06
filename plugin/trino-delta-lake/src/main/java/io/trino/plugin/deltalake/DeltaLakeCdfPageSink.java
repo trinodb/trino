@@ -46,8 +46,7 @@ public class DeltaLakeCdfPageSink
             String trinoVersion,
             DeltaLakeParquetSchemaMapping parquetSchemaMapping)
     {
-        super(
-                typeOperators,
+        super(typeOperators,
                 inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,

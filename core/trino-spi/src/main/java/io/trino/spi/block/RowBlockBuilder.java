@@ -46,8 +46,7 @@ public class RowBlockBuilder
 
     public RowBlockBuilder(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 createFieldBlockBuilders(fieldTypes, blockBuilderStatus, expectedEntries),
                 new boolean[expectedEntries]);
     }

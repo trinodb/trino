@@ -588,8 +588,7 @@ public class MongoSession
     {
         for (MongoColumnHandle existingColumn : existingColumns) {
             List<String> existingColumnDereferenceNames = existingColumn.dereferenceNames();
-            verify(
-                    column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
+            verify(column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
                     "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
             if (existingColumn.baseName().equals(column.baseName())
                     && column.dereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {

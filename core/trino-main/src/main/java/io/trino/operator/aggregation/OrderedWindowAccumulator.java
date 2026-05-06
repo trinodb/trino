@@ -51,8 +51,7 @@ public class OrderedWindowAccumulator
             List<Integer> sortKeysArguments,
             List<SortOrder> sortOrders)
     {
-        this(
-                pagesIndexFactory,
+        this(pagesIndexFactory,
                 createPagesIndexWithOrdering(
                         pagesIndexFactory,
                         argumentTypes,

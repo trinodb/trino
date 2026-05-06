@@ -104,8 +104,7 @@ public class HiveMetadataFactory
             @UsingSystemSecurity boolean usingSystemSecurity,
             @AllowHiveTableRename boolean allowTableRename)
     {
-        this(
-                catalogName,
+        this(catalogName,
                 metastoreFactory,
                 fileWriterFactories,
                 fileSystemFactory,

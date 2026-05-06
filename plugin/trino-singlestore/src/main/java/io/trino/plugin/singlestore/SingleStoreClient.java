@@ -170,8 +170,7 @@ public class SingleStoreClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        this(
-                config,
+        this(config,
                 connectionFactory,
                 queryBuilder,
                 typeManager,
