@@ -189,7 +189,7 @@ public class TestGlueExpressionUtil
     }
 
     @Test
-    public void testDecimalConverstion()
+    public void testDecimalConversion()
     {
         TupleDomain<String> filter = new PartitionFilterBuilder()
                 .addDecimalValues("col1", "10.134")
