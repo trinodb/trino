@@ -17,13 +17,13 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.HudiAvroSerializer;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
-import org.apache.avro.Schema;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.hudi.avro.AvroRecordContext;
 import org.apache.hudi.common.config.RecordMergeMode;
 import org.apache.hudi.common.engine.HoodieReaderContext;
 import org.apache.hudi.common.model.HoodiePreCombineAvroRecordMerger;
 import org.apache.hudi.common.model.HoodieRecordMerger;
+import org.apache.hudi.common.schema.HoodieSchema;
 import org.apache.hudi.common.table.HoodieTableConfig;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.ClosableIterator;
@@ -72,8 +72,8 @@ public class TrinoHudiReaderContext
             StoragePath storagePath,
             long start,
             long length,
-            Schema dataSchema,
-            Schema requiredSchema,
+            HoodieSchema dataSchema,
+            HoodieSchema requiredSchema,
             HoodieStorage storage)
     {
         return createRecordIterator();
@@ -84,8 +84,8 @@ public class TrinoHudiReaderContext
             StoragePathInfo storagePathInfo,
             long start,
             long length,
-            Schema dataSchema,
-            Schema requiredSchema,
+            HoodieSchema dataSchema,
+            HoodieSchema requiredSchema,
             HoodieStorage storage)
     {
         return createRecordIterator();
@@ -152,8 +152,8 @@ public class TrinoHudiReaderContext
     @Override
     public ClosableIterator<IndexedRecord> mergeBootstrapReaders(
             ClosableIterator<IndexedRecord> skeletonFileIterator,
-            Schema skeletonRequiredSchema, ClosableIterator<IndexedRecord> dataFileIterator,
-            Schema dataRequiredSchema,
+            HoodieSchema skeletonRequiredSchema, ClosableIterator<IndexedRecord> dataFileIterator,
+            HoodieSchema dataRequiredSchema,
             List<Pair<String, Object>> requiredPartitionFieldAndValues)
     {
         return null;

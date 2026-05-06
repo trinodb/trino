@@ -410,7 +410,7 @@ public final class HudiUtil
     {
         try {
             HoodieTimer timer = HoodieTimer.start();
-            Schema schema = new TableSchemaResolver(metaClient).getTableAvroSchema();
+            Schema schema = new TableSchemaResolver(metaClient).getTableSchema().getAvroSchema();
             log.info("Fetched table schema for table %s in %s ms", tableName, timer.endTimer());
             return schema;
         }

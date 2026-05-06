@@ -54,6 +54,7 @@ import io.trino.spi.predicate.TupleDomain;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.schema.HoodieSchema;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.read.HoodieFileGroupReader;
 import org.apache.hudi.storage.StoragePath;
@@ -225,8 +226,8 @@ public class HudiPageSourceProvider
                         .withReaderContext(readerContext)
                         .withHoodieTableMetaClient(metaClient)
                         .withFileSlice(convertToFileSlice(hudiSplit, hudiTableHandle.getBasePath()))
-                        .withDataSchema(dataSchema)
-                        .withRequestedSchema(requestedSchema)
+                        .withDataSchema(HoodieSchema.fromAvroSchema(dataSchema))
+                        .withRequestedSchema(HoodieSchema.fromAvroSchema(requestedSchema))
                         .withLatestCommitTime(hudiTableHandle.getLatestCommitTime())
                         .withProps(metaClient.getTableConfig().getProps())
                         .withShouldUseRecordPosition(false)
