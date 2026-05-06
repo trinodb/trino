@@ -604,6 +604,7 @@
                             <excludes combine.children="append">
                                 <exclude>**/TestCachedHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastore.java</exclude>
+                                <exclude>**/TestGlueHiveMetastoreCanonicalPartitionKeys.java</exclude>
                                 <exclude>**/TestGlueHiveMetastoreQueries.java</exclude>
                                 <exclude>**/TestGlueHiveMetastoreSkipArchive.java</exclude>
                                 <exclude>**/TestHiveGlueMetadataListing.java</exclude>
@@ -666,6 +667,7 @@
                             <includes>
                                 <include>**/TestCachedHiveGlueMetastore.java</include>
                                 <include>**/TestGlueHiveMetastore.java</include>
+                                <include>**/TestGlueHiveMetastoreCanonicalPartitionKeys.java</include>
                                 <include>**/TestGlueHiveMetastoreQueries.java</include>
                                 <include>**/TestGlueHiveMetastoreSkipArchive.java</include>
                                 <include>**/TestHiveGlueMetadataListing.java</include>
