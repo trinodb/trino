@@ -117,8 +117,8 @@ public abstract class AbstractTestAggregations
     public void testAggregationUsingOuterTableSymbols()
     {
         assertQuery(
-                "SELECT max_by(n.nationkey, r.regionkey) FROM (SELECT DISTINCT regionkey FROM region) r LEFT JOIN nation n ON n.regionkey = r.regionkey GROUP BY r.regionkey",
-                "VALUES 16, 20, 21, 23, 24");
+                "SELECT max_by(r.regionkey, n.nationkey) FROM (SELECT DISTINCT regionkey FROM region) r LEFT JOIN nation n ON n.regionkey = r.regionkey GROUP BY r.regionkey",
+                "VALUES 0, 1, 2, 3, 4");
     }
 
     /**
