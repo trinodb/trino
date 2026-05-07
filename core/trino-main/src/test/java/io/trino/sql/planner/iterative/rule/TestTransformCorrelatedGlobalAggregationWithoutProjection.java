@@ -136,8 +136,7 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                                                 .left(assignUniqueId(
                                                         "unique",
                                                         values(ImmutableMap.of("corr", 0))))
-                                                .right(project(ImmutableMap.of("non_null", expression(TRUE)),
-                                                        values(ImmutableMap.of("a", 0, "b", 1))))))));
+                                                .right(values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     @Test
@@ -153,6 +152,55 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void skipsMaskForNullInsensitiveMin()
+    {
+        // min({}) == min({NULL}) == NULL, so the synthetic non_null mask added to compensate for LEFT-join NULL rows
+        // is redundant. This is the TPC-H Q02 case.
+        tester().assertThat(new TransformCorrelatedGlobalAggregationWithoutProjection(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.aggregation(ab -> ab
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("min"), PlanBuilder.aggregation("min", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
+                                .globalGrouping())))
+                .matches(
+                        project(ImmutableMap.of("min_1", expression(new Reference(BIGINT, "min_1")), "corr", expression(new Reference(BIGINT, "corr"))),
+                                aggregation(ImmutableMap.of("min_1", aggregationFunction("min", ImmutableList.of("a"))),
+                                        join(LEFT, builder -> builder
+                                                .left(assignUniqueId(
+                                                        "unique",
+                                                        values(ImmutableMap.of("corr", 0))))
+                                                .right(values(ImmutableMap.of("a", 0, "b", 1)))))));
+    }
+
+    @Test
+    public void skipsMaskForMultipleNullInsensitiveAggregations()
+    {
+        // When all aggregations in the node are null-insensitive (e.g. min and max together), no synthetic mask is needed.
+        tester().assertThat(new TransformCorrelatedGlobalAggregationWithoutProjection(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.aggregation(ab -> ab
+                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                .addAggregation(p.symbol("min"), PlanBuilder.aggregation("min", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("max"), PlanBuilder.aggregation("max", ImmutableList.of(new Reference(BIGINT, "b"))), ImmutableList.of(BIGINT))
+                                .globalGrouping())))
+                .matches(
+                        project(
+                                aggregation(
+                                        ImmutableMap.of(
+                                                "min_1", aggregationFunction("min", ImmutableList.of("a")),
+                                                "max_1", aggregationFunction("max", ImmutableList.of("b"))),
+                                        join(LEFT, builder -> builder
+                                                .left(assignUniqueId(
+                                                        "unique",
+                                                        values(ImmutableMap.of("corr", 0))))
+                                                .right(values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     @Test
