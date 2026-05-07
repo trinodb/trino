@@ -1,0 +1,54 @@
+name: CLA
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  issue_comment:
+    types:
+      - created
+  merge_group:
+    types:
+      - checks_requested
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  statuses: write
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  check:
+    if: |
+      github.repository == 'trinodb/trino' &&
+      (
+        github.event_name == 'pull_request_target' ||
+        github.event_name == 'merge_group' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request &&
+          contains(fromJson('["COLLABORATOR", "MEMBER", "OWNER"]'), github.event.comment.author_association) &&
+          (
+            contains(github.event.comment.body, '@cla-bot') ||
+            contains(github.event.comment.body, '/cla-check')
+          )
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Check CLA
+        run: node .github/bin/check-cla.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
