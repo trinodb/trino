@@ -17,6 +17,12 @@ public abstract class DefaultTraversalVisitor<C>
         extends IrVisitor<Void, C>
 {
     @Override
+    protected Void visitExpression(Expression node, C context)
+    {
+        throw new UnsupportedOperationException("Should not be called");
+    }
+
+    @Override
     protected Void visitArray(Array node, C context)
     {
         for (Expression element : node.elements()) {
@@ -30,6 +36,13 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitCast(Cast node, C context)
     {
         process(node.expression(), context);
+        return null;
+    }
+
+    @Override
+    protected Void visitReference(Reference node, C context)
+    {
+        // No sub-expressions
         return null;
     }
 
@@ -67,6 +80,13 @@ public abstract class DefaultTraversalVisitor<C>
         process(node.left(), context);
         process(node.right(), context);
 
+        return null;
+    }
+
+    @Override
+    protected Void visitConstant(Constant node, C context)
+    {
+        // No sub-expressions
         return null;
     }
 

@@ -126,9 +126,9 @@ import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
+import io.trino.operator.join.nonspilling.HashBuilderOperator;
 import io.trino.operator.join.spilling.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
-import io.trino.operator.join.unspilled.HashBuilderOperator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.output.PositionsAppenderFactory;
 import io.trino.operator.output.SkewedPartitionRebalancer;
@@ -3000,9 +3000,9 @@ public class LocalExecutionPlanner
                         hashCompiler);
             }
             else {
-                JoinBridgeManager<io.trino.operator.join.unspilled.PartitionedLookupSourceFactory> lookupSourceFactory = new JoinBridgeManager<>(
+                JoinBridgeManager<io.trino.operator.join.nonspilling.PartitionedLookupSourceFactory> lookupSourceFactory = new JoinBridgeManager<>(
                         buildOuter,
-                        new io.trino.operator.join.unspilled.PartitionedLookupSourceFactory(
+                        new io.trino.operator.join.nonspilling.PartitionedLookupSourceFactory(
                                 buildTypes,
                                 buildOutputTypes,
                                 buildChannels.stream()

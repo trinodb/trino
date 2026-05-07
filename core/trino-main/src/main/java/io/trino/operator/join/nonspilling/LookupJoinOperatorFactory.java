@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.JoinOperatorType;
@@ -24,7 +24,7 @@ import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.JoinType;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
-import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
+import io.trino.operator.join.nonspilling.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;

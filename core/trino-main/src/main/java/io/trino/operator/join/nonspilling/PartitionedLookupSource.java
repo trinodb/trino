@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.io.Closer;
 import com.google.errorprone.annotations.concurrent.GuardedBy;

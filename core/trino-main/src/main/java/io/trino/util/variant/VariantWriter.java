@@ -57,8 +57,9 @@ public interface VariantWriter
             case RowType rowType -> new RowVariantWriter(rowType);
             case VariantType _ -> VARIANT_VARIANT_WRITER;
             case JsonType _ -> JSON_VARIANT_WRITER;
-            // VariantWriter cannot be used for primitive types. Instead, use VariantEncoder directly, which is significantly more efficient.
-            default -> throw new IllegalArgumentException("Unsupported type for VariantWriter: " + type);
+            default -> PrimitiveVariantEncoder.create(type)
+                    .<VariantWriter>map(primitiveEncoder -> new PrimitiveVariantWriter(type, primitiveEncoder))
+                    .orElseThrow(() -> new IllegalArgumentException("Unsupported type for VariantWriter: " + type));
         };
     }
 

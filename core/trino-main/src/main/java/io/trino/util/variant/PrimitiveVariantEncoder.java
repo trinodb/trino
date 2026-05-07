@@ -343,8 +343,7 @@ abstract class PrimitiveVariantEncoder
         public int writeNonNull(Block block, int position, Slice out, int offset)
         {
             long epochMicros = BIGINT.getLong(block, position);
-            long nanos = multiplyExact(epochMicros, 1_000L);
-            return VariantEncoder.encodeTimestampNanosNtz(nanos, out, offset);
+            return VariantEncoder.encodeTimestampMicrosNtz(epochMicros, out, offset);
         }
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
@@ -235,5 +236,42 @@ public class TestGlueExpressionUtil
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
         assertThat(expression).isEqualTo(format("((col1 = %d))", Byte.MAX_VALUE));
+    }
+
+    @Test
+    public void testDateConversionWithCanonicalKeys()
+    {
+        TupleDomain<String> singleValue = new PartitionFilterBuilder()
+                .addDateValues("dt", 0L)
+                .build();
+        assertThat(buildGlueExpression(ImmutableList.of("dt"), singleValue, true))
+                .isEqualTo("((dt = '1970-01-01'))");
+
+        TupleDomain<String> range = new PartitionFilterBuilder()
+                .addRanges("dt", Range.greaterThanOrEqual(DateType.DATE, 0L))
+                .build();
+        assertThat(buildGlueExpression(ImmutableList.of("dt"), range, true))
+                .isEqualTo("((dt >= '1970-01-01'))");
+
+        TupleDomain<String> between = new PartitionFilterBuilder()
+                .addRanges("dt", Range.range(DateType.DATE, 0L, true, 6L, true))
+                .build();
+        assertThat(buildGlueExpression(ImmutableList.of("dt"), between, true))
+                .isEqualTo("((dt >= '1970-01-01' AND dt <= '1970-01-07'))");
+
+        TupleDomain<String> inClause = new PartitionFilterBuilder()
+                .addDateValues("dt", 0L, 1L)
+                .build();
+        assertThat(buildGlueExpression(ImmutableList.of("dt"), inClause, true))
+                .isEqualTo("((dt in ('1970-01-01', '1970-01-02')))");
+    }
+
+    @Test
+    public void testDateConversionWithoutCanonicalKeys()
+    {
+        TupleDomain<String> singleValue = new PartitionFilterBuilder()
+                .addDateValues("dt", 0L)
+                .build();
+        assertThat(buildGlueExpression(ImmutableList.of("dt"), singleValue, false)).isEmpty();
     }
 }

@@ -53,6 +53,7 @@ ARG JDK_VERSION
 ARG ARCH
 ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 ENV PATH=$PATH:$JAVA_HOME/bin
+ENV LANG=C.UTF-8
 ENV CATALOG_MANAGEMENT=static
 COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 COPY --from=packages /tmp/overlay /

@@ -54,6 +54,7 @@ import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Disabled // remove once https://github.com/trinodb/trino/pull/29099 is merged
 @TestInstance(PER_CLASS)
 public class TestDeltaLakeLocalConcurrentWritesTest
         extends AbstractTestQueryFramework

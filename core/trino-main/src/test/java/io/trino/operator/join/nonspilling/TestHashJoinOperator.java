@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,8 +31,8 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorInfo;
-import io.trino.operator.join.unspilled.JoinTestUtils.BuildSideSetup;
-import io.trino.operator.join.unspilled.JoinTestUtils.TestInternalJoinFilterFunction;
+import io.trino.operator.join.nonspilling.JoinTestUtils.BuildSideSetup;
+import io.trino.operator.join.nonspilling.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -66,10 +66,10 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.OperatorFactories.join;
-import static io.trino.operator.join.unspilled.JoinTestUtils.buildLookupSource;
-import static io.trino.operator.join.unspilled.JoinTestUtils.innerJoinOperatorFactory;
-import static io.trino.operator.join.unspilled.JoinTestUtils.instantiateBuildDrivers;
-import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
+import static io.trino.operator.join.nonspilling.JoinTestUtils.buildLookupSource;
+import static io.trino.operator.join.nonspilling.JoinTestUtils.innerJoinOperatorFactory;
+import static io.trino.operator.join.nonspilling.JoinTestUtils.instantiateBuildDrivers;
+import static io.trino.operator.join.nonspilling.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;

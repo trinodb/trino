@@ -46,6 +46,7 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public final class RealOperators
@@ -146,7 +147,12 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
-        return (long) MathFunctions.round(floatValue);
+        try {
+            return DoubleMath.roundToLong(floatValue, HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + floatValue, e);
+        }
     }
 
     @ScalarOperator(CAST)

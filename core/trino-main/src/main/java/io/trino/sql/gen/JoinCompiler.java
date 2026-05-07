@@ -45,7 +45,7 @@ import io.trino.operator.join.JoinHash;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSourceSupplier;
 import io.trino.operator.join.PagesHash;
-import io.trino.operator.join.unspilled.PartitionedLookupSource;
+import io.trino.operator.join.nonspilling.PartitionedLookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;

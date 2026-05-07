@@ -273,7 +273,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.assume-canonical-partition-keys")
-    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
+    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, date) to canonical string formats")
     public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;

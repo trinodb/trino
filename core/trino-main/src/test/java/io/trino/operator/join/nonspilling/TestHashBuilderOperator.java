@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -44,9 +44,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SequencePageBuilder.createSequencePage;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
-import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CLOSED;
-import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CONSUMING_INPUT;
-import static io.trino.operator.join.unspilled.HashBuilderOperator.State.LOOKUP_SOURCE_BUILT;
+import static io.trino.operator.join.nonspilling.HashBuilderOperator.State.CLOSED;
+import static io.trino.operator.join.nonspilling.HashBuilderOperator.State.CONSUMING_INPUT;
+import static io.trino.operator.join.nonspilling.HashBuilderOperator.State.LOOKUP_SOURCE_BUILT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

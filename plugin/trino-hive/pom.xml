@@ -601,7 +601,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludes>
+                            <excludes combine.children="append">
                                 <exclude>**/TestCachedHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastore.java</exclude>
                                 <exclude>**/TestGlueHiveMetastoreQueries.java</exclude>

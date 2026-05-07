@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -31,7 +31,7 @@ import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.StandardJoinFilterFunction;
-import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.nonspilling.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;

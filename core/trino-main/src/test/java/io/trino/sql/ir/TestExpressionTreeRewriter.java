@@ -17,39 +17,17 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestExpressionFormatter
+class TestExpressionTreeRewriter
 {
     @Test
-    public void testReference()
-    {
-        assertFormattedExpression(
-                new Reference(BIGINT, "abc"),
-                "abc");
-        assertFormattedExpression(
-                new Reference(BIGINT, "with a space"),
-                "\"with a space\"");
-        assertFormattedExpression(
-                new Reference(BIGINT, "with \" quote, $ dollar and ' apostrophe"),
-                "\"with \"\" quote, $ dollar and ' apostrophe\"");
-    }
-
-    @Test
-    public void testEveryExpressionConsidered()
+    void testEveryExpressionConsidered()
             throws Exception
     {
-        assertAllMethodsOverridden(IrVisitor.class, ExpressionFormatter.Formatter.class, Set.of(
+        assertAllMethodsOverridden(IrVisitor.class, ExpressionTreeRewriter.RewritingVisitor.class, Set.of(
                 // process(..) have reasonable defaults
                 IrVisitor.class.getMethod("process", Expression.class),
                 IrVisitor.class.getMethod("process", Expression.class, Object.class /*context*/)));
-    }
-
-    private void assertFormattedExpression(Expression expression, String expected)
-    {
-        assertThat(ExpressionFormatter.formatExpression(expression)).as("formatted expression")
-                .isEqualTo(expected);
     }
 }

@@ -207,7 +207,7 @@
         <dep.netty.version>4.2.12.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
-        <dep.swagger.version>2.2.48</dep.swagger.version>
+        <dep.swagger.version>2.2.49</dep.swagger.version>
         <dep.takari.version>2.3.3</dep.takari.version>
         <dep.tcnative.version>2.0.77.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.52.1</version>
+                <version>3.53.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -314,7 +314,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.42.39</version>
+                <version>2.43.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -465,7 +465,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.13.2</version>
+                <version>2.14.0</version>
             </dependency>
 
             <dependency>
@@ -2263,7 +2263,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.10</version>
+                <version>42.7.11</version>
             </dependency>
 
             <dependency>

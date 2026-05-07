@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join.unspilled;
+package io.trino.operator.join.nonspilling;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -29,7 +29,7 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSource;
-import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.nonspilling.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;

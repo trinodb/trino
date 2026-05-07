@@ -18,7 +18,6 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Fail;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
@@ -28,39 +27,47 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
+import static java.lang.reflect.Modifier.isProtected;
+import static java.lang.reflect.Modifier.isPublic;
+import static java.lang.reflect.Modifier.isStatic;
 
 public final class InterfaceTestUtils
 {
     private InterfaceTestUtils() {}
 
-    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz)
+    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> superType, Class<C> clazz)
     {
-        assertAllMethodsOverridden(iface, clazz, ImmutableSet.of());
+        assertAllMethodsOverridden(superType, clazz, ImmutableSet.of());
     }
 
-    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> iface, Class<C> clazz, Set<Method> exclusions)
+    public static <I, C extends I> void assertAllMethodsOverridden(Class<I> superType, Class<C> clazz, Set<Method> exclusions)
     {
-        checkArgument(iface.isAssignableFrom(clazz), "%s is not supertype of %s", iface, clazz);
+        checkArgument(superType.isAssignableFrom(clazz), "%s is not supertype of %s", superType, clazz);
         exclusions = new HashSet<>(exclusions);
-        for (Method method : iface.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers())) {
-                continue;
-            }
-            if (method.getDeclaringClass() == Object.class) {
-                continue;
-            }
-            try {
-                Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
-                    Fail.fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+        for (Class<?> parent = superType; parent != null; parent = parent.getSuperclass()) {
+            for (Method method : parent.getDeclaredMethods()) {
+                if (isStatic(method.getModifiers())) {
+                    continue;
                 }
-            }
-            catch (NoSuchMethodException e) {
-                if (exclusions.remove(method)) {
-                    // ignored
+                if (!(isPublic(method.getModifiers()) || isProtected(method.getModifiers()))) {
+                    continue;
                 }
-                else {
-                    Fail.fail(format("%s does not override [%s]", clazz.getName(), method));
+                if (method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                try {
+                    Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
+                    if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
+                        Fail.fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+                    }
+                }
+                catch (NoSuchMethodException e) {
+                    if (exclusions.remove(method)) {
+                        // ignored
+                    }
+                    else {
+                        Fail.fail(format("%s does not override [%s]", clazz.getName(), method));
+                    }
                 }
             }
         }
