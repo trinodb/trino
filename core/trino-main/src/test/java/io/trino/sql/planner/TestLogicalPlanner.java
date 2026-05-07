@@ -1123,7 +1123,7 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
-                                ImmutableList.of("non_null"),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
@@ -1132,9 +1132,7 @@ public class TestLogicalPlanner
                                                         REPARTITION,
                                                         tableScan("nation", ImmutableMap.of("n_name", "name", "n_regionkey", "regionkey")))),
                                         anyTree(
-                                                project(
-                                                        ImmutableMap.of("non_null", expression(TRUE)),
-                                                        tableScan("region", ImmutableMap.of("r_name", "name"))))))));
+                                                tableScan("region", ImmutableMap.of("r_name", "name")))))));
 
         // Don't use equi-clauses to trigger replicated join
         assertDistributedPlan(
@@ -1144,7 +1142,7 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), aggregationFunction("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
-                                ImmutableList.of("non_null"),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
@@ -1152,9 +1150,7 @@ public class TestLogicalPlanner
                                                 "unique",
                                                 tableScan("nation", ImmutableMap.of("n_name", "name", "n_regionkey", "regionkey"))),
                                         anyTree(
-                                                project(
-                                                        ImmutableMap.of("non_null", expression(TRUE)),
-                                                        tableScan("region", ImmutableMap.of("r_name", "name"))))))));
+                                                tableScan("region", ImmutableMap.of("r_name", "name")))))));
     }
 
     @Test
@@ -1368,16 +1364,15 @@ public class TestLogicalPlanner
                                                                 singleGroupingSet("o_custkey"),
                                                                 ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
                                                                 ImmutableList.of(),
-                                                                ImmutableList.of("non_null"),
+                                                                ImmutableList.of(),
                                                                 Optional.empty(),
                                                                 SINGLE,
-                                                                project(ImmutableMap.of("non_null", expression(TRUE)),
-                                                                        aggregation(
-                                                                                singleGroupingSet("o_orderkey", "o_custkey"),
-                                                                                ImmutableMap.of(),
-                                                                                Optional.empty(),
-                                                                                FINAL,
-                                                                                anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey")))))))))
+                                                                aggregation(
+                                                                        singleGroupingSet("o_orderkey", "o_custkey"),
+                                                                        ImmutableMap.of(),
+                                                                        Optional.empty(),
+                                                                        FINAL,
+                                                                        anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))))))
                                         .right(anyTree(node(ValuesNode.class)))))));
     }
 
