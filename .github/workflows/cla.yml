@@ -27,7 +27,7 @@ defaults:
 jobs:
   check:
     if: |
-      github.repository == 'trinodb/trino' &&
+      github.repository == 'electrum/trino' &&
       (
         github.event_name == 'pull_request_target' ||
         github.event_name == 'merge_group' ||
