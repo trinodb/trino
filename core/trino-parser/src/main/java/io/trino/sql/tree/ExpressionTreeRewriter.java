@@ -520,6 +520,23 @@ public final class ExpressionTreeRewriter<C>
             return node;
         }
 
+        @Override
+        public Expression visitStaticMethodCall(StaticMethodCall node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteStaticMethodCall(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> arguments = rewrite(node.getArguments(), context);
+            if (!sameElements(node.getArguments(), arguments)) {
+                return new StaticMethodCall(node.getLocation().orElseThrow(), node.getType(), node.getMethod(), arguments);
+            }
+            return node;
+        }
+
         // Since OrderBy contains list of SortItems, we want to process each SortItem's key, which is an expression
         private OrderBy rewriteOrderBy(OrderBy orderBy, Context<C> context)
         {

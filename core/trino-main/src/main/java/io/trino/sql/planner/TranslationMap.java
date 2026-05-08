@@ -113,6 +113,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -320,6 +321,7 @@ public class TranslationMap
                 case io.trino.sql.tree.FieldReference expression -> translate(expression);
                 case Identifier expression -> translate(expression);
                 case FunctionCall expression -> translate(expression);
+                case StaticMethodCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
@@ -674,6 +676,18 @@ public class TranslationMap
 
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
         checkArgument(resolvedFunction.isPresent(), "Function has not been analyzed: %s", expression);
+
+        return new Call(
+                resolvedFunction.get(),
+                expression.getArguments().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(StaticMethodCall expression)
+    {
+        Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
+        checkArgument(resolvedFunction.isPresent(), "Static method has not been analyzed: %s", expression);
 
         return new Call(
                 resolvedFunction.get(),

@@ -53,6 +53,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -148,6 +149,7 @@ import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -1456,6 +1458,61 @@ public class ExpressionAnalyzer
 
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
+        {
+            QualifiedName receiver = node.getType();
+            if (receiver.getParts().size() != 1) {
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
+            }
+            TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
+            Type receiverType;
+            try {
+                receiverType = plannerContext.getTypeManager().getType(receiverSignature);
+            }
+            catch (TypeNotFoundException e) {
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
+            }
+
+            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+
+            ResolvedFunction function;
+            try {
+                function = functionResolver.resolveStaticMethod(
+                        session,
+                        receiverType.getTypeSignature(),
+                        QualifiedName.of(node.getMethod().getValue()),
+                        argumentTypes,
+                        accessControl);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            if (node.getArguments().size() > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for static method call %s::%s()", receiver, node.getMethod().getValue());
+            }
+
+            BoundSignature signature = function.signature();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                Expression expression = node.getArguments().get(i);
+                Type expectedType = signature.getArgumentTypes().get(i);
+                if (argumentTypes.get(i).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), function);
+            return setExpressionType(node, signature.getReturnType());
         }
 
         private void analyzeWindow(ResolvedWindow window, Context context, Node originalNode)

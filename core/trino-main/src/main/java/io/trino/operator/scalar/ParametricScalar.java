@@ -81,6 +81,7 @@ public class ParametricScalar
         if (deprecated) {
             functionMetadata.deprecated();
         }
+        details.getReceiverType().ifPresent(functionMetadata::receiverType);
 
         if (functionNullability.isReturnNullable()) {
             functionMetadata.nullable();

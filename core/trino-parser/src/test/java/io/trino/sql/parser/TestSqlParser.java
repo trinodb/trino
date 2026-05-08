@@ -216,6 +216,7 @@ import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -335,6 +336,39 @@ public class TestSqlParser
                 .isEqualTo(new FunctionCall(location(1, 1), QualifiedName.of("strpos"), ImmutableList.of(
                         new StringLiteral(location(1, 18), "b"),
                         new StringLiteral(location(1, 10), "a"))));
+    }
+
+    @Test
+    public void testStaticMethodCall()
+    {
+        assertThat(expression("bigint::parse('42')"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "bigint", false))),
+                        new Identifier(location(1, 9), "parse", false),
+                        ImmutableList.of(new StringLiteral(location(1, 15), "42"))));
+
+        assertThat(expression("cat.sch.t::method()"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 1), "cat", false),
+                                new Identifier(location(1, 5), "sch", false),
+                                new Identifier(location(1, 9), "t", false))),
+                        new Identifier(location(1, 12), "method", false),
+                        ImmutableList.of()));
+
+        assertThat(expression("array::contains(x, 1)"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "array", false))),
+                        new Identifier(location(1, 8), "contains", false),
+                        ImmutableList.of(
+                                new Identifier(location(1, 17), "x", false),
+                                new LongLiteral(location(1, 20), "1"))));
+
+        // Parametric receiver types are not allowed in the grammar.
+        assertInvalidExpression("varchar(5)::parse('42')", "mismatched input '::'.*");
     }
 
     @Test
