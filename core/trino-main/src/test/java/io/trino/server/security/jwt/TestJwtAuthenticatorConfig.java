@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,8 @@ public class TestJwtAuthenticatorConfig
                 .setRequiredIssuer(null)
                 .setPrincipalField("sub")
                 .setUserMappingPattern(null)
-                .setUserMappingFile(null));
+                .setUserMappingFile(null)
+                .setConfigFiles(ImmutableList.of()));
     }
 
     @Test
@@ -45,6 +47,8 @@ public class TestJwtAuthenticatorConfig
     {
         Path jwtKeyFile = Files.createTempFile(null, null);
         Path userMappingFile = Files.createTempFile(null, null);
+        Path configFile1 = Files.createTempFile(null, null);
+        Path configFile2 = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.jwt.key-file", jwtKeyFile.toString())
@@ -53,6 +57,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.principal-field", "some-field")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
+                .put("http-server.authentication.jwt.config-files", configFile1 + "," + configFile2)
                 .buildOrThrow();
 
         JwtAuthenticatorConfig expected = new JwtAuthenticatorConfig()
@@ -61,7 +66,8 @@ public class TestJwtAuthenticatorConfig
                 .setRequiredIssuer("some-issuer")
                 .setPrincipalField("some-field")
                 .setUserMappingPattern("(.*)@something")
-                .setUserMappingFile(userMappingFile.toFile());
+                .setUserMappingFile(userMappingFile.toFile())
+                .setConfigFiles(ImmutableList.of(configFile1.toFile(), configFile2.toFile()));
 
         assertFullMapping(properties, expected);
     }

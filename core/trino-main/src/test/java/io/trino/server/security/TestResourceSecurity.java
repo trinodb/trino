@@ -77,6 +77,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -618,6 +619,92 @@ public class TestResourceSecurity
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+    }
+
+    @Test
+    public void testJwtAuthenticatorWithMultipleIssuers()
+            throws Exception
+    {
+        // Create a second HMAC key
+        byte[] hmac2Bytes = new byte[32];
+        Arrays.fill(hmac2Bytes, (byte) 42);
+        SecretKey hmac2 = hmacShaKeyFor(hmac2Bytes);
+        Path hmacKeyFile2 = Files.createTempFile("hmac2", ".txt");
+        Files.writeString(hmacKeyFile2, Base64.getEncoder().encodeToString(hmac2Bytes));
+
+        // Create issuer config files
+        Path issuerConfig1 = Files.createTempFile("jwt-issuer1", ".properties");
+        Files.writeString(issuerConfig1,
+                "http-server.authentication.jwt.key-file=" + HMAC_KEY + "\n" +
+                "http-server.authentication.jwt.required-issuer=issuer-1\n" +
+                "http-server.authentication.jwt.required-audience=" + TRINO_AUDIENCE + "\n");
+
+        Path issuerConfig2 = Files.createTempFile("jwt-issuer2", ".properties");
+        Files.writeString(issuerConfig2,
+                "http-server.authentication.jwt.key-file=" + hmacKeyFile2 + "\n" +
+                "http-server.authentication.jwt.required-issuer=issuer-2\n" +
+                "http-server.authentication.jwt.required-audience=" + TRINO_AUDIENCE + "\n");
+
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.config-files", issuerConfig1 + "," + issuerConfig2)
+                        .buildOrThrow())
+                .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            SecretKey hmac1 = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
+
+            // Token from issuer-1 should succeed
+            String token1 = newJwtBuilder()
+                    .signWith(hmac1)
+                    .issuer("issuer-1")
+                    .claim(AUDIENCE, TRINO_AUDIENCE)
+                    .subject(TEST_USER)
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt1 = client.newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token1)
+                            .build())
+                    .build();
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt1);
+
+            // Token from issuer-2 should also succeed
+            String token2 = newJwtBuilder()
+                    .signWith(hmac2)
+                    .issuer("issuer-2")
+                    .claim(AUDIENCE, TRINO_AUDIENCE)
+                    .subject(TEST_USER)
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt2 = client.newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token2)
+                            .build())
+                    .build();
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt2);
+
+            // Token with wrong issuer should fail
+            String tokenWrongIssuer = newJwtBuilder()
+                    .signWith(hmac1)
+                    .issuer("wrong-issuer")
+                    .claim(AUDIENCE, TRINO_AUDIENCE)
+                    .subject(TEST_USER)
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            assertResponseCode(client, getAuthorizedUserLocation(httpServerInfo.getHttpsUri()), SC_UNAUTHORIZED, Headers.of(AUTHORIZATION, "Bearer " + tokenWrongIssuer));
+        }
+        finally {
+            Files.deleteIfExists(hmacKeyFile2);
+            Files.deleteIfExists(issuerConfig1);
+            Files.deleteIfExists(issuerConfig2);
         }
     }
 
