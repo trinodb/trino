@@ -117,17 +117,6 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public long hashPosition(int blockIndex, int position)
-    {
-        long result = 0;
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = channels.get(hashChannels[i]).get(blockIndex);
-            result = result * 31 + hashCodeOperators[i].hashCodeNullSafe(block, position);
-        }
-        return result;
-    }
-
-    @Override
     public long hashRow(int position, Page page)
     {
         long result = 0;
@@ -219,17 +208,6 @@ public class SimplePagesHashStrategy
             }
         }
         return true;
-    }
-
-    @Override
-    public boolean isPositionNull(int blockIndex, int blockPosition)
-    {
-        for (int hashChannel : hashChannels) {
-            if (isChannelPositionNull(hashChannel, blockIndex, blockPosition)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override

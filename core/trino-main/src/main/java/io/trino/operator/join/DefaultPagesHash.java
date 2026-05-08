@@ -13,23 +13,24 @@
  */
 package io.trino.operator.join;
 
-import io.airlift.units.DataSize;
 import io.trino.operator.HashArraySizeSupplier;
+import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.PagesHash.getHashPosition;
@@ -45,7 +46,6 @@ public final class DefaultPagesHash
         implements PagesHash
 {
     private static final int INSTANCE_SIZE = instanceSize(DefaultPagesHash.class);
-    private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
@@ -61,11 +61,16 @@ public final class DefaultPagesHash
     public DefaultPagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
+            List<ObjectArrayList<Block>> channels,
+            IntArrayList positionCounts,
+            List<Integer> joinChannels,
+            InterpretedHashGenerator hashGenerator,
             PositionLinks.FactoryBuilder positionLinks,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
+        requireNonNull(positionCounts, "positionCounts is null");
 
         // reserve memory for the arrays
         int hashSize = hashArraySizeSupplier.getHashArraySize(addresses.size());
@@ -76,50 +81,65 @@ public final class DefaultPagesHash
 
         positionToHashes = new byte[addresses.size()];
 
-        // We will process addresses in batches, to save memory on array of hashes and improve memory locality.
-        int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
-        long[] positionToFullHashes = new long[positionsInStep];
+        int pageCount = positionCounts.size();
+        int maxPagePositions = 0;
+        for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            maxPagePositions = Math.max(maxPagePositions, positionCounts.getInt(pageIndex));
+        }
+        long[] pageHashes = new long[maxPagePositions];
+        Block[] joinBlocks = new Block[joinChannels.size()];
+        Block[] nullableBlocks = new Block[joinChannels.size()];
 
-        for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
-            int stepBeginPosition = step * positionsInStep;
-            int stepEndPosition = Math.min((step + 1) * positionsInStep, addresses.size());
-            int stepSize = stepEndPosition - stepBeginPosition;
+        int offset = 0;
+        for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            int pagePositions = positionCounts.getInt(pageIndex);
+            int nullableCount = 0;
+            for (int channelIndex = 0; channelIndex < joinChannels.size(); channelIndex++) {
+                Block block = channels.get(joinChannels.get(channelIndex)).get(pageIndex);
+                joinBlocks[channelIndex] = block;
+                if (block.mayHaveNull()) {
+                    nullableBlocks[nullableCount++] = block;
+                }
+            }
 
-            // First extract all hashes from blocks to native array.
-            // Somehow having this as a separate loop is much faster compared
-            // to extracting hashes on the fly in the loop below.
-            extractHashes(positionToFullHashes, stepBeginPosition, stepSize);
+            Optional<int[]> nonNullPositions = NullablePositions.getNonNullPositions(
+                    nullableBlocks, nullableCount, pagePositions);
 
-            // index pages
-            indexPages(positionLinks, positionToFullHashes, stepBeginPosition, stepSize);
+            if (nonNullPositions.isEmpty()) {
+                hashGenerator.hashBlocksBatched(joinBlocks, pageHashes, 0, pagePositions);
+                indexRange(positionLinks, offset, pagePositions, pageHashes);
+            }
+            else {
+                int[] positions = nonNullPositions.get();
+                hashGenerator.hashNonNulls(joinBlocks, positions, pageHashes);
+                indexPositions(positionLinks, offset, positions, pageHashes);
+            }
+            offset += pagePositions;
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(keys) + sizeOf(positionToHashes);
     }
 
-    private void extractHashes(long[] positionToFullHashes, int stepBeginPosition, int stepSize)
+    private void indexRange(PositionLinks.FactoryBuilder positionLinks, int offset, int length, long[] pageHashes)
     {
-        for (int batchIndex = 0; batchIndex < stepSize; batchIndex++) {
-            int addressIndex = batchIndex + stepBeginPosition;
-            long hash = readHashPosition(addressIndex);
-            positionToFullHashes[batchIndex] = hash;
-            positionToHashes[addressIndex] = (byte) hash;
+        for (int index = 0; index < length; index++) {
+            int position = offset + index;
+            long hash = pageHashes[index];
+            positionToHashes[position] = (byte) hash;
+            int bucket = getHashPosition(hash, mask);
+            insertValue(positionLinks, position, (byte) hash, bucket);
         }
     }
 
-    private void indexPages(PositionLinks.FactoryBuilder positionLinks, long[] positionToFullHashes, int stepBeginPosition, int stepSize)
+    private void indexPositions(PositionLinks.FactoryBuilder positionLinks, int offset, int[] positions, long[] pageHashes)
     {
-        for (int position = 0; position < stepSize; position++) {
-            int realPosition = position + stepBeginPosition;
-            if (isPositionNull(realPosition)) {
-                continue;
-            }
-
-            long hash = positionToFullHashes[position];
-            int pos = getHashPosition(hash, mask);
-
-            insertValue(positionLinks, realPosition, (byte) hash, pos);
+        for (int index : positions) {
+            int position = offset + index;
+            long hash = pageHashes[index];
+            positionToHashes[position] = (byte) hash;
+            int bucket = getHashPosition(hash, mask);
+            insertValue(positionLinks, position, (byte) hash, bucket);
         }
     }
 
@@ -275,24 +295,6 @@ public final class DefaultPagesHash
         int blockPosition = decodePosition(pageAddress);
 
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
-    }
-
-    private boolean isPositionNull(int position)
-    {
-        long pageAddress = addresses.getLong(position);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        return pagesHashStrategy.isPositionNull(blockIndex, blockPosition);
-    }
-
-    private long readHashPosition(int position)
-    {
-        long pageAddress = addresses.getLong(position);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        return pagesHashStrategy.hashPosition(blockIndex, blockPosition);
     }
 
     private boolean positionEqualsCurrentRowIgnoreNulls(int leftPosition, byte rawHash, int rightPosition, Page rightPage)
