@@ -260,6 +260,7 @@ import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BooleanOperators;
+import io.trino.type.CharOperators;
 import io.trino.type.DateOperators;
 import io.trino.type.DateTimeOperators;
 import io.trino.type.DecimalOperators;
@@ -497,6 +498,7 @@ public final class SystemFunctionBundle
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class)
                 .scalars(NumberOperators.class)
+                .scalars(CharOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(DateOperators.class)
                 .scalars(IntervalDayTimeOperators.class)

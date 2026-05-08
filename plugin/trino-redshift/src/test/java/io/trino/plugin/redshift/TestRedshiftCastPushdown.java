@@ -581,9 +581,6 @@ final class TestRedshiftCastPushdown
                 .add(new InvalidCastTestCase("c_varchar_decimal", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_decimal_sign", "integer"))
                 .add(new InvalidCastTestCase("c_varchar_alpha_numeric", "integer"))
-                .add(new InvalidCastTestCase("c_char_50", "integer"))
-                .add(new InvalidCastTestCase("c_char_numeric", "integer"))
-                .add(new InvalidCastTestCase("c_bpchar_numeric", "integer"))
                 .add(new InvalidCastTestCase("c_nan_real", "integer"))
                 .add(new InvalidCastTestCase("c_nan_double", "integer"))
 
