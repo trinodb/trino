@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.InstanceMethod;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -45,13 +46,14 @@ public class ScalarHeader
     private final boolean deterministic;
     private final boolean neverFails;
     private final Optional<TypeSignature> receiverType;
+    private final boolean instanceMethod;
 
     public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails)
     {
-        this(name, aliases, description, hidden, deterministic, neverFails, Optional.empty());
+        this(name, aliases, description, hidden, deterministic, neverFails, Optional.empty(), false);
     }
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeSignature> receiverType)
+    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic, boolean neverFails, Optional<TypeSignature> receiverType, boolean instanceMethod)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
@@ -63,6 +65,8 @@ public class ScalarHeader
         this.deterministic = deterministic;
         this.neverFails = neverFails;
         this.receiverType = requireNonNull(receiverType, "receiverType is null");
+        checkArgument(!instanceMethod || receiverType.isEmpty(), "instance method receiver type is inferred from the first argument");
+        this.instanceMethod = instanceMethod;
     }
 
     public ScalarHeader(OperatorType operatorType, Optional<String> description)
@@ -75,6 +79,7 @@ public class ScalarHeader
         this.deterministic = true;
         this.neverFails = false;
         this.receiverType = Optional.empty();
+        this.instanceMethod = false;
     }
 
     public static List<ScalarHeader> fromAnnotatedElement(AnnotatedElement annotated)
@@ -82,11 +87,13 @@ public class ScalarHeader
         ScalarFunction scalarFunction = annotated.getAnnotation(ScalarFunction.class);
         ScalarOperator scalarOperator = annotated.getAnnotation(ScalarOperator.class);
         StaticMethod staticMethod = annotated.getAnnotation(StaticMethod.class);
+        InstanceMethod instanceMethod = annotated.getAnnotation(InstanceMethod.class);
         Optional<String> description = parseDescription(annotated);
 
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
         if (scalarFunction != null) {
+            checkArgument(staticMethod == null || instanceMethod == null, "@StaticMethod and @InstanceMethod are mutually exclusive on %s", annotated);
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
             Optional<TypeSignature> receiverType = Optional.empty();
             if (staticMethod != null) {
@@ -94,10 +101,13 @@ public class ScalarHeader
                 checkArgument(parsed.getParameters().isEmpty(), "@StaticMethod receiver type must not have parameters: %s", staticMethod.value());
                 receiverType = Optional.of(parsed);
             }
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType));
+            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic(), scalarFunction.neverFails(), receiverType, instanceMethod != null));
         }
         else if (staticMethod != null) {
             throw new IllegalArgumentException("@StaticMethod requires @ScalarFunction on " + annotated);
+        }
+        else if (instanceMethod != null) {
+            throw new IllegalArgumentException("@InstanceMethod requires @ScalarFunction on " + annotated);
         }
 
         if (scalarOperator != null) {
@@ -164,5 +174,10 @@ public class ScalarHeader
     public Optional<TypeSignature> getReceiverType()
     {
         return receiverType;
+    }
+
+    public boolean isInstanceMethod()
+    {
+        return instanceMethod;
     }
 }

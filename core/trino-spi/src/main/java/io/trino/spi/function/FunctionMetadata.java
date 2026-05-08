@@ -48,6 +48,7 @@ public class FunctionMetadata
     private final FunctionKind kind;
     private final boolean deprecated;
     private final Optional<TypeSignature> receiverType;
+    private final boolean instanceMethod;
 
     private FunctionMetadata(
             FunctionId functionId,
@@ -61,7 +62,8 @@ public class FunctionMetadata
             String description,
             FunctionKind kind,
             boolean deprecated,
-            Optional<TypeSignature> receiverType)
+            Optional<TypeSignature> receiverType,
+            boolean instanceMethod)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -82,6 +84,10 @@ public class FunctionMetadata
         this.kind = requireNonNull(kind, "kind is null");
         this.deprecated = deprecated;
         this.receiverType = requireNonNull(receiverType, "receiverType is null");
+        if (instanceMethod && receiverType.isEmpty()) {
+            throw new IllegalArgumentException("instance method must have a receiver type");
+        }
+        this.instanceMethod = instanceMethod;
     }
 
     /**
@@ -166,14 +172,27 @@ public class FunctionMetadata
     }
 
     /**
-     * The receiver type when this function is a static method invocable as
-     * {@code T::method(args)}. A non-empty value implies the function is a
-     * static method; an empty value implies a regular function.
+     * The receiver type when this function is a method. For a static method
+     * (invocable as {@code T::method(args)}) this is the named type. For an
+     * instance method (invocable as {@code receiver.method(args)}) this is
+     * the type of the {@code self} parameter (the first declared argument).
+     * Empty for regular functions.
      */
     @JsonProperty
     public Optional<TypeSignature> getReceiverType()
     {
         return receiverType;
+    }
+
+    /**
+     * Whether this is an instance method (receiver passed as the first
+     * argument) rather than a static method. Only meaningful when
+     * {@link #getReceiverType()} is present.
+     */
+    @JsonProperty
+    public boolean isInstanceMethod()
+    {
+        return instanceMethod;
     }
 
     @JsonCreator
@@ -190,7 +209,8 @@ public class FunctionMetadata
             @JsonProperty String description,
             @JsonProperty FunctionKind kind,
             @JsonProperty boolean deprecated,
-            @JsonProperty Optional<TypeSignature> receiverType)
+            @JsonProperty Optional<TypeSignature> receiverType,
+            @JsonProperty boolean instanceMethod)
     {
         return new FunctionMetadata(
                 functionId,
@@ -204,7 +224,8 @@ public class FunctionMetadata
                 description,
                 kind,
                 deprecated,
-                receiverType == null ? Optional.empty() : receiverType);
+                receiverType == null ? Optional.empty() : receiverType,
+                instanceMethod);
     }
 
     @Override
@@ -259,6 +280,7 @@ public class FunctionMetadata
         private FunctionId functionId;
         private boolean deprecated;
         private Optional<TypeSignature> receiverType = Optional.empty();
+        private boolean instanceMethod;
 
         private Builder(String canonicalName, FunctionKind kind)
         {
@@ -363,6 +385,12 @@ public class FunctionMetadata
             return this;
         }
 
+        public Builder instanceMethod()
+        {
+            this.instanceMethod = true;
+            return this;
+        }
+
         public FunctionMetadata build()
         {
             FunctionId functionId = this.functionId;
@@ -384,7 +412,8 @@ public class FunctionMetadata
                     description,
                     kind,
                     deprecated,
-                    receiverType);
+                    receiverType,
+                    instanceMethod);
         }
     }
 }

@@ -185,6 +185,7 @@ import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -3168,6 +3169,16 @@ class AstBuilder
         return new StaticMethodCall(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
+                (Identifier) visit(context.identifier()),
+                visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMethodCall(SqlBaseParser.MethodCallContext context)
+    {
+        return new MethodCall(
+                getLocation(context),
+                (Expression) visit(context.primaryExpression()),
                 (Identifier) visit(context.identifier()),
                 visit(context.expression(), Expression.class));
     }

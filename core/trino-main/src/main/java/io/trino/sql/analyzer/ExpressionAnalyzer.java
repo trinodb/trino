@@ -129,6 +129,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -329,6 +330,7 @@ public class ExpressionAnalyzer
     private final Cache<String, Type> varcharCastableTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -435,6 +437,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Node>, ResolvedFunction> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
+    }
+
+    public Map<NodeRef<FunctionCall>, Identifier> getMethodCallReceivers()
+    {
+        return unmodifiableMap(methodCallReceivers);
     }
 
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
@@ -1309,6 +1316,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
+            // of the form A.B(args) is treated as a method invocation if it satisfies
+            // the rules for one; otherwise it is a routine invocation.
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            if (asMethod.isPresent()) {
+                return asMethod.get();
+            }
+
             boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
@@ -1459,6 +1474,123 @@ public class ExpressionAnalyzer
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
         }
+
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        {
+            QualifiedName name = node.getName();
+            if (name.getParts().size() != 2) {
+                return Optional.empty();
+            }
+            if (node.isDistinct()
+                    || node.getFilter().isPresent()
+                    || node.getOrderBy().isPresent()
+                    || node.getWindow().isPresent()
+                    || node.getProcessingMode().isPresent()
+                    || node.getNullTreatment().isPresent()) {
+                return Optional.empty();
+            }
+            if (context.isPatternRecognition() || context.isInWindow()) {
+                return Optional.empty();
+            }
+
+            Identifier receiver = name.getOriginalParts().get(0);
+            Identifier method = name.getOriginalParts().get(1);
+
+            // Method-call interpretation only applies when the receiver resolves
+            // as a field in the current scope. tryResolveField has no side effects
+            // so a non-match leaves the analyzer state untouched.
+            Optional<ResolvedField> resolvedReceiver = context.getScope()
+                    .tryResolveField(receiver, QualifiedName.of(receiver.getValue()));
+            if (resolvedReceiver.isEmpty()) {
+                return Optional.empty();
+            }
+            Type receiverType = resolvedReceiver.get().getField().getType();
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, method.getValue(), node.getArguments(), context);
+            }
+            catch (TrinoException e) {
+                return Optional.empty();
+            }
+
+            // Commit to method-call interpretation: record the receiver field reference.
+            process(receiver, context);
+
+            Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), node.getArguments(), resolution, context);
+            methodCallReceivers.put(NodeRef.of(node), receiver);
+            return Optional.of(result);
+        }
+
+        @Override
+        protected Type visitMethodCall(MethodCall node, Context context)
+        {
+            Type receiverType = process(node.getReceiver(), context);
+            String methodName = node.getMethod().getValue();
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, methodName, node.getArguments(), context);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            return analyzeInstanceMethodInvocation(node, node.getReceiver(), receiverType, methodName, node.getArguments(), resolution, context);
+        }
+
+        private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
+        {
+            List<TypeSignatureProvider> argumentTypes = ImmutableList.<TypeSignatureProvider>builder()
+                    .add(new TypeSignatureProvider(receiverType.getTypeSignature()))
+                    .addAll(getCallArgumentTypes(arguments, context))
+                    .build();
+            ResolvedFunction function = functionResolver.resolveInstanceMethod(
+                    session,
+                    receiverType.getTypeSignature(),
+                    QualifiedName.of(methodName),
+                    argumentTypes,
+                    accessControl);
+            return new MethodResolution(function, argumentTypes);
+        }
+
+        private Type analyzeInstanceMethodInvocation(
+                Expression node,
+                Expression receiver,
+                Type receiverType,
+                String methodName,
+                List<Expression> arguments,
+                MethodResolution resolution,
+                Context context)
+        {
+            if (arguments.size() + 1 > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for method call .%s()", methodName);
+            }
+
+            BoundSignature signature = resolution.function().signature();
+            Type expectedReceiverType = signature.getArgumentTypes().getFirst();
+            coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
+            // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression expression = arguments.get(i);
+                Type expectedType = signature.getArgumentTypes().get(i + 1);
+                if (resolution.argumentTypes().get(i + 1).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeSignature());
+                    coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), resolution.function());
+            return setExpressionType(node, signature.getReturnType());
+        }
+
+        private record MethodResolution(ResolvedFunction function, List<TypeSignatureProvider> argumentTypes) {}
 
         @Override
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
@@ -3948,6 +4080,7 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
+        analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());

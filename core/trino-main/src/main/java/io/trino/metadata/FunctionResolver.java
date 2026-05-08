@@ -146,13 +146,41 @@ public class FunctionResolver
                 parameterTypes,
                 catalogSchemaFunctionName -> filterCandidates(
                         metadata.getFunctions(session, catalogSchemaFunctionName),
-                        candidate -> candidate.functionMetadata().getReceiverType()
+                        candidate -> !candidate.functionMetadata().isInstanceMethod()
+                                && candidate.functionMetadata().getReceiverType()
                                 .map(TypeSignature::getBase).equals(Optional.of(receiver))),
                 accessControl);
 
         FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
         if (functionMetadata.isDeprecated()) {
             warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s::%s: %s".formatted(receiverType, methodName, functionMetadata.getDescription())));
+        }
+
+        return resolve(session, catalogFunctionBinding, accessControl);
+    }
+
+    public ResolvedFunction resolveInstanceMethod(
+            Session session,
+            TypeSignature receiverType,
+            QualifiedName methodName,
+            List<TypeSignatureProvider> parameterTypes,
+            AccessControl accessControl)
+    {
+        String receiver = receiverType.getBase();
+        CatalogFunctionBinding catalogFunctionBinding = bindFunction(
+                session,
+                methodName,
+                parameterTypes,
+                catalogSchemaFunctionName -> filterCandidates(
+                        metadata.getFunctions(session, catalogSchemaFunctionName),
+                        candidate -> candidate.functionMetadata().isInstanceMethod()
+                                && candidate.functionMetadata().getReceiverType()
+                                .map(TypeSignature::getBase).equals(Optional.of(receiver))),
+                accessControl);
+
+        FunctionMetadata functionMetadata = catalogFunctionBinding.boundFunctionMetadata();
+        if (functionMetadata.isDeprecated()) {
+            warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION, "Use of deprecated function: %s.%s: %s".formatted(receiverType, methodName, functionMetadata.getDescription())));
         }
 
         return resolve(session, catalogFunctionBinding, accessControl);
