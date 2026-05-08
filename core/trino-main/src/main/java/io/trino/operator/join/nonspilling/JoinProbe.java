@@ -23,6 +23,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -156,17 +157,22 @@ public class JoinProbe
         }
 
         long[] joinPositionCache = new long[positionCount];
-        int[] positions = NullablePositions.getNonNullPositions(nullableBlocks, nullableBlocksCount, positionCount);
+        Optional<int[]> nonNullPositions = NullablePositions.getNonNullPositions(nullableBlocks, nullableBlocksCount, positionCount);
         long[] hashes = new long[positionCount];
-        if (nullableBlocksCount > 0 && positions.length < positionCount) {
+        if (nonNullPositions.isPresent()) {
+            int[] positions = nonNullPositions.get();
             Arrays.fill(joinPositionCache, -1);
             hashGenerator.hashNonNulls(probePage, positions, hashes);
             lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
             return joinPositionCache;
-        } // else fall back to non-null path
+        }
 
         hashGenerator.hash(probePage, 0, positionCount, hashes);
-        lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
+        int[] allPositions = new int[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            allPositions[i] = i;
+        }
+        lookupSource.getJoinPosition(allPositions, probePage, page, hashes, joinPositionCache);
 
         return joinPositionCache;
     }
