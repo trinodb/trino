@@ -104,6 +104,7 @@ class TestInterpretedHashGenerator
         int positionCount = 1024;
         Block[] blocks = createRandomData(types, positionCount, 0.25f);
 
+        int[] allPositions = IntStream.range(0, positionCount).toArray();
         long[] hashes = new long[positionCount];
         if (hashBlocksBatched) {
             hashGenerator.hashBlocksBatched(blocks, hashes, 0, positionCount);
@@ -111,7 +112,7 @@ class TestInterpretedHashGenerator
         else {
             hashGenerator.hash(new Page(blocks), 0, positionCount, hashes);
         }
-        assertHashesEqual(types, blocks, hashes, hashGenerator);
+        assertHashesEqual(types, blocks, hashes, allPositions, hashGenerator);
 
         // Convert all blocks to RunLengthEncoded and re-check result matches
         Block[] rleBlocks = new Block[blocks.length];
@@ -124,7 +125,7 @@ class TestInterpretedHashGenerator
         else {
             hashGenerator.hash(new Page(rleBlocks), 0, positionCount, hashes);
         }
-        assertHashesEqual(types, rleBlocks, hashes, hashGenerator);
+        assertHashesEqual(types, rleBlocks, hashes, allPositions, hashGenerator);
 
         // Convert all blocks to Dictionary and check result matches
         Block[] dictionaryBlocks = new Block[blocks.length];
@@ -140,7 +141,7 @@ class TestInterpretedHashGenerator
         else {
             hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
         }
-        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+        assertHashesEqual(types, dictionaryBlocks, hashes, allPositions, hashGenerator);
 
         for (int i = 0; i < blocks.length; i++) {
             // In-effective dictionaries
@@ -154,7 +155,7 @@ class TestInterpretedHashGenerator
         else {
             hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
         }
-        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+        assertHashesEqual(types, dictionaryBlocks, hashes, allPositions, hashGenerator);
     }
 
     @Test
@@ -169,15 +170,16 @@ class TestInterpretedHashGenerator
         long[] hashes = new long[positionCount];
         int[] nonNullPositions = getNonNullPositions(blocks, positionCount);
         hashGenerator.hashNonNulls(new Page(blocks), nonNullPositions, hashes);
-        assertHashesEqual(types, blocks, hashes, hashGenerator);
+        assertHashesEqual(types, blocks, hashes, nonNullPositions, hashGenerator);
 
         // Convert all blocks to RunLengthEncoded and re-check result matches
         Block[] rleBlocks = new Block[blocks.length];
         for (int i = 0; i < blocks.length; i++) {
             rleBlocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(nonNullPositions[0]), positionCount);
         }
-        hashGenerator.hashNonNulls(new Page(rleBlocks), IntStream.range(0, positionCount).toArray(), hashes);
-        assertHashesEqual(types, rleBlocks, hashes, hashGenerator);
+        int[] allPositions = IntStream.range(0, positionCount).toArray();
+        hashGenerator.hashNonNulls(new Page(rleBlocks), allPositions, hashes);
+        assertHashesEqual(types, rleBlocks, hashes, allPositions, hashGenerator);
 
         // Convert all blocks to Dictionary and check result matches
         Block[] dictionaryBlocks = new Block[blocks.length];
@@ -188,7 +190,7 @@ class TestInterpretedHashGenerator
         nonNullPositions = getNonNullPositions(dictionaryBlocks, positionCount);
         hashes = new long[positionCount];
         hashGenerator.hashNonNulls(new Page(dictionaryBlocks), nonNullPositions, hashes);
-        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+        assertHashesEqual(types, dictionaryBlocks, hashes, nonNullPositions, hashGenerator);
 
         for (int i = 0; i < blocks.length; i++) {
             // In-effective dictionaries
@@ -197,7 +199,29 @@ class TestInterpretedHashGenerator
         nonNullPositions = getNonNullPositions(dictionaryBlocks, positionCount);
         hashes = new long[positionCount];
         hashGenerator.hashNonNulls(new Page(dictionaryBlocks), nonNullPositions, hashes);
-        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+        assertHashesEqual(types, dictionaryBlocks, hashes, nonNullPositions, hashGenerator);
+    }
+
+    @Test
+    void testHashNonNullsBlockArrayMatchesPageOverload()
+    {
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createChannelsHashGenerator(
+                types, new int[] {0, 1}, compiler);
+
+        int positionCount = 20;
+        Block[] blocks = createRandomData(types, positionCount, 0.25f);
+
+        int[] positions = getNonNullPositions(blocks, positionCount);
+        long[] pageHashes = new long[positionCount];
+        long[] blockArrayHashes = new long[positionCount];
+
+        hashGenerator.hashNonNulls(new Page(blocks), positions, pageHashes);
+        hashGenerator.hashNonNulls(blocks, positions, blockArrayHashes);
+
+        for (int position : positions) {
+            assertThat(blockArrayHashes[position]).isEqualTo(pageHashes[position]);
+        }
     }
 
     @Test
@@ -212,9 +236,9 @@ class TestInterpretedHashGenerator
                 .doesNotThrowAnyException();
     }
 
-    private void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, InterpretedHashGenerator hashGenerator)
+    private void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, int[] positions, InterpretedHashGenerator hashGenerator)
     {
-        for (int position = 0; position < batchedHashes.length; position++) {
+        for (int position : positions) {
             long manualRowHash = manualHash(types, blocks, position);
             long singleRowHash = hashGenerator.hashPosition(position, new Page(blocks));
             assertThat(singleRowHash).isEqualTo(manualRowHash);

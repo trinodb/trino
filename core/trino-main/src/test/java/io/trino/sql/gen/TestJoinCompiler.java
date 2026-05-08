@@ -16,6 +16,8 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
+import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.SimplePagesHashStrategy;
 import io.trino.spi.Page;
@@ -27,7 +29,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
-import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,6 @@ public class TestJoinCompiler
         assertThat(hashStrategy.getChannelCount()).isEqualTo(1);
         assertThat(hashStrategy.getSizeInBytes()).isGreaterThan(0L);
         assertThat(hashStrategy.hashRow(0, new Page(channel.get(0)))).isEqualTo(0L);
-        assertThat(hashStrategy.hashPosition(0, 5)).isEqualTo(0L);
         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, 5, 0, 5)).isTrue();
         assertThat(hashStrategy.positionIdenticalToPosition(0, 5, 0, 5)).isTrue();
         assertThat(hashStrategy.positionIdenticalToRow(0, 5, 5, new Page(channel.get(0)))).isTrue();
@@ -123,7 +123,6 @@ public class TestJoinCompiler
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
         BlockPositionEqual equalOperator = blockTypeOperators.getEqualOperator(VARCHAR);
         BlockPositionIsIdentical identicalOperator = blockTypeOperators.getIdenticalOperator(VARCHAR);
-        BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(VARCHAR);
 
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < channel.size(); leftBlockIndex++) {
@@ -132,9 +131,6 @@ public class TestJoinCompiler
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
 
             for (int leftBlockPosition = 0; leftBlockPosition < leftBlock.getPositionCount(); leftBlockPosition++) {
-                // hash code of position must match block hash
-                assertThat(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition)).isEqualTo(hashCodeOperator.hashCodeNullSafe(leftBlock, leftBlockPosition));
-
                 // position must be equal to itself
                 assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
 
@@ -241,9 +237,6 @@ public class TestJoinCompiler
 
             int leftPositionCount = varcharChannel.get(leftBlockIndex).getPositionCount();
             for (int leftBlockPosition = 0; leftBlockPosition < leftPositionCount; leftBlockPosition++) {
-                // hash code of position must match block hash
-                assertThat(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition)).isEqualTo(expectedHashStrategy.hashPosition(leftBlockIndex, leftBlockPosition));
-
                 // position must be equal to itself
                 assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
                 assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
@@ -289,6 +282,57 @@ public class TestJoinCompiler
                     doubleChannel.get(leftBlockIndex),
                     booleanChannel.get(leftBlockIndex),
                     extraChannel.get(leftBlockIndex)));
+        }
+    }
+
+    @Test
+    public void testHashRowMatchesInterpretedHashGenerator()
+    {
+        // hashRow on the JoinCompiler-generated PagesHashStrategy must agree with
+        // InterpretedHashGenerator on every row. DefaultPagesHash builds with the latter,
+        // and non-batched probe paths hash via the former; any divergence would silently
+        // drop join matches there.
+        List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        int[] joinChannelsArray = {0, 1, 2, 3};
+
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(joinTypes, Ints.asList(joinChannelsArray));
+        InterpretedHashGenerator hashGenerator = InterpretedHashGenerator.createChannelsHashGenerator(joinTypes, joinChannelsArray, new NullSafeHashCompiler(typeOperators));
+
+        ObjectArrayList<Block> varcharChannel = new ObjectArrayList<>();
+        varcharChannel.add(BlockAssertions.createStringSequenceBlock(10, 20));
+        varcharChannel.add(BlockAssertions.createStringSequenceBlock(15, 25));
+        ObjectArrayList<Block> longChannel = new ObjectArrayList<>();
+        longChannel.add(BlockAssertions.createLongSequenceBlock(10, 20));
+        longChannel.add(BlockAssertions.createLongSequenceBlock(15, 25));
+        ObjectArrayList<Block> doubleChannel = new ObjectArrayList<>();
+        doubleChannel.add(BlockAssertions.createDoubleSequenceBlock(10, 20));
+        doubleChannel.add(BlockAssertions.createDoubleSequenceBlock(15, 25));
+        ObjectArrayList<Block> booleanChannel = new ObjectArrayList<>();
+        booleanChannel.add(BlockAssertions.createBooleanSequenceBlock(10, 20));
+        booleanChannel.add(BlockAssertions.createBooleanSequenceBlock(15, 25));
+
+        PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(
+                ImmutableList.of(varcharChannel, longChannel, doubleChannel, booleanChannel));
+
+        for (int blockIndex = 0; blockIndex < varcharChannel.size(); blockIndex++) {
+            Block[] joinBlocks = {
+                    varcharChannel.get(blockIndex),
+                    longChannel.get(blockIndex),
+                    doubleChannel.get(blockIndex),
+                    booleanChannel.get(blockIndex),
+            };
+            int positionCount = joinBlocks[0].getPositionCount();
+            Page page = new Page(joinBlocks);
+
+            long[] batchedHashes = new long[positionCount];
+            hashGenerator.hashBlocksBatched(joinBlocks, batchedHashes, 0, positionCount);
+
+            for (int position = 0; position < positionCount; position++) {
+                long hashRow = pagesHashStrategy.hashRow(position, page);
+                long hashPosition = hashGenerator.hashPosition(position, page);
+                assertThat(hashRow).isEqualTo(hashPosition);
+                assertThat(hashRow).isEqualTo(batchedHashes[position]);
+            }
         }
     }
 

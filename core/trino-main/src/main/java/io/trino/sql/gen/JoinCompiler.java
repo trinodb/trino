@@ -39,6 +39,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.operator.HashArraySizeSupplier;
+import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.join.BigintPagesHash;
 import io.trino.operator.join.DefaultPagesHash;
@@ -56,6 +57,7 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.weakref.jmx.Managed;
@@ -262,7 +264,6 @@ public class JoinCompiler
         generateGetChannelCountMethod(classDefinition, outputChannels.size());
         generateGetSizeInBytesMethod(classDefinition, sizeField);
         generateAppendToMethod(classDefinition, outputChannels, channelFields);
-        generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowIdenticalToRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
@@ -270,7 +271,6 @@ public class JoinCompiler
         generatePositionIdenticalToRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionIdenticalToPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
-        generateIsPositionNull(classDefinition, joinChannelFields);
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
         generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
 
@@ -444,77 +444,6 @@ public class JoinCompiler
     private interface OutputChannelCodeGenerator
     {
         BytecodeNode generate(Variable thisVariable, Variable block, int outputIndex);
-    }
-
-    private static void generateIsPositionNull(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
-    {
-        Parameter blockIndex = arg("blockIndex", int.class);
-        Parameter blockPosition = arg("blockPosition", int.class);
-        MethodDefinition isPositionNullMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "isPositionNull",
-                type(boolean.class),
-                blockIndex,
-                blockPosition);
-
-        for (FieldDefinition joinChannelField : joinChannelFields) {
-            BytecodeExpression block = isPositionNullMethod
-                    .getThis()
-                    .getField(joinChannelField)
-                    .invoke("get", Object.class, blockIndex)
-                    .cast(Block.class);
-
-            IfStatement ifStatement = new IfStatement();
-            ifStatement.condition(block.invoke(
-                    "isNull",
-                    boolean.class,
-                    blockPosition));
-            ifStatement.ifTrue(constantTrue().ret());
-            isPositionNullMethod.getBody().append(ifStatement);
-        }
-
-        isPositionNullMethod
-                .getBody()
-                .append(constantFalse().ret());
-    }
-
-    private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
-    {
-        Parameter blockIndex = arg("blockIndex", int.class);
-        Parameter blockPosition = arg("blockPosition", int.class);
-        MethodDefinition hashPositionMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "hashPosition",
-                type(long.class),
-                blockIndex,
-                blockPosition);
-
-        Variable resultVariable = hashPositionMethod.getScope().declareVariable(long.class, "result");
-        hashPositionMethod.getBody().push(0L).putVariable(resultVariable);
-
-        for (int index = 0; index < joinChannelTypes.size(); index++) {
-            Type type = joinChannelTypes.get(index);
-
-            BytecodeExpression block = hashPositionMethod
-                    .getThis()
-                    .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, blockIndex)
-                    .cast(Block.class);
-
-            hashPositionMethod
-                    .getBody()
-                    .getVariable(resultVariable)
-                    .push(31L)
-                    .append(OpCode.LMUL)
-                    .append(typeHashCode(callSiteBinder, type, block, blockPosition))
-                    .append(OpCode.LADD)
-                    .putVariable(resultVariable);
-        }
-
-        hashPositionMethod
-                .getBody()
-                .getVariable(resultVariable)
-                .retLong();
     }
 
     private void generateHashRowMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes)
@@ -1022,7 +951,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, OptionalInt.class, List.class, HashArraySizeSupplier.class, OptionalInt.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, IntArrayList.class, Optional.class, OptionalInt.class, List.class, HashArraySizeSupplier.class, OptionalInt.class, List.class, InterpretedHashGenerator.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
@@ -1034,14 +963,17 @@ public class JoinCompiler
                 Session session,
                 LongArrayList addresses,
                 List<ObjectArrayList<Block>> channels,
+                IntArrayList positionCounts,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 OptionalInt sortChannel,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
-                HashArraySizeSupplier hashArraySizeSupplier)
+                HashArraySizeSupplier hashArraySizeSupplier,
+                List<Integer> joinChannels,
+                InterpretedHashGenerator hashGenerator)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, positionCounts, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel, joinChannels, hashGenerator);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

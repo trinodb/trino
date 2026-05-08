@@ -116,6 +116,25 @@ public class InterpretedHashGenerator
         }
     }
 
+    /**
+     * Variant of {@link #hashNonNulls(Page, int[], long[])} that takes blocks directly.
+     * {@code blocks[i]} is the block for hash operator {@code i}; the {@code hashChannels}
+     * mapping is not consulted — caller provides the right blocks per operator.
+     * {@code hashes} must be pre-allocated with size ≥ block position count.
+     */
+    public void hashNonNulls(Block[] blocks, int[] positions, long[] hashes)
+    {
+        for (int operatorIndex = 0; operatorIndex < hashCodeOperators.length; operatorIndex++) {
+            Block rawBlock = blocks[operatorIndex];
+            if (operatorIndex == 0) {
+                hashNonNullsFirstBlock(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+            else {
+                hashNonNullsBlockWithCombine(rawBlock, positions, hashCodeOperators[operatorIndex], hashes);
+            }
+        }
+    }
+
     @Override
     public long hashPosition(int position, Page page)
     {
