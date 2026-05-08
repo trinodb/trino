@@ -3206,13 +3206,13 @@ public class TestDeltaLakeConnectorTest
         assertQuery(
                 "SELECT * FROM " + tableName, "" +
                 """
-                    VALUES
-                        ('url1', 'domain1', 1),
-                        ('url2', 'domain4', 2),
-                        ('url3', 'domain1', 3),
-                        ('url4', 'domain1', 400),
-                        ('url5', 'domain2', 500),
-                        ('url6', 'domain4', 2)
+                VALUES
+                    ('url1', 'domain1', 1),
+                    ('url2', 'domain4', 2),
+                    ('url3', 'domain1', 3),
+                    ('url4', 'domain1', 400),
+                    ('url5', 'domain2', 500),
+                    ('url6', 'domain4', 2)
                 """);
 
         assertTableChangesQuery(

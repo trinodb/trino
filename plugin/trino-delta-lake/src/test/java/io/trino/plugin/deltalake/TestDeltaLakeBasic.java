@@ -2928,11 +2928,11 @@ public class TestDeltaLakeBasic
         // update on cloned table
         @Language("SQL") String expectedValuesAfterUpdate =
         """
-                VALUES
-                (1, 'A', TIMESTAMP '2024-01-01'),
-                (2, 'updated', TIMESTAMP '2024-01-01'),
-                (3, 'C', TIMESTAMP '2024-02-02'),
-                (4, 'updated', TIMESTAMP '2024-02-02')
+        VALUES
+        (1, 'A', TIMESTAMP '2024-01-01'),
+        (2, 'updated', TIMESTAMP '2024-01-01'),
+        (3, 'C', TIMESTAMP '2024-02-02'),
+        (4, 'updated', TIMESTAMP '2024-02-02')
         """;
         assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);

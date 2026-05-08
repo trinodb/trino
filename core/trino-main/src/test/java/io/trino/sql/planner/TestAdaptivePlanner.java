@@ -144,11 +144,11 @@ public class TestAdaptivePlanner
 
         assertAdaptivePlan(
                 """
-                    WITH t AS (SELECT regionkey, count(*) as some_count FROM nation group by regionkey)
-                    SELECT max(s.nationkey), sum(t.regionkey)
-                    FROM supplier AS s
-                    JOIN t
-                    ON s.nationkey = t.some_count
+                WITH t AS (SELECT regionkey, count(*) as some_count FROM nation group by regionkey)
+                SELECT max(s.nationkey), sum(t.regionkey)
+                FROM supplier AS s
+                JOIN t
+                ON s.nationkey = t.some_count
                 """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
@@ -361,23 +361,23 @@ public class TestAdaptivePlanner
 
         assertAdaptivePlan(
                     """
-                        SELECT
-                            sum(sales),
-                            sum(another_sales),
-                            sum(acctbal)
-                        FROM (
-                        SELECT
-                            CAST(0 AS DECIMAL(7,2)) "sales",
-                            CAST(0 AS DECIMAL(7,2)) "another_sales",
-                            cast("acctbal" as DECIMAL(7,2)) "acctbal"
-                        FROM customer
-                        UNION ALL
-                        SELECT
-                            cast("acctbal" as DECIMAL(7,2)) "sales",
-                            CAST(0 AS DECIMAL(7,2)) "another_sales",
-                            CAST(0 AS DECIMAL(7,2)) "acctbal"
-                        FROM customer
-                        ) test_table
+                    SELECT
+                        sum(sales),
+                        sum(another_sales),
+                        sum(acctbal)
+                    FROM (
+                    SELECT
+                        CAST(0 AS DECIMAL(7,2)) "sales",
+                        CAST(0 AS DECIMAL(7,2)) "another_sales",
+                        cast("acctbal" as DECIMAL(7,2)) "acctbal"
+                    FROM customer
+                    UNION ALL
+                    SELECT
+                        cast("acctbal" as DECIMAL(7,2)) "sales",
+                        CAST(0 AS DECIMAL(7,2)) "another_sales",
+                        CAST(0 AS DECIMAL(7,2)) "acctbal"
+                    FROM customer
+                    ) test_table
                     """,
                 session,
                 ImmutableList.of(new IterativeOptimizer(
