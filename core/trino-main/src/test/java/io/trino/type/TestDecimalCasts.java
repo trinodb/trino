@@ -1322,6 +1322,30 @@ public class TestDecimalCasts
     }
 
     @Test
+    public void testShortDecimalToRealDoubleRounding()
+    {
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '999999.00'"))
+                .isEqualTo(999999.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "DECIMAL '-999999.00'"))
+                .isEqualTo(-999999.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(1000001.00 AS DECIMAL(13,2))"))
+                .isEqualTo(1000001.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(16777217.0 AS DECIMAL(13,1))"))
+                .isEqualTo(16777217.0f);
+
+        assertThat(assertions.expression("cast(a as REAL)")
+                .binding("a", "CAST(-16777217.0 AS DECIMAL(13,1))"))
+                .isEqualTo(-16777217.0f);
+    }
+
+    @Test
     public void testNumberToShortDecimalCasts()
     {
         assertThat(assertions.expression("cast(a as DECIMAL(4,1))")
