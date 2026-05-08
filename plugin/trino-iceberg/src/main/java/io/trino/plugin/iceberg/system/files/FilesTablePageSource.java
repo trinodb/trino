@@ -15,10 +15,8 @@ package io.trino.plugin.iceberg.system.files;
 
 import com.google.common.io.Closer;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.system.FilesTable;
 import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
 import io.trino.spi.Page;
@@ -41,6 +39,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
@@ -129,8 +128,7 @@ public final class FilesTablePageSource
 
     public FilesTablePageSource(
             TypeManager typeManager,
-            TrinoFileSystem trinoFileSystem,
-            ForwardingFileIoFactory fileIoFactory,
+            FileIO fileIO,
             List<String> requiredColumns,
             FilesTableSplit split)
     {
@@ -146,7 +144,7 @@ public final class FilesTablePageSource
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
-        ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(readerForManifest(split.manifestFile(), fileIoFactory.create(trinoFileSystem), idToPartitionSpecMapping));
+        ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(readerForManifest(split.manifestFile(), fileIO, idToPartitionSpecMapping));
         // TODO figure out why selecting the specific column causes null to be returned for offset_splits
         this.entryIterator = closer.register(liveEntriesWithMetadata(requireNonNull(manifestReader, "manifestReader is null")).iterator());
         this.pageBuilder = new PageBuilder(requiredColumns.stream().map(column -> {

@@ -32,6 +32,10 @@ import org.apache.thrift.TException;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.kms.KmsClient;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -2436,6 +2440,50 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE remove_orphan_files(retention_threshold => '7d')");
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).hasNoRows();
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoReadingSparkEncryptedData()
+    {
+        String baseTableName = "test_trino_reading_spark_encrypted_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        String keyId;
+        try (KmsClient kmsClient = createLocalStackKmsClient()) {
+            keyId = kmsClient.createKey(builder -> builder.description("trino-iceberg-pt-" + randomNameSuffix())).keyMetadata().keyId();
+        }
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (id INT, name STRING) USING ICEBERG " +
+                        "TBLPROPERTIES ('write.format.default'='PARQUET', 'format-version'='3', 'encryption.key-id'='%s')",
+                sparkTableName, keyId));
+        onSpark().executeQuery(format("INSERT INTO %s VALUES (1, 'alice'), (2, 'bob'), (3, 'charlie')", sparkTableName));
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName + " ORDER BY id"))
+                .containsOnly(row(1, "alice"), row(2, "bob"), row(3, "charlie"));
+
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName + " ORDER BY id"))
+                .containsOnly(row(1, "alice"), row(2, "bob"), row(3, "charlie"));
+
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName("\"" + baseTableName + "$files\"") + " WHERE key_metadata IS NULL"))
+                .containsOnly(row(0L));
+
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (4, 'dave')"))
+                .hasMessageContaining("Writing to encrypted Iceberg tables is not supported");
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+    }
+
+    private static KmsClient createLocalStackKmsClient()
+    {
+        return KmsClient.builder()
+                .endpointOverride(URI.create("http://localstack:4566"))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+                .region(Region.US_EAST_1)
+                .build();
     }
 
     private static String escapeSparkString(String value)

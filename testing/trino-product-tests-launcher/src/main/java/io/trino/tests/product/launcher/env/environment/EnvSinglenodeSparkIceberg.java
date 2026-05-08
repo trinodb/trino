@@ -32,6 +32,7 @@ import java.io.File;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentDefaults.HADOOP_BASE_IMAGE;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,16 @@ public class EnvSinglenodeSparkIceberg
     private static final File HIVE_JDBC_PROVIDER = new File("testing/trino-product-tests-launcher/target/hive-jdbc.jar");
 
     private static final int SPARK_THRIFT_PORT = 10213;
+    private static final int LOCALSTACK_PORT = 4566;
+    private static final String LOCALSTACK_CONTAINER = "localstack";
+    private static final String LOCALSTACK_ENDPOINT_URL = "http://" + LOCALSTACK_CONTAINER + ":" + LOCALSTACK_PORT;
+    private static final String AWS_REGION = "us-east-1";
+    private static final String AWS_ACCESS_KEY_ID = "test";
+    private static final String AWS_SECRET_ACCESS_KEY = "test";
+    // Spark engages Iceberg encryption only with the 1.11.0+ catalog wiring
+    // (iceberg/apache#13066, #15272). Replace with 1.11.0 once released.
+    private static final String ICEBERG_SNAPSHOT_VERSION = "1.11.0-SNAPSHOT";
+    private static final String ICEBERG_SNAPSHOT_REPO = "https://repository.apache.org/content/repositories/snapshots/";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -70,12 +81,41 @@ public class EnvSinglenodeSparkIceberg
 
         builder.addConnector("iceberg", forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")));
 
+        builder.configureContainers(container -> {
+            if (isTrinoContainer(container.getLogicalName())) {
+                container
+                        .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                        .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                        .withEnv("AWS_REGION", AWS_REGION)
+                        .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL);
+            }
+        });
+
+        builder.addContainer(createLocalStack());
         builder.addContainer(createSpark())
-                .containerDependsOn("spark", HADOOP);
+                .containerDependsOn("spark", HADOOP)
+                .containerDependsOn("spark", LOCALSTACK_CONTAINER);
 
         builder.configureContainer(TESTS, dockerContainer -> dockerContainer
+                .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                .withEnv("AWS_REGION", AWS_REGION)
+                .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL)
                 // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
                 .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
+    }
+
+    @SuppressWarnings("resource")
+    private DockerContainer createLocalStack()
+    {
+        DockerContainer container = new DockerContainer("localstack/localstack:4.14.0", LOCALSTACK_CONTAINER)
+                .withEnv("SERVICES", "kms")
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .waitingFor(forSelectedPorts(LOCALSTACK_PORT));
+
+        portBinder.exposePort(container, LOCALSTACK_PORT);
+
+        return container;
     }
 
     @SuppressWarnings("resource")
@@ -83,6 +123,10 @@ public class EnvSinglenodeSparkIceberg
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
+                .withEnv("AWS_ACCESS_KEY_ID", AWS_ACCESS_KEY_ID)
+                .withEnv("AWS_SECRET_ACCESS_KEY", AWS_SECRET_ACCESS_KEY)
+                .withEnv("AWS_REGION", AWS_REGION)
+                .withEnv("AWS_ENDPOINT_URL_KMS", LOCALSTACK_ENDPOINT_URL)
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/spark-defaults.conf")),
                         "/spark/conf/spark-defaults.conf")
@@ -90,13 +134,32 @@ public class EnvSinglenodeSparkIceberg
                         forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")),
                         "/spark/conf/log4j2.properties")
                 .withCommand(
-                        "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--packages", "org.apache.spark:spark-avro_2.12:3.2.1",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                        "spark-internal")
+                        "bash", "-c",
+                        // The bundled iceberg-spark-runtime in the spark4-iceberg image is too old
+                        // to engage encryption (see ICEBERG_SNAPSHOT_VERSION). Replace it (and add
+                        // a matching iceberg-aws-bundle) by fetching the latest SNAPSHOT directly
+                        // into /spark/jars so they are on the driver classpath at startup.
+                        // --packages alone is not enough: the Thrift server's catalog plugin loader
+                        // doesn't see jars added via spark.jars at session init time.
+                        "set -e; "
+                                + "REPO=" + ICEBERG_SNAPSHOT_REPO + "org/apache/iceberg; "
+                                + "fetch_latest() { "
+                                + "  local artifact=$1; "
+                                + "  local version=$(curl -sSL \"$REPO/$artifact/" + ICEBERG_SNAPSHOT_VERSION + "/maven-metadata.xml\" "
+                                + "    | grep -oE '<value>1\\.11\\.0-[0-9.-]+</value>' | head -1 | sed -E 's|</?value>||g'); "
+                                + "  curl -sSL --fail -o \"/spark/jars/$artifact-" + ICEBERG_SNAPSHOT_VERSION + ".jar\" "
+                                + "    \"$REPO/$artifact/" + ICEBERG_SNAPSHOT_VERSION + "/$artifact-${version}.jar\"; "
+                                + "}; "
+                                + "rm -f /spark/jars/iceberg-spark-runtime-*.jar /spark/jars/iceberg-aws-bundle-*.jar; "
+                                + "fetch_latest iceberg-spark-runtime-4.0_2.13; "
+                                + "fetch_latest iceberg-aws-bundle; "
+                                + "exec spark-submit"
+                                + " --master local[*]"
+                                + " --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2"
+                                + " --name 'Thrift JDBC/ODBC Server'"
+                                + " --packages org.apache.spark:spark-avro_2.12:3.2.1"
+                                + " --conf spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT
+                                + " spark-internal")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 

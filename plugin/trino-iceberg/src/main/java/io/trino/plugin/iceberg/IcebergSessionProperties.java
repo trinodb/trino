@@ -23,6 +23,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
@@ -106,6 +107,7 @@ public final class IcebergSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
     public static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String PLAINTEXT_FILES_ALLOWED_FOR_ENCRYPTED_TABLES = "plaintext_files_allowed_for_encrypted_tables";
     private static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -113,6 +115,7 @@ public final class IcebergSessionProperties
     @Inject
     public IcebergSessionProperties(
             IcebergConfig icebergConfig,
+            IcebergEncryptionConfig encryptionConfig,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
@@ -384,6 +387,11 @@ public final class IcebergSessionProperties
                         "Enable bucket-aware execution: use physical bucketing information to optimize queries",
                         icebergConfig.isBucketExecutionEnabled(),
                         false))
+                .add(booleanProperty(
+                        PLAINTEXT_FILES_ALLOWED_FOR_ENCRYPTED_TABLES,
+                        "Allow reading unencrypted files in tables with encryption enabled",
+                        encryptionConfig.isPlaintextFilesAllowedForEncryptedTables(),
+                        false))
                 .add(integerProperty(
                         MAX_PARTITIONS_PER_WRITER,
                         "Maximum number of partitions per writer",
@@ -638,5 +646,10 @@ public final class IcebergSessionProperties
     public static int maxPartitionsPerWriter(ConnectorSession session)
     {
         return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
+    }
+
+    public static boolean arePlaintextFilesAllowedForEncryptedTables(ConnectorSession session)
+    {
+        return session.getProperty(PLAINTEXT_FILES_ALLOWED_FOR_ENCRYPTED_TABLES, Boolean.class);
     }
 }
