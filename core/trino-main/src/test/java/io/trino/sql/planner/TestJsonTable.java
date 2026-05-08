@@ -103,7 +103,7 @@ public class TestJsonTable
                         bigint_col BIGINT DEFAULT 5 ON EMPTY DEFAULT int_col ON ERROR,
                         varchar_col VARCHAR FORMAT JSON ERROR ON ERROR)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 CREATED,
                 strictOutput(// left-side columns first, json_table columns next
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
@@ -151,7 +151,7 @@ public class TestJsonTable
                         first_col BIGINT,
                         "Second_Col" BIGINT,
                         "_""_'_?_" BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -173,7 +173,7 @@ public class TestJsonTable
                         first_col BIGINT PATH 'lax $.a',
                         "Second_Col" BIGINT PATH 'lax $.B',
                         "_""_'_?_" BIGINT PATH 'lax false'))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -199,7 +199,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.y' COLUMNS(
                                 c BIGINT)),
                         d BIGINT))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -231,7 +231,7 @@ public class TestJsonTable
                         d VARCHAR FORMAT JSON,
                         e VARCHAR FORMAT JSON WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY ERROR ON ERROR,
                         f VARCHAR FORMAT JSON OMIT QUOTES EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -289,7 +289,7 @@ public class TestJsonTable
                     'lax $' AS root_path
                     COLUMNS(
                         a BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -311,7 +311,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -333,7 +333,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -355,7 +355,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT NULL ON ERROR)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -384,7 +384,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.c' COLUMNS(col_2 BIGINT),
                             NESTED PATH 'lax $.d' COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' COLUMNS(col_4 BIGINT)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -425,7 +425,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (INNER, CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -462,7 +462,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -503,7 +503,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN (ROOT_PATH INNER (((B OUTER (D CROSS C)) UNION E) CROSS A)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
