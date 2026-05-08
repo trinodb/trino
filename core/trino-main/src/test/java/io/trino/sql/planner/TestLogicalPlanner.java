@@ -382,15 +382,15 @@ public class TestLogicalPlanner
                                         filter(
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                                 join(INNER, builder -> builder
-                                                        .addDynamicFilter("DF", "L_ORDERKEY")
+                                                        .addDynamicFilter("DF", "O_ORDERKEY")
                                                         .left(
                                                                 filter(
                                                                         TRUE,
                                                                         dynamicFilters -> dynamicFilters
-                                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").operator(LESS_THAN)),
-                                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
+                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                                         .right(
-                                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))
+                                                                any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
         assertPlan(
@@ -532,15 +532,15 @@ public class TestLogicalPlanner
                         filter(
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY")),
                                 join(INNER, builder -> builder
-                                        .addDynamicFilter("DF", "L_ORDERKEY")
+                                        .addDynamicFilter("DF", "O_ORDERKEY")
                                         .left(
                                                 filter(
                                                         TRUE,
                                                         dynamicFilters -> dynamicFilters
-                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").operator(LESS_THAN)),
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                                .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "L_ORDERKEY").operator(GREATER_THAN)),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                         .right(
-                                                any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
+                                                any(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -582,13 +582,11 @@ public class TestLogicalPlanner
                                 join(INNER, builder -> builder
                                         .left(
                                                 filter(
-                                                        TRUE,
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                         .right(
                                                 any(
-                                                        filter(
-                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "L_ORDERKEY"))),
-                                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))))));
+                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -1772,8 +1770,8 @@ public class TestLogicalPlanner
                                         singleGroupingSet("region_regionkey", "region_name", "unique"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
-                                        SINGLE,
-                                        project(
+                                        FINAL,
+                                        anyTree(project(
                                                 ImmutableMap.of(
                                                         "region_regionkey", expression(new Reference(BIGINT, "region_regionkey")),
                                                         "region_name", expression(new Reference(VARCHAR, "region_name")),
@@ -1781,27 +1779,27 @@ public class TestLogicalPlanner
                                                 filter(
                                                         new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(new IsNull(new Reference(BIGINT, "region_regionkey")), new Comparison(EQUAL, new Reference(BIGINT, "region_regionkey"), new Reference(BIGINT, "nation_regionkey")), new IsNull(new Reference(BIGINT, "nation_regionkey")))), new Comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")))),
                                                         join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "nation_name")
+                                                                .addDynamicFilter("DF", "region_name")
                                                                 .left(
-                                                                        assignUniqueId(
-                                                                                "unique",
-                                                                                filter(
-                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
-                                                                                        dynamicFilters -> dynamicFilters
-                                                                                                .addConsumer(consumer -> consumer
-                                                                                                        .alias("DF")
-                                                                                                        .expression(VARCHAR, "region_name")
-                                                                                                        .operator(GREATER_THAN)),
-                                                                                        tableScan("region", ImmutableMap.of(
-                                                                                                "region_regionkey", "regionkey",
-                                                                                                "region_name", "name")))))
+                                                                        filter(
+                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
+                                                                                dynamicFilters -> dynamicFilters
+                                                                                        .addConsumer(consumer -> consumer
+                                                                                                .alias("DF")
+                                                                                                .expression(VARCHAR, "nation_name")
+                                                                                                .operator(LESS_THAN)),
+                                                                                tableScan("nation", ImmutableMap.of(
+                                                                                        "nation_name", "name",
+                                                                                        "nation_regionkey", "regionkey"))))
                                                                 .right(
                                                                         any(
-                                                                                filter(
-                                                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "nation_regionkey"))),
-                                                                                        tableScan("nation", ImmutableMap.of(
-                                                                                                "nation_name", "name",
-                                                                                                "nation_regionkey", "regionkey"))))))))))));
+                                                                                assignUniqueId(
+                                                                                        "unique",
+                                                                                        filter(
+                                                                                                not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(BIGINT, "region_regionkey"))),
+                                                                                                tableScan("region", ImmutableMap.of(
+                                                                                                        "region_regionkey", "regionkey",
+                                                                                                        "region_name", "name"))))))))))))));
     }
 
     @Test
@@ -1815,28 +1813,28 @@ public class TestLogicalPlanner
                                         singleGroupingSet("region_regionkey", "region_name", "unique"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
-                                        SINGLE,
-                                        project(
+                                        FINAL,
+                                        anyTree(project(
                                                 filter(
                                                         new Comparison(LESS_THAN, new Reference(VARCHAR, "nation_name"), new Reference(VARCHAR, "region_name")),
                                                         join(INNER, builder -> builder
-                                                                .addDynamicFilter("DF", "nation_name")
+                                                                .addDynamicFilter("DF", "region_name")
                                                                 .left(
-                                                                        assignUniqueId(
-                                                                                "unique",
-                                                                                filter(
-                                                                                        TRUE,
-                                                                                        dynamicFilters -> dynamicFilters
-                                                                                                .addConsumer(consumer -> consumer
-                                                                                                        .alias("DF")
-                                                                                                        .expression(VARCHAR, "region_name")
-                                                                                                        .operator(GREATER_THAN)),
-                                                                                        tableScan("region", ImmutableMap.of(
-                                                                                                "region_regionkey", "regionkey",
-                                                                                                "region_name", "name")))))
+                                                                        filter(
+                                                                                TRUE,
+                                                                                dynamicFilters -> dynamicFilters
+                                                                                        .addConsumer(consumer -> consumer
+                                                                                                .alias("DF")
+                                                                                                .expression(VARCHAR, "nation_name")
+                                                                                                .operator(LESS_THAN)),
+                                                                                tableScan("nation", ImmutableMap.of("nation_name", "name"))))
                                                                 .right(
                                                                         any(
-                                                                                tableScan("nation", ImmutableMap.of("nation_name", "name")))))))))));
+                                                                                assignUniqueId(
+                                                                                        "unique",
+                                                                                        tableScan("region", ImmutableMap.of(
+                                                                                                "region_regionkey", "regionkey",
+                                                                                                "region_name", "name")))))))))))));
     }
 
     @Test

@@ -338,10 +338,10 @@ public class TestSpatialJoinPlanning
                         filter(
                                 not(FUNCTIONS.getMetadata(), new Call(ST_CONTAINS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt"), VARCHAR))), new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat")))))),
                                 join(INNER, builder -> builder
-                                        .left(tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))
+                                        .left(tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))
                                         .right(
                                                 anyTree(
-                                                        tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))))));
+                                                        tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))))))));
     }
 
     @Test
@@ -382,14 +382,14 @@ public class TestSpatialJoinPlanning
                         "WHERE a.name = b.name AND ST_Contains(ST_GeometryFromText(wkt), ST_Point(lng, lat))",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("name_a", "name_b")
+                                .equiCriteria("name_b", "name_a")
                                 .filter(new Call(ST_CONTAINS, ImmutableList.of(new Call(ST_GEOMETRY_FROM_TEXT, ImmutableList.of(new Cast(new Reference(VARCHAR, "wkt"), VARCHAR))), new Call(ST_POINT, ImmutableList.of(new Reference(DOUBLE, "lng"), new Reference(DOUBLE, "lat"))))))
                                 .left(
                                         anyTree(
-                                                tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name"))))
+                                                tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name"))))
                                 .right(
                                         anyTree(
-                                                tableScan("polygons", ImmutableMap.of("wkt", "wkt", "name_b", "name")))))));
+                                                tableScan("points", ImmutableMap.of("lng", "lng", "lat", "lat", "name_a", "name")))))));
     }
 
     @Test
