@@ -985,6 +985,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d');
  active_files_count         |           98
  scanned_files_count        |           97
  deleted_files_count        |            0
+ deleted_bytes              |            0
 ```
 
 The value for `retention_threshold` must be higher than or equal to
@@ -1009,6 +1010,8 @@ The output of the query has the following metrics:
   - The count of files scanned from the file system.
 * - `deleted_files_count`
   - The count of files deleted by remove_orphan_files.
+* - `deleted_bytes`
+  - The total size in bytes of files deleted by remove_orphan_files.
 :::
 
 (drop-extended-stats)=

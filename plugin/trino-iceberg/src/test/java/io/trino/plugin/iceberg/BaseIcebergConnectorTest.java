@@ -7053,20 +7053,25 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
         String location = getTableLocation(tableName);
-        String orphanFile = getIcebergTableDataPath(location) + "/invalidData." + format;
-        createFile(orphanFile);
+        String orphanFile1 = getIcebergTableDataPath(location) + "/invalidData1." + format;
+        String orphanFile2 = getIcebergTableDataPath(location) + "/invalidData2." + format;
+        int orphanFile1Bytes = 123;
+        int orphanFile2Bytes = 456;
+        int totalOrphanBytes = orphanFile1Bytes + orphanFile2Bytes;
+        createFile(orphanFile1, new byte[orphanFile1Bytes]);
+        createFile(orphanFile2, new byte[orphanFile2Bytes]);
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(initialDataFiles).contains(orphanFile);
+        assertThat(initialDataFiles).contains(orphanFile1, orphanFile2);
 
         assertUpdate(
                 sessionWithShortRetentionUnlocked,
                 "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
-                "VALUES ('processed_manifests_count', 3), ('active_files_count', 16), ('scanned_files_count', 17), ('deleted_files_count', 1)");
+                "VALUES ('processed_manifests_count', 3), ('active_files_count', 16), ('scanned_files_count', 18), ('deleted_files_count', 2), ('deleted_bytes', " + totalOrphanBytes + ")");
         assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
-        assertThat(updatedDataFiles).doesNotContain(orphanFile);
+        assertThat(updatedDataFiles).doesNotContain(orphanFile1, orphanFile2);
     }
 
     @Test
@@ -10018,6 +10023,12 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         fileSystem.newOutputFile(Location.of(location)).create().close();
+    }
+
+    protected void createFile(String location, byte[] content)
+            throws IOException
+    {
+        fileSystem.newOutputFile(Location.of(location)).createOrOverwrite(content);
     }
 
     private List<Long> getSnapshotIds(String tableName)
