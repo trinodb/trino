@@ -26,24 +26,24 @@ public final class NullablePositions
 {
     private NullablePositions() {}
 
-    public static int[] getNonNullPositions(Block[] nullableBlocks, int nullableBlocksCount, int positionCount)
+    /**
+     * Returns the indices of non-null positions across {@code nullableBlocks}, or an empty {@link Optional} when
+     * every position is non-null. The empty result lets callers that don't need an explicit position list skip the
+     * identity-array allocation that would otherwise occur on the all-non-null fast path.
+     */
+    public static Optional<int[]> getNonNullPositions(Block[] nullableBlocks, int nullableBlocksCount, int positionCount)
     {
         if (nullableBlocksCount == 0) {
-            // no nullable blocks, all positions are non-null
-            int[] positions = new int[positionCount];
-            for (int position = 0; position < positionCount; position++) {
-                positions[position] = position;
-            }
-            return positions;
+            return Optional.empty();
         }
         if (nullableBlocksCount == 1) {
             // Special case for a single nullable block to avoid the need for explicit `boolean[] isNull`
             int[] outputPositions = new int[positionCount];
             int outputPositionsCount = getNonNullPositions(nullableBlocks[0], positionCount, outputPositions);
             if (outputPositionsCount == positionCount) {
-                return outputPositions;
+                return Optional.empty();
             }
-            return Arrays.copyOf(outputPositions, outputPositionsCount);
+            return Optional.of(Arrays.copyOf(outputPositions, outputPositionsCount));
         }
 
         boolean[] isNull = new boolean[positionCount];
@@ -56,9 +56,9 @@ public final class NullablePositions
         // For the last nullable block, we need to fill outputPositions and count non-null positions
         int outputPositionsCount = getNonNullPositionsLast(nullableBlocks[nullableBlocksCount - 1], isNull, outputPositions);
         if (outputPositionsCount == positionCount) {
-            return outputPositions;
+            return Optional.empty();
         }
-        return Arrays.copyOf(outputPositions, outputPositionsCount);
+        return Optional.of(Arrays.copyOf(outputPositions, outputPositionsCount));
     }
 
     private static int getNonNullPositions(Block nullableBlock, int positionCount, int[] outputPositions)

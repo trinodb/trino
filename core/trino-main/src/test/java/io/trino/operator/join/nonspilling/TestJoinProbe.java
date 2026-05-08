@@ -18,6 +18,7 @@ import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
@@ -46,19 +47,34 @@ final class TestJoinProbe
             }
         }
 
-        int[] nonNullPositions = getNonNullPositions(blocks, 90, positionCount);
+        Optional<int[]> nonNullPositions = getNonNullPositions(blocks, 90, positionCount);
         int[] expectedNonNullPositions = getExpectedNonNullPositions(Arrays.copyOf(blocks, 90), positionCount);
-        assertThat(nonNullPositions).containsExactly(expectedNonNullPositions);
+        assertThat(nonNullPositions).hasValueSatisfying(positions -> assertThat(positions).containsExactly(expectedNonNullPositions));
 
-        blocks = Arrays.copyOfRange(blocks, 13, 46);
-        nonNullPositions = getNonNullPositions(blocks, blocks.length, positionCount);
-        expectedNonNullPositions = getExpectedNonNullPositions(blocks, positionCount);
-        assertThat(nonNullPositions).containsExactly(expectedNonNullPositions);
+        Block[] blocks1 = Arrays.copyOfRange(blocks, 13, 46);
+        Optional<int[]> nonNullPositions1 = getNonNullPositions(blocks1, blocks1.length, positionCount);
+        int[] expected1 = getExpectedNonNullPositions(blocks1, positionCount);
+        assertThat(nonNullPositions1).hasValueSatisfying(positions -> assertThat(positions).containsExactly(expected1));
 
-        blocks = Arrays.copyOfRange(blocks, 0, 25);
-        nonNullPositions = getNonNullPositions(blocks, blocks.length, positionCount);
-        expectedNonNullPositions = getExpectedNonNullPositions(blocks, positionCount);
-        assertThat(nonNullPositions).containsExactly(expectedNonNullPositions);
+        Block[] blocks2 = Arrays.copyOfRange(blocks1, 0, 25);
+        Optional<int[]> nonNullPositions2 = getNonNullPositions(blocks2, blocks2.length, positionCount);
+        int[] expected2 = getExpectedNonNullPositions(blocks2, positionCount);
+        assertThat(nonNullPositions2).hasValueSatisfying(positions -> assertThat(positions).containsExactly(expected2));
+    }
+
+    @Test
+    void testGetNonNullPositionsReturnsEmptyWhenAllNonNull()
+    {
+        int positionCount = 1024;
+        // No nullable blocks at all
+        assertThat(getNonNullPositions(new Block[0], 0, positionCount)).isEmpty();
+
+        // Nullable blocks present but containing no actual nulls
+        Block[] blocks = new Block[3];
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = createRandomBlockForType(BIGINT, positionCount, 0f);
+        }
+        assertThat(getNonNullPositions(blocks, blocks.length, positionCount)).isEmpty();
     }
 
     private static int[] getExpectedNonNullPositions(Block[] blocks, int positionCount)
