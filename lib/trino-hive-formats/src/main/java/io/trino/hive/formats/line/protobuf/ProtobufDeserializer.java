@@ -178,6 +178,6 @@ public class ProtobufDeserializer
     {
         return Stream.concat(message.getAllFields().keySet().stream(),
                         message.getDescriptorForType().getFields().stream().filter(FieldDescriptor::hasDefaultValue))
-                .collect(toImmutableMap(FieldDescriptor::getName, identity(), (l, r) -> l));
+                .collect(toImmutableMap(FieldDescriptor::getName, identity(), (l, _) -> l));
     }
 }

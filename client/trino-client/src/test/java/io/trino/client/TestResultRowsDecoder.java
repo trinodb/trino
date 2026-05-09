@@ -117,7 +117,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
@@ -132,7 +132,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
@@ -148,7 +148,7 @@ class TestResultRowsDecoder
                 .mapToObj(Integer::toString)
                 .reduce("[", (a, b) -> a + "[" + b + "],", String::concat) + "[1337]]";
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream(data.getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream), false)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2501))).iterator();
             assertThat(stream.getCount()).isEqualTo(0);
             iterator.next();
@@ -174,7 +174,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))
                     .iterator();
 

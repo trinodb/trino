@@ -349,8 +349,8 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
                         Range.lessThan(REAL, 0L),
-                        Range.range(REAL, 0L, false, toReal(1F), false),
-                        Range.greaterThan(REAL, toReal(1F))),
+                        Range.range(REAL, 0L, false, toReal(1f), false),
+                        Range.greaterThan(REAL, toReal(1f))),
                 false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(
                 lessThan(C_REAL, realLiteral(0.0f)),
@@ -360,8 +360,8 @@ public class TestDomainTranslator
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
                         Range.lessThan(REAL, 0L),
-                        Range.range(REAL, 0L, false, toReal(1F), false),
-                        Range.greaterThan(REAL, toReal(2F))),
+                        Range.range(REAL, 0L, false, toReal(1f), false),
+                        Range.greaterThan(REAL, toReal(2f))),
                 false));
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_REAL, realLiteral(1.0f)), notEqual(C_REAL, realLiteral(0.0f))), greaterThan(C_REAL, realLiteral(2.0f))));
 

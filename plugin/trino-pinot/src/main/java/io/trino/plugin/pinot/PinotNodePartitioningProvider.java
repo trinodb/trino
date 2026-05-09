@@ -47,7 +47,7 @@ public class PinotNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle,
             int bucketCount)
     {
-        return value -> 0;
+        return _ -> 0;
     }
 
     @Override

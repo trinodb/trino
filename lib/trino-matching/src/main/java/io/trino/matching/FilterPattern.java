@@ -41,6 +41,6 @@ public final class FilterPattern<T>
         //TODO remove cast
         BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;
         return Stream.of(Match.of(captures))
-                .filter(match -> predicate.test((T) object, context));
+                .filter(_ -> predicate.test((T) object, context));
     }
 }

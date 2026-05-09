@@ -15,7 +15,10 @@ package io.trino.sql.ir;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionFormatter
@@ -32,6 +35,16 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new Reference(BIGINT, "with \" quote, $ dollar and ' apostrophe"),
                 "\"with \"\" quote, $ dollar and ' apostrophe\"");
+    }
+
+    @Test
+    public void testEveryExpressionConsidered()
+            throws Exception
+    {
+        assertAllMethodsOverridden(IrVisitor.class, ExpressionFormatter.Formatter.class, Set.of(
+                // process(..) have reasonable defaults
+                IrVisitor.class.getMethod("process", Expression.class),
+                IrVisitor.class.getMethod("process", Expression.class, Object.class /*context*/)));
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

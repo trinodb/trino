@@ -64,11 +64,11 @@ public class TestAdaptivePlanner
                                 any(
                                         adaptivePlan(
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "nationkey_1"))))
+                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "nationkey_1"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("2")))))),
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey_1"), new Symbol(BIGINT, "nationkey"))))
+                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey_1"), new Symbol(BIGINT, "nationkey"))))
                                                         .right(remoteSource(ImmutableList.of(new PlanFragmentId("1"))))
                                                         .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))))))))
                 .children(
@@ -118,11 +118,11 @@ public class TestAdaptivePlanner
                                 .planPattern(node(AggregationNode.class,
                                         adaptivePlan(
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
+                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "nationkey"), new Symbol(BIGINT, "count"))))
                                                         .left(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .right(any(remoteSource(ImmutableList.of(new PlanFragmentId("3")))))),
                                                 join(INNER, builder -> builder
-                                                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
+                                                        .equiCriteria(ImmutableList.of(_ -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "count"), new Symbol(BIGINT, "nationkey"))))
                                                         .right(remoteSource(ImmutableList.of(new PlanFragmentId("2"))))
                                                         .left(any(remoteSource(ImmutableList.of(new PlanFragmentId("3"))))))))))
                                 .children(

@@ -42,7 +42,7 @@ public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
     private final ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+            (expression, _) -> ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
                 protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
@@ -54,7 +54,7 @@ public class TestExpressionRewriteRuleSet
                 public Expression rewriteRow(Row node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
                 {
                     // rewrite Row items to preserve Row structure of ValuesNode
-                    return new Row(node.items().stream().map(item -> new Constant(INTEGER, 0L)).collect(toImmutableList()), node.type());
+                    return new Row(node.items().stream().map(_ -> new Constant(INTEGER, 0L)).collect(toImmutableList()), node.type());
                 }
             }, expression));
 
@@ -71,7 +71,7 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
-        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> new Reference(BIGINT, "y"));
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((_, _) -> new Reference(BIGINT, "y"));
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()

@@ -244,8 +244,8 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         String tableLocationWithTrailingSpace = tableLocationWithoutTrailingSpace + " ";
 
         assertThat(query(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace))).failure()
-                .hasMessageStartingWith("Failed to commit the transaction during insert")
-                .hasMessageContaining("Malformed request: Table location is immutable");
+                .hasMessage("Failed to create transaction")
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test
@@ -263,7 +263,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
     {
         assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
                 .hasMessageMatching("Expected query .* to succeed: CREATE TABLE.*")
-                .hasStackTraceContaining("Malformed request: Table location is immutable");
+                .hasStackTraceContaining("Malformed request: The table `location` property can only point to the default path:");
     }
 
     @Test

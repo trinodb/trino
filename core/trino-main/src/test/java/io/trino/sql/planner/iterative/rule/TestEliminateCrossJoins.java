@@ -73,10 +73,10 @@ public class TestEliminateCrossJoins
                 .on(crossJoinAndJoin(INNER))
                 .matches(
                         join(INNER, builder -> builder
-                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "cySymbol"), new Symbol(BIGINT, "bySymbol"))))
+                                .equiCriteria(ImmutableList.of(_ -> new EquiJoinClause(new Symbol(BIGINT, "cySymbol"), new Symbol(BIGINT, "bySymbol"))))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "axSymbol"), new Symbol(BIGINT, "cxSymbol"))))
+                                                .equiCriteria(ImmutableList.of(_ -> new EquiJoinClause(new Symbol(BIGINT, "axSymbol"), new Symbol(BIGINT, "cxSymbol"))))
                                                 .left(any())
                                                 .right(any())))
                                 .right(any())));
@@ -247,12 +247,12 @@ public class TestEliminateCrossJoins
                 .matches(
                         node(ProjectNode.class,
                                 join(INNER, builder -> builder
-                                        .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "d"), new Symbol(BIGINT, "f"))))
+                                        .equiCriteria(ImmutableList.of(_ -> new EquiJoinClause(new Symbol(BIGINT, "d"), new Symbol(BIGINT, "f"))))
                                         .left(join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "a2"), new Symbol(BIGINT, "c"))))
+                                                .equiCriteria(ImmutableList.of(_ -> new EquiJoinClause(new Symbol(BIGINT, "a2"), new Symbol(BIGINT, "c"))))
                                                 .left(
                                                         join(INNER, leftInnerJoinBuilder -> leftInnerJoinBuilder
-                                                                .equiCriteria(ImmutableList.of(aliases -> new EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "e"))))
+                                                                .equiCriteria(ImmutableList.of(_ -> new EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "e"))))
                                                                 .left(
                                                                         strictProject(
                                                                                 ImmutableMap.of(

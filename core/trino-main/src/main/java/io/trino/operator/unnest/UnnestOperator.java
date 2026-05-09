@@ -131,7 +131,7 @@ public class UnnestOperator
         this.replicateTypes = ImmutableList.copyOf(requireNonNull(replicateTypes, "replicateTypes is null"));
         checkArgument(replicateChannels.size() == replicateTypes.size(), "replicate channels or types has wrong size");
         this.replicatedBlockBuilders = replicateTypes.stream()
-                .map(type -> new ReplicatedBlockBuilder())
+                .map(_ -> new ReplicatedBlockBuilder())
                 .collect(toImmutableList());
 
         this.unnestChannels = ImmutableList.copyOf(requireNonNull(unnestChannels, "unnestChannels is null"));

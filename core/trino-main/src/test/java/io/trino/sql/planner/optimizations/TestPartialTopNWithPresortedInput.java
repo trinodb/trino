@@ -91,7 +91,7 @@ public class TestPartialTopNWithPresortedInput
                 .build();
         PlanTester planTester = PlanTester.create(session);
         MockConnectorFactory mockFactory = MockConnectorFactory.builder()
-                .withGetTableProperties((connectorSession, handle) -> {
+                .withGetTableProperties((_, handle) -> {
                     MockConnectorTableHandle tableHandle = (MockConnectorTableHandle) handle;
                     if (tableHandle.getTableName().equals(tableA)) {
                         return new ConnectorTableProperties(

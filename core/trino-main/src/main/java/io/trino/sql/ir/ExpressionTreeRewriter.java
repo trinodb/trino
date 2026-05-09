@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -67,7 +68,8 @@ public final class ExpressionTreeRewriter<C>
         return (T) visitor.process(node, new Context<>(context, true));
     }
 
-    private class RewritingVisitor
+    @VisibleForTesting
+    class RewritingVisitor
             extends IrVisitor<Expression, Context<C>>
     {
         @Override

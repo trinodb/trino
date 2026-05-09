@@ -209,16 +209,16 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanWriteSystemInformation(nonAsciiUser);
 
         accessControlManager.checkCanReadSystemInformation(admin);
-        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
+        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(_ -> {
             accessControlManager.checkCanWriteSystemInformation(alice);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot write system information");
 
-        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
+        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(_ -> {
             accessControlManager.checkCanReadSystemInformation(bob);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot read system information");
-        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
+        assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(_ -> {
             accessControlManager.checkCanWriteSystemInformation(bob);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot write system information");

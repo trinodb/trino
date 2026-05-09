@@ -22,7 +22,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -79,7 +78,7 @@ public final class GlueExpressionUtil
 
     private static boolean canConvertSqlTypeToStringForGlue(Type type, boolean assumeCanonicalPartitionKeys)
     {
-        return !(type instanceof TimestampType) && !(type instanceof DateType) && (type instanceof CharType || type instanceof VarcharType || assumeCanonicalPartitionKeys);
+        return !(type instanceof TimestampType) && (type instanceof CharType || type instanceof VarcharType || assumeCanonicalPartitionKeys);
     }
 
     /**

@@ -132,8 +132,8 @@ final class TestIcebergDefaultValue
     void testDoubleInitialDefault(IcebergFileFormat format)
     {
         testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(3.14), "DOUBLE '3.14'");
-        testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(1.0E100), "DOUBLE '1.0E100'");
-        testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(1.23456E12), "DOUBLE '1.23456E12'");
+        testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(1.0e100), "DOUBLE '1.0E100'");
+        testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(1.23456e12), "DOUBLE '1.23456E12'");
         testInitialDefaultValue(format, Types.DoubleType.get(), Literal.of(123), "DOUBLE '123'");
     }
 

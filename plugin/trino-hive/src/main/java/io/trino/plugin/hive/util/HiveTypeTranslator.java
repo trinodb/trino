@@ -175,30 +175,33 @@ public final class HiveTypeTranslator
 
     public static TypeSignature toTypeSignature(TypeInfo typeInfo, HiveTimestampPrecision timestampPrecision)
     {
-        switch (typeInfo.getCategory()) {
-            case PRIMITIVE:
+        return switch (typeInfo.getCategory()) {
+            case PRIMITIVE -> {
                 Type primitiveType = fromPrimitiveType((PrimitiveTypeInfo) typeInfo, timestampPrecision);
                 if (primitiveType == null) {
-                    break;
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
                 }
-                return primitiveType.getTypeSignature();
-            case MAP:
+                yield primitiveType.getTypeSignature();
+            }
+            case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                return mapType(
+                yield mapType(
                         toTypeSignature(mapTypeInfo.getMapKeyTypeInfo(), timestampPrecision),
                         toTypeSignature(mapTypeInfo.getMapValueTypeInfo(), timestampPrecision));
-            case LIST:
+            }
+            case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeSignature elementType = toTypeSignature(listTypeInfo.getListElementTypeInfo(), timestampPrecision);
-                return arrayType(typeParameter(elementType));
-            case STRUCT:
+                yield arrayType(typeParameter(elementType));
+            }
+            case STRUCT -> {
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
                 if (fieldTypes.size() != fieldNames.size()) {
                     throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
-                return rowType(Streams.zip(
+                yield rowType(Streams.zip(
                         // We lower case the struct field names.
                         // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
                         // Users can't work around this by casting in their queries because Trino parser always lower case types.
@@ -207,15 +210,16 @@ public final class HiveTypeTranslator
                         fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
                         TypeParameter::namedField)
                         .collect(Collectors.toList()));
-            case UNION:
+            }
+            case UNION -> {
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
-                return rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
+                yield rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
                         .map(unionObjectType -> toTypeSignature(unionObjectType, timestampPrecision))
                         .collect(toImmutableList()));
-        }
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
+            }
+        };
     }
 
     /**

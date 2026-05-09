@@ -95,6 +95,13 @@ public final class FilterReorderingProfiler
 
         double score()
         {
+            // AND short-circuits on empty activePositions, so a later term may
+            // never run. Sort such an unmeasured filter to the back instead of
+            // promoting it ahead of a measured term that was already filtering
+            // every row.
+            if (totalFilterTimeNanos == 0) {
+                return Double.POSITIVE_INFINITY;
+            }
             return totalFilterTimeNanos / (1.0 + totalFilteredPositions);
         }
     }

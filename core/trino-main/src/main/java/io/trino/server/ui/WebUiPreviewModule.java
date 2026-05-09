@@ -32,23 +32,11 @@ public class WebUiPreviewModule
         jaxrsBinder(binder).bind(WebUiPreviewStaticResource.class);
         String authentication = getAuthenticationType();
         switch (authentication) {
-            case "insecure":
-            case "form":
-            case "jwt":
-            case "kerberos":
-            case "certificate":
-                jaxrsBinder(binder).bind(LoginPreviewResource.class);
-                break;
-            case "fixed":
-                jaxrsBinder(binder).bind(FixedUserPreviewResource.class);
-                break;
-            case "oauth2":
-                jaxrsBinder(binder).bind(OAuth2WebUiPreviewResource.class);
-                break;
-            case "none":
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown authentication type: " + authentication);
+            case "insecure", "form", "jwt", "kerberos", "certificate" -> jaxrsBinder(binder).bind(LoginPreviewResource.class);
+            case "fixed" -> jaxrsBinder(binder).bind(FixedUserPreviewResource.class);
+            case "oauth2" -> jaxrsBinder(binder).bind(OAuth2WebUiPreviewResource.class);
+            case "none" -> {}
+            default -> throw new IllegalArgumentException("Unknown authentication type: " + authentication);
         }
     }
 

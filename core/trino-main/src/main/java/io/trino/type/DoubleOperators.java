@@ -35,7 +35,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -91,9 +91,9 @@ public final class DoubleOperators
         return left / right;
     }
 
-    @ScalarOperator(MODULUS)
+    @ScalarOperator(MODULO)
     @SqlType(StandardTypes.DOUBLE)
-    public static double modulus(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
+    public static double modulo(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         return left % right;
     }
@@ -158,11 +158,14 @@ public final class DoubleOperators
     @SqlType(StandardTypes.BIGINT)
     public static long castToLong(@SqlType(StandardTypes.DOUBLE) double value)
     {
+        if (Double.isNaN(value)) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to bigint");
+        }
         try {
             return DoubleMath.roundToLong(value, HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + value, e);
         }
     }
 

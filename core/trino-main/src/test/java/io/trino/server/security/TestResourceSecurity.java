@@ -504,7 +504,7 @@ public class TestResourceSecurity
             String token = tokenBuilder.compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -538,7 +538,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -613,7 +613,7 @@ public class TestResourceSecurity
             String token = tokenBuilder.compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -708,7 +708,7 @@ public class TestResourceSecurity
             }
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + getOauthToken(client, bearer.tokenServer()))
                             .build())
                     .build();
@@ -810,7 +810,7 @@ public class TestResourceSecurity
 
             String accessToken = tokenServer.issueAccessToken();
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + accessToken)
                             .build())
                     .build();
@@ -890,7 +890,7 @@ public class TestResourceSecurity
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + tokenServer.getAccessToken())
                             .build())
                     .build();
@@ -905,7 +905,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -947,7 +947,7 @@ public class TestResourceSecurity
                     .compact();
 
             OkHttpClient clientWithJwt = client.newBuilder()
-                    .authenticator((route, response) -> response.request().newBuilder()
+                    .authenticator((_, response) -> response.request().newBuilder()
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
@@ -1171,7 +1171,7 @@ public class TestResourceSecurity
             this.sessionContextFactory = new HttpRequestSessionContextFactory(
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestingMetadataManager(),
-                    user -> ImmutableSet.of(),
+                    _ -> ImmutableSet.of(),
                     accessControl,
                     new ProtocolConfig(),
                     QueryDataEncoder.EncoderSelector.noEncoder());

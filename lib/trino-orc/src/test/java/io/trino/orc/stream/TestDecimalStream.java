@@ -254,16 +254,16 @@ public class TestDecimalStream
         }
         int length = value.bitLength();
         while (true) {
-            long lowBits = value.longValue() & 0x7fffffffffffffffL;
+            long lowBits = value.longValue() & 0x7FFFFFFFFFFFFFFFL;
             length -= 63;
             // write out the next 63 bits worth of data
             for (int i = 0; i < 9; ++i) {
                 // if this is the last byte, leave the high bit off
-                if (length <= 0 && (lowBits & ~0x7f) == 0) {
+                if (length <= 0 && (lowBits & ~0x7F) == 0) {
                     output.write((byte) lowBits);
                     return;
                 }
-                output.write((byte) (0x80 | (lowBits & 0x7f)));
+                output.write((byte) (0x80 | (lowBits & 0x7F)));
                 lowBits >>>= 7;
             }
             value = value.shiftRight(63);

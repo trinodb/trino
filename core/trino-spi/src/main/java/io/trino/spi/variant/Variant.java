@@ -1088,7 +1088,7 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     {
         long[] order = new long[fieldIds.length];
         for (int i = 0; i < fieldIds.length; i++) {
-            order[i] = (((long) fieldIds[i]) << 32) | (i & 0xffff_ffffL);
+            order[i] = (((long) fieldIds[i]) << 32) | (i & 0xFFFF_FFFFL);
         }
         Arrays.sort(order);
         return order;

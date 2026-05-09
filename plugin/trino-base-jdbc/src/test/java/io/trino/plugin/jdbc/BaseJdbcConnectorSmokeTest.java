@@ -22,13 +22,11 @@ public abstract class BaseJdbcConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
-                return false;
+        return switch (connectorBehavior) {
+            // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW -> false;
 
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 }

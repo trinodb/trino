@@ -363,7 +363,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
-                    .filter(value -> node.isUseConnectorNodePartitioning())
+                    .filter(_ -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::partitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 

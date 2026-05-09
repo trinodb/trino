@@ -227,7 +227,7 @@ public class SpoolingExchangeOutputBuffer
             // abort might've released the sink in a meantime
             return;
         }
-        sink.finish().whenComplete((value, failure) -> {
+        sink.finish().whenComplete((_, failure) -> {
             if (failure != null) {
                 stateMachine.fail(failure);
             }
@@ -263,7 +263,7 @@ public class SpoolingExchangeOutputBuffer
         if (sink == null) {
             return;
         }
-        sink.abort().whenComplete((value, failure) -> {
+        sink.abort().whenComplete((_, failure) -> {
             if (failure != null) {
                 log.warn(failure, "Error aborting exchange sink");
             }

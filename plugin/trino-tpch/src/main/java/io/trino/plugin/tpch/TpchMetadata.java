@@ -304,7 +304,7 @@ public class TpchMetadata
         }
         if (constraintSummary.isNone()) {
             Set<TpchColumn<?>> columns = ImmutableSet.copyOf(tpchTable.getColumns());
-            return asMap(columns, key -> emptyList());
+            return asMap(columns, _ -> emptyList());
         }
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
         Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(OrderColumn.ORDER_STATUS)));

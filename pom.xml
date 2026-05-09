@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>370</version>
+        <version>372</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -185,7 +185,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>423</dep.airlift.version>
+        <dep.airlift.version>424</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -207,7 +207,7 @@
         <dep.netty.version>4.2.12.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
-        <dep.swagger.version>2.2.48</dep.swagger.version>
+        <dep.swagger.version>2.2.49</dep.swagger.version>
         <dep.takari.version>2.3.3</dep.takari.version>
         <dep.tcnative.version>2.0.77.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.52.1</version>
+                <version>3.53.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -306,7 +306,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>2.0.4</version>
+                <version>2.0.5</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -314,7 +314,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.42.35</version>
+                <version>2.43.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -384,7 +384,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.62</version>
+                <version>1.0.0-beta.63</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -465,7 +465,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.13.2</version>
+                <version>2.14.0</version>
             </dependency>
 
             <dependency>
@@ -513,7 +513,7 @@
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <version>9.6.0</version>
+                <version>9.7.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.protobuf</groupId>
@@ -573,13 +573,13 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.21.0</version>
+                <version>1.22.0</version>
             </dependency>
 
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.21.0</version>
+                <version>2.22.0</version>
             </dependency>
 
             <dependency>
@@ -2215,7 +2215,7 @@
             <dependency>
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
-                <version>3.30.2-GA</version>
+                <version>3.31.0-GA</version>
             </dependency>
 
             <dependency>
@@ -2263,7 +2263,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.10</version>
+                <version>42.7.11</version>
             </dependency>
 
             <dependency>

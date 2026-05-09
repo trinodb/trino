@@ -25,6 +25,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -35,7 +36,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -215,27 +216,27 @@ public class TestDoubleOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "37.7E0", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "37.7E0"))
                 .isEqualTo(0.0);
 
-        assertThat(assertions.operator(MODULUS, "37.7E0", "17.1E0"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "17.1E0"))
                 .isEqualTo(37.7 % 17.1);
 
-        assertThat(assertions.operator(MODULUS, "17.1E0", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "17.1E0", "37.7E0"))
                 .isEqualTo(17.1 % 37.7);
 
-        assertThat(assertions.operator(MODULUS, "17.1E0", "17.1E0"))
+        assertThat(assertions.operator(MODULO, "17.1E0", "17.1E0"))
                 .isEqualTo(0.0);
 
-        assertThat(assertions.operator(MODULUS, "DOUBLE 'NaN'", "37.7E0"))
+        assertThat(assertions.operator(MODULO, "DOUBLE 'NaN'", "37.7E0"))
                 .isEqualTo(Double.NaN);
 
-        assertThat(assertions.operator(MODULUS, "37.7E0", "DOUBLE 'NaN'"))
+        assertThat(assertions.operator(MODULO, "37.7E0", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
 
-        assertThat(assertions.operator(MODULUS, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
+        assertThat(assertions.operator(MODULO, "DOUBLE 'NaN'", "DOUBLE 'NaN'"))
                 .isEqualTo(Double.NaN);
     }
 
@@ -655,15 +656,15 @@ public class TestDoubleOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(0x1.0p63))
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(Math.nextUp(0x1.0p63))).evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(Math.nextDown(-0x1.0p63))).evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as bigint)")
                 .binding("a", Double.toString(-0x1.0p63)))
@@ -676,22 +677,22 @@ public class TestDoubleOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "9.3E18")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "-9.3E18")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "infinity()")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "-infinity()")
                 .evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as bigint)")
                 .binding("a", "nan()")
@@ -883,7 +884,7 @@ public class TestDoubleOperators
     public void testNanHash()
             throws Throwable
     {
-        long[] nanRepresentations = {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
+        long[] nanRepresentations = {doubleToLongBits(Double.NaN), 0xFFF8000000000000L, 0x7FF8123412341234L, 0xFFF8123412341234L};
         for (long nanRepresentation : nanRepresentations) {
             assertThat(isNaN(longBitsToDouble(nanRepresentation))).isTrue();
             // longBitsToDouble() keeps the bitwise difference in NaN

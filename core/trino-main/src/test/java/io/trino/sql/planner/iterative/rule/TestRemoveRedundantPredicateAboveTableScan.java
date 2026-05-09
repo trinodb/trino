@@ -61,8 +61,8 @@ public class TestRemoveRedundantPredicateAboveTableScan
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MODULUS_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
 
     private RemoveRedundantPredicateAboveTableScan removeRedundantPredicateAboveTableScan;
     private TableHandle nationTableHandle;
@@ -172,7 +172,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                                 new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
-                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
+                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                 new Constant(BIGINT, 44L)),
                                         Logical.or(
                                                 new Comparison(EQUAL, new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L)),
@@ -194,7 +194,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                                 new Constant(DOUBLE, 42.0)),
                                         new Comparison(
                                                 EQUAL,
-                                                new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
+                                                new Call(MODULO_BIGINT, ImmutableList.of(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 17L))),
                                                 new Constant(BIGINT, 44L))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
@@ -227,7 +227,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     {
         tester().assertThat(removeRedundantPredicateAboveTableScan)
                 .on(p -> p.filter(
-                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L))), new Constant(INTEGER, 44L)), new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L))), new Constant(INTEGER, 43L)))),
+                        new Logical(AND, ImmutableList.of(new Comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 17L))), new Constant(INTEGER, 44L)), new Comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "nationkey"), new Constant(INTEGER, 15L))), new Constant(INTEGER, 43L)))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),

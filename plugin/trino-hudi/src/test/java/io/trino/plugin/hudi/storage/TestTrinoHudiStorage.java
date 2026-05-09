@@ -348,7 +348,7 @@ final class TestTrinoHudiStorage
                 .isInstanceOf(FileNotFoundException.class)
                 .hasMessageContaining("does not exist");
 
-        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, path -> true))
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, _ -> true))
                 .isInstanceOf(FileNotFoundException.class)
                 .hasMessageContaining("does not exist");
     }

@@ -1093,32 +1093,31 @@ public interface SystemAccessControl
         String kind = entityKindAndName.entityKind().toUpperCase(Locale.ENGLISH);
         List<String> name = entityKindAndName.name();
         switch (kind) {
-            case "SCHEMA":
+            case "SCHEMA" -> {
                 if (name.size() != 2) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The schema name %s must have two elements".formatted(name));
                 }
                 checkCanSetSchemaAuthorization(context, new CatalogSchemaName(name.get(0), name.get(1)), principal);
-                break;
-            case "TABLE":
+            }
+            case "TABLE" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The table name %s must have three elements".formatted(name));
                 }
                 checkCanSetTableAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            case "VIEW":
+            }
+            case "VIEW" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            case "MATERIALIZED VIEW":
+            }
+            case "MATERIALIZED VIEW" -> {
                 if (name.size() != 3) {
                     throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetMaterializedViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
-                break;
-            default:
-                denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
+            }
+            default -> denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
         }
     }
 

@@ -145,7 +145,7 @@ public class TestPagesIndex
                         sizeOfIntArray(pageCount);
                 long estimatedAdditionalSize = estimatedMemoryRequiredToCreateLookupSource - pageIndexSize;
 
-                JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (session, addresses, pages) -> (JoinFilterFunction) (leftPosition, rightPosition, rightPage) -> false;
+                JoinFilterFunctionCompiler.JoinFilterFunctionFactory filterFunctionFactory = (_, _, _) -> (JoinFilterFunction) (_, _, _) -> false;
                 LookupSource lookupSource = pagesIndex.createLookupSourceSupplier(
                         TEST_SESSION,
                         ImmutableList.of(joinChannel),

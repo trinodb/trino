@@ -86,59 +86,59 @@ final class HiveBucketingV2
             return 0;
         }
 
-        switch (type.getCategory()) {
-            case PRIMITIVE:
+        return switch (type.getCategory()) {
+            case PRIMITIVE -> {
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
                 Type trinoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
                 if (trinoType.equals(BOOLEAN)) {
-                    return BOOLEAN.getBoolean(block, position) ? 1 : 0;
+                    yield BOOLEAN.getBoolean(block, position) ? 1 : 0;
                 }
                 if (trinoType.equals(TINYINT)) {
-                    return TINYINT.getByte(block, position);
+                    yield TINYINT.getByte(block, position);
                 }
                 if (trinoType.equals(SMALLINT)) {
-                    return murmur3(bytes(SMALLINT.getShort(block, position)));
+                    yield murmur3(bytes(SMALLINT.getShort(block, position)));
                 }
                 if (trinoType.equals(INTEGER)) {
-                    return murmur3(bytes(INTEGER.getInt(block, position)));
+                    yield murmur3(bytes(INTEGER.getInt(block, position)));
                 }
                 if (trinoType.equals(BIGINT)) {
-                    return murmur3(bytes(BIGINT.getLong(block, position)));
+                    yield murmur3(bytes(BIGINT.getLong(block, position)));
                 }
                 if (trinoType.equals(REAL)) {
                     // convert to canonical NaN if necessary
                     // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                     // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(REAL.getFloat(block, position)))));
+                    yield murmur3(bytes(floatToRawIntBits(floatToIntBits(REAL.getFloat(block, position)))));
                 }
                 if (trinoType.equals(DOUBLE)) {
                     // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
                     // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
-                    return murmur3(bytes(doubleToRawLongBits(doubleToLongBits(DOUBLE.getDouble(block, position)))));
+                    yield murmur3(bytes(doubleToRawLongBits(doubleToLongBits(DOUBLE.getDouble(block, position)))));
                 }
                 if (trinoType instanceof VarcharType varcharType) {
-                    return murmur3(varcharType.getSlice(block, position).getBytes());
+                    yield murmur3(varcharType.getSlice(block, position).getBytes());
                 }
                 if (trinoType.equals(DATE)) {
                     // day offset from 1970-01-01
-                    return murmur3(bytes(DATE.getInt(block, position)));
+                    yield murmur3(bytes(DATE.getInt(block, position)));
                 }
 
                 // We do not support bucketing on the following:
                 // TIMESTAMP DECIMAL CHAR BINARY TIMESTAMPLOCALTZ INTERVAL_YEAR_MONTH INTERVAL_DAY_TIME VOID UNKNOWN
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
-            case LIST:
+            }
+            case LIST -> {
                 Block array = ((ArrayBlock) block.getUnderlyingValueBlock()).getArray(block.getUnderlyingValuePosition(position));
-                return hashOfList((ListTypeInfo) type, array);
-            case MAP:
+                yield hashOfList((ListTypeInfo) type, array);
+            }
+            case MAP -> {
                 SqlMap map = ((MapBlock) block.getUnderlyingValueBlock()).getMap(block.getUnderlyingValuePosition(position));
-                return hashOfMap((MapTypeInfo) type, map);
-            case STRUCT:
-            case UNION:
-                // TODO: support more types, e.g. ROW
-        }
-        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+                yield hashOfMap((MapTypeInfo) type, map);
+            }
+            case STRUCT, UNION -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+        };
     }
 
     private static int hash(TypeInfo type, Object value)
@@ -147,64 +147,43 @@ final class HiveBucketingV2
             return 0;
         }
 
-        switch (type.getCategory()) {
-            case PRIMITIVE:
+        return switch (type.getCategory()) {
+            case PRIMITIVE -> {
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                switch (primitiveCategory) {
-                    case BOOLEAN:
-                        return (boolean) value ? 1 : 0;
-                    case BYTE:
-                        return SignedBytes.checkedCast((long) value);
-                    case SHORT:
-                        return murmur3(bytes(Shorts.checkedCast((long) value)));
-                    case INT:
-                        return murmur3(bytes(toIntExact((long) value)));
-                    case LONG:
-                        return murmur3(bytes((long) value));
-                    case FLOAT:
+                yield switch (primitiveCategory) {
+                    case BOOLEAN -> (boolean) value ? 1 : 0;
+                    case BYTE -> SignedBytes.checkedCast((long) value);
+                    case SHORT -> murmur3(bytes(Shorts.checkedCast((long) value)));
+                    case INT -> murmur3(bytes(toIntExact((long) value)));
+                    case LONG -> murmur3(bytes((long) value));
+                    case FLOAT -> {
                         // convert to canonical NaN if necessary
                         // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                        return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact((long) value))))));
-                    case DOUBLE:
+                        yield murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact((long) value))))));
+                    }
+                    case DOUBLE -> {
                         // convert to canonical NaN if necessary
                         // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
-                        return murmur3(bytes(doubleToRawLongBits(doubleToLongBits((double) value))));
-                    case STRING:
-                        return murmur3(((Slice) value).getBytes());
-                    case VARCHAR:
-                        return murmur3(((Slice) value).getBytes());
-                    case DATE:
+                        yield murmur3(bytes(doubleToRawLongBits(doubleToLongBits((double) value))));
+                    }
+                    case STRING, VARCHAR -> murmur3(((Slice) value).getBytes());
+                    case DATE -> {
                         // day offset from 1970-01-01
-                        return murmur3(bytes(toIntExact((long) value)));
-                    case TIMESTAMP:
-                        // We do not support bucketing on timestamp
-                        break;
-                    case DECIMAL:
-                    case CHAR:
-                    case BINARY:
-                    case TIMESTAMPLOCALTZ:
-                    case INTERVAL_YEAR_MONTH:
-                    case INTERVAL_DAY_TIME:
-                    case VARIANT:
-                        // TODO
-                        break;
-                    case VOID:
-                    case UNKNOWN:
-                        break;
-                }
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
-            case LIST:
-                return hashOfList((ListTypeInfo) type, (Block) value);
-            case MAP:
-                return hashOfMap((MapTypeInfo) type, (SqlMap) value);
-            case STRUCT:
-            case UNION:
-                // TODO: support more types, e.g. ROW
-        }
-        throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+                        yield murmur3(bytes(toIntExact((long) value)));
+                    }
+                    case DECIMAL, CHAR, BINARY, VARIANT,
+                         TIMESTAMP, TIMESTAMPLOCALTZ,
+                         INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME,
+                         VOID, UNKNOWN -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
+                };
+            }
+            case LIST -> hashOfList((ListTypeInfo) type, (Block) value);
+            case MAP -> hashOfMap((MapTypeInfo) type, (SqlMap) value);
+            case STRUCT, UNION -> throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+        };
     }
 
     private static int hashOfMap(MapTypeInfo type, SqlMap sqlMap)
@@ -239,14 +218,14 @@ final class HiveBucketingV2
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static byte[] bytes(short value)
     {
-        return new byte[] {(byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+        return new byte[] {(byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // big-endian
     @SuppressWarnings("NumericCastThatLosesPrecision")
     private static byte[] bytes(int value)
     {
-        return new byte[] {(byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+        return new byte[] {(byte) ((value >> 24) & 0xFF), (byte) ((value >> 16) & 0xFF), (byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // big-endian
@@ -254,8 +233,8 @@ final class HiveBucketingV2
     private static byte[] bytes(long value)
     {
         return new byte[] {
-                (byte) ((value >> 56) & 0xff), (byte) ((value >> 48) & 0xff), (byte) ((value >> 40) & 0xff), (byte) ((value >> 32) & 0xff),
-                (byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+                (byte) ((value >> 56) & 0xFF), (byte) ((value >> 48) & 0xFF), (byte) ((value >> 40) & 0xFF), (byte) ((value >> 32) & 0xFF),
+                (byte) ((value >> 24) & 0xFF), (byte) ((value >> 16) & 0xFF), (byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF)};
     }
 
     // copied from org.apache.hive.common.util.Murmur3
@@ -273,11 +252,11 @@ final class HiveBucketingV2
             int k = Ints.fromBytes(data[i + 3], data[i + 2], data[i + 1], data[i]);
 
             // mix functions
-            k *= 0xcc9e2d51;
+            k *= 0xCC9E2D51;
             k = Integer.rotateLeft(k, 15);
-            k *= 0x1b873593;
+            k *= 0x1B873593;
             hash ^= k;
-            hash = Integer.rotateLeft(hash, 13) * 5 + 0xe6546b64;
+            hash = Integer.rotateLeft(hash, 13) * 5 + 0xE6546B64;
         }
 
         // tail
@@ -293,18 +272,18 @@ final class HiveBucketingV2
                 k1 ^= data[idx];
 
                 // mix functions
-                k1 *= 0xcc9e2d51;
+                k1 *= 0xCC9E2D51;
                 k1 = Integer.rotateLeft(k1, 15);
-                k1 *= 0x1b873593;
+                k1 *= 0x1B873593;
                 hash ^= k1;
         }
 
         // finalization
         hash ^= length;
         hash ^= (hash >>> 16);
-        hash *= 0x85ebca6b;
+        hash *= 0x85EBCA6B;
         hash ^= (hash >>> 13);
-        hash *= 0xc2b2ae35;
+        hash *= 0xC2B2AE35;
         hash ^= (hash >>> 16);
 
         return hash;

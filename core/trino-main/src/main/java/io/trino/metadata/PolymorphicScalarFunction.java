@@ -115,29 +115,27 @@ class PolymorphicScalarFunction
             Class<?> expectedType = null;
             Class<?> actualType;
             switch (argumentConvention) {
-                case NEVER_NULL:
-                case NULL_FLAG:
+                case NEVER_NULL, NULL_FLAG -> {
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
                     actualType = resolvedType.getJavaType();
-                    break;
-                case BOXED_NULLABLE:
+                }
+                case BOXED_NULLABLE -> {
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
                     actualType = Primitives.wrap(resolvedType.getJavaType());
-                    break;
-                case BLOCK_POSITION:
+                }
+                case BLOCK_POSITION -> {
                     Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.explicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
                         expectedType = explicitNativeContainerTypes.get();
                     }
                     actualType = resolvedType.getJavaType();
-                    break;
-                case IN_OUT:
+                }
+                case IN_OUT -> {
                     // any type is supported, so just ignore this check
                     actualType = resolvedType.getJavaType();
                     expectedType = resolvedType.getJavaType();
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+                }
+                default -> throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }
             if (!actualType.equals(expectedType)) {
                 return false;

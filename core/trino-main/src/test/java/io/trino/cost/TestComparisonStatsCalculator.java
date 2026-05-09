@@ -171,13 +171,13 @@ public class TestComparisonStatsCalculator
             return symbolStats;
         }
         return symbolStats
-                .mapDistinctValuesCount(n -> (min(ndv, rowCount) + rowCount * (1 - nulls)) / 2)
-                .mapNullsFraction(n -> nulls / 2);
+                .mapDistinctValuesCount(_ -> (min(ndv, rowCount) + rowCount * (1 - nulls)) / 2)
+                .mapNullsFraction(_ -> nulls / 2);
     }
 
     private SymbolStatsEstimate zeroNullsFraction(SymbolStatsEstimate symbolStats)
     {
-        return symbolStats.mapNullsFraction(fraction -> 0.0);
+        return symbolStats.mapNullsFraction(_ -> 0.0);
     }
 
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)

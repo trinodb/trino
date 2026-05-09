@@ -172,8 +172,8 @@ public class TestPinotConnectorSmokeTest
                             Arrays.asList("string_" + offset, "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             true,
                             Arrays.asList(54 + i / 3, -10001, 1000),
-                            Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
-                            Arrays.asList(-17.33D + i, Double.POSITIVE_INFINITY, 10596.034D + i),
+                            Arrays.asList(-7.33f + i, Float.POSITIVE_INFINITY, 17.034f + i),
+                            Arrays.asList(-17.33d + i, Double.POSITIVE_INFINITY, 10596.034d + i),
                             Arrays.asList(-3147483647L + i, 12L - i, 4147483647L + i),
                             initialUpdatedAt.minusMillis(offset).toEpochMilli(),
                             initialUpdatedAt.plusMillis(offset).toEpochMilli())));
@@ -397,13 +397,13 @@ public class TestPinotConnectorSmokeTest
         kafka.createTopic(JSON_TABLE);
         long key = 0L;
         kafka.sendMessages(Stream.of(
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5F, 5.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 4)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5F, 6.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 6)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5F, 7.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 8)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5F, 8.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5F, 9.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
-                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
-                new ProducerRecord<>(JSON_TABLE, key, TestingJsonRecord.of("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5f, 5.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 4)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5f, 6.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 6)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5f, 7.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 8)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5f, 8.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5f, 9.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5f, 10.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(JSON_TABLE, key, TestingJsonRecord.of("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5f, 10.5f), Arrays.asList(10_000.5d, 20_000.335d, -3.7d), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
 
         pinot.createSchema("schema.json", JSON_TABLE);
         pinot.addRealTimeTable("realtimeSpec.json", JSON_TABLE);
@@ -943,7 +943,7 @@ public class TestPinotConnectorSmokeTest
     {
         MaterializedResult result = computeActual("SELECT price FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'");
         assertThat(getOnlyElement(result.getTypes())).isEqualTo(REAL);
-        assertThat(result.getOnlyValue()).isEqualTo(3.5F);
+        assertThat(result.getOnlyValue()).isEqualTo(3.5f);
     }
 
     @Test

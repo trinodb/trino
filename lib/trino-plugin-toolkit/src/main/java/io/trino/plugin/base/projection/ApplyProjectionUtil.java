@@ -35,7 +35,7 @@ public final class ApplyProjectionUtil
 
     public static List<ConnectorExpression> extractSupportedProjectedColumns(ConnectorExpression expression)
     {
-        return extractSupportedProjectedColumns(expression, connectorExpression -> true);
+        return extractSupportedProjectedColumns(expression, _ -> true);
     }
 
     public static List<ConnectorExpression> extractSupportedProjectedColumns(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate)

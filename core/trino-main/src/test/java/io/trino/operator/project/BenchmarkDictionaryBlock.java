@@ -115,14 +115,9 @@ public class BenchmarkDictionaryBlock
             }
             Block mapBlock;
             switch (valueType) {
-                case "varchar":
-                    mapBlock = createVarcharMapBlock(POSITIONS);
-                    break;
-                case "integer":
-                    mapBlock = createIntMapBlock(POSITIONS);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unrecognized value type: " + valueType);
+                case "varchar" -> mapBlock = createVarcharMapBlock(POSITIONS);
+                case "integer" -> mapBlock = createIntMapBlock(POSITIONS);
+                default -> throw new IllegalArgumentException("Unrecognized value type: " + valueType);
             }
             dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(positionsIds.length, mapBlock, positionsIds);
             int[] allPositions = IntStream.range(0, POSITIONS).toArray();

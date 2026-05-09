@@ -87,7 +87,7 @@ public class IcebergBucketFunction
     @Override
     public int applyAsInt(ConnectorSplit split)
     {
-        List<Object> partitionValues = getPartitionValues(((IcebergSplit) split).getPartitionValues());
+        List<Object> partitionValues = getPartitionValues(((IcebergSplit) split).partitionValues());
 
         if (singleBucketFunction) {
             long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0L);

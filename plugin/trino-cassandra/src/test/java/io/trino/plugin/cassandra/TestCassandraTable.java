@@ -157,6 +157,6 @@ public class TestCassandraTable
 
     private enum PrimaryKeyType
     {
-        PARTITION, CLUSTER, GENERAL;
+        PARTITION, CLUSTER, GENERAL,
     }
 }

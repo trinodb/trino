@@ -75,11 +75,11 @@ public class TestLazyExchangeDataSource
                 new QueryId("query"),
                 new ExchangeId("exchange"),
                 Span.getInvalid(),
-                (queryId, exchangeId, span, memoryContext, taskFailureListener, retryPolicy) -> {
+                (_, _, _, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), TestLazyExchangeDataSource.class.getSimpleName()),
-                (taskId, failure) -> {
+                (_, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,

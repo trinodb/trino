@@ -393,7 +393,7 @@ public class ExpressionAnalyzer
         this(
                 plannerContext,
                 accessControl,
-                (node, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
+                (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
                         session,
                         warningCollector,
@@ -2276,30 +2276,30 @@ public class ExpressionAnalyzer
             Extract.Field field = node.getField();
 
             switch (field) {
-                case YEAR, MONTH:
+                case YEAR, MONTH -> {
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !type.equals(INTERVAL_YEAR_MONTH)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
-                    break;
-                case DAY:
+                }
+                case DAY -> {
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
-                    break;
-                case QUARTER, WEEK, DAY_OF_MONTH, DAY_OF_WEEK, DOW, DAY_OF_YEAR, DOY, YEAR_OF_WEEK, YOW:
+                }
+                case QUARTER, WEEK, DAY_OF_MONTH, DAY_OF_WEEK, DOW, DAY_OF_YEAR, DOY, YEAR_OF_WEEK, YOW -> {
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
-                    break;
-                case HOUR, MINUTE, SECOND:
+                }
+                case HOUR, MINUTE, SECOND -> {
                     if (!(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !(type instanceof TimeType) &&
@@ -2307,14 +2307,13 @@ public class ExpressionAnalyzer
                             !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
-                    break;
-                case TIMEZONE_MINUTE, TIMEZONE_HOUR:
+                }
+                case TIMEZONE_MINUTE, TIMEZONE_HOUR -> {
                     if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown field: " + field);
+                }
+                default -> throw new UnsupportedOperationException("Unknown field: " + field);
             }
 
             return setExpressionType(node, BIGINT);
@@ -2586,18 +2585,17 @@ public class ExpressionAnalyzer
             Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) node.getSubquery(), context);
 
             switch (node.getOperator()) {
-                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL:
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     if (!comparisonType.isOrderable()) {
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
                     }
-                    break;
-                case EQUAL, NOT_EQUAL:
+                }
+                case EQUAL, NOT_EQUAL -> {
                     if (!comparisonType.isComparable()) {
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
-                    break;
-                default:
-                    throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
+                }
+                default -> throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -3825,7 +3823,7 @@ public class ExpressionAnalyzer
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(
                 plannerContext,
                 accessControl,
-                (node, ignored) -> {
+                (node, _) -> {
                     throw semanticException(errorCode, node, "%s", message);
                 },
                 session,
@@ -3963,17 +3961,17 @@ public class ExpressionAnalyzer
         return new ExpressionAnalyzer(
                 plannerContext,
                 accessControl,
-                (node, correlationSupport) -> {
+                (node, _) -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
                 session,
                 parameters,
                 warningCollector,
                 isDescribe,
-                expression -> {
+                _ -> {
                     throw new IllegalStateException("Cannot access preanalyzed types");
                 },
-                functionCall -> {
+                _ -> {
                     throw new IllegalStateException("Cannot access resolved windows");
                 });
     }

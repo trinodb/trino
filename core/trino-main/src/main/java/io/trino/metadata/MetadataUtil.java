@@ -120,39 +120,37 @@ public final class MetadataUtil
     public static List<String> fillInNameParts(Session session, Node node, String entityKind, List<String> name)
     {
         switch (entityKind) {
-            case "SCHEMA":
+            case "SCHEMA" -> {
                 switch (name.size()) {
-                    case 1:
+                    case 1 -> {
                         if (session.getCatalog().isPresent()) {
                             return ImmutableList.of(session.getCatalog().get(), name.get(0));
                         }
                         throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-                    case 2:
-                        break;
-                    default:
-                        throw new TrinoException(GENERIC_USER_ERROR, "Invalid entity %s for entity kind %s".formatted(joinName(name), entityKind));
+                    }
+                    case 2 -> {}
+                    default -> throw new TrinoException(GENERIC_USER_ERROR, "Invalid entity %s for entity kind %s".formatted(joinName(name), entityKind));
                 }
-                break;
-            case "TABLE", "VIEW", "MATERIALIZED VIEW":
+            }
+            case "TABLE", "VIEW", "MATERIALIZED VIEW" -> {
                 switch (name.size()) {
-                    case 1:
+                    case 1 -> {
                         if (session.getCatalog().isPresent() && session.getSchema().isPresent()) {
                             return ImmutableList.of(session.getCatalog().get(), session.getSchema().get(), name.get(0));
                         }
                         throw semanticException(MISSING_CATALOG_NAME, node, "Catalog and schema name must be specified when session catalog and schema are not set");
-                    case 2:
+                    }
+                    case 2 -> {
                         if (session.getCatalog().isPresent()) {
                             return ImmutableList.of(session.getCatalog().get(), name.get(0), name.get(1));
                         }
                         throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
-                    case 3:
-                        break;
-                    default:
-                        throw semanticException(INVALID_ENTITY_KIND, node, "Invalid entity %s for entity kind %s", joinName(name), entityKind);
+                    }
+                    case 3 -> {}
+                    default -> throw semanticException(INVALID_ENTITY_KIND, node, "Invalid entity %s for entity kind %s", joinName(name), entityKind);
                 }
-                break;
-            default:
-                break;
+            }
+            default -> {}
         }
         return name;
     }

@@ -171,7 +171,7 @@ public class TestPagePartitionerPool
                 new PlanNodeId("0"),
                 ImmutableList.of(BIGINT),
                 Function.identity(),
-                new BucketPartitionFunction((page, position) -> 0, new int[1]),
+                new BucketPartitionFunction((_, _) -> 0, new int[1]),
                 ImmutableList.of(0),
                 ImmutableList.of(),
                 false,
@@ -189,7 +189,7 @@ public class TestPagePartitionerPool
     private long processSplitsConcurrently(PartitionedOutputOperatorFactory factory, AggregatedMemoryContext memoryContext, Page... splits)
     {
         List<Operator> operators = Stream.of(splits)
-                .map(split -> factory.createOperator(driverContext()))
+                .map(_ -> factory.createOperator(driverContext()))
                 .collect(toImmutableList());
 
         long initialRetainedBytes = memoryContext.getBytes();
@@ -227,7 +227,7 @@ public class TestPagePartitionerPool
         @Override
         public void enqueue(int partition, List<Slice> pages)
         {
-            partitionBufferPages.compute(partition, (key, value) -> value == null ? pages.size() : value + pages.size());
+            partitionBufferPages.compute(partition, (_, value) -> value == null ? pages.size() : value + pages.size());
         }
 
         @Override

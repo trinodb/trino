@@ -21,6 +21,7 @@ import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.nio.NioIoHandler;
@@ -73,6 +74,8 @@ public class AzureFileSystemFactory
                 config.getMaxSingleUploadSize(),
                 config.getMaxHttpRequests(),
                 config.getMaxHttpConnections(),
+                config.getConnectionPoolMaxIdleTime(),
+                config.getHttpRequestTimeout(),
                 config.getApplicationId(),
                 config.isMultipartWriteEnabled());
     }
@@ -87,6 +90,8 @@ public class AzureFileSystemFactory
             DataSize maxSingleUploadSize,
             int maxHttpRequests,
             int maxHttpConnections,
+            Duration connectionPoolMaxIdleTime,
+            Duration httpRequestTimeout,
             String applicationId,
             boolean multipart)
     {
@@ -97,8 +102,13 @@ public class AzureFileSystemFactory
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
+        requireNonNull(connectionPoolMaxIdleTime, "connectionPoolMaxIdleTime is null");
+        requireNonNull(httpRequestTimeout, "httpRequestTimeout is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
-        this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpConnections);
+        this.connectionProvider = ConnectionProvider.builder(applicationId)
+                .maxConnections(maxHttpConnections)
+                .maxIdleTime(connectionPoolMaxIdleTime.toJavaTime())
+                .build();
         this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
@@ -106,7 +116,9 @@ public class AzureFileSystemFactory
         clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
         httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
         this.multipart = multipart;
-        this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(maxHttpRequests);
+        this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
+                maxHttpRequests,
+                httpRequestTimeout.toJavaTime());
     }
 
     @PreDestroy

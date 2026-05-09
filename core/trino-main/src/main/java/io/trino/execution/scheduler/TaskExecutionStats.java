@@ -45,21 +45,11 @@ public class TaskExecutionStats
     {
         TaskState state = info.taskStatus().state();
         switch (state) {
-            case FINISHED:
-                finishedTasks.update(info.stats());
-                break;
-            case FAILED:
-                failedTasks.update(info);
-                break;
-            case CANCELED:
-            case ABORTED:
-                abortedTasks.update(info.stats());
-                break;
-            case PLANNED:
-            case RUNNING:
-            case FLUSHING:
-            default:
-                log.error("Unexpected task state: %s", state);
+            case FINISHED -> finishedTasks.update(info.stats());
+            case FAILED -> failedTasks.update(info);
+            case CANCELED, ABORTED -> abortedTasks.update(info.stats());
+            case PLANNED, RUNNING, FLUSHING -> log.error("Unexpected task state: %s", state);
+            default -> log.error("Unexpected task state: %s", state);
         }
     }
 
@@ -161,20 +151,11 @@ public class TaskExecutionStats
             ErrorType errorType = Optional.ofNullable(failureInfo.errorCode()).map(ErrorCode::getType).orElse(INTERNAL_ERROR);
             TaskStats stats = info.stats();
             switch (errorType) {
-                case USER_ERROR:
-                    userError.update(stats);
-                    break;
-                case INTERNAL_ERROR:
-                    internalError.update(stats);
-                    break;
-                case EXTERNAL:
-                    externalError.update(stats);
-                    break;
-                case INSUFFICIENT_RESOURCES:
-                    insufficientResources.update(stats);
-                    break;
-                default:
-                    log.error("Unexpected error type: %s", errorType);
+                case USER_ERROR -> userError.update(stats);
+                case INTERNAL_ERROR -> internalError.update(stats);
+                case EXTERNAL -> externalError.update(stats);
+                case INSUFFICIENT_RESOURCES -> insufficientResources.update(stats);
+                default -> log.error("Unexpected error type: %s", errorType);
             }
         }
 

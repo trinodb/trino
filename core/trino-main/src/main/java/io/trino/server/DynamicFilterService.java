@@ -904,7 +904,7 @@ public class DynamicFilterService
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
             requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.lazyDynamicFilters = lazyDynamicFilters.stream()
-                    .collect(toImmutableMap(identity(), filter -> SettableFuture.create()));
+                    .collect(toImmutableMap(identity(), _ -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
             this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
             ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
@@ -958,7 +958,7 @@ public class DynamicFilterService
                 collectionContext.collect(taskId, domain);
             });
 
-            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
+            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), _ -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
                 updateExpectedTaskCount();
             }
         }

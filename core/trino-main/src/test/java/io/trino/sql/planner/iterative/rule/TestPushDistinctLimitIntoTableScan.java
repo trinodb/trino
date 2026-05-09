@@ -104,7 +104,7 @@ public class TestPushDistinctLimitIntoTableScan
     public void testNoEffect()
     {
         AtomicInteger applyCallCounter = new AtomicInteger();
-        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets) -> {
+        testApplyAggregation = (_, _, _, _, _) -> {
             applyCallCounter.incrementAndGet();
             return Optional.empty();
         };
@@ -131,7 +131,7 @@ public class TestPushDistinctLimitIntoTableScan
         AtomicReference<Map<String, ColumnHandle>> applyAssignments = new AtomicReference<>();
         AtomicReference<List<List<ColumnHandle>>> applyGroupingSets = new AtomicReference<>();
 
-        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets) -> {
+        testApplyAggregation = (_, _, aggregates, assignments, groupingSets) -> {
             applyCallCounter.incrementAndGet();
             applyAggregates.set(List.copyOf(aggregates));
             applyAssignments.set(Map.copyOf(assignments));

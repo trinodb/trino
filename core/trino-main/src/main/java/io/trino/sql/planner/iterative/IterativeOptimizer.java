@@ -80,7 +80,7 @@ public class IterativeOptimizer
 
     public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(name, plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
+        this(name, plannerContext, stats, statsCalculator, costCalculator, _ -> false, ImmutableList.of(), rules);
     }
 
     public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)

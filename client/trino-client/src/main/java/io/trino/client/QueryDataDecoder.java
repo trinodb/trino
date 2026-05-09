@@ -23,7 +23,7 @@ public interface QueryDataDecoder
 {
     interface Factory
     {
-        QueryDataDecoder create(List<Column> columns, DataAttributes attributes);
+        QueryDataDecoder create(List<Column> columns, DataAttributes attributes, boolean supportsVariantBinary);
 
         String encoding();
     }

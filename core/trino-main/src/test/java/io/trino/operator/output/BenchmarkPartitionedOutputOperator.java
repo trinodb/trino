@@ -157,7 +157,7 @@ public class BenchmarkPartitionedOutputOperator
         private TestType type = TestType.BIGINT;
 
         @Param({"0", "0.2"})
-        private float nullRate = 0.2F;
+        private float nullRate = 0.2f;
 
         private List<Type> types;
         private int pageCount;
@@ -264,7 +264,7 @@ public class BenchmarkPartitionedOutputOperator
                         positionCount,
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
-                                .map(type -> {
+                                .map(_ -> {
                                     boolean[] isNull = null;
                                     if (nullRate > 0) {
                                         isNull = new boolean[positionCount];

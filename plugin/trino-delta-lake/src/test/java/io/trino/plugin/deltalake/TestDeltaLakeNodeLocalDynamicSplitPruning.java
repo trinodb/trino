@@ -118,6 +118,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                     Optional.empty(),
                     0,
                     Optional.empty(),
+                    Optional.empty(),
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     ImmutableMap.of());
@@ -214,6 +215,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                     inputFile.length(),
                     Optional.empty(),
                     0,
+                    Optional.empty(),
                     Optional.empty(),
                     SplitWeight.standard(),
                     TupleDomain.all(),

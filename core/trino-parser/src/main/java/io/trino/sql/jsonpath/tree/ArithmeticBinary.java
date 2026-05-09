@@ -56,6 +56,6 @@ public class ArithmeticBinary
         SUBTRACT,
         MULTIPLY,
         DIVIDE,
-        MODULUS
+        MODULO
     }
 }

@@ -166,7 +166,7 @@ public class GenericPartitioningSpiller
     @VisibleForTesting
     ListenableFuture<DataSize> flush()
     {
-        return flush(pageBuilder -> true);
+        return flush(_ -> true);
     }
 
     private synchronized ListenableFuture<DataSize> flush(Predicate<PageBuilder> flushCondition)

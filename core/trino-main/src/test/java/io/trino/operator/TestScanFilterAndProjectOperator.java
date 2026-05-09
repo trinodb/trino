@@ -132,15 +132,14 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_) -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
-                (_) -> pageProcessor.get(),
+                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -175,15 +174,14 @@ public class TestScanFilterAndProjectOperator
                 new TestingFunctionResolution(runner).resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 col0, new Constant(BIGINT, 10L));
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_) -> (_, _, _, _, _, dynamicFilter_) -> new FixedPageSource(input),
-                (_) -> pageProcessor.get(),
+                _ -> (_, _, _, _, _, _) -> new FixedPageSource(input),
+                _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -223,8 +221,8 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_) -> (_, _, _, _, _, _) -> new SinglePagePageSource(input),
-                (_) -> pageProcessor,
+                _ -> (_, _, _, _, _, _) -> new SinglePagePageSource(input),
+                _ -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -252,15 +250,14 @@ public class TestScanFilterAndProjectOperator
         Reference col0 = new Reference(VARCHAR, "$col_0");
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
         List<Expression> projections = ImmutableList.of(col0);
-        Function<DynamicFilter, PageProcessor> processorFactory = expressionCompiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> pageProcessor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections, layout);
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_) -> (_, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
-                (_) -> pageProcessor.get(),
+                _ -> (_, _, _, _, _, _) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
+                _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of(),
@@ -315,8 +312,8 @@ public class TestScanFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 new PlanNodeId("0"),
-                (_) -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
-                (_) -> pageProcessor.get(),
+                _ -> (_, _, _, _, _, _) -> new FixedPageSource(ImmutableList.of(input)),
+                _ -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 Optional.empty(),
                 ImmutableList.of(),

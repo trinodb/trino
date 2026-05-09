@@ -72,7 +72,7 @@ public abstract sealed class Pattern<T>
 
     public Pattern<T> matching(Predicate<? super T> predicate)
     {
-        return matching((t, context) -> predicate.test(t));
+        return matching((t, _) -> predicate.test(t));
     }
 
     public Pattern<T> matching(BiPredicate<? super T, ?> predicate)

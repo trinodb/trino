@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -59,6 +60,7 @@ class ArbitraryDistributionSplitAssigner
     private final long maxTargetPartitionSizeInBytes;
     private final long standardSplitSizeInBytes;
     private final int maxTaskSplitCount;
+    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
 
     private int nextPartitionId;
     private int adaptiveCounter;
@@ -81,7 +83,8 @@ class ArbitraryDistributionSplitAssigner
             long minTargetPartitionSizeInBytes,
             long maxTargetPartitionSizeInBytes,
             long standardSplitSizeInBytes,
-            int maxTaskSplitCount)
+            int maxTaskSplitCount,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider)
     {
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
         this.partitionedSources = ImmutableSet.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
@@ -96,6 +99,7 @@ class ArbitraryDistributionSplitAssigner
         this.maxTargetPartitionSizeInBytes = maxTargetPartitionSizeInBytes;
         this.standardSplitSizeInBytes = standardSplitSizeInBytes;
         this.maxTaskSplitCount = maxTaskSplitCount;
+        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
 
         this.targetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
         this.roundedTargetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
@@ -365,11 +369,14 @@ class ArbitraryDistributionSplitAssigner
 
     private NodeRequirements getNodeRequirements(Split split)
     {
-        if (split.getAddresses().isEmpty()) {
+        List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
+                .map(consistentHashingAddressProvider::getHosts)
+                .orElseGet(split::getAddresses);
+        if (preferredAddresses.isEmpty()) {
             checkArgument(split.isRemotelyAccessible(), "split is not remotely accessible but the list of hosts is empty: %s", split);
             return new NodeRequirements(catalogRequirement, Optional.empty(), true);
         }
-        HostAddress selectedAddress = split.getAddresses().stream()
+        HostAddress selectedAddress = preferredAddresses.stream()
                 .min(Comparator.comparingLong(this::rank))
                 .orElseThrow();
         return new NodeRequirements(catalogRequirement, Optional.of(selectedAddress), split.isRemotelyAccessible());

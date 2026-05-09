@@ -103,7 +103,7 @@ public abstract class AbstractColumnWriterBenchmark
     public void setup()
             throws IOException
     {
-        this.blocks = IntStream.range(0, 2).boxed().map((i) -> generateBlock(DATA_GENERATION_BATCH_SIZE)).collect(Collectors.toList());
+        this.blocks = IntStream.range(0, 2).boxed().map(_ -> generateBlock(DATA_GENERATION_BATCH_SIZE)).collect(Collectors.toList());
         this.writer = createValuesWriter();
     }
 

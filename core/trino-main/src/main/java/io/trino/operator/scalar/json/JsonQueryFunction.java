@@ -180,19 +180,16 @@ public class JsonQueryFunction
 
         // apply array wrapper behavior
         switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
-            case WITHOUT:
+            case WITHOUT -> {
                 // do nothing
-                break;
-            case UNCONDITIONAL:
-                sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
-                break;
-            case CONDITIONAL:
+            }
+            case UNCONDITIONAL -> sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+            case CONDITIONAL -> {
                 if (sequence.size() != 1 || (!sequence.get(0).isArray() && !sequence.get(0).isObject())) {
                     sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
                 }
-                break;
-            default:
-                throw new IllegalStateException("unexpected array wrapper behavior");
+            }
+            default -> throw new IllegalStateException("unexpected array wrapper behavior");
         }
 
         // singleton sequence - return the only item

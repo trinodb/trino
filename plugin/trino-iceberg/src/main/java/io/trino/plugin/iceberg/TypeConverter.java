@@ -65,56 +65,43 @@ public final class TypeConverter
 
     public static Type toTrinoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
     {
-        switch (type.typeId()) {
-            case BOOLEAN:
-                return BooleanType.BOOLEAN;
-            case BINARY:
-            case FIXED:
-                return VarbinaryType.VARBINARY;
-            case DATE:
-                return DateType.DATE;
-            case DECIMAL:
+        return switch (type.typeId()) {
+            case BOOLEAN -> BooleanType.BOOLEAN;
+            case BINARY, FIXED -> VarbinaryType.VARBINARY;
+            case DATE -> DateType.DATE;
+            case DECIMAL -> {
                 Types.DecimalType decimalType = (Types.DecimalType) type;
-                return DecimalType.createDecimalType(decimalType.precision(), decimalType.scale());
-            case DOUBLE:
-                return DoubleType.DOUBLE;
-            case LONG:
-                return BigintType.BIGINT;
-            case FLOAT:
-                return RealType.REAL;
-            case INTEGER:
-                return IntegerType.INTEGER;
-            case TIME:
-                return TIME_MICROS;
-            case TIMESTAMP:
-                return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
-            case TIMESTAMP_NANO:
-                return ((Types.TimestampNanoType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_NANOS : TIMESTAMP_NANOS;
-            case STRING:
-                return VarcharType.createUnboundedVarcharType();
-            case UUID:
-                return UuidType.UUID;
-            case LIST:
+                yield DecimalType.createDecimalType(decimalType.precision(), decimalType.scale());
+            }
+            case DOUBLE -> DoubleType.DOUBLE;
+            case LONG -> BigintType.BIGINT;
+            case FLOAT -> RealType.REAL;
+            case INTEGER -> IntegerType.INTEGER;
+            case TIME -> TIME_MICROS;
+            case TIMESTAMP -> ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
+            case TIMESTAMP_NANO -> ((Types.TimestampNanoType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_NANOS : TIMESTAMP_NANOS;
+            case STRING -> VarcharType.createUnboundedVarcharType();
+            case UUID -> UuidType.UUID;
+            case LIST -> {
                 Types.ListType listType = (Types.ListType) type;
-                return new ArrayType(toTrinoType(listType.elementType(), typeManager));
-            case MAP:
+                yield new ArrayType(toTrinoType(listType.elementType(), typeManager));
+            }
+            case MAP -> {
                 Types.MapType mapType = (Types.MapType) type;
                 TypeSignature keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
                 TypeSignature valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
-            case STRUCT:
+                yield typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
+            }
+            case STRUCT -> {
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
-                return RowType.from(fields.stream()
+                yield RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
-            case VARIANT:
-                return VARIANT;
-            case GEOMETRY:
-            case GEOGRAPHY:
-            case UNKNOWN:
-                break;
-        }
-        throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+            }
+            case VARIANT -> VARIANT;
+            case GEOMETRY, GEOGRAPHY,
+                 UNKNOWN -> throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+        };
     }
 
     public static org.apache.iceberg.types.Type toIcebergTypeForNewColumn(Type type, AtomicInteger nextFieldId)

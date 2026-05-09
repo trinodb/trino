@@ -73,7 +73,7 @@ public class PasswordManagerFormAuthenticator
 
         if (!secure) {
             return Optional.of(username)
-                    .filter(user -> insecureAuthenticationOverHttpAllowed && password == null);
+                    .filter(_ -> insecureAuthenticationOverHttpAllowed && password == null);
         }
 
         List<PasswordAuthenticator> authenticators = passwordAuthenticatorManager.getAuthenticators();

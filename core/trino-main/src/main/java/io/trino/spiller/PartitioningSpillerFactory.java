@@ -31,7 +31,7 @@ public interface PartitioningSpillerFactory
 
     static PartitioningSpillerFactory unsupportedPartitioningSpillerFactory()
     {
-        return (types, partitionFunction, spillContext, memoryContext, operatorName) -> {
+        return (_, _, _, _, _) -> {
             throw new UnsupportedOperationException();
         };
     }

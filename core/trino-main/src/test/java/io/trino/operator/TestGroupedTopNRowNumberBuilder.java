@@ -39,7 +39,7 @@ public class TestGroupedTopNRowNumberBuilder
     {
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 ImmutableList.of(BIGINT),
-                (left, leftPosition, right, rightPosition) -> {
+                (_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 5,

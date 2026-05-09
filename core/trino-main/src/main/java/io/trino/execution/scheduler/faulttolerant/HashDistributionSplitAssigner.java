@@ -97,7 +97,7 @@ class HashDistributionSplitAssigner
                         targetPartitionSizeInBytes,
                         targetMinTaskCount,
                         targetMaxTaskCount,
-                        sourceId -> fragment.getPartitioning().isScaleWriters(),
+                        _ -> fragment.getPartitioning().isScaleWriters(),
                         // never merge partitions for table write to avoid running into the maximum writers limit per task
                         !isWriteFragment(fragment)));
     }
@@ -227,7 +227,7 @@ class HashDistributionSplitAssigner
             // if bucket scheme is set explicitly or if estimates are missing create one task partition per output partition
             return IntStream.range(0, partitionCount)
                     .boxed()
-                    .collect(toImmutableMap(Function.identity(), (key) -> new TaskPartition(1, Optional.empty())));
+                    .collect(toImmutableMap(Function.identity(), _ -> new TaskPartition(1, Optional.empty())));
         }
 
         List<OutputDataSizeEstimate> partitionedSourcesEstimates = sourceDataSizeEstimates.entrySet().stream()
@@ -334,7 +334,7 @@ class HashDistributionSplitAssigner
         {
             checkArgument(subPartitionCount > 0, "subPartitionCount is expected to be greater than zero");
             subPartitions = IntStream.range(0, subPartitionCount)
-                    .mapToObj(i -> new SubPartition())
+                    .mapToObj(_ -> new SubPartition())
                     .collect(toImmutableList());
             checkArgument(subPartitionCount == 1 || splitBy.isPresent(), "splitBy is expected to be present when subPartitionCount is greater than 1");
             this.splitBy = requireNonNull(splitBy, "splitBy is null");

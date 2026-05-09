@@ -122,15 +122,13 @@ public class BenchmarkDecimalAggregation
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
             switch (type) {
-                case "SHORT": {
+                case "SHORT" -> {
                     DecimalType type = createDecimalType(14, 3);
                     values = createValues(functionResolution, type);
-                    break;
                 }
-                case "LONG": {
+                case "LONG" -> {
                     DecimalType type = createDecimalType(30, 10);
                     values = createValues(functionResolution, type);
-                    break;
                 }
             }
 

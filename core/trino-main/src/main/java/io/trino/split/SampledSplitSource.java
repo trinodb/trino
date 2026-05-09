@@ -52,7 +52,7 @@ public class SampledSplitSource
         ListenableFuture<SplitBatch> batch = splitSource.getNextBatch(maxSize);
         return Futures.transform(batch, splitBatch -> new SplitBatch(
                 splitBatch.getSplits().stream()
-                        .filter(input -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
+                        .filter(_ -> ThreadLocalRandom.current().nextDouble() < sampleRatio)
                         .collect(toImmutableList()),
                 splitBatch.isLastBatch()), directExecutor());
     }

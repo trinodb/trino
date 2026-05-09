@@ -48,7 +48,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
         extends BaseRuleTest
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
 
     @Test
     public void testRowNumberSymbolPruned()
@@ -238,7 +238,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
                     return p.filter(
-                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))),
+                            new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "row_number"), new Constant(BIGINT, 5L)), new Comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))),
                             p.project(
                                     Assignments.identity(rowNumber),
                                     p.rowNumber(
@@ -248,7 +248,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                             p.values(a))));
                 })
                 .matches(filter(
-                        new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
+                        new Comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "row_number"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
                         project(
                                 ImmutableMap.of("row_number", expression(new Reference(BIGINT, "row_number"))),
                                 rowNumber(

@@ -30,22 +30,22 @@ public class FailingMockConnectorPlugin
         return ImmutableList.of(
                 MockConnectorFactory.builder()
                         .withName("failing_mock")
-                        .withListSchemaNames(session -> {
+                        .withListSchemaNames(_ -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
-                        .withListTables((session, schema) -> {
+                        .withListTables((_, _) -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
-                        .withGetViews((session, prefix) -> {
+                        .withGetViews((_, _) -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
-                        .withGetMaterializedViews((session, prefix) -> {
+                        .withGetMaterializedViews((_, _) -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
-                        .withListTablePrivileges((session, prefix) -> {
+                        .withListTablePrivileges((_, _) -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
-                        .withStreamTableColumns((session, prefix) -> {
+                        .withStreamTableColumns((_, _) -> {
                             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
                         })
                         .build());

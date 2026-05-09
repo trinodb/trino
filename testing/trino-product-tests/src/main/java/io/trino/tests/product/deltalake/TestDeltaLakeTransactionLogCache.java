@@ -100,7 +100,7 @@ public class TestDeltaLakeTransactionLogCache
                 tableDirectory + "/_delta_log/00000000000000000002.json",
                 tableDirectory + "/_delta_log/00000000000000000003.json",
                 tableDirectory + "/_delta_log/00000000000000000004.json",
-                tableDirectory + "/_delta_log/00000000000000000005.json"
+                tableDirectory + "/_delta_log/00000000000000000005.json",
         };
         List<ObjectIdentifier> keys = Stream.of(transactionLogFilesToRemove)
                 .map(key -> ObjectIdentifier.builder().key(key).build())

@@ -148,23 +148,23 @@ public class TestingColumnReader
             .buildOrThrow();
 
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_INT_WRITER =
-            length -> new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     public static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
-            length -> new PlainLongDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainLongDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FIXED_LENGTH_WRITER =
             length -> new PlainFixedLenArrayDictionaryValuesWriter(Integer.MAX_VALUE, length, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FLOAT_WRITER =
-            length -> new PlainFloatDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainFloatDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_DOUBLE_WRITER =
-            length -> new PlainDoubleDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainDoubleDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_BINARY_WRITER =
-            length -> new PlainBinaryDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainBinaryDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
 
-    private static final IntFunction<ValuesWriter> BOOLEAN_WRITER = length -> new BooleanPlainValuesWriter();
+    private static final IntFunction<ValuesWriter> BOOLEAN_WRITER = _ -> new BooleanPlainValuesWriter();
     private static final IntFunction<ValuesWriter> FIXED_LENGTH_WRITER =
             length -> new FixedLenByteArrayPlainValuesWriter(length, 1024, 1024, HeapByteBufferAllocator.getInstance());
     public static final IntFunction<ValuesWriter> PLAIN_WRITER =
-            length -> new PlainValuesWriter(1024, 1024, HeapByteBufferAllocator.getInstance());
+            _ -> new PlainValuesWriter(1024, 1024, HeapByteBufferAllocator.getInstance());
     private static final Writer<Number> WRITE_BOOLEAN = (writer, values) -> {
         Number[] result = new Number[values.length];
         for (int i = 0; i < values.length; i++) {

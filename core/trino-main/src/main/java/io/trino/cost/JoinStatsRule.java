@@ -255,7 +255,7 @@ public class JoinStatsRule
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            return normalizer.normalize(leftStats.mapOutputRowCount(rowCount -> 0.0));
+            return normalizer.normalize(leftStats.mapOutputRowCount(_ -> 0.0));
         }
 
         // TODO: add support for non-equality conditions (e.g: <=, !=, >)
@@ -360,7 +360,7 @@ public class JoinStatsRule
         for (Symbol symbol : difference(innerJoinStats.getSymbolsWithKnownStatistics(), joinComplementStats.getSymbolsWithKnownStatistics())) {
             SymbolStatsEstimate innerJoinSymbolStats = innerJoinStats.getSymbolStatistics(symbol);
             double newNullsFraction = (innerJoinSymbolStats.getNullsFraction() * innerJoinRowCount + joinComplementRowCount) / outputRowCount;
-            outputStats.addSymbolStatistics(symbol, innerJoinSymbolStats.mapNullsFraction(nullsFraction -> newNullsFraction));
+            outputStats.addSymbolStatistics(symbol, innerJoinSymbolStats.mapNullsFraction(_ -> newNullsFraction));
         }
 
         return outputStats.build();

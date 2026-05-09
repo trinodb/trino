@@ -558,20 +558,12 @@ public class TestTupleDomainParquetPredicate
     private void testTimestampInt64(TimeUnit timeUnit, int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
-        int parquetPrecision;
-        switch (timeUnit) {
-            case MILLIS:
-                parquetPrecision = 3;
-                break;
-            case MICROS:
-                parquetPrecision = 6;
-                break;
-            case NANOS:
-                parquetPrecision = 9;
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown Parquet TimeUnit " + timeUnit);
-        }
+        int parquetPrecision = switch (timeUnit) {
+            case MILLIS -> 3;
+            case MICROS -> 6;
+            case NANOS -> 9;
+            default -> throw new IllegalArgumentException("Unknown Parquet TimeUnit " + timeUnit);
+        };
 
         PrimitiveType type = Types.required(INT64)
                 .as(LogicalTypeAnnotation.timestampType(false, timeUnit))

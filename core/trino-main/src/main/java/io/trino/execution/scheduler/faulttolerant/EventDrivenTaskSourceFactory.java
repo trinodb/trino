@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
+import io.trino.execution.scheduler.ConsistentHashingAddressProvider;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
@@ -78,6 +79,7 @@ public class EventDrivenTaskSourceFactory
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final TableExecuteContextManager tableExecuteContextManager;
+    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
     private final int splitBatchSize;
 
     @Inject
@@ -87,6 +89,7 @@ public class EventDrivenTaskSourceFactory
             InternalNode currentNode,
             InternalNodeManager nodeManager,
             TableExecuteContextManager tableExecuteContextManager,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider,
             QueryManagerConfig queryManagerConfig)
     {
         this(
@@ -95,6 +98,7 @@ public class EventDrivenTaskSourceFactory
                 currentNode,
                 nodeManager,
                 tableExecuteContextManager,
+                consistentHashingAddressProvider,
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize());
     }
 
@@ -104,6 +108,7 @@ public class EventDrivenTaskSourceFactory
             InternalNode currentNode,
             InternalNodeManager nodeManager,
             TableExecuteContextManager tableExecuteContextManager,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider,
             int splitBatchSize)
     {
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -111,6 +116,7 @@ public class EventDrivenTaskSourceFactory
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
+        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
         this.splitBatchSize = splitBatchSize;
     }
 
@@ -215,7 +221,8 @@ public class EventDrivenTaskSourceFactory
                     arbitraryDistributionComputeTaskTargetSizeInBytesMin,
                     arbitraryDistributionComputeTaskTargetSizeInBytesMax,
                     standardSplitSizeInBytes,
-                    maxArbitraryDistributionTaskSplitCount);
+                    maxArbitraryDistributionTaskSplitCount,
+                    consistentHashingAddressProvider);
         }
 
         if (partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
@@ -228,7 +235,8 @@ public class EventDrivenTaskSourceFactory
                     arbitraryDistributionWriteTaskTargetSizeInBytesMin,
                     arbitraryDistributionWriteTaskTargetSizeInBytesMax,
                     standardSplitSizeInBytes,
-                    maxArbitraryDistributionTaskSplitCount);
+                    maxArbitraryDistributionTaskSplitCount,
+                    consistentHashingAddressProvider);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             return HashDistributionSplitAssigner.create(

@@ -156,7 +156,7 @@ public class TestFileSingleStreamSpiller
                     compressionCodec,
                     encryption);
             LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, _ -> {}, memoryContext);
             assertThat(singleStreamSpiller).isInstanceOf(FileSingleStreamSpiller.class);
             FileSingleStreamSpiller spiller = (FileSingleStreamSpiller) singleStreamSpiller;
 
@@ -219,7 +219,7 @@ public class TestFileSingleStreamSpiller
                     executor,
                     ImmutableList.of(spillPath1.toPath(), spillPath2.toPath()),
                     stats,
-                    bytes -> {},
+                    _ -> {},
                     memoryContext,
                     () -> {});
 

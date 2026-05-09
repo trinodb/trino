@@ -1293,8 +1293,8 @@ class TestVariant
     @Test
     void testDoubleNaNPayloadsHashEqualButAreNotEqual()
     {
-        Variant nan1 = Variant.ofDouble(Double.longBitsToDouble(0x7ff8_0000_0000_0001L));
-        Variant nan2 = Variant.ofDouble(Double.longBitsToDouble(0x7ff8_0000_0000_0002L));
+        Variant nan1 = Variant.ofDouble(Double.longBitsToDouble(0x7FF8_0000_0000_0001L));
+        Variant nan2 = Variant.ofDouble(Double.longBitsToDouble(0x7FF8_0000_0000_0002L));
 
         assertThat(nan1).isNotEqualTo(nan2);
         assertThat(nan1.longHashCode()).isEqualTo(nan2.longHashCode());

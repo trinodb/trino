@@ -37,6 +37,11 @@ public final class TestingGlueHiveMetastore
 
     public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource)
     {
+        return createTestingGlueHiveMetastore(defaultWarehouseDir, registerResource, false);
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(Path defaultWarehouseDir, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
+    {
         if (!exists(defaultWarehouseDir)) {
             try {
                 createDirectories(defaultWarehouseDir);
@@ -46,13 +51,19 @@ public final class TestingGlueHiveMetastore
             }
         }
         verify(isDirectory(defaultWarehouseDir), "%s is not a directory", defaultWarehouseDir);
-        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource);
+        return createTestingGlueHiveMetastore(defaultWarehouseDir.toUri(), registerResource, assumeCanonicalPartitionKeys);
     }
 
     public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource)
     {
+        return createTestingGlueHiveMetastore(warehouseUri, registerResource, false);
+    }
+
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(URI warehouseUri, Consumer<AutoCloseable> registerResource, boolean assumeCanonicalPartitionKeys)
+    {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setDefaultWarehouseDir(warehouseUri.toString());
+                .setDefaultWarehouseDir(warehouseUri.toString())
+                .setAssumeCanonicalPartitionKeys(assumeCanonicalPartitionKeys);
         GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of());
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(

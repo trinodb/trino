@@ -222,7 +222,7 @@ public class StatisticsFetcher
                     format("%.2f%%", memoryUsagePerc),
                     format("%d", pids),
                     format("%s", networkReceived),
-                    format("%s", networkSent)
+                    format("%s", networkSent),
             };
         }
 

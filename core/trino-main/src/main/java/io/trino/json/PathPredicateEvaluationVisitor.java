@@ -260,32 +260,24 @@ class PathPredicateEvaluationVisitor
         Type secondType = right.getType();
         Object secondValue = right.getValueAsObject();
         switch (comparisonOperator) {
-            case EQUAL:
-            case NOT_EQUAL:
-                operator = ComparisonExpression.Operator.EQUAL;
-                break;
-            case LESS_THAN:
-                operator = ComparisonExpression.Operator.LESS_THAN;
-                break;
-            case GREATER_THAN:
+            case EQUAL, NOT_EQUAL -> operator = ComparisonExpression.Operator.EQUAL;
+            case LESS_THAN -> operator = ComparisonExpression.Operator.LESS_THAN;
+            case GREATER_THAN -> {
                 operator = ComparisonExpression.Operator.LESS_THAN;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();
                 secondValue = left.getValueAsObject();
-                break;
-            case LESS_THAN_OR_EQUAL:
-                operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-                break;
-            case GREATER_THAN_OR_EQUAL:
+            }
+            case LESS_THAN_OR_EQUAL -> operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+            case GREATER_THAN_OR_EQUAL -> {
                 operator = ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
                 firstType = right.getType();
                 firstValue = right.getValueAsObject();
                 secondType = left.getType();
                 secondValue = left.getValueAsObject();
-                break;
-            default:
-                throw new UnsupportedOperationException("Unexpected comparison operator " + comparisonOperator);
+            }
+            default -> throw new UnsupportedOperationException("Unexpected comparison operator " + comparisonOperator);
         }
 
         ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(operator.name()), firstType, secondType);

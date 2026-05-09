@@ -108,7 +108,7 @@ public class PushProjectionIntoTableScan
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, _) -> first));
 
         List<NodeRef<Expression>> nodesForPartialProjections = ImmutableList.copyOf(partialTranslations.keySet());
         List<ConnectorExpression> connectorPartialProjections = ImmutableList.copyOf(partialTranslations.values());

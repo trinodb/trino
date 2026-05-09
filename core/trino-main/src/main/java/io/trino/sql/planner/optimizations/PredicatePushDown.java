@@ -649,7 +649,7 @@ public class PredicatePushDown
             for (Symbol buildSymbol : buildSymbols) {
                 buildSymbolToDynamicFilter.computeIfAbsent(
                         buildSymbol,
-                        key -> new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
+                        _ -> new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
             }
 
             // Multiple probe symbols may depend on a single build symbol / dynamic filter ID:

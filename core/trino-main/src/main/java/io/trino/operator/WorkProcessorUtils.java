@@ -366,16 +366,19 @@ public final class WorkProcessorUtils
 
                     // pass-through transformation state if it doesn't require new data
                     switch (state.getType()) {
-                        case NEEDS_MORE_DATA:
-                            break;
-                        case BLOCKED:
+                        case NEEDS_MORE_DATA -> {}
+                        case BLOCKED -> {
                             return ProcessState.blocked(state.getBlocked());
-                        case YIELD:
+                        }
+                        case YIELD -> {
                             return ProcessState.yielded();
-                        case RESULT:
+                        }
+                        case RESULT -> {
                             return ProcessState.ofResult(state.getResult());
-                        case FINISHED:
+                        }
+                        case FINISHED -> {
                             return ProcessState.finished();
+                        }
                     }
                 }
             }

@@ -5,6 +5,7 @@ on:
     branches:
       - master
   pull_request:
+  merge_group:
   repository_dispatch:
     types: [test-with-secrets-command]
 

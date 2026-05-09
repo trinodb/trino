@@ -15,8 +15,9 @@
 
     <properties>
         <project.build.targetJdk>11</project.build.targetJdk>
+        <checkstyle.violation.ignore>UnusedLambdaParameterShouldBeUnnamed,UseEnhancedSwitch</checkstyle.violation.ignore>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>4.0.12</dep.jline.version>
+        <dep.jline.version>4.0.14</dep.jline.version>
     </properties>
 
     <dependencies>

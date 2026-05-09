@@ -569,19 +569,19 @@ public class TestVarbinaryFunctions
 
         assertThat(assertions.function("from_ieee754_32", "to_ieee754_32(CAST(3.4028235E38 AS REAL))"))
                 .hasType(REAL)
-                .isEqualTo(3.4028235E38f);
+                .isEqualTo(3.4028235e38f);
 
         assertThat(assertions.function("from_ieee754_32", "to_ieee754_32(CAST(-3.4028235E38 AS REAL))"))
                 .hasType(REAL)
-                .isEqualTo(-3.4028235E38f);
+                .isEqualTo(-3.4028235e38f);
 
         assertThat(assertions.function("from_ieee754_32", "to_ieee754_32(CAST(1.4E-45 AS REAL))"))
                 .hasType(REAL)
-                .isEqualTo(1.4E-45f);
+                .isEqualTo(1.4e-45f);
 
         assertThat(assertions.function("from_ieee754_32", "to_ieee754_32(CAST(-1.4E-45 AS REAL))"))
                 .hasType(REAL)
-                .isEqualTo(-1.4E-45f);
+                .isEqualTo(-1.4e-45f);
 
         assertTrinoExceptionThrownBy(assertions.function("from_ieee754_32", "from_hex('0000')")::evaluate)
                 .hasMessage("Input floating-point value must be exactly 4 bytes long");
@@ -650,19 +650,19 @@ public class TestVarbinaryFunctions
 
         assertThat(assertions.function("from_ieee754_64", "to_ieee754_64(1.7976931348623157E308)"))
                 .hasType(DOUBLE)
-                .isEqualTo(1.7976931348623157E308);
+                .isEqualTo(1.7976931348623157e308);
 
         assertThat(assertions.function("from_ieee754_64", "to_ieee754_64(-1.7976931348623157E308)"))
                 .hasType(DOUBLE)
-                .isEqualTo(-1.7976931348623157E308);
+                .isEqualTo(-1.7976931348623157e308);
 
         assertThat(assertions.function("from_ieee754_64", "to_ieee754_64(4.9E-324)"))
                 .hasType(DOUBLE)
-                .isEqualTo(4.9E-324);
+                .isEqualTo(4.9e-324);
 
         assertThat(assertions.function("from_ieee754_64", "to_ieee754_64(-4.9E-324)"))
                 .hasType(DOUBLE)
-                .isEqualTo(-4.9E-324);
+                .isEqualTo(-4.9e-324);
 
         assertTrinoExceptionThrownBy(assertions.function("from_ieee754_64", "from_hex('00000000')")::evaluate)
                 .hasMessage("Input floating-point value must be exactly 8 bytes long");

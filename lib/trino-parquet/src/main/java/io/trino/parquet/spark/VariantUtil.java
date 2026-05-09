@@ -301,17 +301,18 @@ public final class VariantUtil
         // Interpret the scale byte as unsigned. If it is a negative byte, the unsigned value must be
         // greater than `MAX_DECIMAL16_PRECISION` and will trigger an error in `checkDecimal`.
         int scale = value[position + 1] & 0xFF;
-        BigDecimal result;
-        switch (typeInfo) {
-            case DECIMAL4:
-                result = BigDecimal.valueOf(readLong(value, position + 2, 4), scale);
-                checkDecimal(result, MAX_DECIMAL4_PRECISION);
-                break;
-            case DECIMAL8:
-                result = BigDecimal.valueOf(readLong(value, position + 2, 8), scale);
-                checkDecimal(result, MAX_DECIMAL8_PRECISION);
-                break;
-            case DECIMAL16:
+        BigDecimal result = switch (typeInfo) {
+            case DECIMAL4 -> {
+                BigDecimal decimal = BigDecimal.valueOf(readLong(value, position + 2, 4), scale);
+                checkDecimal(decimal, MAX_DECIMAL4_PRECISION);
+                yield decimal;
+            }
+            case DECIMAL8 -> {
+                BigDecimal decimal = BigDecimal.valueOf(readLong(value, position + 2, 8), scale);
+                checkDecimal(decimal, MAX_DECIMAL8_PRECISION);
+                yield decimal;
+            }
+            case DECIMAL16 -> {
                 checkIndex(position + 17, value.length);
                 byte[] bytes = new byte[16];
                 // Copy the bytes reversely because the `BigInteger` constructor expects a big-endian
@@ -319,12 +320,12 @@ public final class VariantUtil
                 for (int i = 0; i < 16; ++i) {
                     bytes[i] = value[position + 17 - i];
                 }
-                result = new BigDecimal(new BigInteger(bytes), scale);
-                checkDecimal(result, MAX_DECIMAL16_PRECISION);
-                break;
-            default:
-                throw unexpectedType(Type.DECIMAL);
-        }
+                BigDecimal decimal = new BigDecimal(new BigInteger(bytes), scale);
+                checkDecimal(decimal, MAX_DECIMAL16_PRECISION);
+                yield decimal;
+            }
+            default -> throw unexpectedType(Type.DECIMAL);
+        };
         return result.stripTrailingZeros();
     }
 

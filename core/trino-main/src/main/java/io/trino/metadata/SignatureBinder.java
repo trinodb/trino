@@ -511,16 +511,15 @@ public class SignatureBinder
                 }
             }
             switch (statusMerger.getCurrent()) {
-                case UNCHANGED_SATISFIED:
-                    break;
-                case UNCHANGED_NOT_SATISFIED:
+                case UNCHANGED_SATISFIED -> {}
+                case UNCHANGED_NOT_SATISFIED -> {
                     return Optional.empty();
-                case CHANGED:
+                }
+                case CHANGED -> {
                     continue;
-                case UNSOLVABLE:
-                    throw new VerifyException();
-                default:
-                    throw new UnsupportedOperationException("unknown status");
+                }
+                case UNSOLVABLE -> throw new VerifyException();
+                default -> throw new UnsupportedOperationException("unknown status");
             }
             break;
         }
@@ -729,21 +728,18 @@ public class SignatureBinder
         public void add(SolverReturnStatus newStatus)
         {
             switch (newStatus) {
-                case UNCHANGED_SATISFIED:
-                    break;
-                case UNCHANGED_NOT_SATISFIED:
+                case UNCHANGED_SATISFIED -> {}
+                case UNCHANGED_NOT_SATISFIED -> {
                     if (current == SolverReturnStatus.UNCHANGED_SATISFIED) {
                         current = SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
                     }
-                    break;
-                case CHANGED:
+                }
+                case CHANGED -> {
                     if (current == SolverReturnStatus.UNCHANGED_SATISFIED || current == SolverReturnStatus.UNCHANGED_NOT_SATISFIED) {
                         current = SolverReturnStatus.CHANGED;
                     }
-                    break;
-                case UNSOLVABLE:
-                    current = SolverReturnStatus.UNSOLVABLE;
-                    break;
+                }
+                case UNSOLVABLE -> current = SolverReturnStatus.UNSOLVABLE;
             }
         }
 

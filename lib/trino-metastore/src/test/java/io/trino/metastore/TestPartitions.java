@@ -44,7 +44,7 @@ public class TestPartitions
     {
         List<String> actual = toPartitionValues(partitionName);
         AbstractList<String> expected = new ArrayList<>();
-        actual.forEach(s -> expected.add(null));
+        actual.forEach(_ -> expected.add(null));
         Warehouse.makeValsFromName(partitionName, expected);
         assertThat(actual).isEqualTo(expected);
     }

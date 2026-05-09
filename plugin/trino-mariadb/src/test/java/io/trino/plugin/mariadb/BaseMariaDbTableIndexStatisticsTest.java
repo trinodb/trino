@@ -26,8 +26,8 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
     {
         super(
                 dockerImageName,
-                nullFraction -> 0.1, // Without mysql.column_stats we have no way of knowing real null fraction, 10% is just a "wild guess"
-                varcharNdv -> null); // Without mysql.column_stats we don't know cardinality for varchar columns
+                _ -> 0.1, // Without mysql.column_stats we have no way of knowing real null fraction, 10% is just a "wild guess"
+                _ -> null); // Without mysql.column_stats we don't know cardinality for varchar columns
     }
 
     @Override

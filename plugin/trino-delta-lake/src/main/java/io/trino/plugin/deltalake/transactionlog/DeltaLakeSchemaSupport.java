@@ -119,7 +119,6 @@ public final class DeltaLakeSchemaSupport
         NAME,
         NONE,
         UNKNOWN,
-        /**/;
     }
 
     public enum IsolationLevel
@@ -498,7 +497,7 @@ public final class DeltaLakeSchemaSupport
         JsonNode metadata = node.get("metadata");
         verifyTypeChanges(metadata, typeNode, partitionColumns.contains(fieldName));
         switch (mappingMode) {
-            case ID:
+            case ID -> {
                 String columnMappingId = metadata.get("delta.columnMapping.id").asText();
                 verify(!isNullOrEmpty(columnMappingId), "id is null or empty");
                 fieldId = OptionalInt.of(Integer.parseInt(columnMappingId));
@@ -506,15 +505,16 @@ public final class DeltaLakeSchemaSupport
                 physicalName = metadata.get("delta.columnMapping.physicalName").asText();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
                 physicalColumnType = buildType(typeManager, typeNode, true);
-                break;
-            case NAME:
+            }
+            case NAME -> {
                 physicalName = metadata.get("delta.columnMapping.physicalName").asText();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
                 physicalColumnType = buildType(typeManager, typeNode, true);
-                break;
-            default:
+            }
+            default -> {
                 physicalName = fieldName;
                 physicalColumnType = columnType;
+            }
         }
         ColumnMetadata columnMetadata = ColumnMetadata.builder()
                 .setName(fieldName)

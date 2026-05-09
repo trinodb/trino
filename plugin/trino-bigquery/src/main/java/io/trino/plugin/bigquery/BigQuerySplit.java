@@ -82,8 +82,6 @@ public record BigQuerySplit(
 
     public enum Mode
     {
-        STORAGE,
-        QUERY,
-        /**/;
+        STORAGE, QUERY,
     }
 }

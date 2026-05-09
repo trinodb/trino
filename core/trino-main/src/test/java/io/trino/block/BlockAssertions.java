@@ -133,7 +133,7 @@ public final class BlockAssertions
 
         Random random = random();
         int[] ids = IntStream.range(0, positionCount)
-                .map(i -> random.nextInt(dictionary.getPositionCount()))
+                .map(_ -> random.nextInt(dictionary.getPositionCount()))
                 .toArray();
         return DictionaryBlock.create(positionCount, dictionary, ids);
     }
@@ -303,7 +303,7 @@ public final class BlockAssertions
                 .toArray();
         Random random = random();
         return createLongsBlock(IntStream.range(0, positionCount)
-                .mapToLong(position -> uniqueValues[random.nextInt(numberOfUniqueValues)])
+                .mapToLong(_ -> uniqueValues[random.nextInt(numberOfUniqueValues)])
                 .boxed()
                 .collect(toImmutableList()));
     }

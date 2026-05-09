@@ -136,7 +136,7 @@ public class TestTrinoRestCatalog
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
+                    (_, _) -> {
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,

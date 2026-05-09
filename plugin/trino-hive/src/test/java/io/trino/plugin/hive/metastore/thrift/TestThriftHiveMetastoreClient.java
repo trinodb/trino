@@ -53,18 +53,18 @@ public class TestThriftHiveMetastoreClient
                 new AtomicInteger());
         assertThat(connectionCount.get()).isEqualTo(1);
 
-        assertThat(client.alternativeCall(e -> false, chosenOption, success1, success2, failure))
+        assertThat(client.alternativeCall(_ -> false, chosenOption, success1, success2, failure))
                 .isEqualTo("first");
         assertThat(connectionCount.get()).isEqualTo(1);
         assertThat(chosenOption.get()).isEqualTo(0);
 
         chosenOption.set(Integer.MAX_VALUE);
-        assertThat(client.alternativeCall(e -> false, chosenOption, failure, success1, success2))
+        assertThat(client.alternativeCall(_ -> false, chosenOption, failure, success1, success2))
                 .isEqualTo("first");
         assertThat(connectionCount.get()).isEqualTo(2);
         assertThat(chosenOption.get()).isEqualTo(1);
 
-        assertThat(client.alternativeCall(e -> false, chosenOption, failure, success1, success2))
+        assertThat(client.alternativeCall(_ -> false, chosenOption, failure, success1, success2))
                 .isEqualTo("first");
         // Alternative call should use chosenOption
         assertThat(connectionCount.get()).isEqualTo(2);

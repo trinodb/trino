@@ -201,22 +201,11 @@ public final class ChoicesSpecializedSqlScalarFunction
             int score = 0;
             for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
                 switch (argument) {
-                    case NULL_FLAG:
-                        score += 1;
-                        break;
-                    case BLOCK_POSITION_NOT_NULL:
-                    case BLOCK_POSITION:
-                        score += 1000;
-                        break;
-                    case VALUE_BLOCK_POSITION_NOT_NULL:
-                    case VALUE_BLOCK_POSITION:
-                        score += 2000;
-                        break;
-                    case IN_OUT:
-                        score += 10_000;
-                        break;
-                    default:
-                        break;
+                    case NULL_FLAG -> score += 1;
+                    case BLOCK_POSITION_NOT_NULL, BLOCK_POSITION -> score += 1000;
+                    case VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION -> score += 2000;
+                    case IN_OUT -> score += 10_000;
+                    default -> {}
                 }
             }
             return score;

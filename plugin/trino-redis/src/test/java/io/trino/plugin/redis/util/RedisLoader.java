@@ -91,7 +91,7 @@ public class RedisLoader
                 String redisKey = tableName + ":" + count.getAndIncrement();
 
                 switch (dataFormat) {
-                    case "string":
+                    case "string" -> {
                         ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
                         for (int i = 0; i < fields.size(); i++) {
                             Type type = types.get().get(i);
@@ -101,8 +101,8 @@ public class RedisLoader
                             }
                         }
                         client.set(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
-                        break;
-                    case "hash":
+                    }
+                    case "hash" -> {
                         // add keys to zset
                         String redisZset = "keyset:" + tableName;
                         client.zadd(redisZset, count.get(), redisKey);
@@ -111,8 +111,8 @@ public class RedisLoader
                         for (int i = 0; i < fields.size(); i++) {
                             client.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
                         }
-                        break;
-                    default:
+                    }
+                    default ->
                         throw new AssertionError("unhandled value type: " + dataFormat);
                 }
             }

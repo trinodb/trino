@@ -223,13 +223,11 @@ public class ThriftTpchService
 
     public static double schemaNameToScaleFactor(String schemaName)
     {
-        switch (schemaName) {
-            case "tiny":
-                return 0.01;
-            case "sf1":
-                return 1.0;
-        }
-        throw new IllegalArgumentException("Schema is not setup: " + schemaName);
+        return switch (schemaName) {
+            case "tiny" -> 0.01;
+            case "sf1" -> 1.0;
+            default -> throw new IllegalArgumentException("Schema is not setup: " + schemaName);
+        };
     }
 
     private static TrinoThriftPageResult getRowsInternal(ConnectorPageSource pageSource, String tableName, List<String> columnNames, @Nullable TrinoThriftId nextToken)
@@ -273,22 +271,15 @@ public class ThriftTpchService
 
     private static ConnectorPageSource createPageSource(SplitInfo splitInfo, List<String> columnNames)
     {
-        switch (splitInfo.getTableName()) {
-            case "orders":
-                return createPageSource(TpchTable.ORDERS, columnNames, splitInfo);
-            case "customer":
-                return createPageSource(TpchTable.CUSTOMER, columnNames, splitInfo);
-            case "lineitem":
-                return createPageSource(TpchTable.LINE_ITEM, columnNames, splitInfo);
-            case "nation":
-                return createPageSource(TpchTable.NATION, columnNames, splitInfo);
-            case "region":
-                return createPageSource(TpchTable.REGION, columnNames, splitInfo);
-            case "part":
-                return createPageSource(TpchTable.PART, columnNames, splitInfo);
-            default:
-                throw new IllegalArgumentException("Table not setup: " + splitInfo.getTableName());
-        }
+        return switch (splitInfo.getTableName()) {
+            case "orders" -> createPageSource(TpchTable.ORDERS, columnNames, splitInfo);
+            case "customer" -> createPageSource(TpchTable.CUSTOMER, columnNames, splitInfo);
+            case "lineitem" -> createPageSource(TpchTable.LINE_ITEM, columnNames, splitInfo);
+            case "nation" -> createPageSource(TpchTable.NATION, columnNames, splitInfo);
+            case "region" -> createPageSource(TpchTable.REGION, columnNames, splitInfo);
+            case "part" -> createPageSource(TpchTable.PART, columnNames, splitInfo);
+            default -> throw new IllegalArgumentException("Table not setup: " + splitInfo.getTableName());
+        };
     }
 
     private static <T extends TpchEntity> ConnectorPageSource createPageSource(TpchTable<T> table, List<String> columnNames, SplitInfo splitInfo)

@@ -34,7 +34,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.function.OperatorType.DIVIDE;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -46,6 +46,7 @@ import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
 import static java.math.RoundingMode.FLOOR;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public final class RealOperators
@@ -87,9 +88,9 @@ public final class RealOperators
         return floatToRawIntBits(intBitsToFloat((int) left) / intBitsToFloat((int) right));
     }
 
-    @ScalarOperator(MODULUS)
+    @ScalarOperator(MODULO)
     @SqlType(StandardTypes.REAL)
-    public static long modulus(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
+    public static long modulo(@SqlType(StandardTypes.REAL) long left, @SqlType(StandardTypes.REAL) long right)
     {
         return floatToRawIntBits(intBitsToFloat((int) left) % intBitsToFloat((int) right));
     }
@@ -146,7 +147,12 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
-        return (long) MathFunctions.round(floatValue);
+        try {
+            return DoubleMath.roundToLong(floatValue, HALF_UP);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for bigint: " + floatValue, e);
+        }
     }
 
     @ScalarOperator(CAST)

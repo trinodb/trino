@@ -232,7 +232,7 @@ public interface EnvironmentListener
 
             private StatisticsFetcher fetcher(DockerContainer container)
             {
-                return fetchers.computeIfAbsent(container.getLogicalName(), key -> StatisticsFetcher.create(container));
+                return fetchers.computeIfAbsent(container.getLogicalName(), _ -> StatisticsFetcher.create(container));
             }
 
             private void printContainerStats()

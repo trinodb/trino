@@ -380,7 +380,7 @@ public final class MetadataListing
     {
         checkArgument(varcharDomain.getType() instanceof VarcharType, "Invalid domain type: %s", varcharDomain.getType());
         if (varcharDomain.isAll()) {
-            return value -> true;
+            return _ -> true;
         }
         return value -> varcharDomain.includesNullableValue(value == null ? null : utf8Slice(value));
     }

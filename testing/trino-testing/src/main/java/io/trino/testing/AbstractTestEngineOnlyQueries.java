@@ -61,6 +61,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -359,9 +361,9 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         // with implicit coercions
         assertQuery("SELECT * FROM (VALUES" +
-                "   CAST(NULL AS char(3)), " +
-                "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))",
+                        "   CAST(NULL AS char(3)), " +
+                        "   CAST('   ' AS char(3))) t(x) " +
+                        "WHERE x = CAST('  ' AS varchar(2))",
                 // H2 returns '' on CAST char(3) to varchar(2)
                 "SELECT '   '");
 
@@ -557,7 +559,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testAssignUniqueId()
     {
         String unionLineitem25Times = range(0, 25)
-                .mapToObj(i -> "SELECT * FROM lineitem")
+                .mapToObj(_ -> "SELECT * FROM lineitem")
                 .collect(joining(" UNION ALL "));
 
         assertQuery(
@@ -830,25 +832,25 @@ public abstract class AbstractTestEngineOnlyQueries
                     String subtract = "SELECT CAST(CAST('3' AS " + left + ") - CAST('4' AS " + right + ") AS varchar)";
                     String multiply = "SELECT CAST(CAST('3' AS " + left + ") * CAST('4' AS " + right + ") AS varchar)";
                     String divide = "SELECT CAST(CAST('12' AS " + left + ") / CAST('4' AS " + right + ") AS varchar)";
-                    String modulus = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
+                    String modulo = "SELECT CAST(CAST('12' AS " + left + ") % CAST('7' AS " + right + ") AS varchar)";
                     List<String> both = List.of(left, right);
                     // There currently is no coercion between number and real/double/decimal
                     boolean unsupported =
                             both.contains("number") &&
-                            (both.contains("real") || both.contains("double"));
+                                    (both.contains("real") || both.contains("double"));
                     if (unsupported) {
                         assertThat(query(add)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\+ .*");
                         assertThat(query(subtract)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* - .*");
                         assertThat(query(multiply)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* \\* .*");
                         assertThat(query(divide)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* / .*");
-                        assertThat(query(modulus)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
+                        assertThat(query(modulo)).failure().hasMessageMatching("line 1:\\d+: Cannot apply operator: .* % .*");
                     }
                     else {
                         assertThat((String) computeActual(add).getOnlyValue()).matches("7(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(subtract).getOnlyValue()).matches("-1(\\.0E0|\\.0+)?");
                         assertThat((String) computeActual(multiply).getOnlyValue()).matches("12(\\.0+)?|1.2E1");
                         assertThat((String) computeActual(divide).getOnlyValue()).matches("3(\\.0E0|\\.0+)?");
-                        assertThat((String) computeActual(modulus).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
+                        assertThat((String) computeActual(modulo).getOnlyValue()).matches("5(\\.0E0|\\.0+)?");
                     }
                 }
                 catch (Throwable e) {
@@ -6716,6 +6718,84 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isEqualTo(Double.NEGATIVE_INFINITY);
         assertThat(computeActual("SELECT NUMBER 'NaN'").getOnlyValue())
                 .isEqualTo(Double.NaN);
+    }
+
+    @Test
+    public void testDivisionOverflow()
+    {
+        assertThat(query("SELECT CAST(-0x80 AS tinyint) / TINYINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000 AS smallint) / SMALLINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x80000000 AS integer) / INTEGER '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        assertThat(query("SELECT CAST(-0x8000000000000000 AS bigint) / BIGINT '-1'"))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+    }
+
+    @Test
+    public void testCastNumericOutOfRange()
+    {
+        // Rule:
+        //   NaN cast to a target type that has no NaN representation -> INVALID_CAST_ARGUMENT.
+        //   Any other "value cannot be represented in target type"  -> NUMERIC_VALUE_OUT_OF_RANGE.
+        // Targets without NaN/Infinity are: TINYINT, SMALLINT, INTEGER, BIGINT and DECIMAL (any precision/scale).
+
+        // Short decimal: precision <= 18; long decimal: precision > 18.
+        List<String> targetTypesWithoutNan = List.of(
+                "tinyint",
+                "smallint",
+                "integer",
+                "bigint",
+                "decimal(2, 0)",
+                "decimal(20, 0)");
+
+        // Sources that can produce NaN, +/-Infinity, and finite-but-out-of-range values.
+        // Each row: source label, NaN literal, +Infinity literal, -Infinity literal, large positive finite, large negative finite.
+        List<List<String>> floatingSources = List.of(
+                List.of("DOUBLE", "nan()", "infinity()", "-infinity()", "DOUBLE '1e300'", "DOUBLE '-1e300'"),
+                List.of("REAL", "CAST(nan() AS REAL)", "CAST(infinity() AS REAL)", "CAST(-infinity() AS REAL)", "REAL '1e30'", "REAL '-1e30'"),
+                List.of("NUMBER", "NUMBER 'NaN'", "NUMBER '+Infinity'", "NUMBER '-Infinity'", "NUMBER '1e300'", "NUMBER '-1e300'"));
+
+        for (List<String> source : floatingSources) {
+            String nan = source.get(1);
+            String positiveInfinity = source.get(2);
+            String negativeInfinity = source.get(3);
+            String largePositive = source.get(4);
+            String largeNegative = source.get(5);
+            for (String target : targetTypesWithoutNan) {
+                assertThat(query("SELECT CAST(" + nan + " AS " + target + ")"))
+                        .failure().hasErrorCode(INVALID_CAST_ARGUMENT);
+                assertThat(query("SELECT CAST(" + positiveInfinity + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + negativeInfinity + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + largePositive + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+                assertThat(query("SELECT CAST(" + largeNegative + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+            }
+        }
+
+        // Sources without NaN/Infinity, only finite overflow.
+        // Each row: source expression that is too large for the targets that follow it.
+        List<List<String>> finiteOverflowCases = List.of(
+                List.of("BIGINT '9223372036854775807'", "tinyint", "smallint", "integer", "decimal(2, 0)"),
+                List.of("INTEGER '2147483647'", "tinyint", "smallint", "decimal(2, 0)"),
+                List.of("SMALLINT '32767'", "tinyint", "decimal(2, 0)"),
+                List.of(
+                        "DECIMAL '99999999999999999999999999999999999999'", // DECIMAL(38, 0) max
+                        "tinyint", "smallint", "integer", "bigint", "decimal(2, 0)", "decimal(20, 0)"),
+                List.of(
+                        "DECIMAL '99999999999999999999'", // DECIMAL(20, 0) max — long decimal source
+                        "tinyint", "smallint", "integer", "bigint", "decimal(2, 0)"));
+        for (List<String> finiteCase : finiteOverflowCases) {
+            String sourceExpression = finiteCase.get(0);
+            for (String target : finiteCase.subList(1, finiteCase.size())) {
+                assertThat(query("SELECT CAST(" + sourceExpression + " AS " + target + ")"))
+                        .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+            }
+        }
     }
 
     private static int getNumberMaxDecimalPrecision()

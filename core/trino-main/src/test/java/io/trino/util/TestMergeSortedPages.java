@@ -326,7 +326,7 @@ public class TestMergeSortedPages
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
@@ -361,7 +361,7 @@ public class TestMergeSortedPages
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);

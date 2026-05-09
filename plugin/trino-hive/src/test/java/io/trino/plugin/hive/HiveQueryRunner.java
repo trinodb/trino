@@ -355,33 +355,20 @@ public final class HiveQueryRunner
     private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName tableName, TpchTable<?> table, Session session, ColumnNaming columnNaming)
     {
         long start = System.nanoTime();
-        @Language("SQL") String sql;
-        switch (tableName.objectName()) {
-            case "part":
-            case "partsupp":
-            case "supplier":
-            case "nation":
-            case "region":
-                sql = format("CREATE TABLE %s AS SELECT * FROM %s", tableName.objectName(), tableName);
-                break;
-            case "lineitem":
-                sql = format(
+        @Language("SQL") String sql = switch (tableName.objectName()) {
+            case "part", "partsupp", "supplier", "nation", "region" -> format("CREATE TABLE %s AS SELECT * FROM %s", tableName.objectName(), tableName);
+            case "lineitem" -> format(
                         "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
                         tableName.objectName(),
                         columnNaming.getName(table.getColumn("orderkey")),
                         tableName);
-                break;
-            case "customer":
-            case "orders":
-                sql = format(
+            case "customer", "orders" -> format(
                         "CREATE TABLE %s WITH (bucketed_by=array['%s'], bucket_count=11) AS SELECT * FROM %s",
                         tableName.objectName(),
                         columnNaming.getName(table.getColumn("custkey")),
                         tableName);
-                break;
-            default:
-                throw new UnsupportedOperationException();
-        }
+            default -> throw new UnsupportedOperationException();
+        };
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows from %s in %s", rows, tableName, nanosSince(start));
     }

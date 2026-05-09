@@ -38,7 +38,7 @@ public final class MergeQuantileDigestFunction
 {
     private MergeQuantileDigestFunction() {}
 
-    private static final double COMPARISON_EPSILON = 1.0E-6;
+    private static final double COMPARISON_EPSILON = 1.0e-6;
 
     @InputFunction
     @TypeParameter("V")

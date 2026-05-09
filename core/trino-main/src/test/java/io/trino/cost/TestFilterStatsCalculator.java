@@ -266,7 +266,7 @@ public class TestFilterStatsCalculator
         double nullsFractionY = 0.5;
         double inputRowCount = standardInputStatistics.getOutputRowCount();
         double nonNullRowCount = inputRowCount * (1 - nullsFractionY);
-        SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(nullsFraction -> 0.0);
+        SymbolStatsEstimate nonNullStatsX = xStats.mapNullsFraction(_ -> 0.0);
         assertExpression(new Comparison(GREATER_THAN, new Reference(DOUBLE, "x"), new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "y"), new Constant(DOUBLE, 25.0)))))
                 .outputRowsCount(nonNullRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.isEqualTo(nonNullStatsX));
@@ -717,7 +717,7 @@ public class TestFilterStatsCalculator
     {
         assertExpression(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "x")))
                 .outputRowsCount(750)
-                .symbolStats("x", DOUBLE, symbolStats ->
+                .symbolStats("x", DOUBLE, _ ->
                         SymbolStatsEstimate.builder()
                                 .setAverageRowSize(4.0)
                                 .setDistinctValuesCount(40.0)

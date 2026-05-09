@@ -452,19 +452,19 @@ public class HashBuilderOperator
         }
 
         switch (state) {
-            case CONSUMING_INPUT:
+            case CONSUMING_INPUT -> {
                 finishInput();
                 return;
-
-            case LOOKUP_SOURCE_BUILT:
+            }
+            case LOOKUP_SOURCE_BUILT -> {
                 disposeLookupSourceIfRequested();
                 return;
-
-            case SPILLING_INPUT:
+            }
+            case SPILLING_INPUT -> {
                 finishSpilledInput();
                 return;
-
-            case INPUT_SPILLED:
+            }
+            case INPUT_SPILLED -> {
                 if (spilledLookupSourceHandle.getDisposeRequested().isDone()) {
                     close();
                 }
@@ -472,18 +472,19 @@ public class HashBuilderOperator
                     unspillLookupSourceIfRequested();
                 }
                 return;
-
-            case INPUT_UNSPILLING:
+            }
+            case INPUT_UNSPILLING -> {
                 finishLookupSourceUnspilling();
                 return;
-
-            case INPUT_UNSPILLED_AND_BUILT:
+            }
+            case INPUT_UNSPILLED_AND_BUILT -> {
                 disposeUnspilledLookupSourceIfRequested();
                 return;
-
-            case CLOSED:
+            }
+            case CLOSED -> {
                 // no-op
                 return;
+            }
         }
 
         throw new IllegalStateException("Unhandled state: " + state);
@@ -572,7 +573,7 @@ public class HashBuilderOperator
         }
         long unspillStartNanos = System.nanoTime();
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
-        addSuccessCallback(unspillInProgress.get(), ignored -> {
+        addSuccessCallback(unspillInProgress.get(), _ -> {
             indexSpillMetrics.recordUnspillSince(unspillStartNanos, spilledPagesInMemorySize);
             updateMetrics();
         });
@@ -695,7 +696,7 @@ public class HashBuilderOperator
         lookupSourceSupplier = null;
         unspillInProgress = Optional.empty();
         state = State.CLOSED;
-        finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
+        finishMemoryRevoke = finishMemoryRevoke.map(_ -> () -> {});
 
         try (Closer closer = Closer.create()) {
             closer.register(index::clear);

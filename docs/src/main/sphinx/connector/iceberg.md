@@ -1490,9 +1490,9 @@ SELECT * FROM "test_table$files";
 ```
 
 ```text
- content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids  | file_sequence_number | data_sequence_number | referenced_data_file | pos | manifest_location                                                                                                            | first_row_id | content_offset | content_size_in_bytes
-----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+----------------+----------------------+----------------------+----------------------+-----+------------------------------------------------------------------------------------------------------------------------------+--------------+----------------+----------------------
- 0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>       | 1                    | 1                    | <null>               | 0   | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/snap-6116016324956900164-0-3c1b2496-0670-4e37-81f6.avro    | <null>       | <null>         | <null>
+  content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids  | added_snapshot_id  | file_sequence_number | data_sequence_number | referenced_data_file | pos | manifest_location                                                                                                            | first_row_id | content_offset | content_size_in_bytes
+----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+----------------+--------------------+----------------------+----------------------+----------------------+-----+------------------------------------------------------------------------------------------------------------------------------+--------------+----------------+----------------------
+ 0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>       | 6116016324956900164 | 1                    | 1                    | <null>               | 0   | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/snap-6116016324956900164-0-3c1b2496-0670-4e37-81f6.avro    | <null>       | <null>         | <null>
 ```
 
 The output of the query has the following columns:
@@ -1570,6 +1570,15 @@ The output of the query has the following columns:
 * - `readable_metrics`
   - `JSON`
   - File metrics in human-readable form.
+* - `added_snapshot_id`
+  - `BIGINT`
+  - The snapshot ID when the file was first added to the table, as recorded in
+    the selected snapshot's live manifest entry. This makes it possible to join
+    current live files with `$snapshots` to inspect when each file was
+    introduced. If a file is moved to a different manifest by manifest rewrite,
+    the manifest location may change, but `added_snapshot_id` still refers to
+    the snapshot in which the file was originally added. Use `$entries` or
+    `$all_entries` to inspect historical manifest references across snapshots.
 * - `file_sequence_number`
   - `BIGINT`
   - The sequence number of the file, tracking when the file was added.

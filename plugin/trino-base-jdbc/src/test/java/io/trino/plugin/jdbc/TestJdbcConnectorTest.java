@@ -118,17 +118,11 @@ public class TestJdbcConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeBaseName = dataMappingTestSetup.getTrinoTypeName().replaceAll("\\([^()]*\\)", "");
-        switch (typeBaseName) {
-            case "boolean":
-            case "decimal":
-            case "varbinary":
-            case "time":
-            case "timestamp":
-            case "timestamp with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+        return Optional.of(switch (typeBaseName) {
+            case "boolean", "decimal", "varbinary", "time",
+                 "timestamp", "timestamp with time zone" -> dataMappingTestSetup.asUnsupported();
+            default -> dataMappingTestSetup;
+        });
     }
 
     @Test

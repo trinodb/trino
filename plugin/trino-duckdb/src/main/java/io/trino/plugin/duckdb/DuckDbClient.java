@@ -185,43 +185,38 @@ public final class DuckDbClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        switch (typeHandle.jdbcType()) {
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-            case Types.FLOAT:
-                return Optional.of(realColumnMapping());
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-            case Types.DECIMAL:
+        return switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.FLOAT -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DECIMAL -> {
                 String decimalTypeName = typeHandle.jdbcTypeName().orElseThrow();
                 // Use type name because DuckDB does not report scale in metadata
                 Matcher matcher = DECIMAL_PATTERN.matcher(decimalTypeName);
                 checkArgument(matcher.matches(), "Decimal type name does not match pattern: %s", decimalTypeName);
                 int precision = Integer.parseInt(matcher.group("precision"));
                 int scale = Integer.parseInt(matcher.group("scale"));
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
-            case Types.VARCHAR:
+                yield Optional.of(decimalColumnMapping(createDecimalType(precision, scale)));
+            }
+            case Types.VARCHAR -> {
                 // CHAR is an alias of VARCHAR in DuckDB https://duckdb.org/docs/sql/data_types/text
-                return Optional.of(varcharColumnMapping(VarcharType.VARCHAR, true));
-            case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
+                yield Optional.of(varcharColumnMapping(VarcharType.VARCHAR, true));
+            }
+            case Types.DATE -> Optional.of(ColumnMapping.longMapping(
                         DATE,
                         (resultSet, columnIndex) -> DATE_FORMATTER.parse(resultSet.getString(columnIndex)).getLong(EPOCH_DAY),
                         dateWriteFunction()));
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
+            default -> {
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
+        };
     }
 
     @Override

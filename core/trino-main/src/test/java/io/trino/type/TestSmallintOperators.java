@@ -33,7 +33,7 @@ import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
@@ -180,21 +180,21 @@ public class TestSmallintOperators
     }
 
     @Test
-    public void testModulus()
+    public void testModulo()
     {
-        assertThat(assertions.operator(MODULUS, "SMALLINT '37'", "SMALLINT '37'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '37'", "SMALLINT '37'"))
                 .isEqualTo((short) 0);
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '37'", "SMALLINT '17'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '37'", "SMALLINT '17'"))
                 .isEqualTo((short) (37 % 17));
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '37'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '37'"))
                 .isEqualTo((short) (17 % 37));
 
-        assertThat(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '17'"))
+        assertThat(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '17'"))
                 .isEqualTo((short) 0);
 
-        assertTrinoExceptionThrownBy(assertions.operator(MODULUS, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.operator(MODULO, "SMALLINT '17'", "SMALLINT '0'")::evaluate)
                 .hasErrorCode(DIVISION_BY_ZERO);
     }
 

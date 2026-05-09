@@ -63,6 +63,7 @@ public class TopologyAwareNodeSelector
     private final int maxUnacknowledgedSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
     private final NetworkTopology networkTopology;
+    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
 
     public TopologyAwareNodeSelector(
             InternalNode currentNode,
@@ -74,7 +75,8 @@ public class TopologyAwareNodeSelector
             long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
-            NetworkTopology networkTopology)
+            NetworkTopology networkTopology,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -87,6 +89,7 @@ public class TopologyAwareNodeSelector
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
+        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
     }
 
     @Override
@@ -149,7 +152,10 @@ public class TopologyAwareNodeSelector
             int depth = topologicalSplitCounters.size() - 1;
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getAddresses()) {
+            List<HostAddress> preferredAddresses = split.getConnectorSplit().getAffinityKey()
+                    .map(consistentHashingAddressProvider::getHosts)
+                    .orElseGet(split::getAddresses);
+            for (HostAddress host : preferredAddresses) {
                 locations.add(networkTopology.locate(host));
             }
             if (locations.isEmpty()) {

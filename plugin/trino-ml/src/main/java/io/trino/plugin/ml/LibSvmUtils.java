@@ -51,28 +51,21 @@ public final class LibSvmUtils
 
             String key = pair[0].trim();
             switch (key) {
-                case "kernel":
+                case "kernel" ->
                     params.kernel_type = parseKernelType(value);
-                    break;
-                case "degree":
+                case "degree" ->
                     params.degree = Integer.parseInt(value);
-                    break;
-                case "gamma":
+                case "gamma" ->
                     params.gamma = Double.parseDouble(value);
-                    break;
-                case "coef0":
+                case "coef0" ->
                     params.coef0 = Double.parseDouble(value);
-                    break;
-                case "C":
+                case "C" ->
                     params.C = Double.parseDouble(value);
-                    break;
-                case "nu":
+                case "nu" ->
                     params.nu = Double.parseDouble(value);
-                    break;
-                case "eps":
+                case "eps" ->
                     params.eps = Double.parseDouble(value);
-                    break;
-                default:
+                default ->
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown parameter %s", pair[0]));
             }
         }

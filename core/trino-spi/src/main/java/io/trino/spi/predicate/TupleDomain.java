@@ -648,12 +648,12 @@ public final class TupleDomain<T>
 
     public TupleDomain<T> simplify()
     {
-        return transformDomains((key, domain) -> domain.simplify());
+        return transformDomains((_, domain) -> domain.simplify());
     }
 
     public TupleDomain<T> simplify(int threshold)
     {
-        return transformDomains((key, domain) -> domain.simplify(threshold));
+        return transformDomains((_, domain) -> domain.simplify(threshold));
     }
 
     public TupleDomain<T> transformDomains(BiFunction<T, Domain, Domain> transformation)
@@ -675,7 +675,7 @@ public final class TupleDomain<T>
     public Predicate<Map<T, NullableValue>> asPredicate()
     {
         if (isNone()) {
-            return bindings -> false;
+            return _ -> false;
         }
         Map<T, Domain> domains = this.domains.orElseThrow();
         return bindings -> {

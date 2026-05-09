@@ -39,40 +39,29 @@ public final class LongBitPacker
     {
         checkArgument(len <= MAX_BUFFERED_POSITIONS, "Expected ORC files to have runs of at most 512 bit packed longs");
         switch (bitSize) {
-            case 1:
+            case 1 ->
                 unpack1(buffer, offset, len, input);
-                break;
-            case 2:
+            case 2 ->
                 unpack2(buffer, offset, len, input);
-                break;
-            case 4:
+            case 4 ->
                 unpack4(buffer, offset, len, input);
-                break;
-            case 8:
+            case 8 ->
                 unpack8(buffer, offset, len, input);
-                break;
-            case 16:
+            case 16 ->
                 unpack16(buffer, offset, len, input);
-                break;
-            case 24:
+            case 24 ->
                 unpack24(buffer, offset, len, input);
-                break;
-            case 32:
+            case 32 ->
                 unpack32(buffer, offset, len, input);
-                break;
-            case 40:
+            case 40 ->
                 unpack40(buffer, offset, len, input);
-                break;
-            case 48:
+            case 48 ->
                 unpack48(buffer, offset, len, input);
-                break;
-            case 56:
+            case 56 ->
                 unpack56(buffer, offset, len, input);
-                break;
-            case 64:
+            case 64 ->
                 unpack64(buffer, offset, len, input);
-                break;
-            default:
+            default ->
                 unpackGeneric(buffer, offset, len, bitSize, input);
         }
     }

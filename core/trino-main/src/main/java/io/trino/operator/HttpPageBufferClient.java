@@ -480,17 +480,15 @@ public final class HttpPageBufferClient
 
                 if (t instanceof ChecksumVerificationException) {
                     switch (dataIntegrityVerification) {
-                        case NONE:
+                        case NONE -> {
                             // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
-                        case ABORT:
+                        }
+                        case ABORT -> {
                             // TrinoException will not be retried
                             t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
-                            break;
-                        case RETRY:
-                            log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
-                            break;
-                        default:
-                            throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
+                        }
+                        case RETRY -> log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
+                        default -> throw new AssertionError("Unsupported option: " + dataIntegrityVerification);
                     }
                 }
 

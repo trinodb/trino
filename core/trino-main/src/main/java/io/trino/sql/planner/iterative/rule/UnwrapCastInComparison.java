@@ -202,22 +202,19 @@ public class UnwrapCastInComparison
             // It must be done before source type range bounds are compared to target value.
             if (isFloatingPointNaN(targetType, rightValue)) {
                 switch (operator) {
-                    case EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
                         return falseIfNotNull(cast.expression());
-                    case NOT_EQUAL:
+                    }
+                    case NOT_EQUAL -> {
                         return trueIfNotNull(cast.expression());
-                    case IDENTICAL:
+                    }
+                    case IDENTICAL -> {
                         if (!typeHasNaN(sourceType)) {
                             return FALSE;
                         }
                         // NaN on the right of comparison will be cast to source type later
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Not yet implemented: " + operator);
+                    }
+                    default -> throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
             }
 

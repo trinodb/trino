@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -84,7 +83,7 @@ public class ValuesOperator
     @Override
     public void finish()
     {
-        int ignored = Iterators.size(pages);
+        pages.forEachRemaining(_ -> {});
     }
 
     @Override

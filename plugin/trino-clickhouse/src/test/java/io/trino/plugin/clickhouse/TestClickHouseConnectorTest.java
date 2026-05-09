@@ -579,36 +579,30 @@ public class TestClickHouseConnectorTest
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getTrinoTypeName()) {
-            case "boolean":
+        return switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "boolean" -> {
                 // ClickHouse does not have built-in support for boolean type and we map boolean to tinyint.
                 // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-                return Optional.empty();
-
-            case "varbinary":
+                yield Optional.empty();
+            }
+            case "varbinary" -> {
                 // here in this test class we map ClickHouse String into varchar, so varbinary ends up a varchar
-                return Optional.empty();
-
-            case "date":
+                yield Optional.empty();
+            }
+            case "date" -> {
                 // The connector supports date type, but these values are unsupported in ClickHouse
                 // See BaseClickHouseTypeMapping for additional test coverage
                 if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'") ||
                         dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") ||
                         dataMappingTestSetup.getHighValueLiteral().equals("DATE '9999-12-31'")) {
-                    return Optional.empty();
+                    yield Optional.empty();
                 }
-                return Optional.of(dataMappingTestSetup);
-
-            case "time":
-            case "time(6)":
-            case "timestamp":
-            case "timestamp(6)":
-            case "timestamp(3) with time zone":
-            case "timestamp(6) with time zone":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+                yield Optional.of(dataMappingTestSetup);
+            }
+            case "time", "time(6)", "timestamp", "timestamp(6)",
+                 "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     // TODO: Remove override once decimal predicate pushdown is implemented (https://github.com/trinodb/trino/issues/7100)

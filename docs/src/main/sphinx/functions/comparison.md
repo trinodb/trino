@@ -230,7 +230,7 @@ for each character. The following query uses two underscores and produces only
 
 ```sql
 SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
-WHERE continent LIKE 'A__A';
+WHERE continent LIKE 'A__a';
 ```
 
 The wildcard characters `_` and `%` must be escaped to allow you to match

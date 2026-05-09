@@ -55,7 +55,7 @@ public class TestClientBuffer
     private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
-    private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (releasedPagesCount, releasedMemorySizeInBytes) -> {};
+    private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (_, _) -> {};
 
     @Test
     public void testSimplePushBuffer()
@@ -331,7 +331,7 @@ public class TestClientBuffer
     public void testReferenceCount()
     {
         AtomicInteger releasedPages = new AtomicInteger();
-        PagesReleasedListener onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> releasedPages.addAndGet(releasedPageCount);
+        PagesReleasedListener onPagesReleased = (releasedPageCount, _) -> releasedPages.addAndGet(releasedPageCount);
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, onPagesReleased);
 
         // add 2 pages and verify they are referenced

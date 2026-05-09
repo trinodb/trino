@@ -123,29 +123,29 @@ public class TestQuantileDigestAggregationFunction
     public void testRealsWithWeights()
     {
         testAggregationReal(
-                createBlockOfReals(1.0F, null, 2.0F, null, 3.0F, null, 4.0F, null, 5.0F, null),
+                createBlockOfReals(1.0f, null, 2.0f, null, 3.0f, null, 4.0f, null, 5.0f, null),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0F, 2.0F, 3.0F, 4.0F, 5.0F);
+                0.01, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f);
         testAggregationReal(
                 createBlockOfReals(null, null, null, null, null),
                 createRepeatedValuesBlock(1, 5),
                 NaN);
         testAggregationReal(
-                createBlockOfReals(-1.0F, -2.0F, -3.0F, -4.0F, -5.0F, -6.0F, -7.0F, -8.0F, -9.0F, -10.0F),
+                createBlockOfReals(-1.0f, -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -7.0f, -8.0f, -9.0f, -10.0f),
                 createRepeatedValuesBlock(1, 10),
-                0.01, -1.0F, -2.0F, -3.0F, -4.0F, -5.0F, -6.0F, -7.0F, -8.0F, -9.0F, -10.0F);
+                0.01, -1.0f, -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -7.0f, -8.0f, -9.0f, -10.0f);
         testAggregationReal(
-                createBlockOfReals(1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F, 7.0F, 8.0F, 9.0F, 10.0F),
+                createBlockOfReals(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F, 7.0F, 8.0F, 9.0F, 10.0F);
+                0.01, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f);
         testAggregationReal(
                 createBlockOfReals(),
                 createRepeatedValuesBlock(1, 0),
                 NaN);
         testAggregationReal(
-                createBlockOfReals(1.0F),
+                createBlockOfReals(1.0f),
                 createRepeatedValuesBlock(1, 1),
-                0.01, 1.0F);
+                0.01, 1.0f);
         testAggregationReal(
                 createSequenceBlockOfReal(-1000, 1000),
                 createRepeatedValuesBlock(1, 2000),

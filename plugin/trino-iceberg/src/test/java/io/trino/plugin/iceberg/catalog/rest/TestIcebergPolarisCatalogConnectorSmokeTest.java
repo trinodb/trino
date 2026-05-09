@@ -89,6 +89,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.credential", TestingPolarisCatalog.CREDENTIAL)
                 .addIcebergProperty("iceberg.rest-catalog.oauth2.scope", "PRINCIPAL_ROLE:ALL")
+                .addIcebergProperty("iceberg.rest-catalog.http-headers", TestingPolarisCatalog.POLARIS_REALM_HEADER + ": " + TestingPolarisCatalog.POLARIS_REALM_NAME)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

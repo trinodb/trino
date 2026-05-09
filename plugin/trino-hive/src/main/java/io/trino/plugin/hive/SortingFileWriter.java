@@ -211,7 +211,7 @@ public final class SortingFileWriter
             int count = min(maxOpenTempFiles, tempFiles.size() - (maxOpenTempFiles - 1));
 
             List<TempFile> smallestFiles = IntStream.range(0, count)
-                    .mapToObj(i -> tempFiles.poll())
+                    .mapToObj(_ -> tempFiles.poll())
                     .collect(toImmutableList());
 
             writeTempFile(writer -> mergeFiles(smallestFiles, writer::writePage));

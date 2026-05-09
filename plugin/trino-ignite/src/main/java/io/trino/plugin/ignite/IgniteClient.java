@@ -221,51 +221,32 @@ public class IgniteClient
             return mapping;
         }
 
-        switch (typeHandle.jdbcType()) {
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.FLOAT:
-                return Optional.of(realColumnMapping());
-
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.DECIMAL:
+        return switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN -> Optional.of(booleanColumnMapping());
+            case Types.TINYINT -> Optional.of(tinyintColumnMapping());
+            case Types.SMALLINT -> Optional.of(smallintColumnMapping());
+            case Types.INTEGER -> Optional.of(integerColumnMapping());
+            case Types.BIGINT -> Optional.of(bigintColumnMapping());
+            case Types.FLOAT -> Optional.of(realColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
                 precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
-                    break;
+                    yield Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-
-            case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.columnSize()));
-
-            case Types.DATE:
-                return Optional.of(longMapping(DATE, dateReadFunction(), dateWriteFunction()));
-
-            case Types.BINARY:
-                return Optional.of(varbinaryColumnMapping());
-        }
-        return Optional.empty();
+                yield Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+            }
+            case Types.VARCHAR -> Optional.of(varcharColumnMapping(typeHandle.columnSize()));
+            case Types.DATE -> Optional.of(longMapping(DATE, dateReadFunction(), dateWriteFunction()));
+            case Types.BINARY -> Optional.of(varbinaryColumnMapping());
+            default -> Optional.empty();
+        };
     }
 
     @Override

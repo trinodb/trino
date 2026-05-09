@@ -59,6 +59,7 @@ public class TopologyAwareNodeSelectorFactory
     private final NetworkTopology networkTopology;
     private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
+    private final ConsistentHashingAddressProvider consistentHashingAddressProvider;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
@@ -75,7 +76,8 @@ public class TopologyAwareNodeSelectorFactory
             InternalNodeManager nodeManager,
             NodeSchedulerConfig schedulerConfig,
             NodeTaskMap nodeTaskMap,
-            TopologyAwareNodeSelectorConfig topologyConfig)
+            TopologyAwareNodeSelectorConfig topologyConfig,
+            ConsistentHashingAddressProvider consistentHashingAddressProvider)
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(currentNode, "currentNode is null");
@@ -85,6 +87,7 @@ public class TopologyAwareNodeSelectorFactory
         this.networkTopology = networkTopology;
         this.currentNode = currentNode;
         this.nodeManager = nodeManager;
+        this.consistentHashingAddressProvider = requireNonNull(consistentHashingAddressProvider, "consistentHashingAddressProvider is null");
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -136,7 +139,8 @@ public class TopologyAwareNodeSelectorFactory
                 minPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
-                networkTopology);
+                networkTopology,
+                consistentHashingAddressProvider);
     }
 
     private NodeMap createNodeMap()

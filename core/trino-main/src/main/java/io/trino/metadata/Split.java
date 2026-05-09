@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
@@ -40,6 +41,8 @@ public final class Split
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
+        checkArgument(connectorSplit.getAffinityKey().isEmpty() || connectorSplit.isRemotelyAccessible(),
+                "Split with an affinity key must be remotely accessible: %s", connectorSplit);
     }
 
     @JsonProperty

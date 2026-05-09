@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -35,10 +34,8 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -107,8 +104,7 @@ public class TestFilterAndProjectOperator
                 col1, new Constant(BIGINT, 5L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), ImmutableList.of(field0, add5), layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,
@@ -156,8 +152,7 @@ public class TestFilterAndProjectOperator
                 col1, new Constant(BIGINT, 10L));
 
         ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
-        Function<DynamicFilter, PageProcessor> processorFactory = compiler.compilePageProcessor(true, true, Optional.of(filter), Optional.empty(), ImmutableList.of(col1), layout, Optional.empty(), OptionalInt.empty());
-        Supplier<PageProcessor> processor = () -> processorFactory.apply(DynamicFilter.EMPTY);
+        Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(col1), layout);
 
         OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                 0,

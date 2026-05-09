@@ -146,10 +146,10 @@ public class TestTableRedirection
     private MockConnectorFactory createMockConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withListSchemaNames(session -> SCHEMAS)
-                .withListTables((session, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
+                .withListSchemaNames(_ -> SCHEMAS)
+                .withListTables((_, schemaName) -> SCHEMA_TABLE_MAPPING.getOrDefault(schemaName, ImmutableSet.of()).stream()
                         .collect(toImmutableList()))
-                .withStreamTableColumns((session, prefix) -> {
+                .withStreamTableColumns((_, prefix) -> {
                     List<TableColumnsMetadata> allColumnsMetadata = SCHEMA_TABLE_MAPPING.entrySet().stream()
                             .flatMap(entry -> entry.getValue().stream().map(table -> new SchemaTableName(entry.getKey(), table)))
                             .map(schemaTableName -> {
@@ -175,14 +175,14 @@ public class TestTableRedirection
 
                     return emptyIterator();
                 })
-                .withGetTableHandle((session, tableName) -> {
+                .withGetTableHandle((_, tableName) -> {
                     if (SCHEMA_TABLE_MAPPING.getOrDefault(tableName.getSchemaName(), ImmutableSet.of()).contains(tableName.getTableName())
                             && !REDIRECTIONS.containsKey(tableName)) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
                 })
-                .withGetViews((connectorSession, prefix) -> ImmutableMap.of())
+                .withGetViews((_, _) -> ImmutableMap.of())
                 .withGetColumns(schemaTableName -> {
                     if (!REDIRECTIONS.containsKey(schemaTableName)) {
                         return columnsGetter.apply(schemaTableName);
@@ -190,7 +190,7 @@ public class TestTableRedirection
 
                     throw new RuntimeException("Columns do not exist for: " + schemaTableName);
                 })
-                .withRedirectTable((connectorSession, schemaTableName) -> {
+                .withRedirectTable((_, schemaTableName) -> {
                     return Optional.ofNullable(REDIRECTIONS.get(schemaTableName))
                             .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target));
                 })
