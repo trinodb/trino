@@ -8064,6 +8064,24 @@ public class TestSqlParser
     }
 
     @Test
+    public void testPivot()
+    {
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1, 2))");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) AS total FOR month IN (1 AS jan, 2 AS feb))");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) AS total, avg(amount) AS mean FOR month IN (1 AS jan, 2 AS feb))");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) FOR (region, month) IN (('NA', 1), ('EU', 1), ('NA', 2) AS na_feb))");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1) GROUP BY region)");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1)) AS p");
+        assertRoundtrip("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1)) AS p (r, jan)");
+        assertRoundtrip("SELECT pivot AS x FROM (SELECT 1 AS pivot)");
+    }
+
+    private static void assertRoundtrip(@Language("SQL") String sql)
+    {
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement(sql));
+    }
+
+    @Test
     public void testResetSessionAuthorization()
     {
         assertThat(statement("RESET SESSION AUTHORIZATION"))

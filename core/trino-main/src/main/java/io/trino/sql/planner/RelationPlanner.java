@@ -135,6 +135,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PatternSearchMode;
+import io.trino.sql.tree.Pivot;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -1865,6 +1866,14 @@ class RelationPlanner
     {
         RelationPlan plan = process(node.getQuery(), context);
         return new RelationPlan(plan.getRoot(), analysis.getScope(node), plan.getFieldMappings(), outerContext);
+    }
+
+    @Override
+    protected RelationPlan visitPivot(Pivot node, Void context)
+    {
+        RelationPlan inputPlan = process(node.getInput(), context);
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                .planPivot(node, inputPlan);
     }
 
     @Override

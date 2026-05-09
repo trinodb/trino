@@ -547,6 +547,21 @@ public abstract class AstVisitor<R, C>
         return visitRelation(node, context);
     }
 
+    protected R visitPivot(Pivot node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitPivotAggregation(PivotAggregation node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPivotValueGroup(PivotValueGroup node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitJoin(Join node, C context)
     {
         return visitRelation(node, context);
