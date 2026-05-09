@@ -163,6 +163,9 @@ import io.trino.sql.tree.PatternAlternation;
 import io.trino.sql.tree.PatternConcatenation;
 import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -9582,6 +9585,106 @@ public class TestSqlParser
                 .isEqualTo(new SetSessionAuthorization(location(1, 1), new Identifier(location(1, 27), "null", true)));
         assertThat(statement("SET SESSION AUTHORIZATION 'null'"))
                 .isEqualTo(new SetSessionAuthorization(location(1, 1), new StringLiteral(location(1, 27), "null")));
+    }
+
+    @Test
+    public void testPivot()
+    {
+        assertThat(statement("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1, 2))"))
+                .isEqualTo(selectAllFrom(new Pivot(
+                        location(1, 15),
+                        new Table(location(1, 15), qualifiedName(location(1, 15), "t")),
+                        ImmutableList.of(new PivotAggregation(
+                                location(1, 24),
+                                new FunctionCall(location(1, 24), qualifiedName(location(1, 24), "sum"), ImmutableList.of(new Identifier(location(1, 28), "amount", false))),
+                                Optional.empty())),
+                        ImmutableList.of(new Identifier(location(1, 40), "month", false)),
+                        ImmutableList.of(
+                                new PivotValueGroup(location(1, 50), ImmutableList.of(new LongLiteral(location(1, 50), "1")), Optional.empty()),
+                                new PivotValueGroup(location(1, 53), ImmutableList.of(new LongLiteral(location(1, 53), "2")), Optional.empty())),
+                        Optional.empty())));
+
+        assertThat(statement("SELECT * FROM t PIVOT (sum(amount) AS total, avg(amount) AS mean FOR month IN (1 AS jan))"))
+                .isEqualTo(selectAllFrom(new Pivot(
+                        location(1, 15),
+                        new Table(location(1, 15), qualifiedName(location(1, 15), "t")),
+                        ImmutableList.of(
+                                new PivotAggregation(
+                                        location(1, 24),
+                                        new FunctionCall(location(1, 24), qualifiedName(location(1, 24), "sum"), ImmutableList.of(new Identifier(location(1, 28), "amount", false))),
+                                        Optional.of(new Identifier(location(1, 39), "total", false))),
+                                new PivotAggregation(
+                                        location(1, 46),
+                                        new FunctionCall(location(1, 46), qualifiedName(location(1, 46), "avg"), ImmutableList.of(new Identifier(location(1, 50), "amount", false))),
+                                        Optional.of(new Identifier(location(1, 61), "mean", false)))),
+                        ImmutableList.of(new Identifier(location(1, 70), "month", false)),
+                        ImmutableList.of(new PivotValueGroup(
+                                location(1, 80),
+                                ImmutableList.of(new LongLiteral(location(1, 80), "1")),
+                                Optional.of(new Identifier(location(1, 85), "jan", false)))),
+                        Optional.empty())));
+
+        assertThat(statement("SELECT * FROM t PIVOT (sum(amount) FOR (region, month) IN (('NA', 1) AS na_jan) GROUP BY region)"))
+                .isEqualTo(selectAllFrom(new Pivot(
+                        location(1, 15),
+                        new Table(location(1, 15), qualifiedName(location(1, 15), "t")),
+                        ImmutableList.of(new PivotAggregation(
+                                location(1, 24),
+                                new FunctionCall(location(1, 24), qualifiedName(location(1, 24), "sum"), ImmutableList.of(new Identifier(location(1, 28), "amount", false))),
+                                Optional.empty())),
+                        ImmutableList.of(
+                                new Identifier(location(1, 41), "region", false),
+                                new Identifier(location(1, 49), "month", false)),
+                        ImmutableList.of(new PivotValueGroup(
+                                location(1, 60),
+                                ImmutableList.of(
+                                        new StringLiteral(location(1, 61), "NA"),
+                                        new LongLiteral(location(1, 67), "1")),
+                                Optional.of(new Identifier(location(1, 73), "na_jan", false)))),
+                        Optional.of(new GroupBy(
+                                location(1, 90),
+                                false,
+                                ImmutableList.of(new SimpleGroupBy(
+                                        location(1, 90),
+                                        ImmutableList.of(new Identifier(location(1, 90), "region", false)))))))));
+
+        assertThat(statement("SELECT * FROM t PIVOT (sum(amount) FOR month IN (1)) AS p (r, jan)"))
+                .isEqualTo(selectAllFrom(new AliasedRelation(
+                        location(1, 15),
+                        new Pivot(
+                                location(1, 15),
+                                new Table(location(1, 15), qualifiedName(location(1, 15), "t")),
+                                ImmutableList.of(new PivotAggregation(
+                                        location(1, 24),
+                                        new FunctionCall(location(1, 24), qualifiedName(location(1, 24), "sum"), ImmutableList.of(new Identifier(location(1, 28), "amount", false))),
+                                        Optional.empty())),
+                                ImmutableList.of(new Identifier(location(1, 40), "month", false)),
+                                ImmutableList.of(new PivotValueGroup(location(1, 50), ImmutableList.of(new LongLiteral(location(1, 50), "1")), Optional.empty())),
+                                Optional.empty()),
+                        new Identifier(location(1, 57), "p", false),
+                        ImmutableList.of(
+                                new Identifier(location(1, 60), "r", false),
+                                new Identifier(location(1, 63), "jan", false)))));
+
+        // PIVOT is not a reserved keyword
+        assertThat(statement("SELECT pivot FROM t"))
+                .isEqualTo(createQuery(new QuerySpecification(
+                        location(1, 1),
+                        new Select(
+                                location(1, 1),
+                                false,
+                                ImmutableList.of(new SingleColumn(
+                                        location(1, 8),
+                                        new Identifier(location(1, 8), "pivot", false),
+                                        Optional.empty()))),
+                        Optional.of(new Table(location(1, 19), qualifiedName(location(1, 19), "t"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())));
     }
 
     @Test

@@ -103,6 +103,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
@@ -110,6 +111,8 @@ import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.NearestAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotOutputColumn;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
@@ -209,6 +212,9 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -329,6 +335,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_RANGE_VARIABLE;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -3192,6 +3199,250 @@ class StatementAnalyzer
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
         }
 
+        @Override
+        protected Scope visitPivot(Pivot relation, Optional<Scope> scope)
+        {
+            validatePivotShape(relation);
+
+            // Analyze the input relation in the surrounding scope.
+            Scope inputScope = process(relation.getInput(), scope);
+
+            // Resolve pivot columns against the input scope. The grammar restricts the FOR
+            // clause to qualifiedName, so a pivot column is a plain column reference: no
+            // aggregates, window functions, or subqueries can appear here.
+            for (Expression pivotColumn : relation.getPivotColumns()) {
+                analyzeExpression(pivotColumn, inputScope);
+            }
+
+            // Resolve and validate IN values. A value identifies one output column, so it must be
+            // constant: it cannot vary from input row to input row. The value must also be
+            // comparable with the corresponding pivot column, i.e. the two types must share a
+            // common supertype that itself supports equality. The comparison is built at planning
+            // time at that supertype, matching plain '=' semantics.
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                for (int i = 0; i < relation.getPivotColumns().size(); i++) {
+                    Expression value = valueGroup.getValues().get(i);
+                    analyzePivotValue(value, inputScope);
+                    Type pivotColumnType = analysis.getType(relation.getPivotColumns().get(i));
+                    Type valueType = analysis.getType(value);
+                    Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, pivotColumnType);
+                    if (commonSuperType.isEmpty() || !commonSuperType.get().isComparable()) {
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                value,
+                                "Pivot value of type %s is not comparable with pivot column type %s",
+                                valueType,
+                                pivotColumnType);
+                    }
+                }
+            }
+
+            // Resolve GROUP BY expressions against the input scope. PIVOT does not have a SELECT
+            // list, so ordinal references and AUTO grouping are not meaningful here.
+            GroupingSetAnalysis groupingSetAnalysis;
+            boolean distinctGroupingSets;
+            if (relation.getGroupBy().isPresent()) {
+                groupingSetAnalysis = analyzeGroupingElements(relation, relation.getGroupBy().get(), inputScope, ImmutableList.of());
+                distinctGroupingSets = relation.getGroupBy().get().isDistinct();
+            }
+            else {
+                groupingSetAnalysis = new GroupingSetAnalysis(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+                analysis.setGroupingSets(relation, groupingSetAnalysis);
+                distinctGroupingSets = false;
+            }
+            List<Expression> groupingExpressions = groupingSetAnalysis.getOriginalExpressions();
+
+            // Analyze each aggregation slot expression (as written by the user) in the input scope.
+            // A slot is an expression over aggregates: it must contain at least one aggregate, since
+            // it is the aggregate that the pivot value scoping applies to. Window functions and
+            // grouping operations are not aggregates and have no meaning in a slot.
+            ImmutableList.Builder<Expression> slotExpressionsBuilder = ImmutableList.builder();
+            for (PivotAggregation aggregation : relation.getAggregations()) {
+                Expression slotExpression = aggregation.getExpression();
+                verifyPivotSlotShape(slotExpression);
+                analysis.recordSubqueries(relation, analyzeExpression(slotExpression, inputScope));
+                slotExpressionsBuilder.add(slotExpression);
+            }
+            List<Expression> slotExpressions = slotExpressionsBuilder.build();
+
+            // Verify that non-aggregate parts of slot expressions only reference grouping columns.
+            AggregationAnalyzer.verifySourceAggregations(
+                    groupingExpressions,
+                    inputScope,
+                    slotExpressions,
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis);
+
+            // Collect the aggregate function calls inside the slot expressions for the planner.
+            List<FunctionCall> aggregates = extractAggregateFunctions(slotExpressions, session, functionResolver, accessControl);
+
+            // Compute output column metadata. The order matches the planner's iteration:
+            // for each value group, for each aggregation slot.
+            // Output column names need not be unique, matching a SELECT list: two value groups or
+            // aggregations may produce the same name. Referencing such a name later is ambiguous,
+            // but selecting all columns is not.
+            ImmutableList.Builder<PivotOutputColumn> outputColumns = ImmutableList.builder();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    String columnName = pivotColumnName(valueGroup, aggregation);
+                    outputColumns.add(new PivotOutputColumn(columnName, analysis.getType(aggregation.getExpression())));
+                }
+            }
+            List<PivotOutputColumn> pivotOutputColumns = outputColumns.build();
+
+            // Build output Field list: grouping expressions, then pivot output columns.
+            ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            for (Expression groupingExpression : groupingExpressions) {
+                outputFields.add(Field.newUnqualified(deriveColumnName(groupingExpression), analysis.getType(groupingExpression)));
+            }
+            for (PivotOutputColumn column : pivotOutputColumns) {
+                outputFields.add(Field.newUnqualified(column.name(), column.type()));
+            }
+
+            analysis.registerPivotAnalysis(
+                    relation,
+                    new PivotAnalysis(groupingSetAnalysis, distinctGroupingSets, pivotOutputColumns, aggregates));
+
+            return createAndAssignScope(relation, scope, outputFields.build());
+        }
+
+        private void validatePivotShape(Pivot relation)
+        {
+            int pivotColumnArity = relation.getPivotColumns().size();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                if (valueGroup.getValues().size() != pivotColumnArity) {
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            valueGroup,
+                            "Number of pivot values (%s) does not match number of pivot columns (%s)",
+                            valueGroup.getValues().size(),
+                            pivotColumnArity);
+                }
+            }
+
+            if (relation.getAggregations().size() > 1) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    if (aggregation.getAlias().isEmpty()) {
+                        throw semanticException(
+                                MISSING_COLUMN_ALIASES,
+                                aggregation,
+                                "PIVOT with multiple aggregations requires an alias on each aggregation");
+                    }
+                }
+            }
+        }
+
+        private void analyzePivotValue(Expression value, Scope inputScope)
+        {
+            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, value, "PIVOT IN clause");
+
+            // An IN value names one output column, so it must be constant: the same value for every
+            // input row. As ExpressionAnalyzer.createConstantAnalyzer defines constant, that rules
+            // out subqueries, column references, and non-deterministic functions.
+            List<SubqueryExpression> subqueries = extractExpressions(ImmutableList.of(value), SubqueryExpression.class);
+            if (!subqueries.isEmpty()) {
+                throw semanticException(
+                        EXPRESSION_NOT_CONSTANT,
+                        subqueries.getFirst(),
+                        "PIVOT IN clause must be constant and cannot contain a subquery");
+            }
+
+            analyzeExpression(value, inputScope);
+
+            // Reject genuine column references, which analysis marks with lambda and dereference
+            // scoping applied — so a lambda argument that shadows an input column is not one.
+            List<Expression> columnReferences = extractExpressions(ImmutableList.of(value), Expression.class).stream()
+                    .filter(analysis::isColumnReference)
+                    .collect(toImmutableList());
+            if (!columnReferences.isEmpty()) {
+                throw semanticException(
+                        EXPRESSION_NOT_CONSTANT,
+                        columnReferences.getFirst(),
+                        "PIVOT IN clause must be constant and cannot reference a column: %s",
+                        columnReferences.getFirst());
+            }
+
+            if (!isDeterministic(value, this::getResolvedFunction)) {
+                throw semanticException(
+                        EXPRESSION_NOT_CONSTANT,
+                        value,
+                        "PIVOT IN clause must be constant and cannot be non-deterministic: %s",
+                        value);
+            }
+        }
+
+        private void verifyPivotSlotShape(Expression slotExpression)
+        {
+            List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(slotExpression), session, functionResolver, accessControl);
+            if (!windowExpressions.isEmpty()) {
+                throw semanticException(
+                        NESTED_WINDOW,
+                        windowExpressions.getFirst(),
+                        "PIVOT expression cannot contain window functions or row pattern measures: %s",
+                        windowExpressions.getFirst());
+            }
+
+            List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(slotExpression), GroupingOperation.class);
+            if (!groupingOperations.isEmpty()) {
+                throw semanticException(
+                        NOT_SUPPORTED,
+                        groupingOperations.getFirst(),
+                        "PIVOT expression cannot contain grouping operations: %s",
+                        groupingOperations.getFirst());
+            }
+
+            List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(slotExpression), session, functionResolver, accessControl);
+            if (aggregates.isEmpty()) {
+                throw semanticException(
+                        EXPRESSION_NOT_AGGREGATE,
+                        slotExpression,
+                        "PIVOT expression must contain an aggregate function: %s",
+                        slotExpression);
+            }
+
+            // A subquery outside the aggregate calls would have to be planned per value group,
+            // which PIVOT does not do yet. A subquery anywhere inside an aggregate call — its
+            // arguments, FILTER, or ORDER BY — is fine: it is planned once, with the other
+            // aggregation inputs.
+            Set<NodeRef<SubqueryExpression>> aggregateSubqueries = extractExpressions(aggregates, SubqueryExpression.class).stream()
+                    .map(NodeRef::of)
+                    .collect(toImmutableSet());
+            extractExpressions(ImmutableList.of(slotExpression), SubqueryExpression.class).stream()
+                    .filter(subquery -> !aggregateSubqueries.contains(NodeRef.of(subquery)))
+                    .findFirst()
+                    .ifPresent(subquery -> {
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                subquery,
+                                "PIVOT expression cannot contain a subquery outside an aggregate function: %s",
+                                subquery);
+                    });
+        }
+
+        private static String pivotColumnName(PivotValueGroup valueGroup, PivotAggregation aggregation)
+        {
+            String valueName = valueGroup.getAlias()
+                    .map(Identifier::getCanonicalValue)
+                    .orElseGet(() -> valueGroup.getValues().stream()
+                            .map(ExpressionFormatter::formatExpression)
+                            .collect(Collectors.joining("_")));
+            String aggregationName = aggregation.getAlias().map(Identifier::getCanonicalValue).orElse("");
+            return aggregationName.isEmpty() ? valueName : valueName + "_" + aggregationName;
+        }
+
+        private static Optional<String> deriveColumnName(Expression expression)
+        {
+            if (expression instanceof Identifier identifier) {
+                return Optional.of(identifier.getCanonicalValue());
+            }
+            if (expression instanceof DereferenceExpression dereference) {
+                return Optional.of(dereference.getField().orElseThrow().getCanonicalValue());
+            }
+            return Optional.empty();
+        }
+
         // this method should run after the `base` relation is processed, so that it is
         // determined whether the table function is polymorphic
         private void validateNoNestedTableFunction(Relation base, String context)
@@ -4842,7 +5093,7 @@ class StatementAnalyzer
                     // AUTO derives its grouping columns from the SELECT list. Callers without
                     // one (e.g. PIVOT) must not silently degrade to GROUP BY ().
                     if (outputExpressions.isEmpty()) {
-                        throw semanticException(NOT_SUPPORTED, groupingElement, "GROUP BY AUTO requires a SELECT list to derive grouping columns from");
+                        throw semanticException(NOT_SUPPORTED, groupingElement, "GROUP BY AUTO is not supported in %s", node instanceof Pivot ? "PIVOT" : "this context");
                     }
                     // Analyze non-aggregation outputs
                     for (Expression column : outputExpressions) {
