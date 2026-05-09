@@ -104,6 +104,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
@@ -111,6 +112,8 @@ import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.NearestAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotAnalysis;
+import io.trino.sql.analyzer.Analysis.PivotOutputColumn;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
@@ -210,6 +213,9 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -3224,6 +3230,164 @@ class StatementAnalyzer
             validateNoNestedTableFunction(relation.getRelation(), "sample");
 
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitPivot(Pivot relation, Optional<Scope> scope)
+        {
+            validatePivotShape(relation);
+
+            // Analyze the input relation in the surrounding scope.
+            Scope inputScope = process(relation.getInput(), scope);
+
+            // Resolve pivot columns against the input scope. The grammar restricts the FOR
+            // clause to qualifiedName, so aggregates and window functions cannot appear here.
+            for (Expression pivotColumn : relation.getPivotColumns()) {
+                analysis.recordSubqueries(relation, analyzeExpression(pivotColumn, inputScope));
+            }
+
+            // Resolve and validate IN values: each value must be comparable with the corresponding
+            // pivot column, i.e. the two types must share a common supertype that itself supports
+            // equality. The comparison is built at planning time at that supertype, matching plain
+            // '=' semantics. Aggregates / window / grouping operations are evaluated per input row
+            // and so cannot appear in IN values.
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                for (int i = 0; i < relation.getPivotColumns().size(); i++) {
+                    Expression value = valueGroup.getValues().get(i);
+                    verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, value, "PIVOT IN clause");
+                    analysis.recordSubqueries(relation, analyzeExpression(value, inputScope));
+                    Type pivotColumnType = analysis.getType(relation.getPivotColumns().get(i));
+                    Type valueType = analysis.getType(value);
+                    Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(valueType, pivotColumnType);
+                    if (commonSuperType.isEmpty() || !commonSuperType.get().isComparable()) {
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                value,
+                                "Pivot value of type %s is not comparable with pivot column type %s",
+                                valueType,
+                                pivotColumnType);
+                    }
+                }
+            }
+
+            // Resolve GROUP BY expressions against the input scope. PIVOT does not have a SELECT
+            // list, so ordinal references and AUTO grouping are not meaningful here.
+            GroupingSetAnalysis groupingSetAnalysis;
+            boolean distinctGroupingSets;
+            if (relation.getGroupBy().isPresent()) {
+                groupingSetAnalysis = analyzeGroupingElements(relation, relation.getGroupBy().get(), inputScope, ImmutableList.of());
+                distinctGroupingSets = relation.getGroupBy().get().isDistinct();
+            }
+            else {
+                groupingSetAnalysis = new GroupingSetAnalysis(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+                analysis.setGroupingSets(relation, groupingSetAnalysis);
+                distinctGroupingSets = false;
+            }
+            List<Expression> groupingExpressions = groupingSetAnalysis.getOriginalExpressions();
+
+            // Analyze each aggregation slot expression (as written by the user) in the input
+            // scope.
+            ImmutableList.Builder<Expression> slotExpressionsBuilder = ImmutableList.builder();
+            for (PivotAggregation aggregation : relation.getAggregations()) {
+                analysis.recordSubqueries(relation, analyzeExpression(aggregation.getExpression(), inputScope));
+                slotExpressionsBuilder.add(aggregation.getExpression());
+            }
+            List<Expression> slotExpressions = slotExpressionsBuilder.build();
+
+            // Verify that non-aggregate parts of slot expressions only reference grouping columns.
+            AggregationAnalyzer.verifySourceAggregations(
+                    groupingExpressions,
+                    inputScope,
+                    slotExpressions,
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis);
+
+            // Collect the aggregate function calls inside the slot expressions for the planner.
+            List<FunctionCall> aggregates = extractAggregateFunctions(slotExpressions, session, functionResolver, accessControl);
+
+            // Compute output column metadata. The order matches the planner's iteration:
+            // for each value group, for each aggregation slot.
+            Set<String> seenNames = new HashSet<>();
+            ImmutableList.Builder<PivotOutputColumn> outputColumns = ImmutableList.builder();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    String columnName = pivotColumnName(valueGroup, aggregation);
+                    if (!seenNames.add(columnName.toLowerCase(ENGLISH))) {
+                        throw semanticException(
+                                DUPLICATE_COLUMN_NAME,
+                                valueGroup,
+                                "PIVOT produces duplicate output column name: %s",
+                                columnName);
+                    }
+                    outputColumns.add(new PivotOutputColumn(columnName, analysis.getType(aggregation.getExpression())));
+                }
+            }
+            List<PivotOutputColumn> pivotOutputColumns = outputColumns.build();
+
+            // Build output Field list: grouping expressions, then pivot output columns.
+            ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            for (Expression groupingExpression : groupingExpressions) {
+                outputFields.add(Field.newUnqualified(deriveColumnName(groupingExpression), analysis.getType(groupingExpression)));
+            }
+            for (PivotOutputColumn column : pivotOutputColumns) {
+                outputFields.add(Field.newUnqualified(column.name(), column.type()));
+            }
+
+            analysis.registerPivotAnalysis(
+                    relation,
+                    new PivotAnalysis(groupingSetAnalysis, distinctGroupingSets, pivotOutputColumns, aggregates));
+
+            return createAndAssignScope(relation, scope, outputFields.build());
+        }
+
+        private void validatePivotShape(Pivot relation)
+        {
+            int pivotColumnArity = relation.getPivotColumns().size();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                if (valueGroup.getValues().size() != pivotColumnArity) {
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            valueGroup,
+                            "Number of pivot values (%s) does not match number of pivot columns (%s)",
+                            valueGroup.getValues().size(),
+                            pivotColumnArity);
+                }
+            }
+
+            if (relation.getAggregations().size() > 1) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    if (aggregation.getAlias().isEmpty()) {
+                        throw semanticException(
+                                MISSING_COLUMN_ALIASES,
+                                aggregation,
+                                "PIVOT with multiple aggregations requires an alias on each aggregation");
+                    }
+                }
+            }
+        }
+
+        private static String pivotColumnName(PivotValueGroup valueGroup, PivotAggregation aggregation)
+        {
+            String valueName = valueGroup.getAlias()
+                    .map(Identifier::getValue)
+                    .orElseGet(() -> valueGroup.getValues().stream()
+                            .map(ExpressionFormatter::formatExpression)
+                            .collect(Collectors.joining("_")));
+            String aggregationName = aggregation.getAlias().map(Identifier::getValue).orElse("");
+            return aggregationName.isEmpty() ? valueName : valueName + "_" + aggregationName;
+        }
+
+        private static Optional<String> deriveColumnName(Expression expression)
+        {
+            if (expression instanceof Identifier identifier) {
+                return Optional.of(identifier.getValue());
+            }
+            if (expression instanceof DereferenceExpression dereference) {
+                return Optional.of(dereference.getField().orElseThrow().getValue());
+            }
+            return Optional.empty();
         }
 
         // this method should run after the `base` relation is processed, so that it is

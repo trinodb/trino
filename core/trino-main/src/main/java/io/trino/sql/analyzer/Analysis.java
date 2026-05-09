@@ -80,6 +80,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Pivot;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
@@ -145,6 +146,8 @@ public class Analysis
     private Optional<Boolean> tableExecuteReadsData;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
+
+    private final Map<NodeRef<Pivot>, PivotAnalysis> pivotAnalyses = new LinkedHashMap<>();
 
     // map expandable query to the node being the inner recursive reference
     private final Map<NodeRef<Query>, Node> expandableNamedQueries = new LinkedHashMap<>();
@@ -893,6 +896,21 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerPivotAnalysis(Pivot pivot, PivotAnalysis analysis)
+    {
+        requireNonNull(pivot, "pivot is null");
+        requireNonNull(analysis, "analysis is null");
+
+        pivotAnalyses.put(NodeRef.of(pivot), analysis);
+    }
+
+    public PivotAnalysis getPivotAnalysis(Pivot pivot)
+    {
+        PivotAnalysis analysis = pivotAnalyses.get(NodeRef.of(pivot));
+        checkArgument(analysis != null, "pivot has no analysis registered: %s", pivot);
+        return analysis;
     }
 
     public void registerExpandableQuery(Query query, Node recursiveReference)
@@ -1740,6 +1758,29 @@ public class Analysis
                                     .flatMap(Collection::stream)
                                     .flatMap(Collection::stream))
                     .collect(toImmutableSet());
+        }
+    }
+
+    public record PivotAnalysis(
+            GroupingSetAnalysis groupingSetAnalysis,
+            boolean distinctGroupingSets,
+            List<PivotOutputColumn> outputColumns,
+            List<FunctionCall> aggregates)
+    {
+        public PivotAnalysis
+        {
+            requireNonNull(groupingSetAnalysis, "groupingSetAnalysis is null");
+            outputColumns = ImmutableList.copyOf(outputColumns);
+            aggregates = ImmutableList.copyOf(aggregates);
+        }
+    }
+
+    public record PivotOutputColumn(String name, Type type)
+    {
+        public PivotOutputColumn
+        {
+            requireNonNull(name, "name is null");
+            requireNonNull(type, "type is null");
         }
     }
 

@@ -61,7 +61,7 @@ catalogs](/admin/properties-catalog):
 The following statements provide read access to data and metadata exposed by a
 connector accessing a data source. They are supported by all connectors:
 
-- {doc}`/sql/select` including {doc}`/sql/match-recognize`
+- {doc}`/sql/select` including {doc}`/sql/match-recognize` and {doc}`/sql/pivot`
 - {doc}`/sql/describe`
 - {doc}`/sql/show-catalogs`
 - {doc}`/sql/show-columns`
