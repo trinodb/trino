@@ -4783,102 +4783,7 @@ class StatementAnalyzer
         private GroupingSetAnalysis analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
             if (node.getGroupBy().isPresent()) {
-                ImmutableList.Builder<List<Set<FieldId>>> cubes = ImmutableList.builder();
-                ImmutableList.Builder<List<Set<FieldId>>> rollups = ImmutableList.builder();
-                ImmutableList.Builder<List<Set<FieldId>>> sets = ImmutableList.builder();
-                ImmutableList.Builder<Expression> complexExpressions = ImmutableList.builder();
-                ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
-
-                checkGroupingSetsCount(node.getGroupBy().get());
-                for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
-                    if (groupingElement instanceof SimpleGroupBy) {
-                        for (Expression column : groupingElement.getExpressions()) {
-                            // simple GROUP BY expressions allow ordinals or arbitrary expressions
-                            if (column instanceof LongLiteral) {
-                                long ordinal = ((LongLiteral) column).getParsedValue();
-                                if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                                    throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY position %s is not in select list", ordinal);
-                                }
-
-                                column = outputExpressions.get(toIntExact(ordinal - 1));
-                                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
-                            }
-                            else {
-                                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
-                                analyzeExpression(column, scope);
-                            }
-
-                            ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
-                            if (field != null) {
-                                sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
-                            }
-                            else {
-                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
-                                complexExpressions.add(column);
-                            }
-
-                            groupingExpressions.add(column);
-                        }
-                    }
-                    else if (groupingElement instanceof AutoGroupBy) {
-                        // Analyze non-aggregation outputs
-                        for (Expression column : outputExpressions) {
-                            if (containsAggregation(column, this::getResolvedFunction)) {
-                                continue;
-                            }
-                            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
-                            analyzeExpression(column, scope);
-
-                            ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
-                            if (field != null) {
-                                sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
-                            }
-                            else {
-                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
-                                complexExpressions.add(column);
-                            }
-
-                            groupingExpressions.add(column);
-                        }
-                    }
-                    else if (groupingElement instanceof GroupingSets element) {
-                        for (Expression column : groupingElement.getExpressions()) {
-                            analyzeExpression(column, scope);
-                            if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
-                                throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
-                            }
-
-                            groupingExpressions.add(column);
-                        }
-
-                        List<Set<FieldId>> groupingSets = element.getSets().stream()
-                                .map(set -> set.stream()
-                                        .map(NodeRef::of)
-                                        .map(analysis.getColumnReferenceFields()::get)
-                                        .map(ResolvedField::getFieldId)
-                                        .collect(toImmutableSet()))
-                                .collect(toImmutableList());
-
-                        switch (element.getType()) {
-                            case CUBE -> cubes.add(groupingSets);
-                            case ROLLUP -> rollups.add(groupingSets);
-                            case EXPLICIT -> sets.add(groupingSets);
-                        }
-                    }
-                }
-
-                List<Expression> expressions = groupingExpressions.build();
-                for (Expression expression : expressions) {
-                    Type type = analysis.getType(expression);
-                    if (!type.isComparable()) {
-                        throw semanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
-                    }
-                }
-
-                GroupingSetAnalysis groupingSets = new GroupingSetAnalysis(expressions, cubes.build(), rollups.build(), sets.build(), complexExpressions.build());
-                analysis.setGroupingSets(node, groupingSets);
-
-                return groupingSets;
+                return analyzeGroupingElements(node, node.getGroupBy().get(), scope, outputExpressions);
             }
 
             GroupingSetAnalysis result = new GroupingSetAnalysis(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
@@ -4888,6 +4793,115 @@ class StatementAnalyzer
             }
 
             return result;
+        }
+
+        // Analyzes the elements of a GROUP BY clause and registers a GroupingSetAnalysis
+        // keyed by `node`. The `outputExpressions` list is used only for resolving ordinal
+        // references and for the AUTO grouping element; callers without a SELECT list pass
+        // an empty list, in which case those forms are not allowed.
+        private GroupingSetAnalysis analyzeGroupingElements(Node node, GroupBy groupBy, Scope scope, List<Expression> outputExpressions)
+        {
+            ImmutableList.Builder<List<Set<FieldId>>> cubes = ImmutableList.builder();
+            ImmutableList.Builder<List<Set<FieldId>>> rollups = ImmutableList.builder();
+            ImmutableList.Builder<List<Set<FieldId>>> sets = ImmutableList.builder();
+            ImmutableList.Builder<Expression> complexExpressions = ImmutableList.builder();
+            ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
+
+            checkGroupingSetsCount(groupBy);
+            for (GroupingElement groupingElement : groupBy.getGroupingElements()) {
+                if (groupingElement instanceof SimpleGroupBy) {
+                    for (Expression column : groupingElement.getExpressions()) {
+                        // simple GROUP BY expressions allow ordinals or arbitrary expressions
+                        if (column instanceof LongLiteral) {
+                            long ordinal = ((LongLiteral) column).getParsedValue();
+                            if (ordinal < 1 || ordinal > outputExpressions.size()) {
+                                throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY position %s is not in select list", ordinal);
+                            }
+
+                            column = outputExpressions.get(toIntExact(ordinal - 1));
+                            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                        }
+                        else {
+                            verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                            analyzeExpression(column, scope);
+                        }
+
+                        ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                        if (field != null) {
+                            sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
+                        }
+                        else {
+                            analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                            complexExpressions.add(column);
+                        }
+
+                        groupingExpressions.add(column);
+                    }
+                }
+                else if (groupingElement instanceof AutoGroupBy) {
+                    // AUTO derives its grouping columns from the SELECT list. Callers without
+                    // one (e.g. PIVOT) must not silently degrade to GROUP BY ().
+                    if (outputExpressions.isEmpty()) {
+                        throw semanticException(NOT_SUPPORTED, groupingElement, "GROUP BY AUTO requires a SELECT list to derive grouping columns from");
+                    }
+                    // Analyze non-aggregation outputs
+                    for (Expression column : outputExpressions) {
+                        if (containsAggregation(column, this::getResolvedFunction)) {
+                            continue;
+                        }
+                        verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                        analyzeExpression(column, scope);
+
+                        ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                        if (field != null) {
+                            sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
+                        }
+                        else {
+                            analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                            complexExpressions.add(column);
+                        }
+
+                        groupingExpressions.add(column);
+                    }
+                }
+                else if (groupingElement instanceof GroupingSets element) {
+                    for (Expression column : groupingElement.getExpressions()) {
+                        analyzeExpression(column, scope);
+                        if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
+                            throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
+                        }
+
+                        groupingExpressions.add(column);
+                    }
+
+                    List<Set<FieldId>> groupingSets = element.getSets().stream()
+                            .map(set -> set.stream()
+                                    .map(NodeRef::of)
+                                    .map(analysis.getColumnReferenceFields()::get)
+                                    .map(ResolvedField::getFieldId)
+                                    .collect(toImmutableSet()))
+                            .collect(toImmutableList());
+
+                    switch (element.getType()) {
+                        case CUBE -> cubes.add(groupingSets);
+                        case ROLLUP -> rollups.add(groupingSets);
+                        case EXPLICIT -> sets.add(groupingSets);
+                    }
+                }
+            }
+
+            List<Expression> expressions = groupingExpressions.build();
+            for (Expression expression : expressions) {
+                Type type = analysis.getType(expression);
+                if (!type.isComparable()) {
+                    throw semanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
+                }
+            }
+
+            GroupingSetAnalysis groupingSets = new GroupingSetAnalysis(expressions, cubes.build(), rollups.build(), sets.build(), complexExpressions.build());
+            analysis.setGroupingSets(node, groupingSets);
+
+            return groupingSets;
         }
 
         private boolean hasAggregates(QuerySpecification node)
