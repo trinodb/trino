@@ -22,10 +22,12 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTableResponse;
 import software.amazon.awssdk.services.glue.model.SerDeInfo;
@@ -36,10 +38,12 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Tests metadata operations on a schema which has a mix of Hive and Delta Lake tables.
@@ -48,6 +52,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  */
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Tests share a Glue schema and assert exact table listings
 public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 {
@@ -124,7 +129,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @Test
     public void testUnsupportedHiveTypeRedirect()
     {
-        String tableName = "unsupported_types";
+        String tableName = "unsupported_types_" + randomNameSuffix();
         // Use another complete table location so `SHOW CREATE TABLE` doesn't fail on reading metadata
         String location;
         try (GlueClient glueClient = GlueClient.create()) {
@@ -168,21 +173,34 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         try (GlueClient glueClient = GlueClient.create()) {
             glueClient.createTable(createTableRequest);
 
-            String tableDefinition = (String) computeScalar("SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
-            String expected =
-                    """
-                    CREATE TABLE delta_with_redirections.%s.%s (
-                       a_varchar varchar
-                    )
-                    WITH (
-                       location = '%s'
-                    )""";
-            assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+            try {
+                String tableDefinition = (String) computeScalar(
+                        "SHOW CREATE TABLE hive_with_redirections." + schema + "." + tableName);
+                String expected =
+                        """
+                        CREATE TABLE delta_with_redirections.%s.%s (
+                           a_varchar varchar
+                        )
+                        WITH (
+                           location = '%s'
+                        )""";
+                assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
+            }
+            finally {
+                deleteTableIfExists(glueClient, tableInput.name());
+            }
+        }
+    }
 
+    private void deleteTableIfExists(GlueClient glueClient, String tableName)
+    {
+        try {
             glueClient.deleteTable(DeleteTableRequest.builder()
                     .databaseName(schema)
-                    .name(tableInput.name())
+                    .name(tableName)
                     .build());
+        }
+        catch (EntityNotFoundException _) {
         }
     }
 }
