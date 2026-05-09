@@ -689,7 +689,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup cassandraCreateAndInsert(String tableNamePrefix)
     {
-        return new CassandraCreateAndInsertDataSetup(session::execute, tableNamePrefix, server);
+        return new CassandraCreateAndInsertDataSetup(session::execute, tableNamePrefix, server, getQueryRunner());
     }
 
     private TestCassandraTable testTable(String namePrefix, List<ColumnDefinition> columnDefinitions, List<String> rowsToInsert)
