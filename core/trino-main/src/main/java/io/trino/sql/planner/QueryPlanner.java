@@ -1199,14 +1199,15 @@ class QueryPlanner
         PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator);
         subPlan = coercions.getSubPlan();
 
-        GroupingSetsPlan groupingSets = planGroupingSets(subPlan, node, groupingSetAnalysis);
+        boolean distinctGroupingSets = node.getGroupBy().isPresent() && node.getGroupBy().get().isDistinct();
+        GroupingSetsPlan groupingSets = planGroupingSets(subPlan, distinctGroupingSets, groupingSetAnalysis);
 
         subPlan = planAggregation(groupingSets.getSubPlan(), groupingSets.getGroupingSets(), groupingSets.getGroupIdSymbol(), analysis.getAggregates(node), coercions::get);
 
         return planGroupingOperations(subPlan, node, groupingSets.getGroupIdSymbol(), groupingSets.getColumnOnlyGroupingSets());
     }
 
-    private GroupingSetsPlan planGroupingSets(PlanBuilder subPlan, QuerySpecification node, GroupingSetAnalysis groupingSetAnalysis)
+    private GroupingSetsPlan planGroupingSets(PlanBuilder subPlan, boolean distinctGroupingSets, GroupingSetAnalysis groupingSetAnalysis)
     {
         Map<Symbol, Symbol> groupingSetMappings = new LinkedHashMap<>();
 
@@ -1242,7 +1243,7 @@ class QueryPlanner
         // This tracks the grouping sets before complex expressions are considered.
         // It's also used to compute the descriptors needed to implement grouping()
         List<Set<FieldId>> columnOnlyGroupingSets = enumerateGroupingSets(groupingSetAnalysis);
-        if (node.getGroupBy().isPresent() && node.getGroupBy().get().isDistinct()) {
+        if (distinctGroupingSets) {
             columnOnlyGroupingSets = columnOnlyGroupingSets.stream()
                     .distinct()
                     .collect(toImmutableList());
