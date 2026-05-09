@@ -144,11 +144,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         ExecutorService executor = newFixedThreadPool(threads);
         List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
 
-        String[] expectedErrors = {
-                "Failed to commit the transaction during write:",
-                "Failed to replace table due to concurrent updates:",
-                "Failed to commit during write:",
-        };
         try (TestTable table = newTrinoTable(
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
@@ -164,7 +159,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                             return true;
                         }
                         catch (Exception e) {
-                            assertThat(e.getMessage()).containsAnyOf(expectedErrors);
+                            verifyConcurrentDeleteFailurePermissible(e);
                             return false;
                         }
                     }))
@@ -184,6 +179,14 @@ public abstract class BaseIcebergConnectorSmokeTest
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
+    }
+
+    protected void verifyConcurrentDeleteFailurePermissible(Exception e)
+    {
+        assertThat(e.getMessage()).containsAnyOf(
+                "Failed to commit the transaction during write:",
+                "Failed to replace table due to concurrent updates:",
+                "Failed to commit during write:");
     }
 
     @Test

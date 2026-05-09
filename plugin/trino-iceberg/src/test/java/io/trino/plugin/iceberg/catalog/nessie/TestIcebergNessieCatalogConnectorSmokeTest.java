@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
@@ -30,6 +31,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.nessie.NessieCatalog;
 import org.junit.jupiter.api.AfterAll;
@@ -42,6 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -122,6 +125,23 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
             case SUPPORTS_CREATE_VIEW, SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Override
+    protected void verifyConcurrentDeleteFailurePermissible(Exception e)
+    {
+        if (!nullToEmpty(e.getMessage()).contains("Failed to commit during write:")) {
+            super.verifyConcurrentDeleteFailurePermissible(e);
+            return;
+        }
+
+        assertThat(e)
+                .hasMessageContaining("Failed to commit during write:")
+                .hasMessageContaining("Cannot commit: ref hash is out of date");
+        assertThat(Throwables.getCausalChain(e))
+                .anySatisfy(throwable -> assertThat(throwable)
+                        .isInstanceOf(CommitFailedException.class)
+                        .hasMessageContaining("Cannot commit: ref hash is out of date"));
     }
 
     @Test
