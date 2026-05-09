@@ -188,7 +188,7 @@ public class Analysis
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
-    private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
 
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
@@ -438,7 +438,7 @@ public class Analysis
         return unmodifiableMap(lambdaArgumentReferences);
     }
 
-    public void setGroupingSets(QuerySpecification node, GroupingSetAnalysis groupingSets)
+    public void setGroupingSets(Node node, GroupingSetAnalysis groupingSets)
     {
         this.groupingSets.put(NodeRef.of(node), groupingSets);
     }
@@ -448,7 +448,7 @@ public class Analysis
         return groupingSets.containsKey(NodeRef.of(node));
     }
 
-    public GroupingSetAnalysis getGroupingSets(QuerySpecification node)
+    public GroupingSetAnalysis getGroupingSets(Node node)
     {
         return groupingSets.get(NodeRef.of(node));
     }
