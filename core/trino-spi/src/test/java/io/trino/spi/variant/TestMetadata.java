@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import org.apache.iceberg.variants.VariantMetadata;
 import org.apache.iceberg.variants.Variants;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -35,6 +36,7 @@ import static io.trino.spi.variant.Metadata.EMPTY_METADATA_SLICE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Isolated // this test uses lots of memory
 class TestMetadata
 {
     // from the Iceberg implementation, an empty metadata has 3 bytes: header + offsetCount + 0th offset
