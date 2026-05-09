@@ -17,9 +17,14 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD)
+@ResourceLock("google-sheets")
 public class TestGoogleSheetsWithoutMetadataSheetId
         extends AbstractTestQueryFramework
 {

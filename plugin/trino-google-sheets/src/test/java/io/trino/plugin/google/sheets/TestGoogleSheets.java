@@ -32,6 +32,8 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -45,8 +47,11 @@ import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsP
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Disabled // TODO https://github.com/trinodb/trino/issues/29407 Fix 'Invalid JWT Signature' failure
+@Execution(SAME_THREAD)
+@ResourceLock("google-sheets")
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
