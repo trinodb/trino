@@ -40,6 +40,13 @@ For detailed description of `MATCH_RECOGNIZE` clause, see {doc}`pattern
 recognition in FROM clause</sql/match-recognize>`.
 
 ```text
+table_name PIVOT pivot_specification
+  [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+```
+
+For detailed description of `PIVOT` clause, see {doc}`pivot</sql/pivot>`.
+
+```text
 TABLE (table_function_invocation) [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
 ```
 

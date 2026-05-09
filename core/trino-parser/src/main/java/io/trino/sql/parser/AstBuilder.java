@@ -211,6 +211,9 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -2001,7 +2004,7 @@ class AstBuilder
     @Override
     public Node visitSampledRelation(SqlBaseParser.SampledRelationContext context)
     {
-        Relation child = (Relation) visit(context.patternRecognition());
+        Relation child = (Relation) visit(context.pivot());
 
         if (context.TABLESAMPLE() == null) {
             return child;
@@ -2062,6 +2065,70 @@ class AstBuilder
     public Node visitMeasureDefinition(SqlBaseParser.MeasureDefinitionContext context)
     {
         return new MeasureDefinition(getLocation(context), (Expression) visit(context.expression()), (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitPivot(SqlBaseParser.PivotContext context)
+    {
+        Relation child = (Relation) visit(context.patternRecognition());
+
+        if (context.PIVOT() == null) {
+            return child;
+        }
+
+        List<PivotAggregation> aggregations = visit(context.pivotAggregation(), PivotAggregation.class);
+        List<Expression> pivotColumns = buildPivotColumns(context.pivotColumns());
+        List<PivotValueGroup> valueGroups = visit(context.pivotValueGroup(), PivotValueGroup.class);
+
+        Optional<GroupBy> groupBy = Optional.empty();
+        if (context.GROUP() != null) {
+            groupBy = Optional.of((GroupBy) visit(context.groupBy()));
+        }
+
+        Pivot pivot = new Pivot(getLocation(context), child, aggregations, pivotColumns, valueGroups, groupBy);
+
+        if (context.identifier() == null) {
+            return pivot;
+        }
+
+        List<Identifier> aliases = null;
+        if (context.columnAliases() != null) {
+            aliases = visit(context.columnAliases().identifier(), Identifier.class);
+        }
+
+        return new AliasedRelation(getLocation(context), pivot, (Identifier) visit(context.identifier()), aliases);
+    }
+
+    @Override
+    public Node visitPivotAggregation(SqlBaseParser.PivotAggregationContext context)
+    {
+        Optional<Identifier> alias = Optional.empty();
+        if (context.identifier() != null) {
+            alias = Optional.of((Identifier) visit(context.identifier()));
+        }
+        return new PivotAggregation(getLocation(context), (Expression) visit(context.expression()), alias);
+    }
+
+    @Override
+    public Node visitPivotValueGroup(SqlBaseParser.PivotValueGroupContext context)
+    {
+        Optional<Identifier> alias = Optional.empty();
+        if (context.identifier() != null) {
+            alias = Optional.of((Identifier) visit(context.identifier()));
+        }
+        return new PivotValueGroup(
+                getLocation(context),
+                visit(context.expression(), Expression.class),
+                alias);
+    }
+
+    private List<Expression> buildPivotColumns(SqlBaseParser.PivotColumnsContext context)
+    {
+        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
+        for (SqlBaseParser.QualifiedNameContext qualifiedNameContext : context.qualifiedName()) {
+            builder.add(DereferenceExpression.from(getQualifiedName(qualifiedNameContext)));
+        }
+        return builder.build();
     }
 
     private static Optional<RowsPerMatch> getRowsPerMatch(SqlBaseParser.RowsPerMatchContext context)

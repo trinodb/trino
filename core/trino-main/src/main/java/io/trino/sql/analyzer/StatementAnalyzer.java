@@ -104,8 +104,10 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.QueryUtil;
 import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
@@ -192,6 +194,7 @@ import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -210,6 +213,9 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -292,6 +298,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -3221,6 +3228,151 @@ class StatementAnalyzer
             validateNoNestedTableFunction(relation.getRelation(), "sample");
 
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
+        }
+
+        @Override
+        protected Scope visitPivot(Pivot relation, Optional<Scope> scope)
+        {
+            validatePivotShape(relation);
+            Query rewritten = buildPivotRewrite(relation);
+            analysis.registerPivotRewrite(relation, rewritten);
+
+            StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
+            Scope queryScope = analyzer.analyze(rewritten, scope.orElseThrow());
+            return createAndAssignScope(relation, scope, queryScope.getRelationType());
+        }
+
+        private void validatePivotShape(Pivot relation)
+        {
+            int pivotColumnArity = relation.getPivotColumns().size();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                if (valueGroup.getValues().size() != pivotColumnArity) {
+                    throw semanticException(
+                            INVALID_ARGUMENTS,
+                            valueGroup,
+                            "Number of pivot values (%s) does not match number of pivot columns (%s)",
+                            valueGroup.getValues().size(),
+                            pivotColumnArity);
+                }
+            }
+
+            if (relation.getAggregations().size() > 1) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    if (aggregation.getAlias().isEmpty()) {
+                        throw semanticException(
+                                MISSING_COLUMN_ALIASES,
+                                aggregation,
+                                "PIVOT with multiple aggregations requires an alias on each aggregation");
+                    }
+                }
+            }
+        }
+
+        private Query buildPivotRewrite(Pivot relation)
+        {
+            boolean multipleAggregations = relation.getAggregations().size() > 1;
+            ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
+
+            // Forward GROUP BY expressions to the SELECT list so they remain in the output.
+            // Deduplicate across grouping elements so GROUP BY GROUPING SETS / CUBE / ROLLUP
+            // emits each unique grouping expression exactly once.
+            relation.getGroupBy().ifPresent(groupBy -> {
+                Set<Expression> projected = new LinkedHashSet<>();
+                for (GroupingElement element : groupBy.getGroupingElements()) {
+                    projected.addAll(element.getExpressions());
+                }
+                for (Expression expression : projected) {
+                    selectItems.add(new SingleColumn(cloneNode(expression)));
+                }
+            });
+
+            Set<String> seenNames = new HashSet<>();
+            for (PivotValueGroup valueGroup : relation.getValueGroups()) {
+                for (PivotAggregation aggregation : relation.getAggregations()) {
+                    Identifier columnName = pivotColumnName(valueGroup, aggregation, multipleAggregations);
+                    if (!seenNames.add(columnName.getValue().toLowerCase(ENGLISH))) {
+                        throw semanticException(
+                                DUPLICATE_COLUMN_NAME,
+                                valueGroup,
+                                "PIVOT produces duplicate output column name: %s",
+                                columnName.getValue());
+                    }
+                    Expression predicate = buildPivotPredicate(relation.getPivotColumns(), valueGroup.getValues());
+                    Expression filtered = injectFilter(aggregation.getExpression(), predicate);
+                    selectItems.add(new SingleColumn(filtered, columnName));
+                }
+            }
+
+            return QueryUtil.query(new QuerySpecification(
+                    new Select(false, selectItems.build()),
+                    Optional.of(relation.getInput()),
+                    Optional.empty(),
+                    relation.getGroupBy(),
+                    Optional.empty(),
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()));
+        }
+
+        private Identifier pivotColumnName(PivotValueGroup valueGroup, PivotAggregation aggregation, boolean multipleAggregations)
+        {
+            String valuePart = valueGroup.getAlias()
+                    .map(Identifier::getValue)
+                    .orElseGet(() -> valueGroup.getValues().stream()
+                            .map(ExpressionFormatter::formatExpression)
+                            .collect(Collectors.joining("_")));
+            String aggPart = aggregation.getAlias().map(Identifier::getValue).orElse("");
+            String columnName = aggPart.isEmpty() ? valuePart : valuePart + "_" + aggPart;
+            return new Identifier(columnName);
+        }
+
+        private Expression buildPivotPredicate(List<Expression> pivotColumns, List<Expression> values)
+        {
+            Expression result = null;
+            for (int i = 0; i < pivotColumns.size(); i++) {
+                Expression equality = new ComparisonExpression(
+                        ComparisonExpression.Operator.EQUAL,
+                        cloneNode(pivotColumns.get(i)),
+                        cloneNode(values.get(i)));
+                result = (result == null) ? equality : LogicalExpression.and(result, equality);
+            }
+            return result;
+        }
+
+        private Expression injectFilter(Expression expression, Expression predicate)
+        {
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
+                        Optional<Expression> existingFilter = node.getFilter();
+                        Expression freshPredicate = cloneNode(predicate);
+                        Expression mergedFilter = existingFilter
+                                .map(existing -> (Expression) LogicalExpression.and(existing, freshPredicate))
+                                .orElse(freshPredicate);
+                        return new FunctionCall(
+                                node.getLocation(),
+                                node.getName(),
+                                node.getWindow(),
+                                Optional.of(mergedFilter),
+                                node.getOrderBy(),
+                                node.isDistinct(),
+                                node.getNullTreatment(),
+                                node.getProcessingMode(),
+                                node.getArguments());
+                    }
+                    return treeRewriter.defaultRewrite(node, context);
+                }
+            }, expression);
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T extends Expression> T cloneNode(T expression)
+        {
+            return (T) ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>() {}, expression);
         }
 
         // this method should run after the `base` relation is processed, so that it is
