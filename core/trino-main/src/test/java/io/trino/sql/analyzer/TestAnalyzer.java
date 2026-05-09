@@ -4782,6 +4782,65 @@ public class TestAnalyzer
         analyze("VALUES 'a', ('a'), ROW('a'), CAST(ROW('a') AS row(char(5)))");
     }
 
+    @Test
+    public void testPivot()
+    {
+        // t1 has columns a, b, c, d, all BIGINT.
+        analyze("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (1 AS one))");
+
+        // An expression must contain an aggregate.
+        assertFails("SELECT * FROM t1 PIVOT (a FOR b IN (1 AS one))")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageContaining("PIVOT expression must contain an aggregate function");
+        assertFails("SELECT * FROM t1 PIVOT (1 FOR b IN (1 AS one))")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        // Window functions and grouping operations are not aggregates.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) OVER () FOR b IN (1 AS one))")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessageContaining("PIVOT expression cannot contain window functions");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) + grouping(c) FOR b IN (1 AS one) GROUP BY ROLLUP (c))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("PIVOT expression cannot contain grouping operations");
+
+        // A subquery outside the aggregate calls is not supported; one inside an aggregate call is fine.
+        assertFails("SELECT * FROM t1 PIVOT ((sum(a) + (SELECT 1)) AS x FOR b IN (1 AS one))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("PIVOT expression cannot contain a subquery outside an aggregate function");
+        analyze("SELECT * FROM t1 PIVOT (sum((SELECT a)) AS x FOR b IN (1 AS one))");
+
+        // An IN value must be a constant: no aggregate, subquery, input-column reference, or
+        // non-deterministic function.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (max(a)))")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("PIVOT IN clause cannot contain aggregations");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN ((SELECT 1)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot contain a subquery");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (a))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot reference a column: a");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (CAST(random(3) AS bigint)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot be non-deterministic");
+
+        // A value must share a comparable supertype with the pivot column.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (VARCHAR 'x'))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("not comparable");
+
+        // Shape constraints.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a), count(a) FOR b IN (1))")
+                .hasErrorCode(MISSING_COLUMN_ALIASES)
+                .hasMessageContaining("requires an alias");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR (b, c) IN ((1)))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("Number of pivot values");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (1) GROUP BY AUTO)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("GROUP BY AUTO is not supported in PIVOT");
+    }
+
     // TEST ROW PATTERN RECOGNITION: MATCH_RECOGNIZE CLAUSE
     @Test
     public void testInputColumnNames()
