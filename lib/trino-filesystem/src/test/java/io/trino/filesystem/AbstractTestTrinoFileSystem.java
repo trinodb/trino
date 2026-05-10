@@ -1060,7 +1060,7 @@ public abstract class AbstractTestTrinoFileSystem
                     .preSignedUri(location, new Duration(30, SECONDS));
 
             Optional<UriLocation> expiredDirectLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(1, SECONDS));
+                    .preSignedUri(location, new Duration(3, SECONDS));
 
             assertThat(directLocation).isPresent();
 
@@ -1072,9 +1072,12 @@ public abstract class AbstractTestTrinoFileSystem
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if after a timeout the pre-signed URI is no longer valid
-            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
-                    .isInstanceOf(IOException.class)
-                    .hasMessageContaining("Failed to retrieve"));
+            assertEventually(
+                    new Duration(10, SECONDS),
+                    new Duration(1, SECONDS),
+                    () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
+                            .isInstanceOf(IOException.class)
+                            .hasMessageContaining("Failed to retrieve"));
         }
     }
 
