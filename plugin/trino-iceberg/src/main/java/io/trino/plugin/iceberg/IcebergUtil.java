@@ -541,6 +541,10 @@ public final class IcebergUtil
                     .map(field -> NestedField.from(field).withName(nestedField.name() + "." + field.name()).build());
         }
 
+        if (type.isVariantType()) {
+            return Stream.empty();
+        }
+
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
