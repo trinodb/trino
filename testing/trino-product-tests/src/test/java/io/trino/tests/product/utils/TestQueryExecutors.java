@@ -27,6 +27,7 @@ class TestQueryExecutors
         assertThat(isDatabricksTransientFailure(new RuntimeException("The current cluster state is Pending"))).isTrue();
         assertThat(isDatabricksTransientFailure(new RuntimeException("The current cluster state is Terminated"))).isTrue();
         assertThat(isDatabricksTransientFailure(new RuntimeException("The cluster is temporarily unavailable"))).isTrue();
+        assertThat(isDatabricksTransientFailure(new RuntimeException("AWSCatalogMetastoreClient.isCompatibleWith"))).isTrue();
 
         assertThat(isDatabricksTransientFailure(new RuntimeException("HTTP Response code: 503"))).isFalse();
         assertThat(isDatabricksTransientFailure(new RuntimeException("closeStatement failed after HTTP Response code: 502"))).isFalse();
