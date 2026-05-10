@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.BaseTestContainer;
 import io.trino.testing.containers.PrintingLogConsumer;
@@ -26,6 +27,10 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class HiveHadoop
         extends BaseTestContainer
@@ -84,6 +89,11 @@ public class HiveHadoop
     public String runOnHive(String query)
     {
         return executeInContainerFailOnError("beeline", "-u", "jdbc:hive2://localhost:10000/default", "-n", "hive", "-e", query);
+    }
+
+    public void waitForHiveServer()
+    {
+        assertEventually(new Duration(2, MINUTES), new Duration(1, SECONDS), () -> runOnHive("SELECT 1"));
     }
 
     public String runOnMetastore(String query)
