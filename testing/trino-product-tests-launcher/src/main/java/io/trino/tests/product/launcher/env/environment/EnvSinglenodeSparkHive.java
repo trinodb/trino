@@ -81,19 +81,23 @@ public class EnvSinglenodeSparkHive
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("spark-submit")
+                .add("--master", "local[*]")
+                .add("--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2")
+                .add("--name", "Thrift JDBC/ODBC Server")
+                .add("--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT)
+                .add("spark-internal")
+                .build()
+                .toArray(String[]::new);
+
         // TODO: Switch to pure Spark 4 image once it's available (https://github.com/trinodb/trino/issues/7063)
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-hive/spark-defaults.conf")),
                         "/spark/conf/spark-defaults.conf")
-                .withCommand(
-                        "spark-submit",
-                        "--master", "local[*]",
-                        "--class", "org.apache.spark.sql.hive.thriftserver.HiveThriftServer2",
-                        "--name", "Thrift JDBC/ODBC Server",
-                        "--conf", "spark.hive.server2.thrift.port=" + SPARK_THRIFT_PORT,
-                        "spark-internal")
+                .withCommand(command)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 

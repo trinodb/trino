@@ -222,11 +222,17 @@ public class TestTrinoLdapCli
     public void shouldFailQueryForLdapWithoutPassword()
             throws IOException
     {
-        launchTrinoCli("--server", ldapServerAddress,
-                "--truststore-path", ldapTruststorePath,
-                "--truststore-password", ldapTruststorePassword,
-                "--user", ldapUserName,
-                "--execute", SELECT_FROM_NATION);
+        launchTrinoCli(
+                "--server",
+                ldapServerAddress,
+                "--truststore-path",
+                ldapTruststorePath,
+                "--truststore-password",
+                ldapTruststorePassword,
+                "--user",
+                ldapUserName,
+                "--execute",
+                SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Authentication failed: Unauthorized"));
     }
@@ -314,10 +320,14 @@ public class TestTrinoLdapCli
 
         ImmutableList.Builder<String> trinoClientOptions = ImmutableList.builder();
         trinoClientOptions.add(
-                "--server", ldapServerAddress,
-                "--truststore-path", ldapTruststorePath,
-                "--truststore-password", ldapTruststorePassword,
-                "--user", ldapUserName,
+                "--server",
+                ldapServerAddress,
+                "--truststore-path",
+                ldapTruststorePath,
+                "--truststore-password",
+                ldapTruststorePassword,
+                "--user",
+                ldapUserName,
                 "--password");
 
         trinoClientOptions.add(arguments);

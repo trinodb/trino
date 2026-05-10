@@ -2485,7 +2485,7 @@ public class TestDeltaLakeBasic
                     part_date = DATE '2020-08-21' AND
                     part_timestamp = TIMESTAMP '2020-10-21 01:00:00.123 UTC' AND
                     part_timestamp_ntz =TIMESTAMP '2023-01-02 01:02:03.456'\
-                    """.formatted(tableName)))
+                """.formatted(tableName)))
                 .matches("VALUES 1");
     }
 
@@ -2928,11 +2928,11 @@ public class TestDeltaLakeBasic
         // update on cloned table
         @Language("SQL") String expectedValuesAfterUpdate =
         """
-                VALUES
-                (1, 'A', TIMESTAMP '2024-01-01'),
-                (2, 'updated', TIMESTAMP '2024-01-01'),
-                (3, 'C', TIMESTAMP '2024-02-02'),
-                (4, 'updated', TIMESTAMP '2024-02-02')
+        VALUES
+        (1, 'A', TIMESTAMP '2024-01-01'),
+        (2, 'updated', TIMESTAMP '2024-01-01'),
+        (3, 'C', TIMESTAMP '2024-02-02'),
+        (4, 'updated', TIMESTAMP '2024-02-02')
         """;
         assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
         assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);

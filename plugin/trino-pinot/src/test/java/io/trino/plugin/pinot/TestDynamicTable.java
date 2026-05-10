@@ -108,7 +108,7 @@ public class TestDynamicTable
                  AND(("OriginCityName") != 'catfish paradise', ("OriginState") != 'az', ("AirTime") BETWEEN '1' AND '5', "AirTime" NOT IN ('7', '8', '9')),\
                  AND(("DepDelayMinutes") < '10', ("Distance") >= '3', ("ArrDelay") > '4', ("SecurityDelay") < '5', ("LateAircraftDelay") <= '7'))\
                  LIMIT 60\
-                 """.formatted(tableName);
+                """.formatted(tableName);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -136,7 +136,7 @@ public class TestDynamicTable
                  WHERE AND(("string_col") = 'string', ("long_col") = '12345678901',\
                  ("int_col") = '123456789', ("double_col") = '3.56', ("float_col") = '3.56', ("bytes_col") = 'abcd')\
                  LIMIT 60\
-                 """;
+                """;
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }

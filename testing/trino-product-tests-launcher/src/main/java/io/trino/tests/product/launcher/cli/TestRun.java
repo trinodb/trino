@@ -361,8 +361,10 @@ public final class TestRun
                                         "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)
                                 .add(
-                                        "-jar", "/docker/test.jar",
-                                        "--config", String.join(",", ImmutableList.<String>builder()
+                                        "-jar",
+                                        "/docker/test.jar",
+                                        "--config",
+                                        String.join(",", ImmutableList.<String>builder()
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/trino-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
                                                 .add(CONTAINER_TEMPTO_PROFILE_CONFIG)

@@ -252,7 +252,7 @@ public class TrinoPreparedStatement
             setNull(parameterIndex, Types.DECIMAL);
         }
         else {
-            setParameter(parameterIndex, formatLiteral("DECIMAL", x.toString()));
+            setParameter(parameterIndex, formatLiteral("DECIMAL", x.toPlainString()));
         }
     }
 

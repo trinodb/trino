@@ -5169,7 +5169,7 @@ public abstract class BaseHiveConnectorTest
                         """
                         Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
                             [1, 2]\
-                            """);
+                        """);
     }
 
     @Test
@@ -8191,8 +8191,8 @@ public abstract class BaseHiveConnectorTest
                             }]
                         }
                     ]
-                 }\
-                 """;
+                }
+                """;
         Location schemaFile = tempDir.appendPath("avro_camelCamelCase_col.avsc");
         try (OutputStream out = fileSystem.newOutputFile(schemaFile).create()) {
             out.write(schema.getBytes(UTF_8));

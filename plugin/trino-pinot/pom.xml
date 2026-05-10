@@ -14,7 +14,7 @@
     <description>Trino - Pinot connector</description>
 
     <properties>
-        <dep.pinot.version>1.4.0</dep.pinot.version>
+        <dep.pinot.version>1.5.0</dep.pinot.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
@@ -304,6 +304,10 @@
             <version>${dep.pinot.version}</version>
             <exclusions>
                 <exclusion>
+                    <groupId>jakarta.ws.rs</groupId>
+                    <artifactId>jakarta.ws.rs-api</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
                     <artifactId>log4j-1.2-api</artifactId>
                 </exclusion>
@@ -378,6 +382,14 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <!-- Pinot 1.5.0 bytecode references javax.ws.rs.core.Response, but its POM only declares jakarta.ws.rs-api -->
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>2.1.1</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -550,6 +562,9 @@
                             <excludes combine.children="append">
                                 <exclude>org.apache.thrift:libthrift</exclude>
                                 <exclude>io.netty:netty</exclude>
+                                <exclude>io.grpc:grpc-netty-shaded</exclude>
+                                <exclude>io.grpc:grpc-protobuf</exclude>
+                                <exclude>io.grpc:grpc-stub</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>

@@ -934,6 +934,11 @@ public class TestJdbcPreparedStatement
     {
         assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123)), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
         assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123)), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+        // BigDecimal values such that BigDecimal.toString() produces scientific notation (e.g. "0E-10") which currently isn't valid Trino decimal literal
+        assertThat(new BigDecimal("0E-10").toString()).contains("E-10");
+        assertThat(new BigDecimal("1E+2").toString()).contains("E+2");
+        assertBind((ps, i) -> ps.setBigDecimal(i, new BigDecimal("0E-10")), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("0.0000000000"));
+        assertBind((ps, i) -> ps.setBigDecimal(i, new BigDecimal("1E+2")), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("100"));
 
         for (int type : asList(Types.DECIMAL, Types.NUMERIC)) {
             assertBind((ps, i) -> ps.setObject(i, (byte) 123, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
@@ -948,6 +953,9 @@ public class TestJdbcPreparedStatement
             assertBind((ps, i) -> ps.setObject(i, "123", type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
             assertBind((ps, i) -> ps.setObject(i, true, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(1));
             assertBind((ps, i) -> ps.setObject(i, false, type), explicitPrepare).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(0));
+            // BigDecimal values such that BigDecimal.toString() produces scientific notation (e.g. "0E-10") which currently isn't valid Trino decimal literal
+            assertBind((ps, i) -> ps.setObject(i, new BigDecimal("0E-10"), type), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("0.0000000000"));
+            assertBind((ps, i) -> ps.setObject(i, new BigDecimal("1E+2"), type), explicitPrepare).roundTripsAs(Types.DECIMAL, new BigDecimal("100"));
         }
     }
 
