@@ -1551,13 +1551,13 @@ The output of the query has the following columns:
   - Mapping between the Iceberg column ID and its corresponding count of 
     non-numerical values in the file.
 * - `lower_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `upper_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding upper bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `key_metadata`
   - `VARBINARY`
   - Metadata about the encryption key used to encrypt this file, if applicable.

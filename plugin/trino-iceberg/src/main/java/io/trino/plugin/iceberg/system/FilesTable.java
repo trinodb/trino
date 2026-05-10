@@ -27,6 +27,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -34,15 +35,20 @@ import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.MetadataTableUtils;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Types;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFields;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -116,6 +122,7 @@ public final class FilesTable
     private final Table icebergTable;
     private final OptionalLong snapshotId;
     private final Optional<Type> partitionColumnType;
+    private final Optional<Type> boundsColumnType;
 
     public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, OptionalLong snapshotId)
     {
@@ -125,11 +132,15 @@ public final class FilesTable
         List<PartitionField> partitionFields = getAllPartitionFields(icebergTable);
         this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, icebergTable.schema())
                 .map(IcebergPartitionColumn::rowType);
+        this.boundsColumnType = buildBoundsType(icebergTable.schema(), typeManager);
 
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (String columnName : COLUMN_NAMES) {
             if (columnName.equals(PARTITION_COLUMN_NAME)) {
                 partitionColumnType.ifPresent(type -> columns.add(new ColumnMetadata(columnName, type)));
+            }
+            else if (columnName.equals(LOWER_BOUNDS_COLUMN_NAME) || columnName.equals(UPPER_BOUNDS_COLUMN_NAME)) {
+                boundsColumnType.ifPresent(type -> columns.add(new ColumnMetadata(columnName, type)));
             }
             else {
                 columns.add(new ColumnMetadata(columnName, getColumnType(columnName, typeManager)));
@@ -161,7 +172,8 @@ public final class FilesTable
                 icebergTable.specs().entrySet().stream().collect(toImmutableMap(
                         Map.Entry::getKey,
                         partitionSpec -> PartitionSpecParser.toJson(partitionSpec.getValue()))),
-                partitionColumnType));
+                partitionColumnType,
+                boundsColumnType));
     }
 
     @Override
@@ -193,13 +205,27 @@ public final class FilesTable
                  NULL_VALUE_COUNTS_COLUMN_NAME,
                  VALUE_COUNTS_COLUMN_NAME,
                  NAN_VALUE_COUNTS_COLUMN_NAME -> new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
-            case LOWER_BOUNDS_COLUMN_NAME,
-                 UPPER_BOUNDS_COLUMN_NAME -> new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
             case KEY_METADATA_COLUMN_NAME -> VARBINARY;
             case SPLIT_OFFSETS_COLUMN_NAME -> new ArrayType(BIGINT);
             case EQUALITY_IDS_COLUMN_NAME -> new ArrayType(INTEGER);
             case READABLE_METRICS_COLUMN_NAME -> typeManager.getType(new TypeSignature(JSON));
             default -> throw new IllegalArgumentException("Unexpected value: " + columnName);
         };
+    }
+
+    private static Optional<Type> buildBoundsType(Schema icebergSchema, TypeManager typeManager)
+    {
+        List<Types.NestedField> primitiveFields = primitiveFields(icebergSchema);
+
+        if (primitiveFields.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(RowType.from(primitiveFields.stream()
+                .map(column -> {
+                    Type trinoType = toTrinoType(column.type(), typeManager);
+                    return RowType.field(String.valueOf(column.fieldId()), trinoType);
+                })
+                .collect(toImmutableList())));
     }
 }
