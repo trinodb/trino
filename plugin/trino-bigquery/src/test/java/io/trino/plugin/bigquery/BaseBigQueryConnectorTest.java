@@ -52,6 +52,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -83,6 +84,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
+    private static final RetryPolicy<Object> BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(BaseBigQueryConnectorTest::isTransientBigQueryFailure)
+            .withDelay(java.time.Duration.ofSeconds(10))
+            .withMaxAttempts(3)
+            .build();
+
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
     private String bigQueryConnectionId;
@@ -1573,6 +1580,13 @@ public abstract class BaseBigQueryConnectorTest
 
     private void onBigQuery(@Language("SQL") String sql)
     {
-        bigQuerySqlExecutor.execute(sql);
+        Failsafe.with(BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY)
+                .run(() -> bigQuerySqlExecutor.execute(sql));
+    }
+
+    private static boolean isTransientBigQueryFailure(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream().anyMatch(cause ->
+                nullToEmpty(cause.getMessage()).contains("Visibility check was unavailable"));
     }
 }
