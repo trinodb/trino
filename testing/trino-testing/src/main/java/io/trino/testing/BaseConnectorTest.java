@@ -4186,28 +4186,32 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_RENAME_SCHEMA));
 
         String sourceSchemaName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate(createSchemaSql(sourceSchemaName));
-
         String baseSchemaName = "test_rename_target_" + randomNameSuffix();
-
         int maxLength = maxSchemaNameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
         String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
-        assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + validTargetSchemaName);
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
-        assertUpdate("DROP SCHEMA " + validTargetSchemaName);
+        try {
+            assertUpdate(createSchemaSql(sourceSchemaName));
+            assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + validTargetSchemaName);
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
+            assertUpdate("DROP SCHEMA " + validTargetSchemaName);
 
-        if (maxSchemaNameLength().isEmpty()) {
-            return;
+            if (maxSchemaNameLength().isEmpty()) {
+                return;
+            }
+
+            assertUpdate(createSchemaSql(sourceSchemaName));
+            String invalidTargetSchemaName = validTargetSchemaName + "z";
+            assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + invalidTargetSchemaName))
+                    .satisfies(this::verifySchemaNameLengthFailurePermissible);
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
         }
-
-        assertUpdate(createSchemaSql(sourceSchemaName));
-        String invalidTargetSchemaName = validTargetSchemaName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + sourceSchemaName + " RENAME TO " + invalidTargetSchemaName))
-                .satisfies(this::verifySchemaNameLengthFailurePermissible);
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + sourceSchemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + validTargetSchemaName);
+        }
     }
 
     protected OptionalInt maxSchemaNameLength()
