@@ -88,7 +88,7 @@ public class EnvMultinodeGcs
         String gcpCredentials = new String(gcpCredentialsBytes, UTF_8);
         File gcpCredentialsFile;
         try {
-            gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".xml", PosixFilePermissions.asFileAttribute(fromString("rw-r--r--"))).toFile();
+            gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", PosixFilePermissions.asFileAttribute(fromString("rw-r--r--"))).toFile();
             gcpCredentialsFile.deleteOnExit();
             Files.write(gcpCredentialsFile.toPath(), gcpCredentialsBytes);
         }
@@ -96,7 +96,7 @@ public class EnvMultinodeGcs
             throw new UncheckedIOException(e);
         }
 
-        String containerGcpCredentialsFile = CONTAINER_TRINO_ETC + "gcp-credentials.json";
+        String containerGcpCredentialsFile = CONTAINER_TRINO_ETC + "/gcp-credentials.json";
         builder.configureContainer(HADOOP, container -> {
             container.withCopyFileToContainer(
                     forHostPath(getCoreSiteOverrideXml(containerGcpCredentialsFile)),
