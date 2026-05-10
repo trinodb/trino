@@ -31,6 +31,7 @@ import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileInputStream;
@@ -45,6 +46,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Disabled // TODO https://github.com/trinodb/trino/issues/29407 Fix 'Invalid JWT Signature' failure
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
