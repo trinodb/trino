@@ -102,6 +102,11 @@ jobs:
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   artifact-checks:
     needs: path-filters
@@ -137,6 +142,11 @@ jobs:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   check-commits-dispatcher:
     needs: path-filters
@@ -222,6 +232,11 @@ jobs:
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
           $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server'
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   test-jdbc-compatibility:
     needs: path-filters
@@ -264,6 +279,11 @@ jobs:
         with:
           has-failed-tests: ${{ steps.tests-old.outcome == 'failure' || steps.tests-current.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   hive-tests:
     needs: path-filters
@@ -322,6 +342,11 @@ jobs:
           check_name: ${{ github.job }} (${{ matrix.config }}) with secrets
           conclusion: ${{ job.status }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   test-other-modules:
     needs: path-filters
@@ -410,6 +435,11 @@ jobs:
         with:
           has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   build-test-matrix:
     needs: path-filters
@@ -526,6 +556,11 @@ jobs:
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   test:
     runs-on: 'ubuntu-latest'
@@ -826,6 +861,11 @@ jobs:
           check_name: ${{ github.job }} with secrets
           conclusion: ${{ job.status }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   build-pt:
     needs: path-filters
@@ -1022,6 +1062,11 @@ jobs:
         run: |
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   pt:
     runs-on: 'ubuntu-latest'
@@ -1112,6 +1157,11 @@ jobs:
           check_name: ${{ github.job }} with secrets
           conclusion: ${{ job.status }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}"
 
   build-success:
     if: ${{ always() }} # if `failure()` would not work for cancellations, `!success()` would not work for skipped jobs
