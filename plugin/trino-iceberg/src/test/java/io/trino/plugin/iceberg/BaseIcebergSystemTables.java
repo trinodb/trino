@@ -536,8 +536,8 @@ public abstract class BaseIcebergSystemTables
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
                         "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('lower_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
+                        "('upper_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')," +
