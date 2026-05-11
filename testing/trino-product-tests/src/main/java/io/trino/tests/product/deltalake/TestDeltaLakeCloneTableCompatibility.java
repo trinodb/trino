@@ -253,10 +253,17 @@ public class TestDeltaLakeCloneTableCompatibility
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReadFromSchemaChangedDeepCloneTable()
+    public void testReadFromSchemaChangedDeepCloneTablePartitioned()
     {
         // Deep Clone is not supported on Delta-Lake OSS
         testReadSchemaChangedCloneTable("DEEP", true);
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testReadFromSchemaChangedDeepCloneTableNonPartitioned()
+    {
+        // Deep Clone is not supported on Delta-Lake OSS
         testReadSchemaChangedCloneTable("DEEP", false);
     }
 
