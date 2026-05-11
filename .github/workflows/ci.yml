@@ -456,6 +456,7 @@ jobs:
             - { modules: plugin/trino-exchange-filesystem, profile: cloud-tests }
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-google-sheets }
+            - { modules: plugin/trino-google-sheets, profile: cloud-tests }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: cloud-tests }
             - { modules: plugin/trino-hive, profile: fte-tests }
@@ -530,6 +531,7 @@ jobs:
         if: >-
           ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hive') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
@@ -735,6 +737,14 @@ jobs:
             -Dtesting.snowflake.catalog.s3.secret-key="${SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY}" \
             -Dtesting.snowflake.catalog.s3.external.volume="${SNOWFLAKE_EXTERNAL_VOLUME}" \
             -Dtesting.snowflake.catalog.s3.region="${SNOWFLAKE_CATALOG_S3_REGION}"
+      - name: Cloud Google Sheets Tests
+        id: tests-google-sheets
+        env:
+          SHEETS_CREDENTIALS_KEY: ${{ secrets.SHEETS_CREDENTIALS_KEY }}
+        if: contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SHEETS_CREDENTIALS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-google-sheets -Pcloud-tests \
+            -Dtesting.gsheets.credentials-key="${SHEETS_CREDENTIALS_KEY}"
       - name: Cloud Redshift Tests ${{ matrix.profile }}
         id: tests-redshift
         env:
@@ -796,6 +806,7 @@ jobs:
               || steps.tests-delta.outcome == 'failure'
               || steps.tests-bq.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
+              || steps.tests-google-sheets.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
               || steps.tests-snowflake.outcome == 'failure'
