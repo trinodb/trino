@@ -386,6 +386,39 @@ class TestSortedRangeSet
                 SortedRangeSet.of(Range.equal(BIGINT, 4L), Range.equal(BIGINT, 6L), Range.equal(BIGINT, 9L)))).isTrue();
         assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
                 SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.range(BIGINT, 6L, true, 10L, true)))).isFalse();
+
+        // Discrete value-adjacent ranges should compare equivalent to the spanning range for
+        // discrete types (i.e. types with Type.getNextValue defined).
+        // {[3], [4]} contains [3, 4] over bigint because the two singletons together cover the
+        // whole integer range [3, 4].
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 4L, true)))).isTrue();
+        // Three-singleton coalescing: {[3], [4], [5]} contains [3, 5]
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L), Range.equal(BIGINT, 5L))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 5L, true)))).isTrue();
+        // Gap breaks coalescing: {[3], [5]} does not contain [3, 5] (4 is missing)
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 5L))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 5L, true)))).isFalse();
+        // Partial cover: {[3], [4]} does not contain [3, 5]
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 5L, true)))).isFalse();
+        // Continuous types have no nextValue: {[3.0], [4.0]} does NOT contain [3.0, 4.0] over double
+        assertThat(SortedRangeSet.of(Range.equal(DOUBLE, 3.0), Range.equal(DOUBLE, 4.0))
+                .contains(SortedRangeSet.of(Range.range(DOUBLE, 3.0, true, 4.0, true)))).isFalse();
+        // Coalescing must not change reverse direction: [3, 4] still contains {[3], [4]}.
+        assertThat(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 4L, true))
+                .contains(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)))).isTrue();
+        // Coalescing combined with span: {[3], [4], [10]} contains {[3, 4], [10]}
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L), Range.equal(BIGINT, 10L))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, 3L, true, 4L, true), Range.equal(BIGINT, 10L)))).isTrue();
+        // Edge of representable range: getNextValue near MAX_VALUE
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, Long.MAX_VALUE - 1), Range.equal(BIGINT, Long.MAX_VALUE))
+                .contains(SortedRangeSet.of(Range.range(BIGINT, Long.MAX_VALUE - 1, true, Long.MAX_VALUE, true)))).isTrue();
+        // Across types: tinyint and integer behave the same
+        assertThat(SortedRangeSet.of(Range.equal(INTEGER, 3L), Range.equal(INTEGER, 4L))
+                .contains(SortedRangeSet.of(Range.range(INTEGER, 3L, true, 4L, true)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.equal(TINYINT, 3L), Range.equal(TINYINT, 4L))
+                .contains(SortedRangeSet.of(Range.range(TINYINT, 3L, true, 4L, true)))).isTrue();
     }
 
     @Test
