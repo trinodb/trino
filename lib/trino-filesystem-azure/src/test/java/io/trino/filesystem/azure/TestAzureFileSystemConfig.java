@@ -45,7 +45,8 @@ class TestAzureFileSystemConfig
                 .setConnectionPoolMaxIdleTime(new Duration(5, MINUTES))
                 .setHttpRequestTimeout(new Duration(10, MINUTES))
                 .setApplicationId("Trino")
-                .setMultipartWriteEnabled(false));
+                .setMultipartWriteEnabled(false)
+                .setMaxErrorRetries(4));
     }
 
     @Test
@@ -64,6 +65,7 @@ class TestAzureFileSystemConfig
                 .put("azure.http-request-timeout", "1m")
                 .put("azure.application-id", "application id")
                 .put("azure.multipart-write-enabled", "true")
+                .put("azure.max-error-retries", "10")
                 .buildOrThrow();
 
         AzureFileSystemConfig expected = new AzureFileSystemConfig()
@@ -78,7 +80,8 @@ class TestAzureFileSystemConfig
                 .setConnectionPoolMaxIdleTime(new Duration(1, MINUTES))
                 .setHttpRequestTimeout(new Duration(1, MINUTES))
                 .setApplicationId("application id")
-                .setMultipartWriteEnabled(true);
+                .setMultipartWriteEnabled(true)
+                .setMaxErrorRetries(10);
 
         assertFullMapping(properties, expected);
     }

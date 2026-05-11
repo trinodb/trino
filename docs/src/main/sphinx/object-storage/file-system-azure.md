@@ -59,6 +59,9 @@ system support:
     for all requests sent to Azure Storage. Defaults to `Trino`. 
 * - `azure.multipart-write-enabled`
   - Enable multipart writes for large files. Defaults to `false`. 
+* - `azure.max-error-retries`
+  - Maximum [integer](prop-type-integer) number of retries for transient Azure
+    HTTP request failures using exponential backoff. Defaults to `4`. 
 :::
 
 (azure-user-assigned-managed-identity-authentication)=

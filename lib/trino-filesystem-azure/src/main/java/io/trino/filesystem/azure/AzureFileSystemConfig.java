@@ -52,6 +52,7 @@ public class AzureFileSystemConfig
     private Duration httpRequestTimeout = new Duration(10, TimeUnit.MINUTES);
     private String applicationId = "Trino";
     private boolean multipartWriteEnabled;
+    private int maxErrorRetries = 4;
 
     @NotNull
     public AuthType getAuthType()
@@ -212,6 +213,20 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setMultipartWriteEnabled(boolean multipartWriteEnabled)
     {
         this.multipartWriteEnabled = multipartWriteEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxErrorRetries()
+    {
+        return maxErrorRetries;
+    }
+
+    @Config("azure.max-error-retries")
+    @ConfigDescription("Maximum number of retries for transient Azure HTTP request failures")
+    public AzureFileSystemConfig setMaxErrorRetries(int maxErrorRetries)
+    {
+        this.maxErrorRetries = maxErrorRetries;
         return this;
     }
 }

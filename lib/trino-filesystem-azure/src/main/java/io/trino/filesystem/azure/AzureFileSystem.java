@@ -27,6 +27,8 @@ import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.storage.blob.specialized.BlockBlobClient;
+import com.azure.storage.common.policy.RequestRetryOptions;
+import com.azure.storage.common.policy.RetryPolicyType;
 import com.azure.storage.common.sas.SasProtocol;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -94,6 +96,7 @@ public class AzureFileSystem
     private final int maxWriteConcurrency;
     private final long maxSingleUploadSizeBytes;
     private final boolean multipartWriteEnabled;
+    private final int maxErrorRetries;
 
     public AzureFileSystem(
             HttpClient httpClient,
@@ -106,7 +109,8 @@ public class AzureFileSystem
             DataSize writeBlockSize,
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize,
-            boolean multipartWriteEnabled)
+            boolean multipartWriteEnabled,
+            int maxErrorRetries)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.concurrencyPolicy = requireNonNull(concurrencyPolicy, "concurrencyPolicy is null");
@@ -120,6 +124,7 @@ public class AzureFileSystem
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSizeBytes = maxSingleUploadSize.toBytes();
         this.multipartWriteEnabled = multipartWriteEnabled;
+        this.maxErrorRetries = maxErrorRetries;
     }
 
     @Override
@@ -684,6 +689,7 @@ public class AzureFileSystem
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
+                .retryOptions(new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, maxErrorRetries, (Integer) null, null, null, null))
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
 
@@ -701,6 +707,7 @@ public class AzureFileSystem
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
                 .addPolicy(concurrencyPolicy)
+                .retryOptions(new RequestRetryOptions(RetryPolicyType.EXPONENTIAL, maxErrorRetries, (Integer) null, null, null, null))
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
         key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));

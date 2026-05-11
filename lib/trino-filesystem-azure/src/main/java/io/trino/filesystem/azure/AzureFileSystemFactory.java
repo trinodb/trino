@@ -61,6 +61,7 @@ public class AzureFileSystemFactory
     private final EventLoopGroup eventLoopGroup;
     private final boolean multipart;
     private final HttpPipelinePolicy concurrencyPolicy;
+    private final int maxErrorRetries;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -77,7 +78,8 @@ public class AzureFileSystemFactory
                 config.getConnectionPoolMaxIdleTime(),
                 config.getHttpRequestTimeout(),
                 config.getApplicationId(),
-                config.isMultipartWriteEnabled());
+                config.isMultipartWriteEnabled(),
+                config.getMaxErrorRetries());
     }
 
     public AzureFileSystemFactory(
@@ -93,7 +95,8 @@ public class AzureFileSystemFactory
             Duration connectionPoolMaxIdleTime,
             Duration httpRequestTimeout,
             String applicationId,
-            boolean multipart)
+            boolean multipart,
+            int maxErrorRetries)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
@@ -116,6 +119,7 @@ public class AzureFileSystemFactory
         clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
         httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
         this.multipart = multipart;
+        this.maxErrorRetries = maxErrorRetries;
         this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
                 maxHttpRequests,
                 httpRequestTimeout.toJavaTime());
@@ -147,7 +151,7 @@ public class AzureFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         AzureAuth effectiveAuth = getEffectiveAuth(identity);
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart, maxErrorRetries);
     }
 
     private AzureAuth getEffectiveAuth(ConnectorIdentity identity)
