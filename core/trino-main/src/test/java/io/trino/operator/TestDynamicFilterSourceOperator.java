@@ -287,7 +287,7 @@ public class TestDynamicFilterSourceOperator
 
         assertThat(partitions.build()).isEqualTo(ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        new DynamicFilterId("0"), Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), false)))));
+                        new DynamicFilterId("0"), Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), true)))));
     }
 
     @Test
@@ -490,7 +490,13 @@ public class TestDynamicFilterSourceOperator
                 maxDistinctValues,
                 ImmutableList.of(BIGINT, BIGINT),
                 ImmutableList.of(largePage),
-                ImmutableList.of(TupleDomain.none()));
+                ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"),
+                        Domain.onlyNull(BIGINT),
+                        new DynamicFilterId("1"),
+                        Domain.create(
+                                ValueSet.ofRanges(range(BIGINT, 200L, true, 300L, true)),
+                                false)))));
     }
 
     @Test
@@ -570,7 +576,7 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(largePage, nullsPage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"),
-                        Domain.create(ValueSet.of(BIGINT, 7L), false)))));
+                        Domain.create(ValueSet.of(BIGINT, 7L), true)))));
     }
 
     @Test

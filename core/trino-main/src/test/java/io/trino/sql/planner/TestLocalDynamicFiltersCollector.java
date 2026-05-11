@@ -238,23 +238,29 @@ public class TestLocalDynamicFiltersCollector
         LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
         DynamicFilterId filterId1 = new DynamicFilterId("filter1");
         DynamicFilterId filterId2 = new DynamicFilterId("filter2");
-        collector.register(ImmutableSet.of(filterId1, filterId2));
+        DynamicFilterId filterId3 = new DynamicFilterId("filter3"); // Added
+        collector.register(ImmutableSet.of(filterId1, filterId2, filterId3));
         SymbolAllocator symbolAllocator = new SymbolAllocator();
 
         Symbol symbol1 = symbolAllocator.newSymbol("symbol1", BIGINT);
         Symbol symbol2 = symbolAllocator.newSymbol("symbol2", BIGINT);
+        Symbol symbol3 = symbolAllocator.newSymbol("symbol3", BIGINT); // Added
+
         ColumnHandle column1 = new TestingColumnHandle("column1");
         ColumnHandle column2 = new TestingColumnHandle("column2");
+        ColumnHandle column3 = new TestingColumnHandle("column3"); // Added
+
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true),
-                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true)),
-                ImmutableMap.of(symbol1, column1, symbol2, column2));
+                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true),
+                        new DynamicFilters.Descriptor(filterId3, symbol3.toSymbolReference(), EQUAL, true)), // Added
+                ImmutableMap.of(symbol1, column1, symbol2, column2, symbol3, column3));
 
         assertThat(filter.getColumnsCovered())
                 .describedAs("columns covered")
-                .isEqualTo(Set.of(column1, column2));
+                .isEqualTo(Set.of(column1, column2, column3));
 
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
@@ -264,14 +270,16 @@ public class TestLocalDynamicFiltersCollector
 
         collector.collectDynamicFilterDomains(ImmutableMap.of(
                 filterId1, Domain.multipleValues(BIGINT, ImmutableList.of(4L, 5L, 6L)),
-                filterId2, Domain.none(BIGINT)));
+                filterId2, Domain.none(BIGINT),
+                filterId3, Domain.onlyNull(BIGINT)));
 
         // Unblocked and completed.
         assertThat(filter.isComplete()).isTrue();
         assertThat(isBlocked.isDone()).isTrue();
         assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
                 column1, Domain.create(ValueSet.of(BIGINT, 4L, 5L, 6L), true),
-                column2, Domain.onlyNull(BIGINT))));
+                column2, Domain.none(BIGINT),
+                column3, Domain.onlyNull(BIGINT))));
     }
 
     @Test
