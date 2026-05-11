@@ -16,11 +16,14 @@ package io.trino.filesystem.hdfs;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.BaseTestContainer;
 import io.trino.testing.containers.PrintingLogConsumer;
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.testcontainers.containers.Container;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
@@ -64,11 +67,65 @@ public class Hadoop
     {
         super.start();
         executeInContainerFailOnError("hadoop", "fs", "-rm", "-r", "/*");
+        executeInContainerFailOnError("bash", "-e", "-c",
+                """
+                printf 'ready' | hadoop fs -put - /_trino_hdfs_ready
+                hadoop fs -cat /_trino_hdfs_ready
+                hadoop fs -rm -f /_trino_hdfs_ready
+                """);
         log.info("Hadoop container started with HDFS endpoint: %s", getHdfsUri());
     }
 
     public String getHdfsUri()
     {
         return "hdfs://%s/".formatted(getMappedHostAndPortForExposedPort(HDFS_PORT));
+    }
+
+    public void printDiagnostics()
+    {
+        log.warn("Printing Hadoop container diagnostics");
+        printDiagnostic("supervisor status", "supervisorctl", "status");
+        printDiagnostic("container disk usage", "df", "-h");
+        printDiagnostic("container inode usage", "df", "-i");
+        printDiagnostic("HDFS report", "hdfs", "dfsadmin", "-report");
+        printDiagnostic("HDFS disk usage", "hadoop", "fs", "-df", "-h", "/");
+        printDiagnostic("HDFS directory usage", "hadoop", "fs", "-du", "-h", "/");
+        printDiagnostic("HDFS fsck", "hdfs", "fsck", "/", "-files", "-blocks", "-locations");
+        printDiagnostic("NameNode log", "bash", "-c", "tail -n 500 /var/log/hadoop-hdfs/*namenode*.log 2>&1 || true");
+        printDiagnostic("DataNode log", "bash", "-c", "tail -n 500 /var/log/hadoop-hdfs/*datanode*.log 2>&1 || true");
+    }
+
+    private void printDiagnostic(String name, String... command)
+    {
+        try {
+            Container.ExecResult result = executeInContainer(command);
+            log.warn(
+                    "Hadoop diagnostic: %s%ncommand: %s%nexit code: %s%nstdout:%n%s%nstderr:%n%s",
+                    name,
+                    String.join(" ", command),
+                    result.getExitCode(),
+                    result.getStdout(),
+                    result.getStderr());
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to print Hadoop diagnostic: %s", name);
+        }
+    }
+
+    private static boolean isIncompleteExecution(Throwable failure)
+    {
+        for (Class<?> failureClass = failure.getClass(); failureClass != null; failureClass = failureClass.getSuperclass()) {
+            if (failureClass.getName().equals("org.opentest4j.IncompleteExecutionException")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static AfterTestExecutionCallback printDiagnosticsOnFailure(Supplier<Hadoop> hadoop)
+    {
+        return context -> context.getExecutionException()
+                .filter(failure -> !isIncompleteExecution(failure))
+                .ifPresent(_ -> hadoop.get().printDiagnostics());
     }
 }
