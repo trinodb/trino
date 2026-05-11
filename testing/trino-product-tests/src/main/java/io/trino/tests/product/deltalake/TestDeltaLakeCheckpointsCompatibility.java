@@ -551,9 +551,17 @@ public class TestDeltaLakeCheckpointsCompatibility
         testWriteStatsAsJsonEnabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName, type, inputValue, dataSize, distinctValues, nullsFraction, statsValue);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "testDeltaCheckpointWriteStatsAsJson")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "testDeltaCheckpointWriteStatsAsJsonNumericTypes")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDatabricksWriteStatsAsJsonEnabled(String type, String inputValue, Double nullsFraction, Object statsValue)
+    public void testDatabricksWriteStatsAsJsonEnabledNumericTypes(String type, String inputValue, Double nullsFraction, Object statsValue)
+    {
+        String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_databricks_" + randomNameSuffix();
+        testWriteStatsAsJsonEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, type, inputValue, null, null, nullsFraction, statsValue);
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "testDeltaCheckpointWriteStatsAsJsonNonNumericTypes")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDatabricksWriteStatsAsJsonEnabledNonNumericTypes(String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_databricks_" + randomNameSuffix();
         testWriteStatsAsJsonEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, type, inputValue, null, null, nullsFraction, statsValue);
@@ -622,10 +630,9 @@ public class TestDeltaLakeCheckpointsCompatibility
     }
 
     @DataProvider
-    public Object[][] testDeltaCheckpointWriteStatsAsJson()
+    public Object[][] testDeltaCheckpointWriteStatsAsJsonNumericTypes()
     {
         return new Object[][] {
-                {"boolean", "true", 0.0, null},
                 {"integer", "1", 0.0, "1"},
                 {"tinyint", "2", 0.0, "2"},
                 {"smallint", "3", 0.0, "3"},
@@ -634,6 +641,14 @@ public class TestDeltaLakeCheckpointsCompatibility
                 {"double", "1.0", 0.0, "1.0"},
                 {"decimal(3,2)", "3.14", 0.0, "3.14"},
                 {"decimal(30,1)", "12345", 0.0, "12345.0"},
+        };
+    }
+
+    @DataProvider
+    public Object[][] testDeltaCheckpointWriteStatsAsJsonNonNumericTypes()
+    {
+        return new Object[][] {
+                {"boolean", "true", 0.0, null},
                 {"string", "'test'", 0.0, null},
                 {"binary", "X'65683F'", 0.0, null},
                 {"date", "date '2021-02-03'", 0.0, "2021-02-03"},
