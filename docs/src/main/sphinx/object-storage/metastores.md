@@ -203,7 +203,7 @@ properties:
   - The term "Hive metastore catalog name" refers to the abstraction concept
     within Hive, enabling various systems to connect to distinct, independent
     catalogs stored in the metastore. By default, the catalog name in Hive
-    metastore is set to "hive." When this configuration property is left empty,
+    metastore is set to "hive". When this configuration property is left empty,
     the default catalog of the Hive metastore will be accessed.
   -
 :::
