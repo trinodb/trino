@@ -35,15 +35,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
-import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static io.trino.plugin.google.sheets.SheetsClient.newBackOff;
 import static io.trino.plugin.google.sheets.SheetsClient.newUnsuccessfulResponseHandler;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -329,8 +330,8 @@ public class TestGoogleSheets
     private GoogleCredential getCredentials()
             throws Exception
     {
-        String credentialsPath = getTestCredentialsPath();
-        return GoogleCredential.fromStream(new FileInputStream(credentialsPath))
+        String credentialsKey = requiredNonEmptySystemProperty("testing.gsheets.credentials-key");
+        return GoogleCredential.fromStream(new ByteArrayInputStream(Base64.getDecoder().decode(credentialsKey)))
                 .createScoped(ImmutableList.of(SheetsScopes.SPREADSHEETS, SheetsScopes.DRIVE));
     }
 
