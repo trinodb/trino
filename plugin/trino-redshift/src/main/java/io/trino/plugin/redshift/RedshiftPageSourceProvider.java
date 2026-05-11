@@ -14,6 +14,7 @@
 package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -115,7 +116,7 @@ public class RedshiftPageSourceProvider
         long nextStart = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : parquetMetadata.getBlocks()) {
-            rowGroupInfoBuilder.add(new RowGroupInfo(createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath), nextStart, Optional.empty()));
+            rowGroupInfoBuilder.add(new RowGroupInfo(createPrunedColumnsMetadata(block, dataSource.getId(), descriptorsByPath), nextStart, Optional.empty(), Optional.empty(), ImmutableSet.of()));
             nextStart += block.rowCount();
         }
         return new ParquetReader(

@@ -14,8 +14,17 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.metadata.PrunedBlockMetadata;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 
 import java.util.Optional;
+import java.util.Set;
 
-public record RowGroupInfo(PrunedBlockMetadata prunedBlockMetadata, long fileRowOffset, Optional<ColumnIndexStore> columnIndexStore) {}
+public record RowGroupInfo(PrunedBlockMetadata prunedBlockMetadata,
+                           long fileRowOffset,
+                           Optional<ColumnIndexStore> columnIndexStore,
+                           // Predicate that could not be fully evaluated during row group filtering and is deferred to the reader
+                           Optional<TupleDomainParquetPredicate> deferredPredicate,
+                           Set<ColumnDescriptor> candidateColumnsForDictionaryMatching)
+{}
