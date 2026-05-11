@@ -26,6 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -36,6 +37,9 @@ import static org.assertj.core.api.Assertions.fail;
 
 public class TestHiveConnectorKerberosSmokeTest
 {
+    private static final String CANCELLATION_MESSAGE = "explicitly cancelled for test without failure";
+    private static final String CANCELLATION_FAILURE_SUFFIX = "Query killed. Message: " + CANCELLATION_MESSAGE;
+
     private Closer closer;
     private ExecutorService executor;
 
@@ -69,7 +73,8 @@ public class TestHiveConnectorKerberosSmokeTest
 
         // 2x of ticket_lifetime as configured in hadoop-kerberos krb5.conf, sufficient to cause at-least 1 ticket expiry
         SECONDS.sleep(60L);
-        cancelQueryIfRunning(sql);
+        failIfQueryFinishedBeforeCancellation(queryExecution, null);
+        cancelQueryIfRunning(sql, queryExecution);
 
         try {
             queryExecution.get(30, SECONDS);
@@ -81,17 +86,55 @@ public class TestHiveConnectorKerberosSmokeTest
         }
         catch (ExecutionException expected) {
             assertThat(expected.getCause())
-                    .hasMessageEndingWith("Message: explicitly cancelled for test without failure");
+                    .hasMessageEndingWith(CANCELLATION_FAILURE_SUFFIX);
         }
     }
 
-    private void cancelQueryIfRunning(String sql)
+    private void cancelQueryIfRunning(String sql, Future<?> queryExecution)
+            throws Exception
     {
         QueryResult queryResult = onTrino().executeQuery("SELECT query_id FROM system.runtime.queries WHERE query = '%s' AND state = 'RUNNING' LIMIT 2".formatted(sql));
         checkState(queryResult.getRowsCount() < 2, "Found multiple queries");
-        if (queryResult.getRowsCount() == 1) {
-            String queryId = (String) queryResult.getOnlyValue();
-            onTrino().executeQuery("CALL system.runtime.kill_query(query_id => '%s', message => 'explicitly cancelled for test without failure')".formatted(queryId));
+        if (queryResult.getRowsCount() == 0) {
+            failIfQueryFinishedBeforeCancellation(queryExecution, null);
+            return;
         }
+
+        String queryId = (String) queryResult.getOnlyValue();
+        try {
+            onTrino().executeQuery("CALL system.runtime.kill_query(query_id => '%s', message => '%s')".formatted(queryId, CANCELLATION_MESSAGE));
+        }
+        catch (RuntimeException e) {
+            if (!nullToEmpty(e.getMessage()).contains("Target query is not running")) {
+                throw e;
+            }
+            failIfQueryFinishedBeforeCancellation(queryExecution, e);
+            throw e;
+        }
+    }
+
+    private static void failIfQueryFinishedBeforeCancellation(Future<?> queryExecution, RuntimeException cancellationFailure)
+            throws Exception
+    {
+        if (!queryExecution.isDone()) {
+            return;
+        }
+
+        try {
+            queryExecution.get();
+        }
+        catch (ExecutionException e) {
+            AssertionError failure = new AssertionError("Query failed before it could be cancelled; Kerberos ticket refresh was not verified", e.getCause());
+            if (cancellationFailure != null) {
+                failure.addSuppressed(cancellationFailure);
+            }
+            throw failure;
+        }
+
+        AssertionError failure = new AssertionError("Query completed before it could be cancelled; increase the input size to exercise Kerberos ticket refresh");
+        if (cancellationFailure != null) {
+            failure.addSuppressed(cancellationFailure);
+        }
+        throw failure;
     }
 }
