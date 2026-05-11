@@ -100,7 +100,7 @@ public final class TypeConverter
             }
             case VARIANT -> VARIANT;
             case GEOMETRY, GEOGRAPHY,
-                 UNKNOWN -> throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
+                 UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
         };
     }
 
