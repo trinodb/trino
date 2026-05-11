@@ -39,6 +39,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TestJson
 {
     @Test
+    void testRawTextIsParsedOnStructuralAccess()
+    {
+        Json raw = Json.unchecked(utf8Slice("[invalid"));
+        assertThat(raw.isRawText()).isTrue();
+        assertThat(raw.rawText()).isEqualTo(utf8Slice("[invalid"));
+        assertThatThrownBy(raw::arraySize).isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
     void testNarrowIntegerRange()
     {
         for (long value : new long[] {Short.MIN_VALUE, Short.MAX_VALUE}) {

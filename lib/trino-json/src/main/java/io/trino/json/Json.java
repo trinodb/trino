@@ -27,11 +27,17 @@ import static io.airlift.slice.Slices.utf8Slice;
 ///
 /// Implementations come in two families:
 ///
-/// * **Byte-form** ([EncodedJson]) — backed by the typed-item encoding in a
-///   [Slice], the canonical wire representation for block storage and exchange.
+/// * **Byte-form** ([EncodedJson]) — backed by a [Slice], either the typed-item
+///   encoding (the canonical wire representation for Block storage / network
+///   exchange) or raw JSON text (a connector-side shortcut produced by
+///   [#unchecked] that lazy-parses on first structural access). The mode is
+///   discriminated by the slice's leading byte ([JsonItemEncoding#VERSION] vs.
+///   anything else).
 ///
 /// * **Tree-form** ([JsonObject], [JsonArray], [TypedValue], [JsonNullValue],
-///   [JsonErrorValue]) — Java object graphs whose byte encoding is materialized
+///   [JsonErrorValue]) — Java object graphs. Produced by the text-input parsers
+///   ([JsonItems#parseToTree]); used by the path engine when traversing values that
+///   originated as text. The byte encoding for a tree-form value is materialized
 ///   lazily on first [#encoding] call.
 ///
 /// `equals` and `hashCode` implement the SQL grouping semantics — multiset object
@@ -61,6 +67,21 @@ public sealed interface Json
     static Json of(Slice slice)
     {
         return EncodedJson.of(slice);
+    }
+
+    /// Wraps a stored payload, whichever form it is in: the leading byte distinguishes the typed
+    /// encoding from raw JSON text. Copies nothing and parses nothing.
+    static Json wrap(Slice slice)
+    {
+        return JsonItemEncoding.isEncoding(slice) ? of(slice) : unchecked(slice);
+    }
+
+    /// Wraps already-validated raw JSON text. Skips eager parsing; the bytes are
+    /// written to a JSON-typed block as-is, and structural access lazily parses to
+    /// a tree.
+    static Json unchecked(Slice rawText)
+    {
+        return EncodedJson.unchecked(rawText);
     }
 
     // --- discriminators -----------------------------------------------------------
@@ -177,11 +198,11 @@ public sealed interface Json
 
     /// Returns a fresh, self-contained encoded slice (with the VERSION byte
     /// prepended). For byte-backed implementations this is a copy of the existing
-    /// view; for tree forms it materializes the encoding lazily.
+    /// view; for tree / raw-text forms it materializes the encoding lazily.
     Slice encoding();
 
     /// Returns the underlying backing slice. May be larger than this view (when the
-    /// view points at an inner item of a larger document). For tree
+    /// view points at an inner item of a larger document). For tree / raw-text
     /// forms this triggers materialization. Use [#encoding] for a self-contained
     /// copy.
     Slice backingSlice();
@@ -191,4 +212,21 @@ public sealed interface Json
 
     /// Byte offset just past this item within [#backingSlice].
     int viewEnd();
+
+    // --- raw-text shortcuts (used by JsonType.writeObject to avoid encoding). ----
+
+    /// True for an [EncodedJson] in raw-text mode — one wrapping raw JSON text (via [#unchecked])
+    /// rather than the typed encoding. This is the immutable storage mode, not a cache-state probe:
+    /// it stays true after structural access has lazily parsed and cached the tree. JsonType uses it
+    /// to write the raw bytes directly without materializing through the tree.
+    default boolean isRawText()
+    {
+        return false;
+    }
+
+    /// Returns the underlying raw text. Caller must have verified [#isRawText].
+    default Slice rawText()
+    {
+        throw new IllegalStateException("Not a raw-text Json");
+    }
 }
