@@ -65,7 +65,7 @@ class TestJsonConstructionDepth
         Json tree = new JsonObject(List.of(
                 new JsonObjectMember(utf8Slice("x"), JSON_NULL),
                 new JsonObjectMember(utf8Slice("x"), nested)));
-        for (Json object : List.of(tree, Json.of(tree.encoding()), JsonItemBuilder.encode(writer -> writer
+        for (Json object : List.of(tree, Json.of(tree.encoding()), Json.unchecked(utf8Slice("{\"x\":null,\"x\":[null]}")), JsonItemBuilder.encode(writer -> writer
                 .startIndexedObject().fieldName("x").nullValue().fieldName("y").nest(nested).endIndexedObject()))) {
             assertThat(object.objectValueIterator()).toIterable().containsExactly(JSON_NULL, nested);
             assertThatCode(() -> checkNestingDepth(object, 2)).doesNotThrowAnyException();
