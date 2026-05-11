@@ -67,6 +67,7 @@ public class ElasticsearchConfig
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
     private int maxHttpConnections = 25;
     private int httpThreadCount = Runtime.getRuntime().availableProcessors();
+    private int aggregationPageSize = 10_000;
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -254,6 +255,20 @@ public class ElasticsearchConfig
     public int getHttpThreadCount()
     {
         return httpThreadCount;
+    }
+
+    @Min(1)
+    public int getAggregationPageSize()
+    {
+        return aggregationPageSize;
+    }
+
+    @Config("elasticsearch.aggregation-page-size")
+    @ConfigDescription("Default page size for aggregation queries")
+    public ElasticsearchConfig setAggregationPageSize(int aggregationPageSize)
+    {
+        this.aggregationPageSize = aggregationPageSize;
+        return this;
     }
 
     public boolean isTlsEnabled()
