@@ -86,7 +86,9 @@ final class TestTrinoHudiStorage
     public void testGetUri()
             throws URISyntaxException
     {
-        assertThat(getStorage().getUri()).isEqualTo(new URI(""));
+        URI uri = getStorage().getUri();
+        assertThat(uri).isEqualTo(new URI("file:///"));
+        assertThat(uri.getScheme()).isEqualTo("file");
     }
 
     // This test is overridden since TrinoHudiStorage does not support globEntries,

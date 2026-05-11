@@ -21,12 +21,14 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hudi.io.TrinoSeekableDataInputStream;
+import org.apache.hudi.exception.HoodieNotSupportedException;
 import org.apache.hudi.io.SeekableDataInputStream;
 import org.apache.hudi.storage.HoodieStorage;
 import org.apache.hudi.storage.StorageConfiguration;
 import org.apache.hudi.storage.StoragePath;
 import org.apache.hudi.storage.StoragePathFilter;
 import org.apache.hudi.storage.StoragePathInfo;
+import org.apache.hudi.storage.inline.InLineFSUtils;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -78,8 +80,11 @@ public class TrinoHudiStorage
     }
 
     @Override
-    public HoodieStorage newInstance(StoragePath path, StorageConfiguration<?> config)
+    public HoodieStorage newInstance(StoragePath path, StorageConfiguration<?> storageConf)
     {
+        if (InLineFSUtils.SCHEME.equals(path.toUri().getScheme())) {
+            return new TrinoHudiInlineStorage(this);
+        }
         return this;
     }
 
@@ -112,7 +117,8 @@ public class TrinoHudiStorage
     @Override
     public URI getUri()
     {
-        return URI.create("");
+        // Ensure this returns an absolute URI whose scheme matches getScheme()
+        return URI.create(getScheme() + ":///");
     }
 
     @Override
@@ -270,7 +276,7 @@ public class TrinoHudiStorage
     public void setModificationTime(StoragePath path, long modificationTimeInMillisEpoch)
             throws IOException
     {
-        throw new UnsupportedOperationException("TrinoHudiStorage does not support setModificationTime operation");
+        throw new HoodieNotSupportedException("Hudi inline storage supports reads only.");
     }
 
     @Override
