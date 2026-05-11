@@ -311,6 +311,9 @@ public final class EncodedJson
     @Override
     public Iterator<Json> objectValueIterator()
     {
+        if (rawText) {
+            return parsed().objectValueIterator();
+        }
         int count = objectSize();
         int start = objectEntriesStart(slice, offset);
         return new Iterator<>()
