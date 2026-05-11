@@ -203,6 +203,28 @@ public class TestRemoveRedundantPredicateAboveTableScan
     }
 
     @Test
+    public void doesNotFireWhenUnenforcedDomainIsEquivalentToPredicateDomain()
+    {
+        // Predicate is `nationkey BETWEEN 0 AND 2` (one range [0,2]). The connector enforces a
+        // strict superset {0, 1, 2, 3}. The intersect of predicate ∩ enforced is {0, 1, 2}, which
+        // is structurally different from the predicate range [0, 2] but accepts the same bigint
+        // values. The rule must recognize the equivalence and bail; otherwise rewriting the filter
+        // back to discrete values would let SimplifyContinuousInValues rewrite it to BETWEEN
+        // again, looping indefinitely (issue #23147).
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
+                .on(p -> p.filter(
+                        new Between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 0L), new Constant(BIGINT, 2L)),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L, 2L, 3L)))))))
+                .doesNotFire();
+    }
+
+    @Test
     public void doesNotFireOnNonDeterministicPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
