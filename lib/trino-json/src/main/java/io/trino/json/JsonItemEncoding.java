@@ -13,6 +13,7 @@
  */
 package io.trino.json;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.DynamicSliceOutput;
@@ -22,6 +23,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TrinoNumber.AsBigDecimal;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -735,6 +737,114 @@ public final class JsonItemEncoding
         output.appendByte(VERSION);
         output.writeBytes(slice, itemOffset, endOffset - itemOffset);
         return output.slice();
+    }
+
+    /// Walks the typed-item encoding starting at `itemOffset` and emits JSON text via
+    /// `generator`. Numeric scalars are written as digit-strings (via
+    /// `BigDecimal.toPlainString` for DECIMAL / NUMBER) so trailing zeros and full
+    /// precision survive a round-trip — Jackson's `writeNumber(BigDecimal)` would
+    /// otherwise normalize away the original scale.
+    public static void writeJson(Slice slice, int itemOffset, JsonGenerator generator)
+            throws IOException
+    {
+        switch (itemTag(slice, itemOffset)) {
+            case JSON_ERROR -> throw new IllegalArgumentException("JSON_ERROR cannot be rendered as JSON text");
+            case JSON_NULL -> generator.writeNull();
+            case ARRAY, ARRAY_INDEXED -> {
+                int count = arraySize(slice, itemOffset);
+                int cursor = arrayItemsStart(slice, itemOffset);
+                generator.writeStartArray();
+                for (int i = 0; i < count; i++) {
+                    writeJson(slice, cursor, generator);
+                    cursor = itemEndOffset(slice, cursor);
+                }
+                generator.writeEndArray();
+            }
+            case OBJECT, OBJECT_INDEXED -> {
+                int count = objectSize(slice, itemOffset);
+                int cursor = objectEntriesStart(slice, itemOffset);
+                generator.writeStartObject();
+                for (int i = 0; i < count; i++) {
+                    generator.writeFieldName(readString(slice, cursor));
+                    cursor = stringEndOffset(slice, cursor);
+                    writeJson(slice, cursor, generator);
+                    cursor = itemEndOffset(slice, cursor);
+                }
+                generator.writeEndObject();
+            }
+            case TYPED_VALUE -> writeTypedValueJson(slice, itemOffset + Byte.BYTES, generator);
+        }
+    }
+
+    private static void writeTypedValueJson(Slice slice, int bodyOffset, JsonGenerator generator)
+            throws IOException
+    {
+        TypeTag typeTag = TypeTag.fromEncoded(slice.getByte(bodyOffset));
+        int payload = bodyOffset + Byte.BYTES;
+        switch (typeTag) {
+            case BOOLEAN -> generator.writeBoolean(slice.getByte(payload) != 0);
+            case VARCHAR -> generator.writeString(readString(slice, payload));
+            case BIGINT -> generator.writeNumber(slice.getLong(payload));
+            case INTEGER -> generator.writeNumber(slice.getInt(payload));
+            case SMALLINT -> generator.writeNumber(slice.getShort(payload));
+            case TINYINT -> generator.writeNumber(slice.getByte(payload));
+            case DOUBLE -> {
+                double d = Double.longBitsToDouble(slice.getLong(payload));
+                if (Double.isFinite(d)) {
+                    generator.writeNumber(Double.toString(d));
+                }
+                else {
+                    generator.writeString(Double.toString(d));
+                }
+            }
+            case REAL -> {
+                float f = Float.intBitsToFloat(slice.getInt(payload));
+                if (Float.isFinite(f)) {
+                    generator.writeNumber(Float.toString(f));
+                }
+                else {
+                    generator.writeString(Float.toString(f));
+                }
+            }
+            case DECIMAL -> {
+                // payload layout: int32 precision (unused at render time) + int32 scale + byte longFlag + body
+                int scale = slice.getInt(payload + Integer.BYTES);
+                int longFlag = slice.getByte(payload + Integer.BYTES + Integer.BYTES);
+                int unscaledStart = payload + Integer.BYTES + Integer.BYTES + Byte.BYTES;
+                BigInteger unscaled;
+                if (longFlag == 0) {
+                    unscaled = BigInteger.valueOf(slice.getLong(unscaledStart));
+                }
+                else {
+                    byte[] bytes = new byte[Int128.SIZE];
+                    slice.getBytes(unscaledStart, bytes, 0, Int128.SIZE);
+                    unscaled = Int128.fromBigEndian(bytes).toBigInteger();
+                }
+                // toPlainString preserves the scale (so DECIMAL(3,1) value 1.0 renders as
+                // "1.0", not "1"); Jackson's writeNumber(BigDecimal) would otherwise route
+                // through BigDecimal.toString and may normalize away the trailing zero.
+                generator.writeNumber(new BigDecimal(unscaled, scale).toPlainString());
+            }
+            case NUMBER -> {
+                byte kind = slice.getByte(payload);
+                switch (kind) {
+                    case 0 -> {
+                        int scale = slice.getInt(payload + Byte.BYTES);
+                        int byteLength = slice.getInt(payload + Byte.BYTES + Integer.BYTES);
+                        byte[] bytes = new byte[byteLength];
+                        slice.getBytes(payload + Byte.BYTES + Integer.BYTES + Integer.BYTES, bytes, 0, byteLength);
+                        BigInteger unscaled = new BigInteger(bytes);
+                        BigDecimal decimal = new BigDecimal(unscaled, scale);
+                        // Exponent notation denotes DOUBLE on input. Preserve exact NUMBER values.
+                        generator.writeNumber(decimal.toPlainString());
+                    }
+                    case 1 -> generator.writeString("NaN");
+                    case 2 -> generator.writeString("+Infinity");
+                    case 3 -> generator.writeString("-Infinity");
+                    default -> throw new IllegalArgumentException("Unknown NUMBER encoding kind: " + kind);
+                }
+            }
+        }
     }
 
     private static void validateCount(int count)

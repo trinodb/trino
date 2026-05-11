@@ -82,8 +82,8 @@ public final class JsonItemSemantics
         }
         // Byte-identical encodings are always equal. Only taken when both operands already hold
         // bytes, so it never forces a tree to materialize just to answer a comparison.
-        if (left instanceof EncodedJson leftEncoded &&
-                right instanceof EncodedJson rightEncoded &&
+        if (left instanceof EncodedJson leftEncoded && !leftEncoded.isRawText() &&
+                right instanceof EncodedJson rightEncoded && !rightEncoded.isRawText() &&
                 encodingEquals(leftEncoded, rightEncoded)) {
             return true;
         }

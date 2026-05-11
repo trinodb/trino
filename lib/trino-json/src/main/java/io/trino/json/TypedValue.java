@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 /// (boxed if the type is `long`/`double`/`boolean` for storage uniformity).
 ///
 /// `TypedValue` is also the tree-form scalar leaf of [Json]: an INTEGER literal arriving
-/// can land here directly with no encode/decode round-trip, and the path
+/// via `parseToTree` lands here directly with no encode/decode round-trip, and the path
 /// engine reads it as the same instance it would have produced for `$.foo + 1`. When this
 /// scalar needs to cross to a byte sink, [#encoding] materializes the corresponding
 /// `TYPED_VALUE` item on demand. Scalars are tiny (≤ ~20 bytes) so each call re-encodes

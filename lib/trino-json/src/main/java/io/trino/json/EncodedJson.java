@@ -38,40 +38,104 @@ import static io.trino.json.JsonItemEncoding.rootItemOffset;
 import static io.trino.json.JsonItemEncoding.stringEndOffset;
 import static java.util.Objects.requireNonNull;
 
-/// Byte-backed [Json]. The slice carries the typed-item encoding, with
-/// `offset..end` identifying the view. Sub-views share their parent's backing
-/// slice, and accessors read tag bytes directly.
+/// Byte-backed [Json]. Two modes share the same class:
+///
+/// * **Typed-encoded** — `slice` carries the typed-item encoding; `offset..end` is a
+///   view (sub-views of larger documents share the backing slice with the parent).
+///   Accessors read tag bytes directly. This is the canonical "JSON in flight" form.
+///
+/// * **Raw text** — `slice` carries raw JSON text (no `VERSION` prefix); `offset = 0`
+///   and `end = slice.length()` always. Structural accessors lazy-parse to a tree
+///   (cached in [#parsed]) and delegate. Connectors that produce already-validated text
+///   ([io.trino.json.Json#unchecked]) use this mode to avoid an upfront parse on values
+///   that may never be structurally accessed.
+///
+/// Mode is fixed at construction. The leading byte of `slice` discriminates: `VERSION`
+/// means typed-encoded, anything else means raw text. Sub-views created during traversal
+/// are always typed (a sub-view of raw text isn't a meaningful JSON value).
 public final class EncodedJson
         implements Json
 {
     private final Slice slice;
     private final int offset;
     private final int end;
+    private final boolean rawText;
+    // Lazy-computed for rawText mode; never written in typed mode.
+    private volatile Json parsed;
 
     public static Json of(Slice slice)
     {
         requireNonNull(slice, "slice is null");
         int rootOffset = rootItemOffset(slice);
         int rootEnd = itemEndOffset(slice, rootOffset);
-        return new EncodedJson(slice, rootOffset, rootEnd);
+        return new EncodedJson(slice, rootOffset, rootEnd, false);
     }
 
-    /// Sub-view factory used by traversal accessors.
+    /// Wraps already-validated raw JSON text. Skips the eager parse; structural
+    /// accessors lazy-parse on first call. The bytes flow through a JSON-typed block
+    /// write as-is via the [Json#isRawText] / [Json#rawText] shortcut.
+    public static Json unchecked(Slice rawText)
+    {
+        requireNonNull(rawText, "rawText is null");
+        return new EncodedJson(rawText, 0, rawText.length(), true);
+    }
+
+    /// Sub-view factory used by traversal accessors. Always typed-encoded — a sub-view
+    /// of raw text would carry partial JSON text, which isn't meaningful.
     static EncodedJson view(Slice slice, int offset, int end)
     {
-        return new EncodedJson(slice, offset, end);
+        return new EncodedJson(slice, offset, end, false);
     }
 
-    private EncodedJson(Slice slice, int offset, int end)
+    private EncodedJson(Slice slice, int offset, int end, boolean rawText)
     {
         this.slice = requireNonNull(slice, "slice is null");
         this.offset = offset;
         this.end = end;
+        this.rawText = rawText;
+    }
+
+    /// Lazy-parsed tree for raw-text mode. Package-private so [JsonItems#writeTreeJson]
+    /// can recurse directly into the parsed tree rather than round-tripping through
+    /// `encoding()`.
+    Json parsed()
+    {
+        // Racy single-check on a volatile field: parseToTree is deterministic (same input
+        // produces an equal-by-content tree), so concurrent callers may each compute a tree
+        // and the last write wins. The volatile read/write guarantees safe publication, so
+        // any reader sees a fully constructed tree. The cost of a redundant parse on the
+        // first race is bounded; on every subsequent call the cache hit avoids it. This is
+        // the standard idempotent-DCL idiom, not double-checked locking.
+        Json value = parsed;
+        if (value == null) {
+            // In raw-text mode, slice is the raw text; offset/end span the full slice.
+            value = JsonItems.parseToTree(slice);
+            parsed = value;
+        }
+        return value;
+    }
+
+    @Override
+    public boolean isRawText()
+    {
+        return rawText;
+    }
+
+    @Override
+    public Slice rawText()
+    {
+        if (!rawText) {
+            throw new IllegalStateException("Not a raw-text Json");
+        }
+        return slice;
     }
 
     @Override
     public Kind kind()
     {
+        if (rawText) {
+            return parsed().kind();
+        }
         return switch (itemTag(slice, offset)) {
             case JSON_NULL -> Kind.NULL;
             case ARRAY, ARRAY_INDEXED -> Kind.ARRAY;
@@ -84,12 +148,18 @@ public final class EncodedJson
     @Override
     public boolean isNull()
     {
+        if (rawText) {
+            return parsed().isNull();
+        }
         return itemTag(slice, offset) == ItemTag.JSON_NULL;
     }
 
     @Override
     public boolean isArray()
     {
+        if (rawText) {
+            return parsed().isArray();
+        }
         ItemTag tag = itemTag(slice, offset);
         return tag == ItemTag.ARRAY || tag == ItemTag.ARRAY_INDEXED;
     }
@@ -97,6 +167,9 @@ public final class EncodedJson
     @Override
     public boolean isObject()
     {
+        if (rawText) {
+            return parsed().isObject();
+        }
         ItemTag tag = itemTag(slice, offset);
         return tag == ItemTag.OBJECT || tag == ItemTag.OBJECT_INDEXED;
     }
@@ -104,12 +177,18 @@ public final class EncodedJson
     @Override
     public boolean isScalar()
     {
+        if (rawText) {
+            return parsed().isScalar();
+        }
         return itemTag(slice, offset) == ItemTag.TYPED_VALUE;
     }
 
     @Override
     public boolean isError()
     {
+        if (rawText) {
+            return parsed().isError();
+        }
         return itemTag(slice, offset) == ItemTag.JSON_ERROR;
     }
 
@@ -118,12 +197,18 @@ public final class EncodedJson
     @Override
     public int arraySize()
     {
+        if (rawText) {
+            return parsed().arraySize();
+        }
         return JsonItemEncoding.arraySize(slice, offset);
     }
 
     @Override
     public Json arrayElement(int index)
     {
+        if (rawText) {
+            return parsed().arrayElement(index);
+        }
         int size = arraySize();
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for size " + size);
@@ -147,6 +232,9 @@ public final class EncodedJson
     @Override
     public Iterator<Json> arrayIterator()
     {
+        if (rawText) {
+            return parsed().arrayIterator();
+        }
         if (!isArray()) {
             throw new IllegalStateException("Not an ARRAY");
         }
@@ -182,6 +270,10 @@ public final class EncodedJson
     public void forEachArrayElement(Consumer<Json> consumer)
     {
         requireNonNull(consumer, "consumer is null");
+        if (rawText) {
+            parsed().forEachArrayElement(consumer);
+            return;
+        }
         int count = arraySize();
         int cursor = arrayItemsStart(slice, offset);
         for (int i = 0; i < count; i++) {
@@ -196,6 +288,9 @@ public final class EncodedJson
     @Override
     public int objectSize()
     {
+        if (rawText) {
+            return parsed().objectSize();
+        }
         return JsonItemEncoding.objectSize(slice, offset);
     }
 
@@ -203,6 +298,9 @@ public final class EncodedJson
     public Optional<Json> objectMember(Slice keyBytes)
     {
         requireNonNull(keyBytes, "keyBytes is null");
+        if (rawText) {
+            return parsed().objectMember(keyBytes);
+        }
         return switch (itemTag(slice, offset)) {
             case OBJECT -> linearSearchObjectMember(keyBytes);
             case OBJECT_INDEXED -> indexedSearchObjectMember(keyBytes);
@@ -247,6 +345,10 @@ public final class EncodedJson
     {
         requireNonNull(keyBytes, "keyBytes is null");
         requireNonNull(consumer, "consumer is null");
+        if (rawText) {
+            parsed().objectMembers(keyBytes, consumer);
+            return;
+        }
         switch (itemTag(slice, offset)) {
             case OBJECT -> linearScanObjectMembers(keyBytes, consumer);
             case OBJECT_INDEXED -> indexedScanObjectMembers(keyBytes, consumer);
@@ -258,6 +360,10 @@ public final class EncodedJson
     public void forEachObjectMember(BiConsumer<String, Json> consumer)
     {
         requireNonNull(consumer, "consumer is null");
+        if (rawText) {
+            parsed().forEachObjectMember(consumer);
+            return;
+        }
         int count = objectSize();
         ItemTag tag = itemTag(slice, offset);
         if (tag == ItemTag.OBJECT) {
@@ -288,6 +394,10 @@ public final class EncodedJson
     public void forEachObjectMemberBytes(BiConsumer<Slice, Json> consumer)
     {
         requireNonNull(consumer, "consumer is null");
+        if (rawText) {
+            parsed().forEachObjectMemberBytes(consumer);
+            return;
+        }
         int count = objectSize();
         ItemTag tag = itemTag(slice, offset);
         if (tag == ItemTag.OBJECT) {
@@ -412,6 +522,9 @@ public final class EncodedJson
     @Override
     public TypeTag scalarType()
     {
+        if (rawText) {
+            return parsed().scalarType();
+        }
         if (itemTag(slice, offset) != ItemTag.TYPED_VALUE) {
             throw new IllegalStateException("Not a TYPED_VALUE scalar");
         }
@@ -421,6 +534,9 @@ public final class EncodedJson
     @Override
     public TypedValue materializeScalar()
     {
+        if (rawText) {
+            return parsed().materializeScalar();
+        }
         return JsonItemEncoding.readTypedValue(slice, offset);
     }
 
@@ -429,24 +545,36 @@ public final class EncodedJson
     @Override
     public Slice encoding()
     {
+        if (rawText) {
+            return parsed().encoding();
+        }
         return copyItemEncoding(slice, offset, end);
     }
 
     @Override
     public Slice backingSlice()
     {
+        if (rawText) {
+            return parsed().backingSlice();
+        }
         return slice;
     }
 
     @Override
     public int viewOffset()
     {
+        if (rawText) {
+            return parsed().viewOffset();
+        }
         return offset;
     }
 
     @Override
     public int viewEnd()
     {
+        if (rawText) {
+            return parsed().viewEnd();
+        }
         return end;
     }
 
@@ -471,6 +599,9 @@ public final class EncodedJson
     @Override
     public String toString()
     {
+        if (rawText) {
+            return "Json[RAW, " + slice.length() + " bytes]";
+        }
         return "Json[" + kind() + ", " + (end - offset) + " bytes]";
     }
 }
