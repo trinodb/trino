@@ -2035,6 +2035,29 @@ SELECT is_json_scalar('[1, 2, 3]'); -- false
 ```
 :::
 
+:::{function} json_scalar(x) -> json
+Wrap a SQL value as a JSON scalar value. Supports `boolean`, all integral
+and floating-point types, `decimal`, `number`, `varchar`/`char`, `date`,
+`time(p)`/`time(p) with time zone`, `timestamp(p)`/`timestamp(p) with time zone`.
+
+The JSON value keeps the SQL value and type it was built from, except that `CHAR`
+values become `VARCHAR` scalars with their declared padding. Direct casts back
+to datetime types are supported for `DATE` and `TIME(p)`. For `TIME WITH TIME ZONE`,
+`TIMESTAMP`, and `TIMESTAMP WITH TIME ZONE`, use `JSON_VALUE` with a matching
+`RETURNING` type to extract the typed value. JSON text has no datetime type, so
+serializing a datetime renders the canonical SQL literal as a JSON string.
+A SQL `NULL` input yields SQL `NULL`, not the JSON `null` value.
+
+```
+SELECT json_scalar(1);                    -- JSON '1'
+SELECT json_scalar('abc');                -- JSON '"abc"'
+SELECT json_scalar(CAST('a' AS CHAR(3)));  -- JSON '"a  "'
+SELECT json_scalar(DATE '2024-01-02');    -- JSON '"2024-01-02"'
+SELECT CAST(json_scalar(DATE '2024-01-02') AS DATE); -- DATE '2024-01-02'
+SELECT json_scalar(CAST(NULL AS bigint)); -- NULL
+```
+:::
+
 :::{function} json_array_contains(json, value) -> boolean
 Determine if `value` exists in `json` (a string containing a JSON array):
 
