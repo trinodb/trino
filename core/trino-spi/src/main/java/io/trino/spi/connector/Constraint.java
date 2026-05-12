@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
@@ -35,10 +37,11 @@ public class Constraint
     private final ConnectorExpression expression;
     private final Map<String, ColumnHandle> assignments;
 
+    @JsonCreator
     public Constraint(
-            TupleDomain<ColumnHandle> summary,
-            ConnectorExpression expression,
-            Map<String, ColumnHandle> assignments)
+            @JsonProperty("summary") TupleDomain<ColumnHandle> summary,
+            @JsonProperty("expression") ConnectorExpression expression,
+            @JsonProperty("assignments") Map<String, ColumnHandle> assignments)
     {
         this.summary = requireNonNull(summary, "summary is null");
         this.expression = requireNonNull(expression, "expression is null");
@@ -64,6 +67,7 @@ public class Constraint
     /**
      * @return a predicate which is equivalent to, or looser than {@link #getExpression}, and should be AND-ed with, {@link #getExpression}.
      */
+    @JsonProperty("summary")
     public TupleDomain<ColumnHandle> getSummary()
     {
         return summary;
@@ -74,6 +78,7 @@ public class Constraint
      *
      * @return an expression predicate which is different from, and should be AND-ed with, {@link #getSummary}.
      */
+    @JsonProperty("expression")
     public ConnectorExpression getExpression()
     {
         return expression;
@@ -83,6 +88,7 @@ public class Constraint
      * @return mappings from variable names to column handles for all conjuncts of {@link #getExpression},
      *         including variables appearing in any {@code $engine_expression} conjunct.
      */
+    @JsonProperty("assignments")
     public Map<String, ColumnHandle> getAssignments()
     {
         return assignments;
