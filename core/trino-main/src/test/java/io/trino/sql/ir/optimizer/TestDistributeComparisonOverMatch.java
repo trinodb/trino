@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -43,8 +45,8 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
-                                        new WhenClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
+                                        equalityClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
+                                        equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")),
                         new Reference(BIGINT, "m"))))
                 .describedAs("switch(...) < reference")
@@ -52,10 +54,10 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "a"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "b"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
@@ -66,8 +68,8 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
-                                        new WhenClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
+                                        equalityClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
+                                        equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")),
                         new Constant(BIGINT, 1L))))
                 .describedAs("switch(...) < constant")
@@ -75,10 +77,10 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "a"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "b"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
@@ -90,18 +92,18 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
-                                        new WhenClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
+                                        equalityClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
+                                        equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")))))
                 .describedAs("reference < switch(...)")
                 .isEqualTo(Optional.of(
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "a"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "b"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
@@ -113,18 +115,18 @@ public class TestDistributeComparisonOverMatch
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
-                                        new WhenClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
+                                        equalityClause(new Reference(BIGINT, "a"), new Reference(BIGINT, "x")),
+                                        equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")))))
                 .describedAs("constant < switch(...)")
                 .isEqualTo(Optional.of(
                         new Match(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "a"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                        new WhenClause(
+                                        equalityClause(
                                                 new Reference(BIGINT, "b"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
@@ -133,5 +135,10 @@ public class TestDistributeComparisonOverMatch
     private Optional<Expression> optimize(Expression expression)
     {
         return new DistributeComparisonOverMatch().apply(expression, testSession(), ImmutableMap.of());
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(new Symbol(value.type(), "operand"), value, result);
     }
 }
