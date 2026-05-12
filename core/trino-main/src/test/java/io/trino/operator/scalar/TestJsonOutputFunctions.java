@@ -13,6 +13,14 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
+import io.trino.json.Json;
+import io.trino.json.JsonArray;
+import io.trino.json.JsonItemBuilder;
+import io.trino.json.JsonItemEncoding.TypeTag;
+import io.trino.json.TypedValue;
+import io.trino.operator.scalar.json.JsonOutputConversionException;
+import io.trino.operator.scalar.json.JsonOutputFunctions;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -22,11 +30,19 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
+import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.NULL;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -50,6 +66,54 @@ public class TestJsonOutputFunctions
     {
         assertions.close();
         assertions = null;
+    }
+
+    @Test
+    public void testOutputBeyondNestingLimit()
+    {
+        Json tree = JsonItemBuilder.JSON_NULL;
+        for (int i = 0; i < 1025; i++) {
+            tree = new JsonArray(List.of(tree));
+        }
+        Json json = tree;
+        assertThat(JsonOutputFunctions.jsonToVarchar(json, NULL.ordinal(), false)).isNull();
+        assertThat(JsonOutputFunctions.jsonToVarbinaryUtf32(json, NULL.ordinal(), false)).isNull();
+        assertThatThrownBy(() -> JsonOutputFunctions.jsonToVarchar(json, ERROR.ordinal(), false))
+                .isInstanceOf(JsonOutputConversionException.class)
+                .rootCause()
+                .isInstanceOf(StreamConstraintsException.class)
+                .hasMessageContaining("1024");
+        assertThatThrownBy(() -> JsonOutputFunctions.jsonToVarbinaryUtf32(json, ERROR.ordinal(), false))
+                .isInstanceOf(JsonOutputConversionException.class)
+                .rootCause()
+                .isInstanceOf(StreamConstraintsException.class)
+                .hasMessageContaining("1024");
+    }
+
+    @Test
+    public void testJsonOutputPreservesScalarTypes()
+    {
+        Json result = JsonOutputFunctions.jsonToJson(JsonItemBuilder.encodeDouble(1.0), ERROR.ordinal(), false);
+        assertThat(result.scalarType()).isEqualTo(TypeTag.DOUBLE);
+        assertThat(result.materializeScalar().type()).isEqualTo(DOUBLE);
+        assertThat(result.materializeScalar().getDoubleValue()).isEqualTo(1.0);
+        Json decimal = JsonOutputFunctions.jsonToJson(new TypedValue(createDecimalType(4, 2), 100L), ERROR.ordinal(), false);
+        assertThat(decimal.materializeScalar().type()).isEqualTo(createDecimalType(4, 2));
+        assertThat(decimal.materializeScalar().getLongValue()).isEqualTo(100);
+    }
+
+    @Test
+    public void testJsonOutputErrorBehavior()
+    {
+        assertThat(JsonOutputFunctions.jsonToJson(JsonItemBuilder.JSON_ERROR, NULL.ordinal(), false)).isNull();
+        assertThatThrownBy(() -> JsonOutputFunctions.jsonToJson(JsonItemBuilder.JSON_ERROR, ERROR.ordinal(), false))
+                .isInstanceOf(JsonOutputConversionException.class);
+        Json array = JsonOutputFunctions.jsonToJson(JsonItemBuilder.JSON_ERROR, EMPTY_ARRAY.ordinal(), false);
+        assertThat(array.isArray()).isTrue();
+        assertThat(array.arraySize()).isZero();
+        Json object = JsonOutputFunctions.jsonToJson(JsonItemBuilder.JSON_ERROR, EMPTY_OBJECT.ordinal(), false);
+        assertThat(object.isObject()).isTrue();
+        assertThat(object.objectSize()).isZero();
     }
 
     @Test

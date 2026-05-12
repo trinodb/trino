@@ -13,24 +13,23 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
+import io.trino.json.JsonNestingDepthException;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
-import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import io.trino.util.JsonUtil.JsonValueWriter;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
+import static io.trino.json.JsonItems.MAX_NESTING_DEPTH;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -40,8 +39,6 @@ import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastToJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArrayToJsonCast
@@ -49,9 +46,7 @@ public class ArrayToJsonCast
 {
     public static final ArrayToJsonCast ARRAY_TO_JSON = new ArrayToJsonCast();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonGeneratorWriter.class, Block.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(ArrayToJsonCast.class, "toJson", JsonValueWriter.class, Block.class);
 
     private ArrayToJsonCast()
     {
@@ -70,7 +65,7 @@ public class ArrayToJsonCast
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         checkCondition(canCastToJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", arrayType);
 
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(arrayType.getElementType());
+        JsonValueWriter writer = JsonValueWriter.createJsonValueWriter(arrayType.getElementType());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
@@ -79,21 +74,19 @@ public class ArrayToJsonCast
                 methodHandle);
     }
 
-    public static Slice toJson(JsonGeneratorWriter writer, Block block)
+    public static Json toJson(JsonValueWriter writer, Block block)
     {
         try {
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    writer.writeJsonValue(jsonGenerator, block, i);
+            return JsonItemBuilder.encodeWithDepthLimit(jsonWriter -> {
+                jsonWriter.startArray();
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    writer.writeJsonValue(jsonWriter, block, position);
                 }
-                jsonGenerator.writeEndArray();
-            }
-            return output.slice();
+                jsonWriter.endArray();
+            }, MAX_NESTING_DEPTH);
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        catch (JsonNestingDepthException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, e.getMessage(), e);
         }
     }
 }

@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
@@ -80,6 +81,18 @@ public final class JsonArray
         for (Json element : elements) {
             consumer.accept(element);
         }
+    }
+
+    @Override
+    public boolean anyArrayElement(Predicate<Json> predicate)
+    {
+        requireNonNull(predicate, "predicate is null");
+        for (Json element : elements) {
+            if (predicate.test(element)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

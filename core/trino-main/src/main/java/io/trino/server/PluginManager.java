@@ -74,6 +74,8 @@ public class PluginManager
 {
     private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
+            // JSON values cross the SPI as the native Java type of a column.
+            .add("io.trino.json.")
             .add("com.fasterxml.jackson.annotation.")
             // Jackson Blackbird generates field accessors via LambdaMetafactory; for a connector bean the accessor
             // lambda is defined in the plugin classloader, so the leaf functional interfaces it implements must be a

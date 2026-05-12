@@ -49,6 +49,13 @@ public class TestJsonTable
     }
 
     @Test
+    public void testMalformedLiteralInput()
+    {
+        assertThat(assertions.execute("SELECT * FROM JSON_TABLE('{bad', 'lax $' COLUMNS(x integer PATH 'lax $.x'))")
+                .getMaterializedRows()).isEmpty();
+    }
+
+    @Test
     public void testSimple()
     {
         assertThat(assertions.query(

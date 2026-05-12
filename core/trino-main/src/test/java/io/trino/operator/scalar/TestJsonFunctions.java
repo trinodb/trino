@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.json.Json;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,6 +23,9 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.json.JsonItems.toText;
+import static io.trino.operator.scalar.JsonFunctions.jsonArrayGet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -50,6 +54,43 @@ public class TestJsonFunctions
     {
         assertions.close();
         assertions = null;
+    }
+
+    @Test
+    public void testExponentOverflowIsInvalidInput()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '1e309'").evaluate())
+                .hasErrorCode(INVALID_LITERAL);
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'1e309'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testJsonConstantIdentity()
+    {
+        assertThat(assertions.execute("SELECT JSON '1', JSON '1.0'").getMaterializedRows().getFirst().getFields())
+                .containsExactly("1", "1.0");
+        assertThat(assertions.execute("SELECT JSON '{\"a\":1,\"b\":2}', JSON '{\"b\":2,\"a\":1}'").getMaterializedRows().getFirst().getFields())
+                .containsExactly("{\"a\":1,\"b\":2}", "{\"b\":2,\"a\":1}");
+    }
+
+    @Test
+    public void testContainerScalarFidelity()
+    {
+        assertThat(assertions.execute("SELECT CAST(ARRAY[-0.0e0] AS JSON), CAST(MAP(ARRAY['x'], ARRAY[-0.0e0]) AS JSON), CAST(ROW(-0.0e0) AS JSON)")
+                .getMaterializedRows().getFirst().getFields())
+                .containsExactly("[-0.0]", "{\"x\":-0.0}", "{\"\":-0.0}");
+        assertThat(assertions.execute("SELECT json_query(CAST(ARRAY[infinity()] AS JSON), 'lax $[0].type()' RETURNING VARCHAR)")
+                .getMaterializedRows().getFirst().getField(0))
+                .isEqualTo("\"number\"");
+    }
+
+    @Test
+    public void testDuplicateDescendantMembers()
+    {
+        assertThat(assertions.execute("SELECT json_query(JSON '{\"a\":1,\"a\":2}', 'lax $..a' RETURNING VARCHAR WITH ARRAY WRAPPER)")
+                .getMaterializedRows().getFirst().getField(0))
+                .isEqualTo("[1,2]");
     }
 
     @Test
@@ -314,7 +355,7 @@ public class TestJsonFunctions
         assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]'", "6.1"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("json_array_contains", "JSON '[9.6E400]'", "4.2"))
+        assertThat(assertions.function("json_array_contains", "CAST(ARRAY[infinity()] AS JSON)", "4.2"))
                 .isEqualTo(false);
 
         assertThat(assertions.function("json_array_contains", "null", "1.5"))
@@ -599,6 +640,33 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetDecimal()
+    {
+        for (String value : List.of("9007199254740993.0", "-9007199254740993.0", "1.00", "0.12345678901234567890123456789012345678")) {
+            String array = "[null, %s, null]".formatted(value);
+            for (int index : new int[] {1, -2}) {
+                assertThat(toText(jsonArrayGet(Json.unchecked(utf8Slice(array)), index)).toStringUtf8())
+                        .isEqualTo(value);
+
+                for (String input : List.of("'%s'", "JSON '%s'")) {
+                    assertThat(assertions.expression("json_format(json_array_get(a, i))")
+                            .binding("a", input.formatted(array))
+                            .binding("i", Integer.toString(index)))
+                            .describedAs("input: %s, index: %s", input.formatted(array), index)
+                            .isEqualTo(value);
+
+                    int scale = value.length() - value.indexOf('.') - 1;
+                    assertThat(assertions.expression("CAST(json_array_get(a, i) AS DECIMAL(38, %s))".formatted(scale))
+                            .binding("a", input.formatted(array))
+                            .binding("i", Integer.toString(index)))
+                            .describedAs("input: %s, index: %s", input.formatted(array), index)
+                            .matches("CAST('%s' AS DECIMAL(38, %s))".formatted(value, scale));
+                }
+            }
+        }
+    }
+
+    @Test
     public void testJsonArrayGetBoolean()
     {
         assertThat(assertions.function("json_array_get", "'[true]'", "0"))
@@ -733,6 +801,30 @@ public class TestJsonFunctions
         assertThat(assertions.function("json_format", "JSON '[\"a\", \"b\"]'"))
                 .hasType(VARCHAR)
                 .isEqualTo("[\"a\",\"b\"]");
+    }
+
+    @Test
+    public void testJsonFormatNestingLimit()
+    {
+        for (int depth : new int[] {1000, 1001, 1024}) {
+            assertThat(assertions.expression("json_format(json_parse(rpad('', " + depth + ", '[') || '1' || rpad('', " + depth + ", ']')))"))
+                    .isEqualTo("[".repeat(depth) + "1" + "]".repeat(depth));
+        }
+    }
+
+    @Test
+    public void testBigintContainsTypedDecimal()
+    {
+        for (String value : new String[] {"DECIMAL '1'", "CAST(1 AS DECIMAL(38, 0))"}) {
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + " RETURNING JSON)", "BIGINT '1'"))
+                    .isEqualTo(true);
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + ")", "BIGINT '1'"))
+                    .isEqualTo(true);
+        }
+        for (String value : new String[] {"DECIMAL '1.0'", "DECIMAL '1.5'", "DECIMAL '9223372036854775808'"}) {
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + " RETURNING JSON)", "BIGINT '1'"))
+                    .isEqualTo(false);
+        }
     }
 
     @Test

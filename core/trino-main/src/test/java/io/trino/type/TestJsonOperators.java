@@ -86,7 +86,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '12345678901234567890'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '128.9'"))
@@ -106,7 +106,7 @@ public class TestJsonOperators
                 .isEqualTo(0L);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
-                .binding("a", "JSON '1e309'").evaluate())
+                .binding("a", "CAST(infinity() AS JSON)").evaluate())
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as BIGINT)")
@@ -187,7 +187,7 @@ public class TestJsonOperators
                 .isEqualTo(0);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as INTEGER)")
-                .binding("a", "JSON '1e309'").evaluate())
+                .binding("a", "CAST(infinity() AS JSON)").evaluate())
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as INTEGER)")
@@ -260,7 +260,7 @@ public class TestJsonOperators
                 .isEqualTo((short) 0);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as SMALLINT)")
-                .binding("a", "JSON '1e309'").evaluate())
+                .binding("a", "CAST(infinity() AS JSON)").evaluate())
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as SMALLINT)")
@@ -333,7 +333,7 @@ public class TestJsonOperators
                 .isEqualTo((byte) 0);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TINYINT)")
-                .binding("a", "JSON '1e309'").evaluate())
+                .binding("a", "CAST(infinity() AS JSON)").evaluate())
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as TINYINT)")
@@ -505,14 +505,14 @@ public class TestJsonOperators
                 .binding("a", "JSON '1e-324'"))
                 .isEqualTo(0.0);
 
-        // overflow
+        // positive infinity
         assertThat(assertions.expression("cast(a as DOUBLE)")
-                .binding("a", "JSON '1e309'"))
+                .binding("a", "CAST(infinity() AS JSON)"))
                 .isEqualTo(POSITIVE_INFINITY);
 
-        // underflow
+        // negative infinity
         assertThat(assertions.expression("cast(a as DOUBLE)")
-                .binding("a", "JSON '-1e309'"))
+                .binding("a", "CAST(-infinity() AS JSON)"))
                 .isEqualTo(NEGATIVE_INFINITY);
 
         assertThat(assertions.expression("cast(a as DOUBLE)")
@@ -657,7 +657,7 @@ public class TestJsonOperators
                 .binding("a", "JSON '1e-46'"))
                 .isEqualTo(0.0f);
 
-        // overflow
+        // positive infinity
         assertThat(assertions.expression("cast(a as REAL)")
                 .binding("a", "JSON '1e39'"))
                 .isEqualTo(Float.POSITIVE_INFINITY);
@@ -814,14 +814,13 @@ public class TestJsonOperators
                 .binding("a", "JSON '128.9'"))
                 .isEqualTo(true);
 
-        // smaller than minimum subnormal positive
+        // 1e-324 is an approximate literal, so its value is the double it denotes: zero.
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "JSON '1e-324'"))
                 .isEqualTo(false);
 
-        // overflow if parsed as double
         assertThat(assertions.expression("cast(a as BOOLEAN)")
-                .binding("a", "JSON '1e309'"))
+                .binding("a", "CAST(infinity() AS JSON)"))
                 .isEqualTo(true);
 
         assertThat(assertions.expression("cast(a as BOOLEAN)")
@@ -905,11 +904,15 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("0");
 
+        // 0.000000000000000 fits DECIMAL(15,15); the cast still routes through Jackson's
+        // VALUE_NUMBER_FLOAT path → DoubleOperators.castToVarchar → "0E0".
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.000000000000000'"))
                 .hasType(VARCHAR)
                 .isEqualTo("0E0");
 
+        // An exponent makes the literal approximate, so these are doubles, and a double
+        // renders in scientific form.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e1000'"))
                 .hasType(VARCHAR)
@@ -925,6 +928,7 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("1");
 
+        // The exponent makes this an approximate literal, so it is the double it denotes: 1.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '100000000000000000000000000000000000000000000000000000000000000000000e-68'"))
                 .hasType(VARCHAR)
@@ -946,21 +950,21 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("1.289E2");
 
-        // smaller than minimum subnormal positive
+        // smaller than minimum subnormal positive — still rounds to Double 0 because the
+        // VARCHAR cast path goes through DoubleOperators.castToVarchar.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e-324'"))
                 .hasType(VARCHAR)
                 .isEqualTo("0E0");
 
-        // overflow
+        // SQL infinity remains representable as a typed JSON scalar.
         assertThat(assertions.expression("cast(a as VARCHAR)")
-                .binding("a", "JSON '1e309'"))
+                .binding("a", "CAST(infinity() AS JSON)"))
                 .hasType(VARCHAR)
                 .isEqualTo("Infinity");
 
-        // underflow
         assertThat(assertions.expression("cast(a as VARCHAR)")
-                .binding("a", "JSON '-1e309'"))
+                .binding("a", "CAST(-infinity() AS JSON)"))
                 .hasType(VARCHAR)
                 .isEqualTo("-Infinity");
 
@@ -1299,9 +1303,11 @@ public class TestJsonOperators
                 .binding("a", "JSON '128.9'"))
                 .matches("NUMBER '128.9'");
 
+        // 1e-324 is an approximate literal: the item is the double it denotes, which
+        // underflows to zero, so the NUMBER it casts to is zero rather than 1E-324.
         assertThat(assertions.expression("cast(a as NUMBER)")
                 .binding("a", "JSON '1e-324'"))
-                .matches("NUMBER '1E-324'");
+                .matches("NUMBER '0'");
 
         assertThat(assertions.expression("cast(a as NUMBER)")
                 .binding("a", "JSON '1e308'"))

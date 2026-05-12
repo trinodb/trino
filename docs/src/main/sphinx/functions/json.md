@@ -4,10 +4,16 @@ The SQL standard describes functions and operators to process JSON data. They
 allow you to access JSON data according to its structure, generate JSON data,
 and store it persistently in SQL tables.
 
-Importantly, the SQL standard imposes that there is no dedicated data type to
-represent JSON data in SQL. Instead, JSON data is represented as character or
-binary strings. Although Trino supports `JSON` type, it is not used or
-produced by the following functions.
+These functions accept `JSON` values as well as character and binary strings.
+A `JSON` value retains the SQL types of its scalars during internal processing.
+Returning a `JSON` value preserves those types; serializing it as JSON text uses
+the representations available in JSON text. Parsing preserves object member
+order and duplicate keys.
+
+JSON parsing, SQL construction, and text output support at most 1,024 nested
+arrays and objects. Constructing a container around an existing JSON value counts
+toward the same limit. Exceeding the limit raises a SQL error; `JSON_QUERY` handles
+construction failures according to its `ON ERROR` clause.
 
 Trino supports three functions for querying JSON data:
 {ref}`json_exists<json-exists>`,
@@ -183,10 +189,6 @@ evaluation fails. In lax mode, the second object is silently skipped, and the
 resulting sequence is `100, 300`.
 
 All items in the input sequence must be JSON objects.
-
-:::{note}
-Trino does not support JSON objects with duplicate keys.
-:::
 
 #### wildcard member accessor
 
@@ -835,8 +837,8 @@ kinds of errors:
 - Input conversion errors, such as malformed JSON
 - JSON path evaluation errors, e.g. division by zero
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -958,8 +960,8 @@ represented as a character string (`varchar`). In the `RETURNING` clause,
 you can specify other character string type or `varbinary`. With
 `varbinary`, you can also specify the desired encoding.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1154,8 +1156,8 @@ The returned value is the SQL scalar returned by the path. By default, it is
 converted to string (`varchar`). In the `RETURNING` clause, you can specify
 other desired type: a character string type, numeric, boolean or datetime type.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1339,7 +1341,8 @@ column_name FOR ORDINALITY
 | NESTED [ PATH ] json_path [ AS path_name ] COLUMNS ( column_definition [, ...] )
 ```
 
-`json_input` is a character string or a binary string. It must contain a single
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+must contain a single
 JSON item.
 
 `json_path` is a string literal containing the path mode specification and the
@@ -1628,8 +1631,6 @@ SELECT json_array(true, null, 1 NULL ON NULL)
 
 ### Returned type
 
-The SQL standard imposes that there is no dedicated data type to represent JSON
-data in SQL. Instead, JSON data is represented as character or binary strings.
 By default, the `json_array` function returns varchar containing the textual
 representation of the JSON array. With the `RETURNING` clause, you can
 specify other character string type:
@@ -1780,14 +1781,11 @@ SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
 Note that this option is not supported if any of the arguments has a
 `FORMAT` specification.
 
-If `WITHOUT UNIQUE KEYS` is specified, duplicate keys are not supported due
-to implementation limitation. `WITHOUT UNIQUE KEYS` is the default
-configuration.
+`WITHOUT UNIQUE KEYS` is the default configuration; duplicate keys are
+preserved in insertion order.
 
 ### Returned type
 
-The SQL standard imposes that there is no dedicated data type to represent JSON
-data in SQL. Instead, JSON data is represented as character or binary strings.
 By default, the `json_object` function returns varchar containing the textual
 representation of the JSON object. With the `RETURNING` clause, you can
 specify other character string type:
@@ -1986,7 +1984,7 @@ SELECT json_array_contains('[1, 2, 3]', 2); -- true
 ```
 :::
 
-::::{function} json_array_get(json_array, index) -> json
+:::{function} json_array_get(json_array, index) -> json
 
 Returns the element at the specified index into the `json_array`.
 The index is zero-based:
@@ -2105,6 +2103,15 @@ different semantics.
 the JSON value deserialized from the JSON text.
 The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number,
 `true`, `false` or `null`.
+
+Character input is UTF-8; a byte-order mark or bytes resembling another encoding
+do not change that encoding. JSON strings and member names must contain Unicode
+scalar values, so lone surrogate escapes are rejected. Valid surrogate pairs
+represent supplementary characters.
+
+Exponent-form numbers use `DOUBLE` semantics. Overflow is rejected, while very
+small values can underflow to zero. Exact numbers without an exponent retain
+their precision within the supported numeric representation limits.
 
 ```
 SELECT json_parse('not_json');         -- ERROR!

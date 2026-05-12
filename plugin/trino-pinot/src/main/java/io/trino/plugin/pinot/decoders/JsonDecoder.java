@@ -13,21 +13,28 @@
  */
 package io.trino.plugin.pinot.decoders;
 
-import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class JsonDecoder
         implements Decoder
 {
+    private final Type jsonType;
+
+    public JsonDecoder(Type jsonType)
+    {
+        this.jsonType = requireNonNull(jsonType, "jsonType is null");
+    }
+
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
@@ -36,8 +43,7 @@ public class JsonDecoder
             output.appendNull();
         }
         else if (value instanceof String string) {
-            Slice slice = jsonParse(utf8Slice(string));
-            ((VariableWidthBlockBuilder) output).writeEntry(slice);
+            jsonType.writeObject(output, JsonItems.fromText(utf8Slice(string)));
         }
         else {
             throw new TrinoException(TYPE_MISMATCH, format("Expected a json value of type STRING: %s [%s]", value, value.getClass().getSimpleName()));
