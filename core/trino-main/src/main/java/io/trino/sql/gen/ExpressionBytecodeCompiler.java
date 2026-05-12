@@ -46,10 +46,10 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.TypeCoercion;
 
@@ -309,9 +309,9 @@ public class ExpressionBytecodeCompiler
         }
 
         @Override
-        protected BytecodeNode visitSwitch(Switch node, Context context)
+        protected BytecodeNode visitMatch(Match node, Context context)
         {
-            return new SwitchCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new MatchCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
         }
 
         @Override

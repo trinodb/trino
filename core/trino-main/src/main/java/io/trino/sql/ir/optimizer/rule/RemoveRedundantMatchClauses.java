@@ -22,7 +22,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -38,20 +38,20 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 /**
- * Remove duplicated and redundant clauses in Switch. E.g.,
+ * Remove duplicated and redundant clauses in Match. E.g.,
  * <ul>
- *     <li>{@code Switch(x, [When(a, r1), When(b, r2), When(a, r3)], d) -> Switch(x, [When(a, r1), When(b, r2)], d)}
- *     <li>{@code Switch(x, [When(a, r1), When(x, r2), When(b, r3)], d) -> Switch(x, [When(a, r1)], r2)}
- *     <li>{@code Switch(x, [When(x, r)], d) -> r}
+ *     <li>{@code Match(x, [When(a, r1), When(b, r2), When(a, r3)], d) -> Match(x, [When(a, r1), When(b, r2)], d)}
+ *     <li>{@code Match(x, [When(a, r1), When(x, r2), When(b, r3)], d) -> Match(x, [When(a, r1)], r2)}
+ *     <li>{@code Match(x, [When(x, r)], d) -> r}
  * </ul>
  */
-public class RemoveRedundantSwitchClauses
+public class RemoveRedundantMatchClauses
         implements IrOptimizerRule
 {
     private final Metadata metadata;
     private final InterpretedFunctionInvoker functionInvoker;
 
-    public RemoveRedundantSwitchClauses(PlannerContext context)
+    public RemoveRedundantMatchClauses(PlannerContext context)
     {
         metadata = context.getMetadata();
         functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
@@ -60,7 +60,7 @@ public class RemoveRedundantSwitchClauses
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Switch(Expression operand, List<WhenClause> whenClauses, Expression defaultValue))) {
+        if (!(expression instanceof Match(Expression operand, List<WhenClause> whenClauses, Expression defaultValue))) {
             return Optional.empty();
         }
 
@@ -110,6 +110,6 @@ public class RemoveRedundantSwitchClauses
             return Optional.of(newDefault);
         }
 
-        return Optional.of(new Switch(operand, newClauses, newDefault));
+        return Optional.of(new Match(operand, newClauses, newDefault));
     }
 }

@@ -24,7 +24,7 @@ import io.airlift.bytecode.instruction.VariableInstruction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
@@ -34,7 +34,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static java.util.Objects.requireNonNull;
 
-public class SwitchCodeGenerator
+public class MatchCodeGenerator
         implements BytecodeGenerator
 {
     private final Expression value;
@@ -42,7 +42,7 @@ public class SwitchCodeGenerator
     private final Expression defaultValue;
     private final List<ResolvedFunction> equalsFunctions;
 
-    public SwitchCodeGenerator(Switch switchExpression, Metadata metadata)
+    public MatchCodeGenerator(Match switchExpression, Metadata metadata)
     {
         requireNonNull(switchExpression, "switchExpression is null");
         value = switchExpression.operand();

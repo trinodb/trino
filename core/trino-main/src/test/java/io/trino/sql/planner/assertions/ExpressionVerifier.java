@@ -28,9 +28,9 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 
 import java.util.List;
@@ -221,9 +221,9 @@ public final class ExpressionVerifier
     }
 
     @Override
-    protected Boolean visitSwitch(Switch actual, Expression expectedExpression)
+    protected Boolean visitMatch(Match actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof Switch expected)) {
+        if (!(expectedExpression instanceof Match expected)) {
             return false;
         }
 
