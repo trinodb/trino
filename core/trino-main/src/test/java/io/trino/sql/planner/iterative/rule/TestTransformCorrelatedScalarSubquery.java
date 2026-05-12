@@ -24,8 +24,8 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -216,7 +216,7 @@ public class TestTransformCorrelatedScalarSubquery
 
     private Expression ensureScalarSubquery()
     {
-        return new Switch(
+        return new Match(
                 new Reference(BOOLEAN, "is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE, TRUE)),
                 new Cast(

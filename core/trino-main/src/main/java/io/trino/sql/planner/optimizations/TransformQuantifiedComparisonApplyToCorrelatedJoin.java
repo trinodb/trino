@@ -23,7 +23,7 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -187,7 +187,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
-            return new Switch(
+            return new Match(
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
                             new Constant(BIGINT, 0L),

@@ -19,7 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -156,7 +156,7 @@ public class TransformCorrelatedScalarSubquery
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,
-                new Switch(
+                new Match(
                         isDistinct.toSymbolReference(),
                         ImmutableList.of(
                                 new WhenClause(TRUE, TRUE)),

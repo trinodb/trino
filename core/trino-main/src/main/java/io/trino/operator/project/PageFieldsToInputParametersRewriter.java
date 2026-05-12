@@ -25,8 +25,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 
@@ -150,7 +150,7 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        protected Void visitSwitch(Switch node, Boolean unconditionallyEvaluated)
+        protected Void visitMatch(Match node, Boolean unconditionallyEvaluated)
         {
             // Operand and first when-clause operand are unconditional; remaining clauses and default are conditional
             process(node.operand(), unconditionallyEvaluated);

@@ -22,7 +22,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -35,15 +35,15 @@ import java.util.Optional;
 import static io.trino.spi.function.OperatorType.EQUAL;
 
 /**
- * Evaluates a constant Switch expression
+ * Evaluates a constant Match expression
  */
-public class EvaluateSwitch
+public class EvaluateMatch
         implements IrOptimizerRule
 {
     private final Metadata metadata;
     private final InterpretedFunctionInvoker functionInvoker;
 
-    public EvaluateSwitch(PlannerContext context)
+    public EvaluateMatch(PlannerContext context)
     {
         metadata = context.getMetadata();
         functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
@@ -52,7 +52,7 @@ public class EvaluateSwitch
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Switch(Expression operand, List<WhenClause> whenClauses, Expression defaultValue))) {
+        if (!(expression instanceof Match(Expression operand, List<WhenClause> whenClauses, Expression defaultValue))) {
             return Optional.empty();
         }
 

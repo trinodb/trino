@@ -31,14 +31,14 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DesugarBetween;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
-import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverSwitch;
+import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateArray;
 import io.trino.sql.ir.optimizer.rule.EvaluateBind;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
@@ -50,17 +50,17 @@ import io.trino.sql.ir.optimizer.rule.EvaluateFieldReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateIn;
 import io.trino.sql.ir.optimizer.rule.EvaluateIsNull;
 import io.trino.sql.ir.optimizer.rule.EvaluateLogical;
+import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateNullIf;
 import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
-import io.trino.sql.ir.optimizer.rule.EvaluateSwitch;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
-import io.trino.sql.ir.optimizer.rule.RemoveRedundantSwitchClauses;
+import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
 import io.trino.sql.ir.optimizer.rule.SimplifyCharLength;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
@@ -103,13 +103,13 @@ public class IrExpressionOptimizer
                 new EvaluateComparison(context),
                 new EvaluateCast(context),
                 new EvaluateNullIf(context),
-                new EvaluateSwitch(context),
+                new EvaluateMatch(context),
                 new EvaluateCase(),
                 new EvaluateCall(context),
                 new EvaluateIn(context),
                 new DesugarBetween(context),
                 new EvaluateCallWithNullInput(),
-                new RemoveRedundantSwitchClauses(context),
+                new RemoveRedundantMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
                 new RemoveRedundantInItems(context),
                 new SimplifyContinuousInValues(),
@@ -122,7 +122,7 @@ public class IrExpressionOptimizer
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),
-                new DistributeComparisonOverSwitch(),
+                new DistributeComparisonOverMatch(),
                 new DistributeComparisonOverCase(),
                 new SimplifyRedundantCase(context),
                 new SpecializeCastWithJsonParse(context),
@@ -146,7 +146,7 @@ public class IrExpressionOptimizer
                 new EvaluateComparison(context),
                 new EvaluateCast(context),
                 new EvaluateNullIf(context),
-                new EvaluateSwitch(context),
+                new EvaluateMatch(context),
                 new EvaluateCase(),
                 new EvaluateCall(context),
                 new EvaluateIn(context),
@@ -228,12 +228,12 @@ public class IrExpressionOptimizer
                         Optional.of(new Bind(values.orElse(bind.values()), (Lambda) lambda.orElse(bind.function()))) :
                         Optional.empty();
             }
-            case Switch e -> {
+            case Match e -> {
                 Optional<Expression> operand = process(e.operand(), session, bindings);
                 Optional<Expression> defaultValue = process(e.defaultValue(), session, bindings);
                 Optional<List<WhenClause>> clauses = processClauses(e.whenClauses(), session, bindings);
                 yield operand.isPresent() || clauses.isPresent() || defaultValue.isPresent() ?
-                        Optional.of(new Switch(
+                        Optional.of(new Match(
                                 operand.orElse(e.operand()),
                                 clauses.orElse(e.whenClauses()),
                                 defaultValue.orElse(e.defaultValue()))) :

@@ -17,8 +17,8 @@ import io.trino.Session;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
@@ -33,25 +33,25 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 
 /**
  * Transforms:
- * <pre>{@code Comparison(op, v, Switch(x, When(c1, r1), When(c2, r2), ..)))}</pre>
+ * <pre>{@code Comparison(op, v, Match(x, When(c1, r1), When(c2, r2), ..)))}</pre>
  *
  * into:
- * <pre>{@code Switch(x, When(c1, Comparison(op, v, r1)), When(c2, Comparison(op, v, r2)), ..)))}</pre>
+ * <pre>{@code Match(x, When(c1, Comparison(op, v, r1)), When(c2, Comparison(op, v, r2)), ..)))}</pre>
  */
-public class DistributeComparisonOverSwitch
+public class DistributeComparisonOverMatch
         implements IrOptimizerRule
 {
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Comparison(Comparison.Operator operator, Switch switchTerm, Expression target) &&
+        if (expression instanceof Comparison(Comparison.Operator operator, Match match, Expression target) &&
                 (target instanceof Reference || target instanceof Constant)) {
-            return Optional.of(distribute(operator, switchTerm, target));
+            return Optional.of(distribute(operator, match, target));
         }
 
-        if (expression instanceof Comparison(Comparison.Operator operator, Expression target, Switch switchTerm) &&
+        if (expression instanceof Comparison(Comparison.Operator operator, Expression target, Match match) &&
                 (target instanceof Reference || target instanceof Constant)) {
-            return Optional.of(distribute(flipOperator(operator), switchTerm, target));
+            return Optional.of(distribute(flipOperator(operator), match, target));
         }
 
         return Optional.empty();
@@ -68,15 +68,15 @@ public class DistributeComparisonOverSwitch
         };
     }
 
-    private Expression distribute(Comparison.Operator operator, Switch switchTerm, Expression target)
+    private Expression distribute(Comparison.Operator operator, Match match, Expression target)
     {
-        return new Switch(
-                switchTerm.operand(),
-                switchTerm.whenClauses().stream()
+        return new Match(
+                match.operand(),
+                match.whenClauses().stream()
                         .map(clause -> new WhenClause(
                                 clause.getOperand(),
                                 new Comparison(operator, clause.getResult(), target)))
                         .toList(),
-                new Comparison(operator, switchTerm.defaultValue(), target));
+                new Comparison(operator, match.defaultValue(), target));
     }
 }

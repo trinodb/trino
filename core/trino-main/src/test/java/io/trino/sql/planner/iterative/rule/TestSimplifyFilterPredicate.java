@@ -25,9 +25,9 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
@@ -401,7 +401,7 @@ public class TestSimplifyFilterPredicate
     {
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(BOOLEAN, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Reference(BOOLEAN, "b"), TRUE),
@@ -413,7 +413,7 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, return default value
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
                                         new WhenClause(new Constant(BOOLEAN, null), TRUE),
@@ -428,7 +428,7 @@ public class TestSimplifyFilterPredicate
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Constant(BOOLEAN, null),
                                 ImmutableList.of(
                                         new WhenClause(new Constant(BOOLEAN, null), TRUE),
@@ -443,7 +443,7 @@ public class TestSimplifyFilterPredicate
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), TRUE),
@@ -458,7 +458,7 @@ public class TestSimplifyFilterPredicate
         // all results not true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),
@@ -473,7 +473,7 @@ public class TestSimplifyFilterPredicate
         // all results not true (including default null result)
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new Switch(
+                        new Match(
                                 new Reference(INTEGER, "a"),
                                 ImmutableList.of(
                                         new WhenClause(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Constant(INTEGER, 1L))), FALSE),

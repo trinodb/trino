@@ -20,10 +20,10 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.ir.optimizer.rule.RemoveRedundantSwitchClauses;
+import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -34,7 +34,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestRemoveRedundantSwitchClauses
+public class TestRemoveRedundantMatchClauses
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
@@ -43,7 +43,7 @@ public class TestRemoveRedundantSwitchClauses
     void test()
     {
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r1")),
@@ -51,7 +51,7 @@ public class TestRemoveRedundantSwitchClauses
                                 new WhenClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r3"))),
                         new Reference(VARCHAR, "d"))))
                 .describedAs("redundant terms")
-                .isEqualTo(Optional.of(new Switch(
+                .isEqualTo(Optional.of(new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r1")),
@@ -59,33 +59,33 @@ public class TestRemoveRedundantSwitchClauses
                         new Reference(VARCHAR, "d"))));
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Constant(BIGINT, 1L),
                         ImmutableList.of(
                                 new WhenClause(new Constant(BIGINT, 2L), new Reference(VARCHAR, "r1")),
                                 new WhenClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))))
                 .describedAs("redundant constants")
-                .isEqualTo(Optional.of(new Switch(
+                .isEqualTo(Optional.of(new Match(
                         new Constant(BIGINT, 1L),
                         ImmutableList.of(new WhenClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))));
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r1")),
                                 new WhenClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r2"))),
                         new Reference(VARCHAR, "d"))))
                 .describedAs("short-circuit")
-                .isEqualTo(Optional.of(new Switch(
+                .isEqualTo(Optional.of(new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(new WhenClause(new Reference(BIGINT, "a"), new Reference(VARCHAR, "r1"))),
                         new Reference(VARCHAR, "r2"))));
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(BIGINT, "x"), new Reference(VARCHAR, "r1")),
@@ -95,7 +95,7 @@ public class TestRemoveRedundantSwitchClauses
                 .isEqualTo(Optional.of(new Reference(VARCHAR, "r1")));
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Reference(DOUBLE, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(DOUBLE, "a"), new Reference(VARCHAR, "r1")),
@@ -105,7 +105,7 @@ public class TestRemoveRedundantSwitchClauses
                                 new WhenClause(new Reference(DOUBLE, "a"), new Reference(VARCHAR, "r5"))),
                         new Reference(VARCHAR, "d"))))
                 .describedAs("non-deterministic terms")
-                .isEqualTo(Optional.of(new Switch(
+                .isEqualTo(Optional.of(new Match(
                         new Reference(DOUBLE, "x"),
                         ImmutableList.of(
                                 new WhenClause(new Reference(DOUBLE, "a"), new Reference(VARCHAR, "r1")),
@@ -117,6 +117,6 @@ public class TestRemoveRedundantSwitchClauses
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantSwitchClauses(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantMatchClauses(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), ImmutableMap.of());
     }
 }

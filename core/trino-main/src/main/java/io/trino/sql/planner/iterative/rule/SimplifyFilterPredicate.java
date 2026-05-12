@@ -22,8 +22,8 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -77,7 +77,7 @@ public class SimplifyFilterPredicate
             Optional<Expression> simplifiedConjunct = switch (conjunct) {
                 case NullIf expression -> Optional.of(Logical.and(expression.first(), isFalseOrNullPredicate(expression.second())));
                 case Case expression -> simplify(expression);
-                case Switch expression -> simplify(expression);
+                case Match expression -> simplify(expression);
                 case null, default -> Optional.empty();
             };
 
@@ -201,7 +201,7 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(Switch caseExpression)
+    private static Optional<Expression> simplify(Match caseExpression)
     {
         Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
 
