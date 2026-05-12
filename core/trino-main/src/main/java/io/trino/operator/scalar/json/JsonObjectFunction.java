@@ -133,6 +133,9 @@ public class JsonObjectFunction
             }
             else if (valueType.equals(JsonType.JSON)) {
                 valueItem = (Json) value;
+                if (uniqueKeys) {
+                    validateUniqueKeysRecursively(valueItem);
+                }
             }
             else {
                 valueItem = getJson(TypedValue.fromValueAsObject(valueType, value))
@@ -154,6 +157,26 @@ public class JsonObjectFunction
         }
         catch (JsonNestingDepthException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    /// Walks a Json value passed as a FORMAT JSON input under WITH UNIQUE KEYS,
+    /// failing if any object in the value tree contains duplicate keys. Scalars and
+    /// JSON_NULL are no-ops. Uses Slice-keyed traversal so deeply nested objects don't
+    /// pay a UTF-8 decode per member key.
+    private static void validateUniqueKeysRecursively(Json json)
+    {
+        if (json.isObject()) {
+            Set<Slice> keys = new HashSet<>();
+            json.forEachObjectMemberBytes((key, value) -> {
+                if (!keys.add(key)) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "duplicate key passed to JSON_OBJECT function");
+                }
+                validateUniqueKeysRecursively(value);
+            });
+        }
+        else if (json.isArray()) {
+            json.forEachArrayElement(JsonObjectFunction::validateUniqueKeysRecursively);
         }
     }
 }

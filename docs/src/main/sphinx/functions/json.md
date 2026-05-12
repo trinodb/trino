@@ -1801,8 +1801,15 @@ SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
 --> failure: "duplicate key passed to JSON_OBJECT function"
 ```
 
-Note that this option is not supported if any of the arguments has a
-`FORMAT` specification.
+Keys are checked in every nested object, including objects inside arrays. This
+applies both to JSON-typed arguments and to strings supplied with `FORMAT JSON`.
+The same key can occur in separate sibling objects; uniqueness is local to each
+object. An argument containing duplicate keys in any one object is rejected:
+
+```
+SELECT json_object('x' : '{"a": 1, "a": 2}' FORMAT JSON WITH UNIQUE KEYS)
+--> failure: "duplicate key passed to JSON_OBJECT function"
+```
 
 `WITHOUT UNIQUE KEYS` is the default configuration; duplicate keys are
 preserved in insertion order.

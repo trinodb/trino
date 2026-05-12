@@ -20,6 +20,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -158,6 +159,32 @@ public class TestJsonObjectFunction
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITHOUT UNIQUE KEYS)"))
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
+
+        // WITH UNIQUE KEYS rejects duplicate keys nested inside a FORMAT JSON value.
+        assertThat(assertions.query(
+                "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
+    }
+
+    @Test
+    public void testRecursiveUniqueKeys()
+    {
+        for (String document : List.of("[{\"a\":1,\"a\":2}]", "{\"x\":[{\"y\":{\"a\":1,\"a\":2}}]}")) {
+            for (String input : List.of("'" + document + "' FORMAT JSON", "JSON '" + document + "'")) {
+                assertThat(assertions.query("SELECT json_object('value': " + input + " WITH UNIQUE KEYS)"))
+                        .failure()
+                        .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                        .hasMessage("duplicate key passed to JSON_OBJECT function");
+                assertThat(assertions.query("SELECT json_object('value': " + input + " WITHOUT UNIQUE KEYS)"))
+                        .matches("VALUES VARCHAR '{\"value\":" + document + "}'");
+            }
+        }
+        assertThat(assertions.query("SELECT json_object('left': JSON '{\"x\":1}', 'right': JSON '{\"x\":2}' WITH UNIQUE KEYS)"))
+                .matches("VALUES VARCHAR '{\"left\":{\"x\":1},\"right\":{\"x\":2}}'");
+        assertThat(assertions.query("SELECT json_object('value': JSON '[{\"x\":1},{\"x\":2}]' WITH UNIQUE KEYS)"))
+                .matches("VALUES VARCHAR '{\"value\":[{\"x\":1},{\"x\":2}]}'");
     }
 
     @Test
