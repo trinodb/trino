@@ -881,7 +881,7 @@ public class TrinoRestCatalog
         return switch (sessionType) {
             case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
             case USER -> {
-                String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
+                String sessionId = format("%s-%s-%s", session.getUser(), session.getQueryId(), session.getSource().orElse("default"));
 
                 Map<String, String> properties = ImmutableMap.of(
                         "user", session.getUser(),
