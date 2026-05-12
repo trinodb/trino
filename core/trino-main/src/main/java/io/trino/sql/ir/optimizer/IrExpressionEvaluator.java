@@ -43,6 +43,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -157,14 +158,22 @@ public class IrExpressionEvaluator
             return evaluate(expression.defaultValue(), session, bindings);
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession();
-        ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(operand.type(), operand.type()));
+        for (MatchClause clause : expression.clauses()) {
+            Lambda lambda = clause.lambda();
+            Bind bind = clause.bind();
+            List<Symbol> arguments = lambda.arguments();
+            // After LambdaCaptureDesugaringRewriter, the leading args are captured symbols and the
+            // final arg is the operand-bound parameter — bind both into clauseBindings so the body
+            // can reference everything by name.
+            Map<String, Object> clauseBindings = new HashMap<>(bindings);
+            int captureCount = bind == null ? 0 : bind.values().size();
+            for (int i = 0; i < captureCount; i++) {
+                clauseBindings.put(arguments.get(i).name(), evaluate(bind.values().get(i), session, bindings));
+            }
+            clauseBindings.put(arguments.getLast().name(), value);
 
-        for (WhenClause clause : expression.whenClauses()) {
-            Object candidate = evaluate(clause.getOperand(), session, bindings);
-
-            if (Boolean.TRUE.equals(functionInvoker.invoke(equals, connectorSession, Arrays.asList(value, candidate)))) {
-                return evaluate(clause.getResult(), session, bindings);
+            if (Boolean.TRUE.equals(evaluate(lambda.body(), session, clauseBindings))) {
+                return evaluate(clause.result(), session, bindings);
             }
         }
 

@@ -18,8 +18,8 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
@@ -72,10 +72,10 @@ public class DistributeComparisonOverMatch
     {
         return new Match(
                 match.operand(),
-                match.whenClauses().stream()
-                        .map(clause -> new WhenClause(
-                                clause.getOperand(),
-                                new Comparison(operator, clause.getResult(), target)))
+                match.clauses().stream()
+                        .map(clause -> new MatchClause(
+                                clause.predicate(),
+                                new Comparison(operator, clause.result(), target)))
                         .toList(),
                 new Comparison(operator, match.defaultValue(), target));
     }

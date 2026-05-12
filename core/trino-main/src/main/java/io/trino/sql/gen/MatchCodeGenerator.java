@@ -13,132 +13,149 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.instruction.LabelNode;
-import io.airlift.bytecode.instruction.VariableInstruction;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Match;
-import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.MatchClause;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
-import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.sql.gen.ExpressionBytecodeCompiler.createTempReference;
 import static java.util.Objects.requireNonNull;
 
+/// Generates bytecode for [Match]: evaluate the operand once into a temp variable, then test
+/// each clause's lambda body with the parameter resolved to that temp. Single-evaluation of the
+/// operand is the whole reason this node exists separately from a searched [io.trino.sql.ir.Case];
+/// naively substituting the operand into each clause's predicate would re-evaluate it N times and
+/// change semantics for non-deterministic operands such as `random()`.
+///
+/// For SQL three-valued logic, the operand's null state is captured into a separate flag at
+/// evaluation time and restored to `wasNull` before each clause's predicate body runs, so
+/// `WHEN IS NULL` and other null-aware predicates see the operand as null. The temp variable
+/// holds the Java default when the operand was null; predicates that read it should already gate on
+/// `wasNull` (the IR codegen convention) and will produce the right result.
 public class MatchCodeGenerator
         implements BytecodeGenerator
 {
     private final Expression value;
-    private final List<WhenClause> whenClauses;
+    private final List<MatchClause> clauses;
     private final Expression defaultValue;
-    private final List<ResolvedFunction> equalsFunctions;
 
-    public MatchCodeGenerator(Match switchExpression, Metadata metadata)
+    public MatchCodeGenerator(Match matchExpression)
     {
-        requireNonNull(switchExpression, "switchExpression is null");
-        value = switchExpression.operand();
-        whenClauses = switchExpression.whenClauses();
-        defaultValue = switchExpression.defaultValue();
-
-        equalsFunctions = whenClauses.stream()
-                .map(clause -> metadata.resolveOperator(EQUAL, ImmutableList.of(value.type(), clause.getOperand().type())))
-                .collect(toImmutableList());
+        requireNonNull(matchExpression, "matchExpression is null");
+        value = matchExpression.operand();
+        clauses = matchExpression.clauses();
+        defaultValue = matchExpression.defaultValue();
     }
 
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
-        // TODO: compile as
-        /*
-            hashCode = hashCode(<value>)
-
-            // all constant expressions before a non-constant
-            switch (hashCode) {
-                case ...:
-                    if (<value> == <constant1>) {
-                       ...
-                    }
-                    else if (<value> == <constant2>) {
-                       ...
-                    }
-                    else if (...) {
-                    }
-                case ...:
-                    ...
-            }
-
-            if (<value> == <non-constant1>) {
-                ...
-            }
-            else if (<value> == <non-constant2>) {
-                ...
-            }
-            ...
-
-            // repeat with next sequence of constant expressions
-         */
-
         Scope scope = generatorContext.getScope();
         CallSiteBinder callSiteBinder = generatorContext.getCallSiteBinder();
 
-        // process value, else, and all when clauses
         BytecodeNode valueBytecode = generatorContext.generate(value);
-
         BytecodeNode elseValue = generatorContext.generate(defaultValue);
 
-        // determine the type of the value and result
         Class<?> valueType = callSiteBinder.getAccessibleType(value.type().getJavaType());
 
-        // evaluate the value and store it in a variable
-        LabelNode nullValue = new LabelNode("nullCondition");
         Variable tempVariable = scope.getOrCreateTempVariable(valueType);
+        Variable operandWasNull = scope.getOrCreateTempVariable(boolean.class);
+        Variable wasNull = generatorContext.wasNull();
+
         BytecodeBlock block = new BytecodeBlock()
                 .append(valueBytecode)
-                .append(BytecodeUtils.ifWasNullClearPopAndGoto(scope, nullValue, void.class, valueType))
-                .putVariable(tempVariable);
+                // After valueBytecode the operand value (or its java-default placeholder) sits on
+                // the stack and wasNull reflects its nullness. Capture wasNull so each clause can
+                // restore it; storing the value to the temp variable would otherwise leave us with
+                // no record of whether it was null.
+                .append(operandWasNull.set(wasNull))
+                .putVariable(tempVariable)
+                .append(wasNull.set(constantFalse()));
 
-        BytecodeNode getTempVariableNode = VariableInstruction.loadVariable(tempVariable);
+        Reference tempReference = createTempReference(tempVariable, value.type());
 
-        // build the statements
-        elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
-        // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (int i = whenClauses.size() - 1; i >= 0; i--) {
-            WhenClause clause = whenClauses.get(i);
-            Expression operand = clause.getOperand();
-            Expression result = clause.getResult();
-
-            // call equals(value, operand)
-
-            // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
-            // and the code only does the right thing because the value in the stack for that scenario is
-            // Java's default for boolean == false
-            // This code should probably be checking for wasNull after the call and "failing" the equality
-            // check if wasNull is true
-            BytecodeNode equalsCall = generatorContext.generateCall(
-                    equalsFunctions.get(i),
-                    ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
+        // Build the if/else chain bottom-up because the if-statement builder doesn't support
+        // if/else chains directly; each clause wraps the previously-built bytecode.
+        BytecodeNode chain = elseValue;
+        for (int i = clauses.size() - 1; i >= 0; i--) {
+            MatchClause clause = clauses.get(i);
+            Expression body = inlineBody(clause, tempReference);
 
             BytecodeBlock condition = new BytecodeBlock()
-                    .append(equalsCall)
-                    .append(generatorContext.wasNull().set(constantFalse()));
+                    // Restore the operand's null-ness so the clause's predicate body sees it.
+                    .append(wasNull.set(operandWasNull))
+                    .append(generatorContext.generate(body))
+                    // A null predicate result (SQL three-valued logic) is treated as not-matched.
+                    .append(wasNull.set(constantFalse()));
 
-            elseValue = new IfStatement("when")
+            chain = new IfStatement("when")
                     .condition(condition)
-                    .ifTrue(generatorContext.generate(result))
-                    .ifFalse(elseValue);
+                    .ifTrue(generatorContext.generate(clause.result()))
+                    .ifFalse(chain);
         }
 
-        block.append(elseValue);
+        block.append(chain);
         scope.releaseTempVariableForReuse(tempVariable);
+        scope.releaseTempVariableForReuse(operandWasNull);
         return block;
+    }
+
+    /// Return the clause's lambda body with the operand parameter substituted by `tempReference`
+    /// (so the body reads the once-evaluated operand) and any capture-desugared captured-parameters
+    /// substituted back to their original outer references (so the body reads the outer scope
+    /// directly). The result is suitable for inline bytecode generation in the surrounding method
+    /// — the lambda interface call is dropped entirely.
+    private static Expression inlineBody(MatchClause clause, Reference tempReference)
+    {
+        Lambda lambda = clause.lambda();
+        Bind bind = clause.bind();
+        List<Symbol> arguments = lambda.arguments();
+        int captureCount = bind == null ? 0 : bind.values().size();
+        // After LambdaCaptureDesugaringRewriter, the first captureCount args are captured-symbol
+        // placeholders bound to the corresponding values in Bind.values; the remaining (always one
+        // here, since Match's lambdas take a single operand parameter) is the operand parameter.
+        Symbol operandParameter = arguments.getLast();
+
+        Map<String, Expression> substitutions = new HashMap<>();
+        substitutions.put(operandParameter.name(), tempReference);
+        for (int i = 0; i < captureCount; i++) {
+            substitutions.put(arguments.get(i).name(), bind.values().get(i));
+        }
+
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+        {
+            @Override
+            public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Expression replacement = substitutions.get(node.name());
+                return replacement != null ? replacement : null;
+            }
+
+            @Override
+            public Expression rewriteLambda(Lambda node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                // Don't recurse into nested lambdas that shadow any substituted name; if none of
+                // the nested lambda's arguments shadows ours, fall through to keep recursing.
+                if (node.arguments().stream().anyMatch(arg -> substitutions.containsKey(arg.name()))) {
+                    return node;
+                }
+                return null;
+            }
+        }, lambda.body());
     }
 }

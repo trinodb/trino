@@ -115,9 +115,9 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitMatch(Match node, C context)
     {
         process(node.operand(), context);
-        for (WhenClause clause : node.whenClauses()) {
-            process(clause.getOperand(), context);
-            process(clause.getResult(), context);
+        for (MatchClause clause : node.clauses()) {
+            process(clause.predicate(), context);
+            process(clause.result(), context);
         }
 
         process(node.defaultValue(), context);

@@ -23,6 +23,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
@@ -209,8 +210,8 @@ public class SimplifyFilterPredicate
             return defaultValue;
         }
 
-        List<Expression> results = caseExpression.whenClauses().stream()
-                .map(WhenClause::getResult)
+        List<Expression> results = caseExpression.clauses().stream()
+                .map(MatchClause::result)
                 .collect(toImmutableList());
         if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.get().equals(TRUE)) {
             return Optional.of(TRUE);

@@ -222,8 +222,8 @@ public final class ExpressionFormatter
             parts.add("CASE")
                     .add(process(node.operand(), context));
 
-            for (WhenClause whenClause : node.whenClauses()) {
-                parts.add(format(whenClause, context));
+            for (MatchClause clause : node.clauses()) {
+                parts.add(format(clause, context));
             }
 
             parts.add("ELSE").add(process(node.defaultValue(), context));
@@ -235,6 +235,13 @@ public final class ExpressionFormatter
         protected String format(WhenClause node, Void context)
         {
             return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
+        }
+
+        protected String format(MatchClause node, Void context)
+        {
+            // The clause predicate is a Lambda (or Bind around one) over the match operand; render
+            // its body as the WHEN predicate rather than the lambda wrapper itself.
+            return "WHEN " + process(node.lambda().body(), context) + " THEN " + process(node.result(), context);
         }
 
         @Override
