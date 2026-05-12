@@ -32,6 +32,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
@@ -231,11 +232,11 @@ public class IrExpressionOptimizer
             case Match e -> {
                 Optional<Expression> operand = process(e.operand(), session, bindings);
                 Optional<Expression> defaultValue = process(e.defaultValue(), session, bindings);
-                Optional<List<WhenClause>> clauses = processClauses(e.whenClauses(), session, bindings);
+                Optional<List<MatchClause>> clauses = processMatchClauses(e.clauses(), session, bindings);
                 yield operand.isPresent() || clauses.isPresent() || defaultValue.isPresent() ?
                         Optional.of(new Match(
                                 operand.orElse(e.operand()),
-                                clauses.orElse(e.whenClauses()),
+                                clauses.orElse(e.clauses()),
                                 defaultValue.orElse(e.defaultValue()))) :
                         Optional.empty();
             }
@@ -268,6 +269,26 @@ public class IrExpressionOptimizer
                 optimized.add(clause);
             }
             changed = changed || operand.isPresent() || result.isPresent();
+        }
+
+        return changed ? Optional.of(optimized.build()) : Optional.empty();
+    }
+
+    /// @return Optional.empty() if none of the clauses changed
+    private Optional<List<MatchClause>> processMatchClauses(List<MatchClause> clauses, Session session, Map<Symbol, Expression> bindings)
+    {
+        boolean changed = false;
+        ImmutableList.Builder<MatchClause> optimized = ImmutableList.builder();
+        for (MatchClause clause : clauses) {
+            Optional<Expression> predicate = process(clause.predicate(), session, bindings);
+            Optional<Expression> result = process(clause.result(), session, bindings);
+            if (predicate.isPresent() || result.isPresent()) {
+                optimized.add(new MatchClause(predicate.orElse(clause.predicate()), result.orElse(clause.result())));
+            }
+            else {
+                optimized.add(clause);
+            }
+            changed = changed || predicate.isPresent() || result.isPresent();
         }
 
         return changed ? Optional.of(optimized.build()) : Optional.empty();

@@ -317,7 +317,7 @@ public final class SqlRoutinePlanner
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> nodeRefSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
 
             // Apply casts, desugar expression, and perform other rewrites
-            TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext);
+            TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, nodeRefSymbolMap, fieldSymbols, session, plannerContext, symbolAllocator);
             io.trino.sql.ir.Expression translated = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
 
             // desugar the lambda captures

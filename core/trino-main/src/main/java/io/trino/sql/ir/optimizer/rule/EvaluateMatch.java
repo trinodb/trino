@@ -13,46 +13,45 @@
  */
 package io.trino.sql.ir.optimizer.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Match;
-import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.MatchClause;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
-/**
- * Evaluates a constant Match expression
- */
+/// Evaluates a Match expression whose operand is a constant.
+///
+/// For each clause whose predicate body evaluates to a definite TRUE under the operand
+/// binding, returns the clause's result. If the predicate evaluates to FALSE, the clause
+/// is skipped. If the predicate is non-deterministic or fails to fully evaluate, the rule
+/// bails — leaving the Match in place so later, less-aggressive optimizations can decide.
 public class EvaluateMatch
         implements IrOptimizerRule
 {
-    private final Metadata metadata;
-    private final InterpretedFunctionInvoker functionInvoker;
+    private final IrExpressionEvaluator evaluator;
 
     public EvaluateMatch(PlannerContext context)
     {
-        metadata = context.getMetadata();
-        functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
+        this.evaluator = new IrExpressionEvaluator(context);
     }
 
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Match(Expression operand, List<WhenClause> whenClauses, Expression defaultValue))) {
+        if (!(expression instanceof Match(Expression operand, List<MatchClause> clauses, Expression defaultValue))) {
             return Optional.empty();
         }
 
@@ -64,16 +63,46 @@ public class EvaluateMatch
             return Optional.of(defaultValue);
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession();
-        ResolvedFunction equals = metadata.resolveOperator(EQUAL, ImmutableList.of(operand.type(), operand.type()));
+        for (MatchClause clause : clauses) {
+            Lambda lambda = clause.lambda();
+            Bind bind = clause.bind();
+            // A non-deterministic predicate body must not be folded at plan time: evaluating it
+            // here would bake a single draw (e.g. one random() value) into the plan instead of
+            // evaluating it per row. Bail and leave the Match for per-row evaluation.
+            if (!isDeterministic(lambda.body())) {
+                return Optional.empty();
+            }
+            List<Symbol> arguments = lambda.arguments();
+            int captureCount = bind == null ? 0 : bind.values().size();
+            // Bail unless every captured value is a Constant. Evaluating with empty bindings would
+            // silently resolve outer-scope references to null and produce a bogus predicate result.
+            for (int i = 0; i < captureCount; i++) {
+                if (!(bind.values().get(i) instanceof Constant)) {
+                    return Optional.empty();
+                }
+            }
+            Map<String, Object> clauseBindings = new HashMap<>();
+            for (int i = 0; i < captureCount; i++) {
+                clauseBindings.put(arguments.get(i).name(), ((Constant) bind.values().get(i)).value());
+            }
+            clauseBindings.put(arguments.getLast().name(), constantOperand.value());
 
-        for (WhenClause whenClause : whenClauses) {
-            if (!(whenClause.getOperand() instanceof Constant candidate)) {
+            Object result;
+            try {
+                result = evaluator.evaluate(lambda.body(), session, clauseBindings);
+            }
+            catch (RuntimeException e) {
                 return Optional.empty();
             }
 
-            if (Boolean.TRUE.equals(functionInvoker.invoke(equals, connectorSession, Arrays.asList(constantOperand.value(), candidate.value())))) {
-                return Optional.of(whenClause.getResult());
+            if (Boolean.TRUE.equals(result)) {
+                return Optional.of(clause.result());
+            }
+            // NULL predicates are treated as not-matched (SQL three-valued logic). FALSE flows on
+            // to the next clause. Any other return (non-boolean, unbindable) means we couldn't
+            // fully evaluate the clause; bail and let a later, less-aggressive optimization decide.
+            if (result != null && !Boolean.FALSE.equals(result)) {
+                return Optional.empty();
             }
         }
 

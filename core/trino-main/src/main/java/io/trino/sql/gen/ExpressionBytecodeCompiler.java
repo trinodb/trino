@@ -311,7 +311,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitMatch(Match node, Context context)
         {
-            return new MatchCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope()));
+            return new MatchCodeGenerator(node).generateExpression(generatorContext(context.scope()));
         }
 
         @Override

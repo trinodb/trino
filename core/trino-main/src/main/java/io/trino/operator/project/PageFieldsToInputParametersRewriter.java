@@ -26,6 +26,7 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
@@ -152,16 +153,20 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         protected Void visitMatch(Match node, Boolean unconditionallyEvaluated)
         {
-            // Operand and first when-clause operand are unconditional; remaining clauses and default are conditional
+            // Operand and first when-clause predicate body are unconditional; remaining clauses and default are conditional
             process(node.operand(), unconditionallyEvaluated);
-            List<WhenClause> whenClauses = node.whenClauses();
-            if (!whenClauses.isEmpty()) {
-                process(whenClauses.getFirst().getOperand(), unconditionallyEvaluated);
-                process(whenClauses.getFirst().getResult(), false);
-                for (int i = 1; i < whenClauses.size(); i++) {
-                    process(whenClauses.get(i).getOperand(), false);
-                    process(whenClauses.get(i).getResult(), false);
+            List<MatchClause> clauses = node.clauses();
+            for (int i = 0; i < clauses.size(); i++) {
+                boolean clauseUnconditional = (i == 0) && unconditionallyEvaluated;
+                MatchClause clause = clauses.get(i);
+                // A Bind around the lambda holds the outer-scope values that capture-desugaring
+                // lifted out; the lambda body references them by renamed parameter symbols, so the
+                // input channels only show up if we walk the Bind values directly.
+                if (clause.bind() != null) {
+                    clause.bind().values().forEach(value -> process(value, clauseUnconditional));
                 }
+                process(clause.lambda(), clauseUnconditional);
+                process(clause.result(), false);
             }
             process(node.defaultValue(), false);
             return null;

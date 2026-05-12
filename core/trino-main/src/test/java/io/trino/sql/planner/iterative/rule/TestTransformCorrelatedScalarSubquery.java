@@ -24,9 +24,10 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -218,9 +219,14 @@ public class TestTransformCorrelatedScalarSubquery
     {
         return new Match(
                 new Reference(BOOLEAN, "is_distinct"),
-                ImmutableList.of(new WhenClause(TRUE, TRUE)),
+                ImmutableList.of(equalityClause(TRUE, TRUE)),
                 new Cast(
                         failFunction(tester().getMetadata(), SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows"),
                         BOOLEAN));
+    }
+
+    private static MatchClause equalityClause(Expression value, Expression result)
+    {
+        return IrExpressions.equalityClause(new Symbol(value.type(), "operand"), value, result);
     }
 }

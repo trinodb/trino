@@ -525,7 +525,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(table, null);
 
-        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
         }
@@ -628,7 +628,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(table, null);
 
-        PlanBuilder subPlanBuilder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder subPlanBuilder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
         // Add the WHERE clause, if any
         if (node.getWhere().isPresent()) {
@@ -797,7 +797,7 @@ class QueryPlanner
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
 
-        PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
         io.trino.sql.tree.FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
@@ -1127,7 +1127,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(query.getQueryBody(), null);
 
-        return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
     }
 
     private PlanBuilder planFrom(QuerySpecification node)
@@ -1135,11 +1135,11 @@ class QueryPlanner
         if (node.getFrom().isPresent()) {
             RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                     .process(node.getFrom().get(), null);
-            return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+            return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
         }
 
         return new PlanBuilder(
-                new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext),
+                new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext, symbolAllocator),
                 new ValuesNode(idAllocator.getNextId(), 1));
     }
 
