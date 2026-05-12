@@ -32,6 +32,7 @@ import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -160,7 +161,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -202,7 +204,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     newDirectExecutorService(),
                     0,
-                    ZERO);
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
 
             assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
                     .doesNotContainKey("invalid_property");

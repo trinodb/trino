@@ -38,11 +38,15 @@ import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
@@ -84,7 +88,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -203,7 +206,8 @@ public class IcebergSplitSource
             double minimumAssignedSplitWeight,
             SplitAffinityProvider splitAffinityProvider,
             InMemoryMetricsReporter metricsReporter,
-            ListeningExecutorService executor)
+            ListeningExecutorService executor,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
@@ -215,7 +219,7 @@ public class IcebergSplitSource
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
-        this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint);
+        this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint, evaluator, session);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
         this.specsById = icebergTable.specs();
@@ -674,15 +678,16 @@ public class IcebergSplitSource
     private static class PartitionConstraintMatcher
     {
         private final NonEvictableCache<Map<ColumnHandle, NullableValue>, Boolean> partitionConstraintResults;
-        private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
-        private final Optional<Set<ColumnHandle>> predicateColumns;
+        private final ConnectorExpressionEvaluator.Prepared prepared;
+        private final ConnectorExpression expression;
+        private final Map<String, ColumnHandle> assignments;
 
-        private PartitionConstraintMatcher(Constraint constraint)
+        private PartitionConstraintMatcher(Constraint constraint, ConnectorExpressionEvaluator evaluator, ConnectorSession session)
         {
-            // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
             verify(constraint.getSummary().isAll());
-            this.predicate = constraint.predicate();
-            this.predicateColumns = constraint.getPredicateColumns();
+            this.expression = constraint.getExpression();
+            this.assignments = constraint.getAssignments();
+            this.prepared = evaluator.prepare(expression, session);
             this.partitionConstraintResults = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         }
 
@@ -690,18 +695,34 @@ public class IcebergSplitSource
                 Set<IcebergColumnHandle> identityPartitionColumns,
                 Supplier<Map<ColumnHandle, NullableValue>> partitionValuesSupplier)
         {
-            if (predicate.isEmpty()) {
+            if (Constant.TRUE.equals(expression)) {
                 return true;
             }
-            Set<ColumnHandle> predicatePartitionColumns = intersection(predicateColumns.orElseThrow(), identityPartitionColumns);
-            if (predicatePartitionColumns.isEmpty()) {
+            Set<String> arguments = prepared.getArguments();
+            Set<ColumnHandle> expressionColumns = arguments.stream()
+                    .map(assignments::get)
+                    .collect(toImmutableSet());
+            Set<ColumnHandle> relevantPartitionColumns = intersection(expressionColumns, identityPartitionColumns);
+            if (relevantPartitionColumns.isEmpty()) {
                 return true;
             }
             Map<ColumnHandle, NullableValue> partitionValues = partitionValuesSupplier.get();
             return uncheckedCacheGet(
                     partitionConstraintResults,
-                    ImmutableMap.copyOf(Maps.filterKeys(partitionValues, predicatePartitionColumns::contains)),
-                    () -> predicate.orElseThrow().test(partitionValues));
+                    ImmutableMap.copyOf(Maps.filterKeys(partitionValues, relevantPartitionColumns::contains)),
+                    () -> {
+                        ImmutableMap.Builder<String, NullableValue> bindings = ImmutableMap.builder();
+                        for (String argument : arguments) {
+                            NullableValue value = partitionValues.get(assignments.get(argument));
+                            if (value != null) {
+                                bindings.put(argument, value);
+                            }
+                        }
+                        return switch (prepared.tryEvaluate(bindings.buildOrThrow())) {
+                            case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+                            case EvaluationResult.NoResult _ -> true;
+                        };
+                    });
         }
     }
 
