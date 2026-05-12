@@ -215,6 +215,123 @@ public class TestExtendedCase
     }
 
     @Test
+    public void testQuantifiedComparison()
+    {
+        // A predicate-fragment WHEN may carry a quantified comparison against a subquery; the case
+        // operand supplies the comparison's left-hand side and is still evaluated only once.
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN > ALL (VALUES 1, 2, 3) THEN 1
+                            WHEN <= ANY (VALUES 1, 2, 3) THEN 2
+                            ELSE 3
+                       END
+                FROM (VALUES 0, 5, 2) t(x)
+                """))
+                .matches("VALUES 2, 1, 2");
+
+        // The operand is evaluated once even when a clause is a relational quantified comparison:
+        // every random() value is either > 0.5 or <= 0.5, so no row falls through to ELSE.
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (
+                    SELECT CASE random()
+                                WHEN > ALL (VALUES 0.5e0) THEN 1
+                                WHEN <= 0.5e0 THEN 2
+                                ELSE 3
+                           END AS bucket
+                    FROM unnest(sequence(1, 200)) AS t(x))
+                WHERE bucket = 3
+                """))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testQuantifiedComparisonEqualsAllNotEqualsAny()
+    {
+        // Exercise the remaining quantifier/operator combinations: `= ALL` matches when the
+        // operand equals every subquery row, `<> ANY` matches when it differs from at least one.
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN = ALL (VALUES 3, 3) THEN 1
+                            WHEN <> ANY (VALUES 2) THEN 2
+                            ELSE 3
+                       END
+                FROM (VALUES 3, 5, 2) t(x)
+                """))
+                .matches("VALUES 1, 2, 3");
+    }
+
+    @Test
+    public void testInSubquery()
+    {
+        // The IN value list of a predicate-fragment WHEN may be a subquery; the case operand
+        // supplies the IN predicate's left-hand side, evaluated once like every other fragment.
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN IN (VALUES 1, 2, 3) THEN 1
+                            WHEN NOT IN (VALUES 7, 8, 9) THEN 2
+                            ELSE 3
+                       END
+                FROM (VALUES 2, 5, 8) t(x)
+                """))
+                .matches("VALUES 1, 2, 3");
+    }
+
+    @Test
+    public void testCorrelatedInSubquery()
+    {
+        // The subquery in a predicate-fragment WHEN may correlate to the enclosing row. Here the
+        // IN-subquery references t.k, so each row is tested against a different value set.
+        assertThat(assertions.query(
+                """
+                SELECT CASE t.x
+                            WHEN IN (SELECT u.v FROM (VALUES (1, 10), (1, 20), (2, 99)) u(k, v) WHERE u.k = t.k) THEN 1
+                            ELSE 0
+                       END
+                FROM (VALUES (1, 10), (1, 99), (2, 10)) t(k, x)
+                """))
+                .matches("VALUES 1, 0, 0");
+    }
+
+    @Test
+    public void testNullOperandThroughSubqueryFragment()
+    {
+        // A NULL case operand fed through a relational IN fragment yields NULL (not TRUE), so the
+        // clause does not match and the row falls through to ELSE.
+        assertThat(assertions.query(
+                """
+                SELECT CASE CAST(NULL AS integer)
+                            WHEN IN (VALUES 1) THEN 1
+                            ELSE 2
+                       END
+                """))
+                .matches("VALUES 2");
+    }
+
+    @Test
+    public void testSubqueryFragmentInJoinCondition()
+    {
+        // A predicate-fragment WHEN carrying a subquery may appear in a JOIN ON expression. The
+        // fragment's subquery is planned on the join branch that resolves its operand, and the
+        // resulting predicate mapping is propagated into the join's translation map.
+        assertThat(assertions.query(
+                """
+                SELECT t.x, u.y
+                FROM (VALUES 1, 2, 8) t(x)
+                JOIN (VALUES 1, 2) u(y)
+                  ON u.y = CASE t.x
+                                WHEN IN (VALUES 1, 2, 3) THEN 1
+                                ELSE 2
+                           END
+                """))
+                .matches("VALUES (1, 1), (2, 1), (8, 2)");
+    }
+
+    @Test
     public void testMixedWithBareEquality()
     {
         // The legacy bare-equality WHEN form coexists with F262 predicate-fragment WHENs.
@@ -285,5 +402,22 @@ public class TestExtendedCase
                 """))
                 .failure()
                 .hasMessageMatching("(?s).*mismatched input '>'.*");
+    }
+
+    @Test
+    public void testRejectsTypeMismatchInSubqueryFragment()
+    {
+        // The operand and the subquery column of a relational fragment must share a common type.
+        // An integer operand against a varchar subquery column is rejected during analysis.
+        assertThat(assertions.query(
+                """
+                SELECT CASE x
+                            WHEN IN (VALUES 'a', 'b') THEN 1
+                            ELSE 0
+                       END
+                FROM (VALUES 1) t(x)
+                """))
+                .failure()
+                .hasMessageMatching("(?s).*same type.*");
     }
 }

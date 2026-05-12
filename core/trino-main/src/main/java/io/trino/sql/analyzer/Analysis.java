@@ -79,7 +79,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.Predicated;
+import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -212,7 +212,7 @@ public class Analysis
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, SubqueryAnalysis> subqueries = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
+    private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
 
     private final Map<NodeRef<Table>, TableEntry> tables = new LinkedHashMap<>();
 
@@ -540,10 +540,10 @@ public class Analysis
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         SubqueryAnalysis subqueries = this.subqueries.computeIfAbsent(NodeRef.of(node), _ -> new SubqueryAnalysis());
-        subqueries.addInPredicates(dereference(expressionAnalysis.getSubqueryInPredicates()));
+        subqueries.addInPredicates(expressionAnalysis.getSubqueryInPredicates());
         subqueries.addSubqueries(dereference(expressionAnalysis.getSubqueries()));
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
-        subqueries.addQuantifiedComparisons(dereference(expressionAnalysis.getQuantifiedComparisons()));
+        subqueries.addQuantifiedComparisons(expressionAnalysis.getQuantifiedComparisons());
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -1383,14 +1383,14 @@ public class Analysis
         return implicitFromScopes.get(NodeRef.of(node));
     }
 
-    public void addPredicateCoercions(Map<NodeRef<Expression>, PredicateCoercions> coercions)
+    public void addPredicateCoercions(Map<NodeRef<Predicate>, PredicateCoercions> coercions)
     {
         predicateCoercions.putAll(coercions);
     }
 
-    public PredicateCoercions getPredicateCoercions(Expression expression)
+    public PredicateCoercions getPredicateCoercions(Predicate predicate)
     {
-        return predicateCoercions.get(NodeRef.of(expression));
+        return predicateCoercions.get(NodeRef.of(predicate));
     }
 
     public void setTableExecuteHandle(TableExecuteHandle tableExecuteHandle)
@@ -1802,14 +1802,14 @@ public class Analysis
 
     public static class SubqueryAnalysis
     {
-        private final List<Predicated> inPredicatesSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> inPredicates = new ArrayList<>();
         private final List<SubqueryExpression> subqueries = new ArrayList<>();
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
-        private final List<Predicated> quantifiedComparisonSubqueries = new ArrayList<>();
+        private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
 
-        public void addInPredicates(List<Predicated> expressions)
+        public void addInPredicates(List<OperandAndPredicate> predicates)
         {
-            inPredicatesSubqueries.addAll(expressions);
+            inPredicates.addAll(predicates);
         }
 
         public void addSubqueries(List<SubqueryExpression> expressions)
@@ -1822,14 +1822,14 @@ public class Analysis
             existsSubqueries.addAll(expressions);
         }
 
-        public void addQuantifiedComparisons(List<Predicated> expressions)
+        public void addQuantifiedComparisons(List<OperandAndPredicate> predicates)
         {
-            quantifiedComparisonSubqueries.addAll(expressions);
+            quantifiedComparisons.addAll(predicates);
         }
 
-        public List<Predicated> getInPredicatesSubqueries()
+        public List<OperandAndPredicate> getInPredicates()
         {
-            return unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicates);
         }
 
         public List<SubqueryExpression> getSubqueries()
@@ -1842,9 +1842,22 @@ public class Analysis
             return unmodifiableList(existsSubqueries);
         }
 
-        public List<Predicated> getQuantifiedComparisonSubqueries()
+        public List<OperandAndPredicate> getQuantifiedComparisons()
         {
-            return unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisons);
+        }
+    }
+
+    /// A relational subquery predicate (`InPredicate` or `QuantifiedComparisonPredicate`) paired
+    /// with its operand. Unifies the regular `Predicated(value, predicate)` case and the F262
+    /// extended-CASE case (operand from the surrounding CASE expression, predicate from the
+    /// WHEN clause). The same shape covers both — planning consumes them uniformly.
+    public record OperandAndPredicate(Expression operand, Predicate predicate)
+    {
+        public OperandAndPredicate
+        {
+            requireNonNull(operand, "operand is null");
+            requireNonNull(predicate, "predicate is null");
         }
     }
 
