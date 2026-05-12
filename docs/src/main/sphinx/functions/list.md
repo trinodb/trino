@@ -224,6 +224,7 @@
 ## J
 
 - {func}`jaccard_index`
+- [json()](json-value-constructor)
 - [json_array()](json-array)
 - {func}`json_array_contains`
 - {func}`json_array_get`

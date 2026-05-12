@@ -642,6 +642,9 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
+    // Keep jsonConstructor before the functionCall alternatives: JSON is non-reserved,
+    // so JSON(x) matches both. ANTLR selects the first matching alternative.
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
