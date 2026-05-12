@@ -66,6 +66,7 @@ import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
@@ -944,6 +945,12 @@ public final class ExpressionFormatter
                     .append(")");
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonConstructor(JsonConstructor node, Void context)
+        {
+            return "JSON(" + formatJsonExpression(node.getExpression(), Optional.of(node.getFormat())) + ")";
         }
 
         @Override

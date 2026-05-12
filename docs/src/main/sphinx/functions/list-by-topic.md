@@ -342,6 +342,7 @@ For more details, see {doc}`hyperloglog`
 For more details, see {doc}`json`
 
 - {func}`is_json_scalar`
+- {ref}`json() <json-value-constructor>`
 - {ref}`json_array() <json-array>`
 - {func}`json_array_contains`
 - {func}`json_array_get`
