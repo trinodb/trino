@@ -65,7 +65,7 @@ public class DelegatingRestSessionCatalog
                 .setHttpAcceptQueueSize(10)
                 .setHttpEnabled(true);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        RestCatalogServlet servlet = new RestCatalogServlet(adapter);
+        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
                 // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
