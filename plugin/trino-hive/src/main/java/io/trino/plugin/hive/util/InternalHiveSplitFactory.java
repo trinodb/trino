@@ -34,6 +34,9 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -45,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -65,13 +67,14 @@ public class InternalHiveSplitFactory
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final Map<Integer, HiveTypeName> hiveColumnCoercions;
-    private final Constraint constraint;
     private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<HiveSplit.BucketValidation> bucketValidation;
     private final long minimumTargetSplitSizeInBytes;
     private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
+    private final ConnectorExpressionEvaluator.Prepared prepared;
+    private final Map<String, ColumnHandle> assignments;
 
     public InternalHiveSplitFactory(
             String partitionName,
@@ -86,14 +89,16 @@ public class InternalHiveSplitFactory
             Optional<HiveSplit.BucketValidation> bucketValidation,
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
-            Optional<Long> maxSplitFileSize)
+            Optional<Long> maxSplitFileSize,
+            ConnectorSession session,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
-        this.constraint = requireNonNull(constraint, "constraint is null");
+        requireNonNull(constraint, "constraint is null");
         this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
         this.hiveColumnCoercions = ImmutableMap.copyOf(requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null"));
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
@@ -102,6 +107,10 @@ public class InternalHiveSplitFactory
         this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
+        requireNonNull(session, "session is null");
+        this.assignments = ImmutableMap.copyOf(constraint.getAssignments());
+        this.prepared = requireNonNull(evaluator, "evaluator is null")
+                .prepare(constraint.getExpression(), session);
     }
 
     private static Schema stripUnnecessaryProperties(Map<String, String> schema)
@@ -154,7 +163,7 @@ public class InternalHiveSplitFactory
             boolean splittable,
             Optional<AcidInfo> acidInfo)
     {
-        if (!pathMatchesPredicate(pathDomain, constraint, path)) {
+        if (!pathMatchesPredicate(pathDomain, path)) {
             return Optional.empty();
         }
 
@@ -269,16 +278,23 @@ public class InternalHiveSplitFactory
                         .findFirst());
     }
 
-    private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, Constraint constraint, String path)
+    private boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
     {
         Slice pathSlice = utf8Slice(path);
         if (pathDomain.isPresent() && !pathDomain.get().includesNullableValue(pathSlice)) {
             return false;
         }
-        if (constraint.getPredicateColumns().isEmpty() || !constraint.getPredicateColumns().get().contains(pathColumnHandle())) {
+
+        Optional<String> pathVariableName = assignments.entrySet().stream()
+                .filter(assignment -> assignment.getValue().equals(pathColumnHandle()))
+                .map(Map.Entry::getKey)
+                .findFirst();
+        if (pathVariableName.isEmpty() || !prepared.getArguments().contains(pathVariableName.get())) {
             return true;
         }
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(_ -> true);
-        return predicate.test(ImmutableMap.of(pathColumnHandle(), new NullableValue(PATH_TYPE, pathSlice)));
+        return switch (prepared.tryEvaluate(ImmutableMap.of(pathVariableName.get(), new NullableValue(PATH_TYPE, pathSlice)))) {
+            case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+            case EvaluationResult.NoResult _ -> true;
+        };
     }
 }
