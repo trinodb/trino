@@ -81,6 +81,7 @@ import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationsToSubquer
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
+import io.trino.sql.planner.iterative.rule.OptimizeSingleAnyValueAggregation;
 import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
@@ -463,6 +464,7 @@ public class PlanOptimizers
                                         new RemoveRedundantExists(),
                                         new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(),
+                                        new OptimizeSingleAnyValueAggregation(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
