@@ -35,9 +35,9 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 /**
  * Remove duplicated and redundant clauses in Case. E.g.,
  * <ul>
- *     <li>{@code Case([When(a, r1), When(b, r2), When(a, r3)], d) -> Switch([When(a, r1), When(b, r2)], d)}
- *     <li>{@code Case([When(a, r1), When(true, r2), When(a, r3)], d) -> Switch([When(a, r1)], r2)}
- *     <li>{@code Case([When(a, r1), When(false, r2), When(a, r3)], d) -> Switch([When(a, r1)], d)}
+ *     <li>{@code Case([When(a, r1), When(b, r2), When(a, r3)], d) -> Case([When(a, r1), When(b, r2)], d)}
+ *     <li>{@code Case([When(a, r1), When(true, r2), When(a, r3)], d) -> Case([When(a, r1)], r2)}
+ *     <li>{@code Case([When(a, r1), When(false, r2), When(a, r3)], d) -> Case([When(a, r1)], d)}
  *     <li>{@code Case([When(true, r)], d) -> r}
  *     <li>{@code Case([When(false, r)], d) -> d}
  * </ul>

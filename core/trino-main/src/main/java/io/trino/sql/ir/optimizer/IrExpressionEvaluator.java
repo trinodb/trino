@@ -42,10 +42,10 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.TypeCoercion;
@@ -111,7 +111,7 @@ public class IrExpressionEvaluator
             case NullIf e -> evaluateInternal(e, session, bindings);
             case Reference reference -> bindings.get(reference.name());
             case Row e -> evaluateInternal(e, session, bindings);
-            case Switch e -> evaluateInternal(e, session, bindings);
+            case Match e -> evaluateInternal(e, session, bindings);
         };
     }
 
@@ -148,7 +148,7 @@ public class IrExpressionEvaluator
         return rewriter.rewrite(expression, null);
     }
 
-    private Object evaluateInternal(Switch expression, Session session, Map<String, Object> bindings)
+    private Object evaluateInternal(Match expression, Session session, Map<String, Object> bindings)
     {
         Expression operand = expression.operand();
         Object value = evaluate(operand, session, bindings);

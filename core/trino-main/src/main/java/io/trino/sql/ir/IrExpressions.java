@@ -118,7 +118,7 @@ public final class IrExpressions
             case Comparison e -> e.operator() != Comparison.Operator.IDENTICAL && (mayBeNull(plannerContext, e.left(), referencesMayBeNull) || mayBeNull(plannerContext, e.right(), referencesMayBeNull));
             case In e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value, referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term, referencesMayBeNull));
-            case Switch e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
+            case Match e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
 
             // These expressions may return null based on their own semantics
@@ -173,7 +173,7 @@ public final class IrExpressions
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
+            case Match e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
         };
     }

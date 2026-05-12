@@ -52,9 +52,9 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -444,7 +444,7 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
     {
-        return new Switch(
+        return new Match(
                 translateExpression(expression.getOperand()),
                 expression.getWhenClauses().stream()
                         .map(clause -> new WhenClause(

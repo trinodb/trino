@@ -23,12 +23,13 @@ import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Switch(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
+public record Match(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
         implements Expression
 {
-    public Switch
+    public Match
     {
         requireNonNull(operand, "operand is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         whenClauses = ImmutableList.copyOf(whenClauses);
 
         for (WhenClause clause : whenClauses) {
@@ -51,7 +52,7 @@ public record Switch(Expression operand, List<WhenClause> whenClauses, Expressio
     @Override
     public <R, C> R accept(IrVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSwitch(this, context);
+        return visitor.visitMatch(this, context);
     }
 
     @Override

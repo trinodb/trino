@@ -33,9 +33,9 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
@@ -326,7 +326,7 @@ public class TestEqualityInference
                 new NullIf(new Reference(BIGINT, "b"), number(1)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
                 new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
-                new Switch(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
+                new Match(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(

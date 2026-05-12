@@ -112,7 +112,7 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitSwitch(Switch node, C context)
+    protected Void visitMatch(Match node, C context)
     {
         process(node.operand(), context);
         for (WhenClause clause : node.whenClauses()) {

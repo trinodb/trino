@@ -215,7 +215,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitSwitch(Switch node, Void context)
+        protected String visitMatch(Match node, Void context)
         {
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
