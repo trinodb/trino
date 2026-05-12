@@ -2892,14 +2892,14 @@ public class TestPinotConnectorSmokeTest
     public void testJson()
     {
         assertThat(query("SELECT json_col FROM " + JSON_TYPE_TABLE))
-                .matches("VALUES (JSON '{\"id\":0,\"name\":\"user_0\"}')," +
-                        "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
-                        "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
+                .matches("VALUES (JSON '{\"name\":\"user_0\",\"id\":0}')," +
+                        "  (JSON '{\"name\":\"user_1\",\"id\":1}')," +
+                        "  (JSON '{\"name\":\"user_2\",\"id\":2}')");
         assertThat(query("SELECT json_col" +
                 "  FROM \"SELECT json_col FROM " + JSON_TYPE_TABLE + "\""))
-                .matches("VALUES (JSON '{\"id\":0,\"name\":\"user_0\"}')," +
-                        "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
-                        "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
+                .matches("VALUES (JSON '{\"name\":\"user_0\",\"id\":0}')," +
+                        "  (JSON '{\"name\":\"user_1\",\"id\":1}')," +
+                        "  (JSON '{\"name\":\"user_2\",\"id\":2}')");
         assertThat(query("SELECT name FROM \"SELECT json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
                 "  FROM json_type_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
                 .matches("VALUES (VARCHAR 'user_1')");

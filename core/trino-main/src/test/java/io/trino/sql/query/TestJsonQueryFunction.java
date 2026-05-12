@@ -19,6 +19,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -341,6 +343,24 @@ public class TestJsonQueryFunction
     }
 
     @Test
+    public void testOutputNestingDepth()
+    {
+        for (int depth : new int[] {1000, 1001, 1024}) {
+            for (String json : List.of("[".repeat(depth) + "0" + "]".repeat(depth), "{\"a\":".repeat(depth) + "0" + "}".repeat(depth))) {
+                for (String errorBehavior : List.of("NULL", "ERROR")) {
+                    assertThat(assertions.query("SELECT JSON_QUERY(json_parse('%s'), 'strict $' RETURNING VARCHAR %s ON ERROR)".formatted(json, errorBehavior)))
+                            .matches("VALUES VARCHAR '%s'".formatted(json));
+
+                    for (var encoding : Map.of("UTF8", UTF_8, "UTF16", UTF_16LE, "UTF32", StandardCharsets.UTF_32LE).entrySet()) {
+                        assertThat(assertions.query("SELECT JSON_QUERY(json_parse('%s'), 'strict $' RETURNING VARBINARY FORMAT JSON ENCODING %s %s ON ERROR)".formatted(json, encoding.getKey(), errorBehavior)))
+                                .matches("VALUES X'%s'".formatted(base16().encode(json.getBytes(encoding.getValue()))));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     public void testWrapperBehavior()
     {
         // by default, multiple output items cause error. the error is handled accordingly to the ON ERROR clause
@@ -415,10 +435,7 @@ public class TestJsonQueryFunction
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
 
-        // default RETURNING (VARCHAR) leaves OMIT QUOTES legal — SR 1 maps the input's varchar type to the
-        // return type, and SR 3 only applies to JSON returns. Both a direct character input and a JSON_QUERY
-        // input fall in this bucket today (the SQL/JSON producers default to VARCHAR; an explicit
-        // RETURNING JSON on the input would be caught at JSON_QUERY's input-coercion step).
+        // Default RETURNING is VARCHAR, so OMIT QUOTES remains legal.
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' OMIT QUOTES ON SCALAR STRING)"))
                 .matches("VALUES cast('some scalar text value' AS varchar)");

@@ -13,28 +13,29 @@
  */
 package io.trino.jsonpath;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.Json;
 
 import java.util.List;
-import java.util.stream.Stream;
-
-import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class PathEvaluationUtil
 {
     private PathEvaluationUtil() {}
 
-    public static List<Object> unwrapArrays(List<Object> sequence)
+    /// In lax mode, every JSON array in the input sequence is automatically unwrapped
+    /// into its elements before applying methods, accessors, and arithmetic. Non-array
+    /// items pass through unchanged.
+    public static List<Json> unwrapArrays(List<Json> sequence)
     {
-        return sequence.stream()
-                .flatMap(object -> {
-                    if (object instanceof JsonNode node && node.getNodeType() == ARRAY) {
-                        return ImmutableList.copyOf(node.elements()).stream();
-                    }
-                    return Stream.of(object);
-                })
-                .collect(toImmutableList());
+        ImmutableList.Builder<Json> builder = ImmutableList.builder();
+        for (Json item : sequence) {
+            if (item.isArray()) {
+                item.forEachArrayElement(builder::add);
+            }
+            else {
+                builder.add(item);
+            }
+        }
+        return builder.build();
     }
 }

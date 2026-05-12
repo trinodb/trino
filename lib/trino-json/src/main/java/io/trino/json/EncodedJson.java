@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static io.trino.json.JsonItemEncoding.arrayIndexedElementOffset;
 import static io.trino.json.JsonItemEncoding.arrayItemsStart;
@@ -281,6 +282,25 @@ public final class EncodedJson
             consumer.accept(view(slice, cursor, next));
             cursor = next;
         }
+    }
+
+    @Override
+    public boolean anyArrayElement(Predicate<Json> predicate)
+    {
+        requireNonNull(predicate, "predicate is null");
+        if (rawText) {
+            return parsed().anyArrayElement(predicate);
+        }
+        int count = arraySize();
+        int cursor = arrayItemsStart(slice, offset);
+        for (int i = 0; i < count; i++) {
+            int next = itemEndOffset(slice, cursor);
+            if (predicate.test(view(slice, cursor, next))) {
+                return true;
+            }
+            cursor = next;
+        }
+        return false;
     }
 
     // --- OBJECT ---

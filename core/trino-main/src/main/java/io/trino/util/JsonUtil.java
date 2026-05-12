@@ -22,6 +22,8 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder.JsonItemWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -40,7 +42,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
@@ -66,7 +67,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -89,7 +89,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
@@ -97,7 +96,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
-import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
@@ -107,7 +105,6 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
@@ -292,435 +289,86 @@ public final class JsonUtil
         }
     }
 
-    // given block and position, write to JsonGenerator
-    public interface JsonGeneratorWriter
+    @FunctionalInterface
+    public interface JsonValueWriter
     {
-        // write a Json value into the JsonGenerator, provided by block and position
-        void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException;
+        void writeJsonValue(JsonItemWriter writer, Block block, int position);
 
-        static JsonGeneratorWriter createJsonGeneratorWriter(Type type)
+        static JsonValueWriter createJsonValueWriter(Type type)
         {
-            if (type instanceof UnknownType) {
-                return new UnknownJsonGeneratorWriter();
-            }
-            if (type instanceof BooleanType) {
-                return new BooleanJsonGeneratorWriter();
-            }
-            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
-                return new LongJsonGeneratorWriter(type);
-            }
-            if (type instanceof RealType) {
-                return new RealJsonGeneratorWriter();
-            }
-            if (type instanceof DoubleType) {
-                return new DoubleJsonGeneratorWriter();
-            }
-            if (type instanceof DecimalType decimalType) {
-                if (decimalType.isShort()) {
-                    return new ShortDecimalJsonGeneratorWriter(decimalType);
+            JsonValueWriter nonNullWriter = switch (type) {
+                case UnknownType _ -> (writer, _, _) -> writer.nullValue();
+                case BooleanType _ -> (writer, block, position) -> writer.booleanValue(type.getBoolean(block, position));
+                case TinyintType _ -> (writer, block, position) -> writer.tinyintValue(type.getLong(block, position));
+                case SmallintType _ -> (writer, block, position) -> writer.smallintValue(type.getLong(block, position));
+                case IntegerType _ -> (writer, block, position) -> writer.integerValue(type.getLong(block, position));
+                case BigintType _ -> (writer, block, position) -> writer.bigint(type.getLong(block, position));
+                case RealType _ -> (writer, block, position) -> writer.realBits(toIntExact(type.getLong(block, position)));
+                case DoubleType _ -> (writer, block, position) -> writer.doubleValue(type.getDouble(block, position));
+                case DecimalType decimalType -> decimalType.isShort()
+                        ? (writer, block, position) -> writer.shortDecimal(decimalType.getPrecision(), decimalType.getScale(), type.getLong(block, position))
+                        : (writer, block, position) -> writer.longDecimal(decimalType.getPrecision(), decimalType.getScale(), (Int128) type.getObject(block, position));
+                case NumberType _ -> (writer, block, position) -> writer.numberValue((TrinoNumber) type.getObject(block, position));
+                case VarcharType _ -> (writer, block, position) -> writer.varchar(type.getSlice(block, position));
+                case JsonType _ -> (writer, block, position) -> writer.nest((Json) type.getObject(block, position));
+                // These casts retain their historical string representation, as the scalar casts do.
+                case DateType _ -> (writer, block, position) -> writer.varchar(utf8Slice(printDate(toIntExact(type.getLong(block, position)))));
+                case TimestampType _ -> (writer, block, position) -> writer.varchar(utf8Slice(type.getObjectValue(block, position).toString()));
+                case ArrayType arrayType -> {
+                    JsonValueWriter elementWriter = createJsonValueWriter(arrayType.getElementType());
+                    yield (writer, block, position) -> {
+                        Block elements = arrayType.getObject(block, position);
+                        writer.startArray();
+                        for (int index = 0; index < elements.getPositionCount(); index++) {
+                            elementWriter.writeJsonValue(writer, elements, index);
+                        }
+                        writer.endArray();
+                    };
                 }
-                return new LongDecimalJsonGeneratorWriter(decimalType);
-            }
-            if (type instanceof NumberType) {
-                return new NumberJsonGeneratorWriter();
-            }
-            if (type instanceof VarcharType) {
-                return new VarcharJsonGeneratorWriter(type);
-            }
-            if (type instanceof JsonType) {
-                return new JsonJsonGeneratorWriter();
-            }
-            if (type instanceof TimestampType timestampType) {
-                return new TimestampJsonGeneratorWriter(timestampType);
-            }
-            if (type instanceof DateType) {
-                return new DateGeneratorWriter();
-            }
-            if (type instanceof ArrayType arrayType) {
-                return new ArrayJsonGeneratorWriter(
-                        arrayType,
-                        createJsonGeneratorWriter(arrayType.getElementType()));
-            }
-            if (type instanceof MapType mapType) {
-                return new MapJsonGeneratorWriter(
-                        mapType,
-                        createObjectKeyProvider(mapType.getKeyType()),
-                        createJsonGeneratorWriter(mapType.getValueType()));
-            }
-            if (type instanceof RowType rowType) {
-                List<Type> fieldTypes = rowType.getFieldTypes();
-                List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
-                for (int i = 0; i < fieldTypes.size(); i++) {
-                    fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
+                case MapType mapType -> {
+                    ObjectKeyProvider keyProvider = createObjectKeyProvider(mapType.getKeyType());
+                    JsonValueWriter valueWriter = createJsonValueWriter(mapType.getValueType());
+                    yield (writer, block, position) -> {
+                        SqlMap map = mapType.getObject(block, position);
+                        Map<String, Integer> positions = new TreeMap<>();
+                        for (int index = 0; index < map.getSize(); index++) {
+                            int rawIndex = map.getRawOffset() + index;
+                            positions.put(keyProvider.getObjectKey(map.getRawKeyBlock(), rawIndex), rawIndex);
+                        }
+                        writer.startObject();
+                        for (Entry<String, Integer> entry : positions.entrySet()) {
+                            writer.fieldName(entry.getKey());
+                            valueWriter.writeJsonValue(writer, map.getRawValueBlock(), entry.getValue());
+                        }
+                        writer.endObject();
+                    };
                 }
-                return new RowJsonGeneratorWriter(rowType, fieldWriters);
-            }
-
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
-        }
-    }
-
-    private static class UnknownJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            jsonGenerator.writeNull();
-        }
-    }
-
-    private static class BooleanJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                boolean value = BOOLEAN.getBoolean(block, position);
-                jsonGenerator.writeBoolean(value);
-            }
-        }
-    }
-
-    private static class LongJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final Type type;
-
-        public LongJsonGeneratorWriter(Type type)
-        {
-            this.type = type;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                long value = type.getLong(block, position);
-                jsonGenerator.writeNumber(value);
-            }
-        }
-    }
-
-    private static class RealJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                float value = REAL.getFloat(block, position);
-                jsonGenerator.writeNumber(value);
-            }
-        }
-    }
-
-    private static class DoubleJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                double value = DOUBLE.getDouble(block, position);
-                jsonGenerator.writeNumber(value);
-            }
-        }
-    }
-
-    private static class ShortDecimalJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final DecimalType type;
-
-        public ShortDecimalJsonGeneratorWriter(DecimalType type)
-        {
-            this.type = type;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                BigDecimal value = BigDecimal.valueOf(type.getLong(block, position), type.getScale());
-                jsonGenerator.writeNumber(value);
-            }
-        }
-    }
-
-    private static class LongDecimalJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final DecimalType type;
-
-        public LongDecimalJsonGeneratorWriter(DecimalType type)
-        {
-            this.type = type;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                BigDecimal value = new BigDecimal(
-                        ((Int128) type.getObject(block, position)).toBigInteger(),
-                        type.getScale());
-                jsonGenerator.writeNumber(value);
-            }
-        }
-    }
-
-    private static class NumberJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                TrinoNumber value = (TrinoNumber) NUMBER.getObject(block, position);
-                switch (value.toBigDecimal()) {
-                    case TrinoNumber.NotANumber() -> jsonGenerator.writeString("NaN");
-                    case TrinoNumber.Infinity(boolean negative) -> jsonGenerator.writeString(negative ? "-Infinity" : "+Infinity");
-                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> jsonGenerator.writeNumber(bigDecimal);
+                case RowType rowType -> {
+                    List<String> names = rowType.getFields().stream().map(field -> field.getName().orElse("")).toList();
+                    List<JsonValueWriter> fieldWriters = rowType.getFieldTypes().stream().map(JsonValueWriter::createJsonValueWriter).toList();
+                    yield (writer, block, position) -> {
+                        SqlRow row = rowType.getObject(block, position);
+                        writer.startObject();
+                        for (int field = 0; field < names.size(); field++) {
+                            writer.fieldName(names.get(field));
+                            fieldWriters.get(field).writeJsonValue(writer, row.getRawFieldBlock(field), row.getRawIndex());
+                        }
+                        writer.endObject();
+                    };
                 }
-            }
-        }
-    }
-
-    private static class VarcharJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final Type type;
-
-        public VarcharJsonGeneratorWriter(Type type)
-        {
-            this.type = type;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                Slice value = type.getSlice(block, position);
-                jsonGenerator.writeString(value.toStringUtf8());
-            }
-        }
-    }
-
-    private static class JsonJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                Slice value = JSON.getSlice(block, position);
-                jsonGenerator.writeRawValue(value.toStringUtf8());
-            }
-        }
-    }
-
-    private static class TimestampJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final TimestampType type;
-
-        public TimestampJsonGeneratorWriter(TimestampType type)
-        {
-            this.type = type;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                long epochMicros;
-                int fraction;
-
-                if (type.isShort()) {
-                    epochMicros = type.getLong(block, position);
-                    fraction = 0;
+                default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            };
+            return (writer, block, position) -> {
+                if (block.isNull(position)) {
+                    writer.nullValue();
                 }
                 else {
-                    LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
-                    epochMicros = timestamp.getEpochMicros();
-                    fraction = timestamp.getPicosOfMicro();
+                    nonNullWriter.writeJsonValue(writer, block, position);
                 }
-
-                jsonGenerator.writeString(formatTimestamp(type.getPrecision(), epochMicros, fraction, UTC));
-            }
+            };
         }
     }
 
-    private static class DateGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                int value = DATE.getInt(block, position);
-                jsonGenerator.writeString(printDate(value));
-            }
-        }
-    }
-
-    private static class ArrayJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final ArrayType type;
-        private final JsonGeneratorWriter elementWriter;
-
-        public ArrayJsonGeneratorWriter(ArrayType type, JsonGeneratorWriter elementWriter)
-        {
-            this.type = type;
-            this.elementWriter = elementWriter;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                Block arrayBlock = type.getObject(block, position);
-                jsonGenerator.writeStartArray();
-                for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                    elementWriter.writeJsonValue(jsonGenerator, arrayBlock, i);
-                }
-                jsonGenerator.writeEndArray();
-            }
-        }
-    }
-
-    private static class MapJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final MapType type;
-        private final ObjectKeyProvider keyProvider;
-        private final JsonGeneratorWriter valueWriter;
-
-        public MapJsonGeneratorWriter(MapType type, ObjectKeyProvider keyProvider, JsonGeneratorWriter valueWriter)
-        {
-            this.type = type;
-            this.keyProvider = keyProvider;
-            this.valueWriter = valueWriter;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                SqlMap sqlMap = type.getObject(block, position);
-
-                int rawOffset = sqlMap.getRawOffset();
-                Block rawKeyBlock = sqlMap.getRawKeyBlock();
-                Block rawValueBlock = sqlMap.getRawValueBlock();
-
-                Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-                for (int i = 0; i < sqlMap.getSize(); i++) {
-                    String objectKey = keyProvider.getObjectKey(rawKeyBlock, rawOffset + i);
-                    orderedKeyToValuePosition.put(objectKey, i);
-                }
-
-                jsonGenerator.writeStartObject();
-                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
-                    jsonGenerator.writeFieldName(entry.getKey());
-                    valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
-                }
-                jsonGenerator.writeEndObject();
-            }
-        }
-    }
-
-    private static class RowJsonGeneratorWriter
-            implements JsonGeneratorWriter
-    {
-        private final RowType type;
-        private final List<JsonGeneratorWriter> fieldWriters;
-
-        public RowJsonGeneratorWriter(RowType type, List<JsonGeneratorWriter> fieldWriters)
-        {
-            this.type = type;
-            this.fieldWriters = fieldWriters;
-        }
-
-        @Override
-        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
-                throws IOException
-        {
-            if (block.isNull(position)) {
-                jsonGenerator.writeNull();
-            }
-            else {
-                SqlRow sqlRow = type.getObject(block, position);
-                int rawIndex = sqlRow.getRawIndex();
-
-                List<Field> fields = type.getFields();
-                jsonGenerator.writeStartObject();
-                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(fields.get(i).getName().orElse(""));
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
-                }
-                jsonGenerator.writeEndObject();
-            }
-        }
-    }
-
-    // utility classes and functions for cast from JSON
     public static Slice currentTokenAsVarchar(JsonParser parser)
             throws IOException
     {

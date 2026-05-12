@@ -13,7 +13,7 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.json.Json;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.spi.Page;
 
@@ -43,7 +43,7 @@ public class QueryColumn
     }
 
     @Override
-    public Object evaluate(long sequentialNumber, JsonNode item, Page input, int position)
+    public Object evaluate(long sequentialNumber, Json item, Page input, int position)
     {
         try {
             return methodHandle.invoke(item, path, null, wrapperBehavior, emptyBehavior, errorBehavior);

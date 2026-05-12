@@ -17,6 +17,21 @@ All types define the `getJavaType()` method, frequently referred to as the
 and to store them in a `Block`. For example, this is the type used in
 the Java code that implements functions that produce or consume this `Type`.
 
+### JSON connector values
+
+The native Java type of SQL `JSON` is `io.trino.json.Json`, provided by the
+`io.trino:trino-json` library. It is no longer `Slice`. Connectors using
+`RecordCursor` must return JSON values from `getObject`, and native block writes
+such as `TypeUtils.writeNativeValue` must receive a `Json` value. Returning text
+from `getSlice` alone does not satisfy the native cursor contract.
+
+Use `JsonItems.fromText` to parse UTF-8 JSON text. `Json.unchecked` wraps text that
+the connector has already validated and defers structural parsing. The type's
+`writeSlice` method also accepts JSON text; `getSlice` returns JSON text. These
+text APIs do not expose the private typed encoding. Text cannot retain SQL
+datetime tags or all native numeric metadata, so keep `Json` values intact when
+passing them between native execution components.
+
 ## Native encoding
 
 The interpretation of a value in its native container type form is defined by its
