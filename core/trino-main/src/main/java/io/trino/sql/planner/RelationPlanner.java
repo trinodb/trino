@@ -382,7 +382,7 @@ class RelationPlanner
             return plan;
         }
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (io.trino.sql.tree.Expression filter : filters) {
@@ -405,7 +405,7 @@ class RelationPlanner
             return plan;
         }
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (io.trino.sql.tree.Expression constraint : constraints) {
@@ -437,7 +437,7 @@ class RelationPlanner
             return plan;
         }
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         Assignments.Builder assignments = Assignments.builder();
@@ -490,7 +490,7 @@ class RelationPlanner
         // process sources in order of argument declarations
         for (TableArgumentAnalysis tableArgument : functionAnalysis.getTableArgumentAnalyses()) {
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
-            PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+            PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
             // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
             RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
@@ -621,7 +621,7 @@ class RelationPlanner
                         .collect(toImmutableList()))
                 .build();
 
-        PlanBuilder planBuilder = newPlanBuilder(subPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder planBuilder = newPlanBuilder(subPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
         // no handleSubqueries because subqueries are not allowed here
         planBuilder = planBuilder.appendProjections(inputs, symbolAllocator, idAllocator);
@@ -902,7 +902,7 @@ class RelationPlanner
         Optional<JsonTable> jsonTable = getJsonTable(node.getRight());
         if (jsonTable.isPresent()) {
             return planJoinJsonTable(
-                    newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext),
+                    newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator),
                     leftPlan.getFieldMappings(),
                     node.getType(),
                     jsonTable.get(),
@@ -931,9 +931,9 @@ class RelationPlanner
                 .addAll(rightPlan.getFieldMappings())
                 .build();
 
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(scope, outputSymbols);
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(scope, outputSymbols);
 
         ImmutableList.Builder<JoinNode.EquiJoinClause> equiClauses = ImmutableList.builder();
@@ -1050,7 +1050,7 @@ class RelationPlanner
                 }
             }
         }
-        TranslationMap translationMap = new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext)
+        TranslationMap translationMap = new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext, symbolAllocator)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
@@ -1286,9 +1286,9 @@ class RelationPlanner
         // planning subqueries so that handleSubqueries can rewrite a subquery's operand against the correct
         // mappings — e.g. an IN-subquery whose left-hand side is a NEAREST relation column, which planInPredicate
         // rewrites eagerly against the side builder rather than via candidateTranslations.
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlanWithId, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlanWithId, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(analysis.getScope(nearest), candidateOutputs);
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator)
                 .withScope(analysis.getScope(nearest), candidateOutputs);
         Analysis.SubqueryAnalysis subqueries = analysis.getSubqueries(nearest);
         for (io.trino.sql.tree.Expression predicate : predicates) {
@@ -1312,7 +1312,8 @@ class RelationPlanner
                 lambdaDeclarationToSymbolMap,
                 candidateOutputs,
                 session,
-                plannerContext)
+                plannerContext,
+                symbolAllocator)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
@@ -1335,7 +1336,7 @@ class RelationPlanner
         RelationPlan candidatePlan = new RelationPlan(candidateRoot, analysis.getScope(nearest), candidateOutputs, outerContext);
 
         NearestAnalysis nearestAnalysis = analysis.getNearest(nearest);
-        PlanBuilder candidateBuilder = newPlanBuilder(candidatePlan, analysis, lambdaDeclarationToSymbolMap, candidateTranslations.getMappings(), session, plannerContext)
+        PlanBuilder candidateBuilder = newPlanBuilder(candidatePlan, analysis, lambdaDeclarationToSymbolMap, candidateTranslations.getMappings(), session, plannerContext, symbolAllocator)
                 .appendProjections(ImmutableList.of(nearestAnalysis.candidateExpression()), symbolAllocator, idAllocator);
 
         Symbol orderingSymbol = candidateBuilder.translate(nearestAnalysis.candidateExpression());
@@ -1369,18 +1370,18 @@ class RelationPlanner
 
     private RelationPlan planCorrelatedJoin(Join join, RelationPlan leftPlan, Lateral lateral)
     {
-        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
         RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries)
                 .process(lateral.getQuery(), null);
 
-        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
+        PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getFieldMappings())
                 .addAll(rightPlan.getFieldMappings())
                 .build();
-        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(join), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext)
+        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(join), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext, symbolAllocator)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
@@ -1433,7 +1434,7 @@ class RelationPlanner
         }
 
         return planUnnest(
-                newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext),
+                newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator),
                 node,
                 leftPlan.getFieldMappings(),
                 joinNode.getType(),
@@ -1902,7 +1903,7 @@ class RelationPlanner
             outputSymbolsBuilder.add(symbol);
         }
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext);
+        TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext, symbolAllocator);
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (io.trino.sql.tree.Expression row : node.getRows()) {
@@ -1936,7 +1937,7 @@ class RelationPlanner
         parent.ifPresent(scope::withOuterQueryParent);
 
         PlanNode values = new ValuesNode(idAllocator.getNextId(), 1);
-        TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext);
+        TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext, symbolAllocator);
         return new PlanBuilder(translations, values);
     }
 

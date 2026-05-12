@@ -15,38 +15,49 @@ package io.trino.sql.ir;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.IrUtils.validateType;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Match(Expression operand, List<WhenClause> whenClauses, Expression defaultValue)
+public record Match(Expression operand, List<MatchClause> clauses, Expression defaultValue)
         implements Expression
 {
     public Match
     {
         requireNonNull(operand, "operand is null");
         requireNonNull(defaultValue, "defaultValue is null");
-        whenClauses = ImmutableList.copyOf(whenClauses);
+        clauses = ImmutableList.copyOf(clauses);
+        checkArgument(!clauses.isEmpty(), "clauses is empty");
 
-        for (WhenClause clause : whenClauses) {
-            validateType(operand.type(), clause.getOperand());
+        FunctionType expectedPredicateType = new FunctionType(List.of(operand.type()), BOOLEAN);
+        for (MatchClause clause : clauses) {
+            // The predicate is a Lambda or a Bind around one — both report a FunctionType, and
+            // capture desugaring keeps the outward shape unchanged because Bind reduces the
+            // wrapped lambda's arity by exactly the number of captured values.
+            checkArgument(clause.predicate().type().equals(expectedPredicateType),
+                    "predicate type %s does not match expected %s",
+                    clause.predicate().type(),
+                    expectedPredicateType);
         }
 
-        for (int i = 1; i < whenClauses.size(); i++) {
-            validateType(whenClauses.getFirst().getResult().type(), whenClauses.get(i).getResult());
+        for (int i = 1; i < clauses.size(); i++) {
+            validateType(clauses.getFirst().result().type(), clauses.get(i).result());
         }
 
-        validateType(whenClauses.getFirst().getResult().type(), defaultValue);
+        validateType(clauses.getFirst().result().type(), defaultValue);
     }
 
     @Override
     public Type type()
     {
-        return whenClauses.getFirst().getResult().type();
+        return clauses.getFirst().result().type();
     }
 
     @Override
@@ -61,9 +72,9 @@ public record Match(Expression operand, List<WhenClause> whenClauses, Expression
         ImmutableList.Builder<Expression> builder = ImmutableList.<Expression>builder()
                 .add(operand);
 
-        whenClauses.forEach(clause -> {
-            builder.add(clause.getOperand());
-            builder.add(clause.getResult());
+        clauses.forEach(clause -> {
+            builder.add(clause.predicate());
+            builder.add(clause.result());
         });
 
         builder.add(defaultValue);

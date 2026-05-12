@@ -160,6 +160,7 @@ import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
@@ -195,6 +196,7 @@ public class TranslationMap
     private final Optional<TranslationMap> outerContext;
     private final Session session;
     private final PlannerContext plannerContext;
+    private final SymbolAllocator symbolAllocator;
 
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
@@ -203,14 +205,14 @@ public class TranslationMap
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
     private final Map<NodeRef<Expression>, Symbol> substitutions;
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), session, plannerContext);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap(
@@ -222,7 +224,8 @@ public class TranslationMap
             Map<ScopeAware<Expression>, Symbol> astToSymbols,
             Map<NodeRef<Expression>, Symbol> substitutions,
             Session session,
-            PlannerContext plannerContext)
+            PlannerContext plannerContext,
+            SymbolAllocator symbolAllocator)
     {
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
@@ -230,6 +233,7 @@ public class TranslationMap
         this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaArguments is null");
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.substitutions = ImmutableMap.copyOf(substitutions);
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
@@ -246,12 +250,12 @@ public class TranslationMap
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, mappings, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, mappings, session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap withAdditionalMappings(Map<ScopeAware<Expression>, Symbol> mappings)
@@ -260,7 +264,7 @@ public class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap withAdditionalIdentityMappings(Map<NodeRef<Expression>, Symbol> mappings)
@@ -269,7 +273,7 @@ public class TranslationMap
         newMappings.putAll(this.substitutions);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, session, plannerContext);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, session, plannerContext, symbolAllocator);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -444,10 +448,13 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(SimpleCaseExpression expression)
     {
+        io.trino.sql.ir.Expression operand = translateExpression(expression.getOperand());
+        Symbol parameter = symbolAllocator.newSymbol("match_operand", operand.type());
         return new Match(
-                translateExpression(expression.getOperand()),
+                operand,
                 expression.getWhenClauses().stream()
-                        .map(clause -> new WhenClause(
+                        .map(clause -> equalityClause(
+                                parameter,
                                 translateExpression(clause.getOperand()),
                                 translateExpression(clause.getResult())))
                         .collect(toImmutableList()),

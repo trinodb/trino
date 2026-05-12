@@ -60,7 +60,7 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteSwitch(Match node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteMatch(Match node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }
