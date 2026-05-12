@@ -52,6 +52,7 @@ import io.trino.plugin.hive.util.ResumableTasks;
 import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -164,6 +165,7 @@ public class BackgroundHiveSplitLoader
     private final boolean ignoreAbsentPartitions;
     private final Executor executor;
     private final ConnectorSession session;
+    private final ConnectorExpressionEvaluator evaluator;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
@@ -211,7 +213,8 @@ public class BackgroundHiveSplitLoader
             boolean ignoreAbsentPartitions,
             Optional<ValidWriteIdList> validWriteIds,
             Optional<Long> maxSplitFileSize,
-            int maxPartitions)
+            int maxPartitions,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -235,6 +238,7 @@ public class BackgroundHiveSplitLoader
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         this.maxPartitions = maxPartitions;
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -441,7 +445,9 @@ public class BackgroundHiveSplitLoader
                     Optional.empty(),
                     maxSplitSize,
                     isForceLocalScheduling(session),
-                    maxSplitFileSize);
+                    maxSplitFileSize,
+                    session,
+                    evaluator);
 
             for (Entry<Location, List<Location>> entry : Multimaps.asMap(targets).entrySet()) {
                 fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
@@ -498,7 +504,9 @@ public class BackgroundHiveSplitLoader
                 bucketValidation,
                 maxSplitSize,
                 isForceLocalScheduling(session),
-                maxSplitFileSize);
+                maxSplitFileSize,
+                session,
+                evaluator);
 
         if (isTransactionalTable(table.getParameters())) {
             return getTransactionalSplits(location, splittable, bucketConversion, splitFactory);
