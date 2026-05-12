@@ -84,7 +84,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -96,6 +96,7 @@ import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -113,7 +114,6 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
-import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -143,9 +143,10 @@ import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.Row;
@@ -351,11 +352,11 @@ public class ExpressionAnalyzer
     // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
 
-    private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
+    private final Set<NodeRef<Predicated>> subqueryInPredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
-    private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons = new LinkedHashSet<>();
+    private final Set<NodeRef<Predicated>> quantifiedComparisons = new LinkedHashSet<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
@@ -499,7 +500,7 @@ public class ExpressionAnalyzer
         return unmodifiableMap(frameBoundCalculations);
     }
 
-    public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
+    public Set<NodeRef<Predicated>> getSubqueryInPredicates()
     {
         return unmodifiableSet(subqueryInPredicates);
     }
@@ -609,7 +610,7 @@ public class ExpressionAnalyzer
         return unmodifiableSet(existsSubqueries);
     }
 
-    public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
+    public Set<NodeRef<Predicated>> getQuantifiedComparisons()
     {
         return unmodifiableSet(quantifiedComparisons);
     }
@@ -922,31 +923,66 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitComparisonExpression(ComparisonExpression node, Context context)
+        protected Type visitPredicated(Predicated node, Context context)
         {
-            OperatorType operatorType = switch (node.getOperator()) {
-                case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
-                case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
-                case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> OperatorType.IDENTICAL;
+            return switch (node.getPredicate()) {
+                case BetweenPredicate predicate -> analyzeBetween(node, predicate, context);
+                case ComparisonPredicate predicate -> analyzeComparison(node, predicate, context);
+                case DistinctFromPredicate predicate -> analyzeDistinctFrom(node, predicate, context);
+                case InPredicate predicate -> analyzeInPredicate(node, predicate, context);
+                case IsNullPredicate _ -> analyzeIsNull(node, context);
+                case LikePredicate predicate -> analyzeLikePredicate(node, predicate, context);
+                case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node, predicate, context);
             };
-
-            return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
-        @Override
-        protected Type visitIsNullPredicate(IsNullPredicate node, Context context)
+        private Type analyzeBetween(Predicated node, BetweenPredicate predicate, Context context)
         {
-            process(node.getValue(), context);
+            Type valueType = process(node.getValue(), context);
+            Type minType = process(predicate.getMin(), context);
+            Type maxType = process(predicate.getMax(), context);
 
+            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
+                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
+
+            if (commonType.isEmpty()) {
+                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!commonType.get().isOrderable()) {
+                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+            }
+
+            if (!valueType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(node.getValue(), commonType.get());
+            }
+            if (!minType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(predicate.getMin(), commonType.get());
+            }
+            if (!maxType.equals(commonType.get())) {
+                addOrReplaceExpressionCoercion(predicate.getMax(), commonType.get());
+            }
             return setExpressionType(node, BOOLEAN);
         }
 
-        @Override
-        protected Type visitIsNotNullPredicate(IsNotNullPredicate node, Context context)
+        private Type analyzeComparison(Predicated node, ComparisonPredicate predicate, Context context)
+        {
+            OperatorType operatorType = switch (predicate.getOperator()) {
+                case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
+                case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
+                case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
+            };
+            return getOperator(context, node, operatorType, node.getValue(), predicate.getRight());
+        }
+
+        private Type analyzeDistinctFrom(Predicated node, DistinctFromPredicate predicate, Context context)
+        {
+            return getOperator(context, node, OperatorType.IDENTICAL, node.getValue(), predicate.getRight());
+        }
+
+        private Type analyzeIsNull(Predicated node, Context context)
         {
             process(node.getValue(), context);
-
             return setExpressionType(node, BOOLEAN);
         }
 
@@ -1091,21 +1127,20 @@ public class ExpressionAnalyzer
             return getOperator(context, node, OperatorType.valueOf(node.getOperator().name()), node.getLeft(), node.getRight());
         }
 
-        @Override
-        protected Type visitLikePredicate(LikePredicate node, Context context)
+        private Type analyzeLikePredicate(Predicated node, LikePredicate predicate, Context context)
         {
             Type valueType = process(node.getValue(), context);
             if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
                 coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
             }
 
-            Type patternType = process(node.getPattern(), context);
+            Type patternType = process(predicate.getPattern(), context);
             if (!(patternType instanceof VarcharType)) {
                 // TODO can pattern be of char type?
-                coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+                coerceType(context, predicate.getPattern(), VARCHAR, "Pattern for LIKE expression");
             }
-            if (node.getEscape().isPresent()) {
-                Expression escape = node.getEscape().get();
+            if (predicate.getEscape().isPresent()) {
+                Expression escape = predicate.getEscape().get();
                 Type escapeType = process(escape, context);
                 if (!(escapeType instanceof VarcharType)) {
                     // TODO can escape be of char type?
@@ -2721,37 +2756,6 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitBetweenPredicate(BetweenPredicate node, Context context)
-        {
-            Type valueType = process(node.getValue(), context);
-            Type minType = process(node.getMin(), context);
-            Type maxType = process(node.getMax(), context);
-
-            Optional<Type> commonType = typeCoercion.getCommonSuperType(valueType, minType)
-                    .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
-
-            if (commonType.isEmpty()) {
-                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
-            }
-
-            if (!commonType.get().isOrderable()) {
-                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
-            }
-
-            if (!valueType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getValue(), commonType.get());
-            }
-            if (!minType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMin(), commonType.get());
-            }
-            if (!maxType.equals(commonType.get())) {
-                addOrReplaceExpressionCoercion(node.getMax(), commonType.get());
-            }
-
-            return setExpressionType(node, BOOLEAN);
-        }
-
-        @Override
         public Type visitTryExpression(TryExpression node, Context context)
         {
             // TRY is rewritten to lambda, and lambda is not supported in pattern recognition
@@ -2791,11 +2795,10 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        @Override
-        protected Type visitInPredicate(InPredicate node, Context context)
+        private Type analyzeInPredicate(Predicated node, InPredicate predicate, Context context)
         {
             Expression value = node.getValue();
-            Expression valueList = node.getValueList();
+            Expression valueList = predicate.getValueList();
 
             // When an IN-predicate containing a subquery: `x IN (SELECT ...)` is planned, both `value` and `valueList` are pre-planned.
             // In the row pattern matching context, expressions can contain labeled column references, navigations, CALSSIFIER(), and MATCH_NUMBER() calls.
@@ -2843,7 +2846,7 @@ public class ExpressionAnalyzer
                 analyzePredicateWithSubquery(node, process(value, context), subqueryExpression, context);
             }
             else {
-                throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
+                throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + valueList.getClass().getName());
             }
 
             return setExpressionType(node, BOOLEAN);
@@ -2967,15 +2970,14 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BOOLEAN);
         }
 
-        @Override
-        protected Type visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Context context)
+        private Type analyzeQuantifiedComparison(Predicated node, QuantifiedComparisonPredicate predicate, Context context)
         {
             quantifiedComparisons.add(NodeRef.of(node));
 
             Type declaredValueType = process(node.getValue(), context);
-            Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) node.getSubquery(), context);
+            Type comparisonType = analyzePredicateWithSubquery(node, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
 
-            switch (node.getOperator()) {
+            switch (predicate.getOperator()) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                     if (!comparisonType.isOrderable()) {
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
@@ -2986,7 +2988,6 @@ public class ExpressionAnalyzer
                         throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
                 }
-                default -> throw new IllegalStateException(format("Unexpected comparison type: %s", node.getOperator()));
             }
 
             return setExpressionType(node, BOOLEAN);

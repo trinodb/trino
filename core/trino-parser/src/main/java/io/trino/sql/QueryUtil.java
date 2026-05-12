@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -27,6 +27,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryBody;
@@ -127,7 +128,7 @@ public final class QueryUtil
 
     public static Expression equal(Expression left, Expression right)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, left, right);
+        return new Predicated(null, left, new ComparisonPredicate(null, ComparisonPredicate.Operator.EQUAL, right));
     }
 
     public static Expression functionCall(String name, Expression... arguments)

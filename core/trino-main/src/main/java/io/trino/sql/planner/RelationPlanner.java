@@ -107,7 +107,7 @@ import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Identifier;
@@ -138,6 +138,7 @@ import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryColumn;
@@ -189,12 +190,10 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
-import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
@@ -947,7 +946,7 @@ class RelationPlanner
         if (type != CROSS && type != IMPLICIT) {
             List<io.trino.sql.tree.Expression> leftComparisonExpressions = new ArrayList<>();
             List<io.trino.sql.tree.Expression> rightComparisonExpressions = new ArrayList<>();
-            List<ComparisonExpression.Operator> joinConditionComparisonOperators = new ArrayList<>();
+            List<ComparisonPredicate.Operator> joinConditionComparisonOperators = new ArrayList<>();
 
             for (io.trino.sql.tree.Expression conjunct : AstUtils.extractConjuncts(criteria)) {
                 if (!isEqualComparisonExpression(conjunct) && type != INNER) {
@@ -962,10 +961,10 @@ class RelationPlanner
                     // it to the list complex expressions and let the optimizers figure out how to push it down later.
                     complexJoinExpressions.add(conjunct);
                 }
-                else if (conjunct instanceof ComparisonExpression comparisonExpression) {
-                    io.trino.sql.tree.Expression firstExpression = comparisonExpression.getLeft();
-                    io.trino.sql.tree.Expression secondExpression = comparisonExpression.getRight();
-                    ComparisonExpression.Operator comparisonOperator = comparisonExpression.getOperator();
+                else if (conjunct instanceof Predicated predicated && predicated.getPredicate() instanceof ComparisonPredicate comparison) {
+                    io.trino.sql.tree.Expression firstExpression = predicated.getValue();
+                    io.trino.sql.tree.Expression secondExpression = comparison.getRight();
+                    ComparisonPredicate.Operator comparisonOperator = comparison.getOperator();
                     Set<QualifiedName> firstDependencies = NamesExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = NamesExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
@@ -1002,7 +1001,7 @@ class RelationPlanner
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                if (joinConditionComparisonOperators.get(i) == ComparisonExpression.Operator.EQUAL) {
+                if (joinConditionComparisonOperators.get(i) == ComparisonPredicate.Operator.EQUAL) {
                     Symbol leftSymbol = leftCoercions.get(leftComparisonExpressions.get(i));
                     Symbol rightSymbol = rightCoercions.get(rightComparisonExpressions.get(i));
 
@@ -1094,7 +1093,7 @@ class RelationPlanner
         return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
 
-    private Expression translateComparison(ComparisonExpression.Operator operator, Symbol left, Symbol right)
+    private Expression translateComparison(ComparisonPredicate.Operator operator, Symbol left, Symbol right)
     {
         return switch (operator) {
             case EQUAL -> new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
@@ -1103,7 +1102,6 @@ class RelationPlanner
             case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
             case GREATER_THAN -> new Comparison(GREATER_THAN, left.toSymbolReference(), right.toSymbolReference());
             case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
-            case IS_DISTINCT_FROM -> not(plannerContext.getMetadata(), new Comparison(IDENTICAL, left.toSymbolReference(), right.toSymbolReference()));
         };
     }
 
@@ -1413,7 +1411,9 @@ class RelationPlanner
 
     private static boolean isEqualComparisonExpression(io.trino.sql.tree.Expression conjunct)
     {
-        return conjunct instanceof ComparisonExpression comparison && comparison.getOperator() == ComparisonExpression.Operator.EQUAL;
+        return conjunct instanceof Predicated predicated
+                && predicated.getPredicate() instanceof ComparisonPredicate comparison
+                && comparison.getOperator() == ComparisonPredicate.Operator.EQUAL;
     }
 
     private RelationPlan planJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)

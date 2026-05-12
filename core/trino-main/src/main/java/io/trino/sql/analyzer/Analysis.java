@@ -60,7 +60,7 @@ import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -68,7 +68,6 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
@@ -80,8 +79,8 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
@@ -1803,12 +1802,12 @@ public class Analysis
 
     public static class SubqueryAnalysis
     {
-        private final List<InPredicate> inPredicatesSubqueries = new ArrayList<>();
+        private final List<Predicated> inPredicatesSubqueries = new ArrayList<>();
         private final List<SubqueryExpression> subqueries = new ArrayList<>();
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
-        private final List<QuantifiedComparisonExpression> quantifiedComparisonSubqueries = new ArrayList<>();
+        private final List<Predicated> quantifiedComparisonSubqueries = new ArrayList<>();
 
-        public void addInPredicates(List<InPredicate> expressions)
+        public void addInPredicates(List<Predicated> expressions)
         {
             inPredicatesSubqueries.addAll(expressions);
         }
@@ -1823,12 +1822,12 @@ public class Analysis
             existsSubqueries.addAll(expressions);
         }
 
-        public void addQuantifiedComparisons(List<QuantifiedComparisonExpression> expressions)
+        public void addQuantifiedComparisons(List<Predicated> expressions)
         {
             quantifiedComparisonSubqueries.addAll(expressions);
         }
 
-        public List<InPredicate> getInPredicatesSubqueries()
+        public List<Predicated> getInPredicatesSubqueries()
         {
             return unmodifiableList(inPredicatesSubqueries);
         }
@@ -1843,7 +1842,7 @@ public class Analysis
             return unmodifiableList(existsSubqueries);
         }
 
-        public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
+        public List<Predicated> getQuantifiedComparisonSubqueries()
         {
             return unmodifiableList(quantifiedComparisonSubqueries);
         }
@@ -2668,7 +2667,7 @@ public class Analysis
     }
 
     public record NearestAnalysis(
-            ComparisonExpression.Operator operator,
+            ComparisonPredicate.Operator operator,
             Expression candidateExpression)
     {
         public NearestAnalysis
