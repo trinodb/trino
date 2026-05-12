@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -103,6 +104,87 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1, 2] trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
+    public void testJsonScalar()
+    {
+        // SQL:2023 §6.41 GR 2a: a SQL null input yields the SQL null value, not the JSON null item
+        assertThat(assertions.function("json_scalar", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "CAST(null AS bigint)"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        // json_scalar has no char overload: the engine's char-to-varchar coercion applies, so
+        // a char follows whatever coercion is configured (no padding by default).
+        assertThat(assertions.function("json_scalar", "CAST('abc' AS char(5))"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '1.20'"))
+                .hasType(JSON)
+                .isEqualTo("1.20");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '12345678901234567890.123456789'"))
+                .hasType(JSON)
+                .isEqualTo("12345678901234567890.123456789");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123456789012+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123 +02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012 +02:00\"");
+
+        // The datetime items keep their SQL type, so casting back is lossless — a JSON string
+        // that merely looks like a date would have to be re-parsed.
+        assertThat(assertions.expression("CAST(json_scalar(DATE '2024-01-02') AS DATE)"))
+                .matches("DATE '2024-01-02'");
+
+        assertThat(assertions.expression("CAST(json_scalar(TIME '03:04:05.123') AS TIME(3))"))
+                .matches("TIME '03:04:05.123'");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessageContaining("Unexpected parameters (array(integer)) for function json_scalar");
     }
 
     @Test

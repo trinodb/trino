@@ -235,6 +235,7 @@
 - [json_object()](json-object)
 - {func}`json_parse`
 - [json_query()](json-query)
+- {func}`json_scalar`
 - {func}`json_size`
 - [json_value()](json-value)
 
