@@ -60,6 +60,7 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis.OperandAndPredicate;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
@@ -315,6 +316,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Locale.ENGLISH;
@@ -353,11 +355,11 @@ public class ExpressionAnalyzer
     // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
 
-    private final Set<NodeRef<Predicated>> subqueryInPredicates = new LinkedHashSet<>();
-    private final Map<NodeRef<Expression>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
+    private final List<OperandAndPredicate> subqueryInPredicates = new ArrayList<>();
+    private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
-    private final Set<NodeRef<Predicated>> quantifiedComparisons = new LinkedHashSet<>();
+    private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
@@ -501,12 +503,12 @@ public class ExpressionAnalyzer
         return unmodifiableMap(frameBoundCalculations);
     }
 
-    public Set<NodeRef<Predicated>> getSubqueryInPredicates()
+    public List<OperandAndPredicate> getSubqueryInPredicates()
     {
-        return unmodifiableSet(subqueryInPredicates);
+        return unmodifiableList(subqueryInPredicates);
     }
 
-    public Map<NodeRef<Expression>, PredicateCoercions> getPredicateCoercions()
+    public Map<NodeRef<Predicate>, PredicateCoercions> getPredicateCoercions()
     {
         return unmodifiableMap(predicateCoercions);
     }
@@ -611,9 +613,9 @@ public class ExpressionAnalyzer
         return unmodifiableSet(existsSubqueries);
     }
 
-    public Set<NodeRef<Predicated>> getQuantifiedComparisons()
+    public List<OperandAndPredicate> getQuantifiedComparisons()
     {
-        return unmodifiableSet(quantifiedComparisons);
+        return unmodifiableList(quantifiedComparisons);
     }
 
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
@@ -1076,11 +1078,10 @@ public class ExpressionAnalyzer
                         case BetweenPredicate fragment -> analyzeBetween(operand, fragment, whenClause, context);
                         case ComparisonPredicate fragment -> analyzeComparison(operand, fragment, whenClause, context);
                         case DistinctFromPredicate fragment -> analyzeDistinctFrom(operand, fragment, whenClause, context);
-                        case InPredicate fragment when fragment.getValueList() instanceof InListExpression -> analyzeInPredicate(operand, fragment, whenClause, context);
-                        case InPredicate _ -> throw semanticException(NOT_SUPPORTED, whenClause, "WHEN with a subquery IN predicate is not supported in CASE expressions");
+                        case InPredicate fragment -> analyzeInPredicate(operand, fragment, whenClause, context);
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLikePredicate(operand, fragment, whenClause, context);
-                        case QuantifiedComparisonPredicate _ -> throw semanticException(NOT_SUPPORTED, whenClause, "WHEN with a quantified comparison is not supported in CASE expressions");
+                        case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                     }
                 }
             }
@@ -2892,9 +2893,8 @@ public class ExpressionAnalyzer
                 setExpressionType(inListExpression, type);
             }
             else if (valueList instanceof SubqueryExpression subqueryExpression) {
-                Predicated predicatedAnchor = (Predicated) anchor;
-                subqueryInPredicates.add(NodeRef.of(predicatedAnchor));
-                analyzePredicateWithSubquery(predicatedAnchor, process(value, context), subqueryExpression, context);
+                subqueryInPredicates.add(new OperandAndPredicate(value, predicate));
+                analyzePredicateWithSubquery(predicate, process(value, context), subqueryExpression, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + valueList.getClass().getName());
@@ -2928,7 +2928,7 @@ public class ExpressionAnalyzer
         /**
          * @return the common supertype between the value type and subquery type
          */
-        private Type analyzePredicateWithSubquery(Expression node, Type declaredValueType, SubqueryExpression subquery, Context context)
+        private Type analyzePredicateWithSubquery(Predicate predicate, Type declaredValueType, SubqueryExpression subquery, Context context)
         {
             Type valueRowType = declaredValueType;
             if (!(declaredValueType instanceof RowType) && !(declaredValueType instanceof UnknownType)) {
@@ -2941,7 +2941,7 @@ public class ExpressionAnalyzer
             Optional<Type> commonType = typeCoercion.getCommonSuperType(valueRowType, subqueryType);
 
             if (commonType.isEmpty()) {
-                throw semanticException(TYPE_MISMATCH, node, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
+                throw semanticException(TYPE_MISMATCH, predicate, "Value expression and result of subquery must be of the same type: %s vs %s", valueRowType, subqueryType);
             }
 
             Optional<Type> valueCoercion = Optional.empty();
@@ -2954,7 +2954,7 @@ public class ExpressionAnalyzer
                 subQueryCoercion = commonType;
             }
 
-            predicateCoercions.put(NodeRef.of(node), new PredicateCoercions(valueRowType, valueCoercion, subQueryCoercion));
+            predicateCoercions.put(NodeRef.of(predicate), new PredicateCoercions(valueRowType, valueCoercion, subQueryCoercion));
 
             return commonType.get();
         }
@@ -3023,11 +3023,10 @@ public class ExpressionAnalyzer
 
         private Type analyzeQuantifiedComparison(Expression value, QuantifiedComparisonPredicate predicate, Expression anchor, Context context)
         {
-            Predicated predicatedAnchor = (Predicated) anchor;
-            quantifiedComparisons.add(NodeRef.of(predicatedAnchor));
+            quantifiedComparisons.add(new OperandAndPredicate(value, predicate));
 
             Type declaredValueType = process(value, context);
-            Type comparisonType = analyzePredicateWithSubquery(predicatedAnchor, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
 
             switch (predicate.getOperator()) {
                 case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
