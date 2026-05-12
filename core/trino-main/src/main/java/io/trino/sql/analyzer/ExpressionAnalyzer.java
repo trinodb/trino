@@ -628,7 +628,9 @@ public class ExpressionAnalyzer
                 column.getQuotesBehavior(),
                 pathInvocationArgumentTypes,
                 Optional.of(column.getType()),
-                Optional.of(column.getFormat()));
+                Optional.of(column.getFormat()),
+                // JSON_TABLE columns always declare an explicit type, so the SR 1 implicit JSON return never applies
+                false);
     }
 
     private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode, CorrelationSupport correlationSupport)
@@ -3926,7 +3928,8 @@ public class ExpressionAnalyzer
                     node.getQuotesBehavior(),
                     pathInvocationArgumentTypes,
                     node.getReturnedType(),
-                    node.getOutputFormat());
+                    node.getOutputFormat(),
+                    JSON.equals(getExpressionType(node.getJsonPathInvocation().getInputExpression())));
             return setExpressionType(node, returnedType);
         }
 
@@ -3936,7 +3939,8 @@ public class ExpressionAnalyzer
                 Optional<JsonQuery.QuotesBehavior> quotesBehavior,
                 List<Type> pathInvocationArgumentTypes,
                 Optional<DataType> declaredReturnedType,
-                Optional<JsonFormat> declaredOutputFormat)
+                Optional<JsonFormat> declaredOutputFormat,
+                boolean jsonTypedInput)
         {
             // wrapper behavior, empty behavior and error behavior will be passed as arguments to function
             // quotes behavior is handled by the corresponding output function
@@ -3966,7 +3970,7 @@ public class ExpressionAnalyzer
             resolvedFunctions.put(NodeRef.of(node), function);
 
             // analyze returned type and format
-            Type returnedType = VARCHAR; // default
+            Type returnedType;
             if (declaredReturnedType.isPresent()) {
                 try {
                     returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(declaredReturnedType.get()));
@@ -3974,6 +3978,14 @@ public class ExpressionAnalyzer
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
+            }
+            else if (jsonTypedInput) {
+                // SQL:2023 §6.35 SR 1: when the input is JSON-typed and no RETURNING clause is given,
+                // the implicit returned type is JSON
+                returnedType = JSON;
+            }
+            else {
+                returnedType = VARCHAR;
             }
 
             // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
