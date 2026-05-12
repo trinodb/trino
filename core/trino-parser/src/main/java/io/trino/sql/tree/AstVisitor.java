@@ -1257,6 +1257,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitJsonSerialize(JsonSerialize node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitJsonPathInvocation(JsonPathInvocation node, C context)
     {
         return visitNode(node, context);
