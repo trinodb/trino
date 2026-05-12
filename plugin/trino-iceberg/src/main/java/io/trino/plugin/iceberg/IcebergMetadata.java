@@ -85,6 +85,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -122,6 +123,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.BoundSignature;
@@ -512,6 +514,7 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final ConnectorExpressionEvaluator evaluator;
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -533,7 +536,8 @@ public class IcebergMetadata
             ExecutorService icebergPlanningExecutor,
             ExecutorService icebergFileDeleteExecutor,
             int materializedViewRefreshMaxSnapshotsToExpire,
-            Duration materializedViewRefreshSnapshotRetentionPeriod)
+            Duration materializedViewRefreshSnapshotRetentionPeriod,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -553,6 +557,7 @@ public class IcebergMetadata
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -3598,7 +3603,9 @@ public class IcebergMetadata
         UtcConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain()
                 .transformKeys(IcebergColumnHandle.class::cast);
-        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
+        Map<String, ColumnHandle> assignments = constraint.getAssignments();
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(session, constraint.getExpression());
+        if (predicate.isAll() && Constant.TRUE.equals(constraint.getExpression())) {
             return Optional.empty();
         }
         if (table.getLimit().isPresent()) {
@@ -3652,8 +3659,9 @@ public class IcebergMetadata
 
         Set<IcebergColumnHandle> newConstraintColumns = Streams.concat(
                         table.getConstraintColumns().stream(),
-                        constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
-                                .map(columnHandle -> (IcebergColumnHandle) columnHandle))
+                        prepared.getArguments().stream()
+                                .map(assignments::get)
+                                .map(IcebergColumnHandle.class::cast))
                 .collect(toImmutableSet());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())

@@ -32,6 +32,7 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
@@ -195,7 +196,8 @@ public class TestIcebergSplitSource
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
                 new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
-                newDirectExecutorService())) {
+                newDirectExecutorService(),
+                ConnectorExpressionEvaluator.NO_OP)) {
             ImmutableList.Builder<IcebergSplit> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
@@ -421,7 +423,8 @@ public class TestIcebergSplitSource
                 0,
                 new NoopSplitAffinityProvider(),
                 new InMemoryMetricsReporter(),
-                newDirectExecutorService())) {
+                newDirectExecutorService(),
+                ConnectorExpressionEvaluator.NO_OP)) {
             ImmutableList.Builder<IcebergSplit> builder = ImmutableList.builder();
             while (!splitSource.isFinished()) {
                 splitSource.getNextBatch(100).get()
