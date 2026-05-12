@@ -1775,8 +1775,14 @@ SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
 --> failure: "duplicate key passed to JSON_OBJECT function"
 ```
 
-Note that this option is not supported if any of the arguments has a
-`FORMAT` specification.
+Keys are checked throughout the value, so an argument with a `FORMAT`
+specification is rejected when the JSON it carries contains duplicate keys
+at any level:
+
+```
+SELECT json_object('x' : '{"a": 1, "a": 2}' FORMAT JSON WITH UNIQUE KEYS)
+--> failure: "duplicate key passed to JSON_OBJECT function"
+```
 
 `WITHOUT UNIQUE KEYS` is the default configuration; duplicate keys are
 preserved in insertion order.

@@ -4185,12 +4185,6 @@ public class ExpressionAnalyzer
                 }
 
                 if (format.isPresent()) {
-                    // in case when there is an input expression with FORMAT option, the only supported behavior
-                    // for the JSON_OBJECT function is WITHOUT UNIQUE KEYS. This is because the functions used for
-                    // converting input to JSON only support this option.
-                    if (node.isUniqueKeys()) {
-                        throw semanticException(NOT_SUPPORTED, node, "WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
-                    }
                     // resolve function to read the value as JSON
                     ResolvedFunction inputFunction = getInputFunction(valueType, format.get(), value);
                     Type expectedValueType = inputFunction.signature().getArgumentType(0);

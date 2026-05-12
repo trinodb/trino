@@ -158,6 +158,13 @@ public class TestJsonObjectFunction
         assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITHOUT UNIQUE KEYS)"))
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1,\"a\":1}}'");
+
+        // WITH UNIQUE KEYS rejects duplicate keys nested inside a FORMAT JSON value.
+        assertThat(assertions.query(
+                "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("duplicate key passed to JSON_OBJECT function");
     }
 
     @Test
