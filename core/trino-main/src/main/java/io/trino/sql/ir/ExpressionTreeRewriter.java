@@ -260,7 +260,7 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitSwitch(Switch node, Context<C> context)
+        protected Expression visitMatch(Match node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteSwitch(node, context.get(), ExpressionTreeRewriter.this);
@@ -281,7 +281,7 @@ public final class ExpressionTreeRewriter<C>
             if (operand != node.operand() ||
                     node.defaultValue() != defaultValue ||
                     !sameElements(node.whenClauses(), builder.build())) {
-                return new Switch(operand, builder.build(), defaultValue);
+                return new Match(operand, builder.build(), defaultValue);
             }
 
             return node;

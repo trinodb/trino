@@ -41,7 +41,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = NullIf.class, name = "nullif"),
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
-        @JsonSubTypes.Type(value = Switch.class, name = "switch"),
+        @JsonSubTypes.Type(value = Match.class, name = "match"),
 })
 public sealed interface Expression
         permits Array,
@@ -58,10 +58,10 @@ public sealed interface Expression
                 IsNull,
                 Lambda,
                 Logical,
+                Match,
                 NullIf,
                 Reference,
-                Row,
-                Switch
+                Row
 {
     Type type();
 

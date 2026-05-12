@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.ir.optimizer.rule.EvaluateSwitch;
+import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -31,20 +31,20 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestEvaluateSwitch
+public class TestEvaluateMatch
 {
     @Test
     void test()
     {
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Reference(BIGINT, "x"),
                         ImmutableList.of(new WhenClause(new Constant(BIGINT, 1L), new Reference(VARCHAR, "a"))),
                         new Reference(VARCHAR, "b"))))
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Constant(BIGINT, 1L),
                         ImmutableList.of(new WhenClause(new Constant(BIGINT, 1L), new Reference(VARCHAR, "a"))),
                         new Reference(VARCHAR, "b"))))
@@ -52,7 +52,7 @@ public class TestEvaluateSwitch
                 .isEqualTo(Optional.of(new Reference(VARCHAR, "a")));
 
         assertThat(optimize(
-                new Switch(
+                new Match(
                         new Constant(BIGINT, 1L),
                         ImmutableList.of(new WhenClause(new Constant(BIGINT, 2L), new Reference(VARCHAR, "a"))),
                         new Reference(VARCHAR, "b"))))
@@ -62,6 +62,6 @@ public class TestEvaluateSwitch
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateSwitch(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateMatch(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
     }
 }

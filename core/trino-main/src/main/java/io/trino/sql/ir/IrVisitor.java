@@ -102,7 +102,7 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitSwitch(Switch node, C context)
+    protected R visitMatch(Match node, C context)
     {
         return visitExpression(node, context);
     }
