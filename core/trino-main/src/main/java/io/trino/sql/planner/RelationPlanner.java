@@ -1052,7 +1052,9 @@ class RelationPlanner
         }
         TranslationMap translationMap = new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext, symbolAllocator)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
-                .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
+                .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings())
+                .withAdditionalPredicateMappings(leftPlanBuilder.getTranslations().getPredicateMappings())
+                .withAdditionalPredicateMappings(rightPlanBuilder.getTranslations().getPredicateMappings());
 
         if (type != INNER && !complexJoinExpressions.isEmpty()) {
             root = new JoinNode(
@@ -1315,7 +1317,9 @@ class RelationPlanner
                 plannerContext,
                 symbolAllocator)
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
-                .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
+                .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings())
+                .withAdditionalPredicateMappings(leftPlanBuilder.getTranslations().getPredicateMappings())
+                .withAdditionalPredicateMappings(rightPlanBuilder.getTranslations().getPredicateMappings());
 
         PlanNode candidateRoot = new JoinNode(
                 idAllocator.getNextId(),

@@ -207,15 +207,26 @@ public class TranslationMap
     // current mappings of sub-expressions -> symbol
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
     private final Map<NodeRef<Expression>, Symbol> substitutions;
+    // scope-aware mappings of relational subquery predicates (`x IN (subquery)`, `x <op> ANY
+    // (subquery)`) planned by SubqueryPlanner. Keyed scope-aware on both the operand and the
+    // predicate, so that structurally equal `value <predicate>` occurrences are recognized as
+    // already planned across handleSubqueries calls.
+    private final Map<RelationalPredicateKey, Symbol> predicateSubstitutions;
+
+    /// Scope-aware grouping key for a relational subquery predicate: a `value <predicate>` pair
+    /// where `value` is the left operand and `predicate` is an `IN (subquery)` or `<op> ANY
+    /// (subquery)` node. Two pairs are equal only when both the operand and the predicate are
+    /// scope-aware equivalent.
+    public record RelationalPredicateKey(ScopeAware<Expression> value, ScopeAware<Predicate> predicate) {}
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
-        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), session, plannerContext, symbolAllocator);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap(
@@ -226,6 +237,7 @@ public class TranslationMap
             Symbol[] fieldSymbols,
             Map<ScopeAware<Expression>, Symbol> astToSymbols,
             Map<NodeRef<Expression>, Symbol> substitutions,
+            Map<RelationalPredicateKey, Symbol> predicateSubstitutions,
             Session session,
             PlannerContext plannerContext,
             SymbolAllocator symbolAllocator)
@@ -238,6 +250,7 @@ public class TranslationMap
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.substitutions = ImmutableMap.copyOf(substitutions);
+        this.predicateSubstitutions = ImmutableMap.copyOf(requireNonNull(predicateSubstitutions, "predicateSubstitutions is null"));
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();
@@ -253,7 +266,7 @@ public class TranslationMap
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, session, plannerContext, symbolAllocator);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols, substitutions, predicateSubstitutions, session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
@@ -267,7 +280,7 @@ public class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, session, plannerContext, symbolAllocator);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings, substitutions, predicateSubstitutions, session, plannerContext, symbolAllocator);
     }
 
     public TranslationMap withAdditionalIdentityMappings(Map<NodeRef<Expression>, Symbol> mappings)
@@ -276,7 +289,19 @@ public class TranslationMap
         newMappings.putAll(this.substitutions);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, session, plannerContext, symbolAllocator);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, newMappings, predicateSubstitutions, session, plannerContext, symbolAllocator);
+    }
+
+    /// Register scope-aware mappings of relational subquery predicates to their planned symbols.
+    /// Used by `SubqueryPlanner` so that structurally equal predicate occurrences are recognized
+    /// as already planned and not re-planned across `handleSubqueries` calls.
+    public TranslationMap withAdditionalPredicateMappings(Map<RelationalPredicateKey, Symbol> mappings)
+    {
+        Map<RelationalPredicateKey, Symbol> newMappings = new HashMap<>();
+        newMappings.putAll(this.predicateSubstitutions);
+        newMappings.putAll(mappings);
+
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, astToSymbols, substitutions, newMappings, session, plannerContext, symbolAllocator);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -287,6 +312,11 @@ public class TranslationMap
     public Map<ScopeAware<Expression>, Symbol> getMappings()
     {
         return astToSymbols;
+    }
+
+    public Map<RelationalPredicateKey, Symbol> getPredicateMappings()
+    {
+        return predicateSubstitutions;
     }
 
     public Analysis getAnalysis()
@@ -308,6 +338,15 @@ public class TranslationMap
         }
 
         return false;
+    }
+
+    /// Whether the given relational `value <predicate>` pair has already been planned by
+    /// `SubqueryPlanner`. The pair counts as planned when the predicate node itself, or a
+    /// scope-aware equivalent `value <predicate>` occurrence, has a planned symbol. Used by
+    /// `SubqueryPlanner` to skip predicates handled by a sub-plan.
+    public boolean isPlanned(Expression value, Predicate predicate)
+    {
+        return findPlannedPredicate(value, predicate) != null;
     }
 
     public io.trino.sql.ir.Expression rewrite(Expression root)
@@ -457,7 +496,7 @@ public class TranslationMap
         return new Match(
                 operand,
                 expression.getWhenClauses().stream()
-                        .map(clause -> translateWhenClause(clause, parameter, parameterReference))
+                        .map(clause -> translateWhenClause(clause, expression.getOperand(), parameter, parameterReference))
                         .collect(toImmutableList()),
                 expression.getDefaultValue()
                         .map(this::translateExpression)
@@ -468,13 +507,43 @@ public class TranslationMap
     /// WHENs become `(p) -> p = value`; extended-CASE WHENs become a lambda whose body is the
     /// boolean IR for the surrounding [Predicate] fragment, with the case operand bound once
     /// via the lambda parameter rather than re-evaluated for each clause.
-    private MatchClause translateWhenClause(WhenClause clause, Symbol parameter, Reference parameterReference)
+    private MatchClause translateWhenClause(WhenClause clause, Expression caseOperand, Symbol parameter, Reference parameterReference)
     {
         io.trino.sql.ir.Expression result = translateExpression(clause.getResult());
         return switch (clause.getMatch()) {
             case Operand operand -> equalityClause(parameter, translateExpression(operand.expression()), result);
-            case Partial partial -> new MatchClause(new Lambda(ImmutableList.of(parameter), translatePartial(parameterReference, partial.predicate())), result);
+            case Partial partial -> {
+                io.trino.sql.ir.Expression body = translatePartialClause(caseOperand, parameterReference, partial.predicate());
+                yield new MatchClause(new Lambda(ImmutableList.of(parameter), body), result);
+            }
         };
+    }
+
+    /// Whether a [Predicate] is relational, i.e. its right-hand side is a subquery that
+    /// `SubqueryPlanner` plans into a boolean symbol. A quantified comparison is always
+    /// relational; an IN predicate is relational only when its value list is a subquery
+    /// rather than an explicit [InListExpression].
+    private static boolean isRelationalPredicate(Predicate predicate)
+    {
+        return predicate instanceof QuantifiedComparisonPredicate
+                || (predicate instanceof InPredicate in && !(in.getValueList() instanceof InListExpression));
+    }
+
+    /// Lower an extended-CASE predicate fragment to a clause body over the bound case operand.
+    /// Scalar fragments translate in place via [#translatePartial]. A quantified-comparison or
+    /// IN-subquery fragment is relational: `SubqueryPlanner` has already planned it into a
+    /// boolean symbol, recovered here via the scope-aware lookup keyed on the case operand and
+    /// the fragment.
+    private io.trino.sql.ir.Expression translatePartialClause(Expression caseOperand, Reference parameterReference, Predicate fragment)
+    {
+        if (isRelationalPredicate(fragment)) {
+            Symbol symbol = findPlannedPredicate(caseOperand, fragment);
+            if (symbol == null) {
+                throw new IllegalStateException("Relational extended-CASE fragment was not planned by SubqueryPlanner: " + fragment);
+            }
+            return symbol.toSymbolReference();
+        }
+        return translatePartial(parameterReference, fragment);
     }
 
     private io.trino.sql.ir.Expression translate(IfExpression expression)
@@ -498,8 +567,26 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(Predicated expression)
     {
+        Predicate predicate = expression.getPredicate();
+        if (isRelationalPredicate(predicate)) {
+            Symbol symbol = findPlannedPredicate(expression.getValue(), predicate);
+            if (symbol == null) {
+                throw new IllegalStateException("Relational predicate was not planned by SubqueryPlanner: " + predicate);
+            }
+            return symbol.toSymbolReference();
+        }
         io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
-        return translatePartial(value, expression.getPredicate());
+        return translatePartial(value, predicate);
+    }
+
+    /// Resolve the symbol that `SubqueryPlanner` planned for a relational `value <predicate>`
+    /// pair. The planner registers a single scope-aware mapping keyed on both the operand and the
+    /// predicate, which also matches structurally equal `value <predicate>` occurrences.
+    private Symbol findPlannedPredicate(Expression value, Predicate predicate)
+    {
+        return predicateSubstitutions.get(new RelationalPredicateKey(
+                scopeAwareKey(value, analysis, scope),
+                scopeAwareKey(predicate, analysis, scope)));
     }
 
     private io.trino.sql.ir.Expression translatePartial(io.trino.sql.ir.Expression value, Predicate clause)

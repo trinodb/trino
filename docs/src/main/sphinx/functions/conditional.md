@@ -50,8 +50,10 @@ The supported predicate fragments are:
 | Fragment                          | Reads as                              |
 | --------------------------------- | ------------------------------------- |
 | `op value`                        | `expression op value` for comparison `op` |
+| `op {ANY \| ALL \| SOME} (query)` | `expression op {ANY \| ALL \| SOME} (query)` |
 | `[NOT] BETWEEN low AND high`      | `expression [NOT] BETWEEN low AND high` |
 | `[NOT] IN (value, ...)`           | `expression [NOT] IN (value, ...)` |
+| `[NOT] IN (subquery)`             | `expression [NOT] IN (subquery)` |
 | `[NOT] LIKE pattern [ESCAPE c]`   | `expression [NOT] LIKE pattern [ESCAPE c]` |
 | `IS [NOT] NULL`                   | `expression IS [NOT] NULL` |
 | `IS [NOT] DISTINCT FROM value`    | `expression IS [NOT] DISTINCT FROM value` |
