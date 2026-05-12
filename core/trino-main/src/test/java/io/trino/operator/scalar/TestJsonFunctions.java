@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
+
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -478,41 +480,69 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetSkipsUnselectedValues()
+    {
+        for (String input : new String[] {"'[\"\\uD800\", 5]'", "'[[1e400], 5]'", "'[{\"a\": 1e400}, 5]'"}) {
+            for (String index : new String[] {"1", "-1"}) {
+                assertThat(assertions.function("json_array_get", input, index))
+                        .hasType(JSON)
+                        .isEqualTo("5");
+            }
+            for (String index : new String[] {"0", "-2"}) {
+                assertThat(assertions.function("json_array_get", input, index))
+                        .isNull(JSON);
+            }
+        }
+
+        for (String index : new String[] {"1", "-1"}) {
+            assertThat(assertions.function("json_array_get", "'[[1,], 5]'", index))
+                    .isNull(JSON);
+        }
+        assertThat(assertions.function("json_array_get", "'[5, [1,]]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("5");
+        assertThat(assertions.function("json_array_get", "'[5, [1,]]'", "-2"))
+                .isNull(JSON);
+    }
+
+    @Test
     public void testJsonArrayGetString()
     {
+        // A JSON column holds JSON values, so a string element round-trips through
+        // getObjectValue as the quoted form `"jhfa"` — a bare `jhfa` is not valid JSON.
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -609,6 +639,12 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayGetNonScalar()
     {
+        for (String index : List.of("0", "-1")) {
+            assertThat(assertions.function("json_array_get", "'[{\"a\":1,\"a\":2}]'", index))
+                    .hasType(JSON)
+                    .isEqualTo("{\"a\":1,\"a\":2}");
+        }
+
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}]'", "0"))
                 .hasType(JSON)
                 .isEqualTo("{\"hello\":\"world\"}");

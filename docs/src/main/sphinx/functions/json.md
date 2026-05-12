@@ -1988,24 +1988,11 @@ SELECT json_array_contains('[1, 2, 3]', 2); -- true
 
 ::::{function} json_array_get(json_array, index) -> json
 
-:::{warning}
-The semantics of this function are broken. If the extracted element
-is a string, it will be converted into an invalid `JSON` value that
-is not properly quoted (the value will not be surrounded by quotes
-and any interior quotes will not be escaped).
-
-We recommend against using this function. It cannot be fixed without
-impacting existing usages and may be removed in a future release.
-
-Use {ref}`json_query<json-query>` instead with JSONPath array indexing
-syntax, e.g., `json_query(json_array, 'lax $[0]')`.
-:::
-
 Returns the element at the specified index into the `json_array`.
 The index is zero-based:
 
 ```
-SELECT json_array_get('["a", [3, 9], "c"]', 0); -- JSON 'a' (invalid JSON)
+SELECT json_array_get('["a", [3, 9], "c"]', 0); -- JSON '"a"'
 SELECT json_array_get('["a", [3, 9], "c"]', 1); -- JSON '[3,9]'
 ```
 
@@ -2013,7 +2000,7 @@ This function also supports negative indexes for fetching element indexed
 from the end of an array:
 
 ```
-SELECT json_array_get('["c", [3, 9], "a"]', -1); -- JSON 'a' (invalid JSON)
+SELECT json_array_get('["c", [3, 9], "a"]', -1); -- JSON '"a"'
 SELECT json_array_get('["c", [3, 9], "a"]', -2); -- JSON '[3,9]'
 ```
 
@@ -2024,7 +2011,7 @@ SELECT json_array_get('[]', 0);                -- NULL
 SELECT json_array_get('["a", "b", "c"]', 10);  -- NULL
 SELECT json_array_get('["c", "b", "a"]', -10); -- NULL
 ```
-::::
+:::
 
 :::{function} json_array_length(json) -> bigint
 Returns the array length of `json` (a string containing a JSON array):

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
@@ -32,8 +33,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.JsonPathType;
 
 import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -364,11 +363,6 @@ public final class JsonFunctions
                 return null;
             }
 
-            List<String> tokens = null;
-            if (index < 0) {
-                tokens = new LinkedList<>();
-            }
-
             long count = 0;
             while (true) {
                 JsonToken token = parser.nextToken();
@@ -376,37 +370,26 @@ public final class JsonFunctions
                     return null;
                 }
                 if (token == END_ARRAY) {
-                    if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                    if (index < 0 && count + index >= 0) {
+                        // Count without materializing skipped values, then read only the selected element.
+                        return jsonArrayGet(json, count + index);
                     }
 
                     return null;
                 }
 
-                String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
-                }
-                else {
-                    arrayElement = parser.getValueAsString();
-                }
-
                 if (count == index) {
+                    if (token == START_OBJECT || token == START_ARRAY || token == VALUE_STRING) {
+                        return JsonItems.toText(JsonItems.parseItem(parser));
+                    }
+                    String arrayElement = parser.getValueAsString();
                     return arrayElement == null ? null : utf8Slice(arrayElement);
                 }
-
-                if (tokens != null) {
-                    tokens.add(arrayElement);
-
-                    if (count >= index * -1) {
-                        tokens.remove(0);
-                    }
-                }
-
+                parser.skipChildren();
                 count++;
             }
         }
-        catch (IOException e) {
+        catch (IOException | TrinoException e) {
             return null;
         }
     }
