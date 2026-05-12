@@ -153,7 +153,7 @@ public class EntriesTable
         appendDataFile((RowBlockBuilder) pageSource.nextColumn(), dataFile);
         ReadableMetricsStruct readableMetrics = row.get("readable_metrics", ReadableMetricsStruct.class);
         String readableMetricsJson = readableMetricsToJson(readableMetrics, primitiveFields);
-        pageSource.appendVarchar(readableMetricsJson);
+        pageSource.appendJson(readableMetricsJson);
     }
 
     private void appendDataFile(RowBlockBuilder blockBuilder, StructProjection dataFile)

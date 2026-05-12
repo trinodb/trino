@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.Json;
 import io.trino.spi.Page;
 
 import java.util.Arrays;
@@ -31,7 +31,7 @@ public class FragmentCross
 
     private Page input;
     private int position;
-    private JsonNode currentItem;
+    private Json currentItem;
     private int currentSiblingIndex;
 
     public FragmentCross(List<JsonTableProcessingFragment> siblings)
@@ -45,7 +45,7 @@ public class FragmentCross
     }
 
     @Override
-    public void reset(JsonNode item, Page input, int position)
+    public void reset(Json item, Page input, int position)
     {
         this.currentItem = requireNonNull(item, "item is null");
         this.input = requireNonNull(input, "input is null");

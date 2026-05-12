@@ -13,15 +13,11 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,14 +29,14 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.type.Json2016Type.JSON_2016;
+import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -48,10 +44,11 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJsonInputFunctions
 {
-    private static final String INPUT = "{\"key1\" : 1e0, \"key2\" : true, \"key3\" : null}";
-    private static final JsonNode JSON_OBJECT = new ObjectNode(
-            JsonNodeFactory.instance,
-            ImmutableMap.of("key1", DoubleNode.valueOf(1e0), "key2", BooleanNode.TRUE, "key3", NullNode.instance));
+    private static final String INPUT = "{\"key1\" : 1, \"key2\" : true, \"key3\" : null}";
+    // Integer JSON literals parse as BIGINT-typed values; using a plain `1` here matches
+    // the round-trip used by assertJsonValue (text → fromText → typed encoding) and avoids
+    // the DECIMAL/INTEGER mismatch that decimal-form literals (`1e0`) would introduce.
+    private static final Json JSON_OBJECT = JsonItems.fromText(Slices.utf8Slice("{\"key1\":1,\"key2\":true,\"key3\":null}"));
     private static final String ERROR_INPUT = "[...";
 
     private QueryAssertions assertions;
@@ -72,13 +69,8 @@ public class TestJsonInputFunctions
     @Test
     public void testVarcharToJson()
     {
-        assertThat(assertions.expression("\"$varchar_to_json\"('[]', true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(new ArrayNode(JsonNodeFactory.instance));
-
-        assertThat(assertions.expression("\"$varchar_to_json\"('" + INPUT + "', true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_OBJECT);
+        assertJsonValue("\"$varchar_to_json\"('[]', true)", JsonItems.fromJsonNode(new ArrayNode(JsonNodeFactory.instance)));
+        assertJsonValue("\"$varchar_to_json\"('" + INPUT + "', true)", JSON_OBJECT);
 
         // with unsuppressed input conversion error
         assertTrinoExceptionThrownBy(assertions.expression("\"$varchar_to_json\"('" + ERROR_INPUT + "', true)")::evaluate)
@@ -86,21 +78,14 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // with input conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varchar_to_json\"('" + ERROR_INPUT + "', false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varchar_to_json\"('" + ERROR_INPUT + "', false)");
     }
 
     @Test
     public void testVarbinaryUtf8ToJson()
     {
-        assertThat(assertions.expression("\"$varbinary_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_OBJECT);
-
-        assertThat(assertions.expression("\"$varbinary_utf8_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_OBJECT);
+        assertJsonValue("\"$varbinary_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", true)", JSON_OBJECT);
+        assertJsonValue("\"$varbinary_utf8_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", true)", JSON_OBJECT);
 
         // wrong input encoding
 
@@ -109,9 +94,7 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // wrong input encoding; conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf8_to_json\"(" + toVarbinary(INPUT, UTF_16LE) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf8_to_json\"(" + toVarbinary(INPUT, UTF_16LE) + ", false)");
 
         // correct encoding, incorrect input
 
@@ -121,17 +104,13 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // with input conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf8_to_json\"(" + toVarbinary(ERROR_INPUT, UTF_8) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf8_to_json\"(" + toVarbinary(ERROR_INPUT, UTF_8) + ", false)");
     }
 
     @Test
     public void testVarbinaryUtf16ToJson()
     {
-        assertThat(assertions.expression("\"$varbinary_utf16_to_json\"(" + toVarbinary(INPUT, UTF_16LE) + ", true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_OBJECT);
+        assertJsonValue("\"$varbinary_utf16_to_json\"(" + toVarbinary(INPUT, UTF_16LE) + ", true)", JSON_OBJECT);
 
         // wrong input encoding
         String varbinaryLiteral = toVarbinary(INPUT, UTF_16BE);
@@ -145,9 +124,7 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // wrong input encoding; conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf16_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf16_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", false)");
 
         // correct encoding, incorrect input
 
@@ -157,17 +134,13 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // with input conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf16_to_json\"(" + toVarbinary(ERROR_INPUT, UTF_16LE) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf16_to_json\"(" + toVarbinary(ERROR_INPUT, UTF_16LE) + ", false)");
     }
 
     @Test
     public void testVarbinaryUtf32ToJson()
     {
-        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, StandardCharsets.UTF_32LE) + ", true)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_OBJECT);
+        assertJsonValue("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, StandardCharsets.UTF_32LE) + ", true)", JSON_OBJECT);
 
         // wrong input encoding
 
@@ -180,9 +153,7 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // wrong input encoding; conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf32_to_json\"(" + toVarbinary(INPUT, UTF_8) + ", false)");
 
         // correct encoding, incorrect input
 
@@ -192,28 +163,47 @@ public class TestJsonInputFunctions
                 .hasMessage("conversion to JSON failed: ");
 
         // with input conversion error suppressed and converted to JSON_ERROR
-        assertThat(assertions.expression("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, StandardCharsets.UTF_32LE) + ", false)"))
-                .hasType(JSON_2016)
-                .isEqualTo(JSON_ERROR);
+        assertJsonError("\"$varbinary_utf32_to_json\"(" + toVarbinary(ERROR_INPUT, StandardCharsets.UTF_32LE) + ", false)");
     }
 
     @Test
     public void testNullInput()
     {
         assertThat(assertions.expression("\"$varchar_to_json\"(null, true)"))
-                .isNull(JSON_2016);
+                .isNull(JSON);
     }
 
     @Test
     public void testDuplicateObjectKeys()
     {
-        // A duplicate key does not cause error. The resulting object has one member with that key, chosen arbitrarily from the input entries.
-        // According to the SQL standard, this behavior is a correct implementation of the 'WITHOUT UNIQUE KEYS' option.
-        assertThat(assertions.expression("\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)"))
-                .hasType(JSON_2016)
-                .isIn(
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(1))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key", IntNode.valueOf(2))));
+        // A duplicate key does not cause error. The resulting object preserves all members
+        // with that key — JsonItems.fromText streams via Jackson's token API directly into
+        // a JsonItemBuilder, bypassing ObjectNode's collapse-to-Map behavior. This matches
+        // SQL:2023 §9.42 'WITHOUT UNIQUE KEYS'.
+        assertJsonValue(
+                "\"$varchar_to_json\"('{\"key\" : 1, \"key\" : 2}', true)",
+                JsonItems.fromText(Slices.utf8Slice("{\"key\":1,\"key\":2}")));
+    }
+
+    /// Compares the function's typed-encoding output to {@code expected} via a text round-trip.
+    /// JsonType's getObjectValue stringifies on read, so we re-parse the actual text back to a
+    /// Json before comparing — preserves number-precision and duplicate-key fidelity.
+    private void assertJsonValue(String expression, Json expected)
+    {
+        assertThat(assertions.expression(expression))
+                .hasType(JSON)
+                .satisfies(actual -> assertThat(JsonItems.fromText(Slices.utf8Slice((String) actual))).isEqualTo(expected));
+    }
+
+    /// Asserts the function produces the JSON_ERROR sentinel under {@code failOnError = false}.
+    /// The sentinel can't be rendered as JSON text, so JsonType's getObjectValue propagates an
+    /// IllegalArgumentException at materialization — we capture that as the witness.
+    private void assertJsonError(String expression)
+    {
+        // Trino's test client unwraps worker-side exceptions into io.trino.execution.Failure;
+        // assert on the message text rather than the class to stay decoupled from that wrapping.
+        assertThatThrownBy(assertions.expression(expression)::evaluate)
+                .hasRootCauseMessage("JSON_ERROR cannot be rendered as JSON text");
     }
 
     private static String toVarbinary(String value, Charset encoding)

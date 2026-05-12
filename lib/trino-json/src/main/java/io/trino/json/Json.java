@@ -19,6 +19,7 @@ import io.trino.json.JsonItemEncoding.TypeTag;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
 
@@ -125,6 +126,14 @@ public sealed interface Json
     }
 
     default void forEachArrayElement(Consumer<Json> consumer)
+    {
+        throw new IllegalStateException("Not an ARRAY");
+    }
+
+    /// Visits array elements in order, stopping at the first for which `predicate` holds, and
+    /// reports whether one did. ARRAY impls override with a single linear pass, so a scan over a
+    /// large array is not paid past the match; callers must have checked [#isArray] first.
+    default boolean anyArrayElement(Predicate<Json> predicate)
     {
         throw new IllegalStateException("Not an ARRAY");
     }

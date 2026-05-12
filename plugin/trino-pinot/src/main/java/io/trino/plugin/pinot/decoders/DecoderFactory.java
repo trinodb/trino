@@ -67,7 +67,7 @@ public class DecoderFactory
             return new VarbinaryDecoder();
         }
         if (type.getBaseName().equals(JSON)) {
-            return new JsonDecoder();
+            return new JsonDecoder(type);
         }
         return new VarcharDecoder();
     }

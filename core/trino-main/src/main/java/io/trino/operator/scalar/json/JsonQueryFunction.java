@@ -13,17 +13,15 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
+import io.trino.json.TypedValue;
 import io.trino.jsonpath.JsonPathEvaluator;
 import io.trino.jsonpath.JsonPathInvocationContext;
 import io.trino.jsonpath.PathEvaluationException;
 import io.trino.jsonpath.ir.IrJsonPath;
-import io.trino.jsonpath.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SqlScalarFunction;
@@ -46,13 +44,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getJson;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.StandardTypes.JSON_2016;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.TINYINT;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -65,9 +62,9 @@ public class JsonQueryFunction
         extends SqlScalarFunction
 {
     public static final String JSON_QUERY_FUNCTION_NAME = "$json_query";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
-    private static final JsonNode EMPTY_ARRAY_RESULT = new ArrayNode(JsonNodeFactory.instance);
-    private static final JsonNode EMPTY_OBJECT_RESULT = new ObjectNode(JsonNodeFactory.instance);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, Json.class, IrJsonPath.class, SqlRow.class, long.class, long.class, long.class);
+    private static final Json EMPTY_ARRAY_RESULT = JsonItemBuilder.encodeArray(_ -> {});
+    private static final Json EMPTY_OBJECT_RESULT = JsonItemBuilder.encodeObject(_ -> {});
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -78,9 +75,9 @@ public class JsonQueryFunction
         super(FunctionMetadata.scalarBuilder(JSON_QUERY_FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(type(JSON_2016))
+                        .returnType(type(JSON))
                         .argumentTypes(
-                                type(JSON_2016),
+                                type(JSON),
                                 type(SqlJsonPathType.NAME),
                                 typeVariable("T"),
                                 type(TINYINT),
@@ -117,26 +114,26 @@ public class JsonQueryFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonQuery(
+    public static Json jsonQuery(
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
             Type parametersRowType,
             JsonPathInvocationContext invocationContext,
             ConnectorSession session,
-            JsonNode inputExpression,
+            Json inputExpression,
             IrJsonPath jsonPath,
             SqlRow parametersRow,
             long wrapperBehavior,
             long emptyBehavior,
             long errorBehavior)
     {
-        if (inputExpression.equals(JSON_ERROR)) {
+        if (inputExpression.isError()) {
             return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
-            if (parameter.equals(JSON_ERROR)) {
+            if (parameter instanceof Json json && json.isError()) {
                 return handleSpecialCase(errorBehavior, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
@@ -148,7 +145,7 @@ public class JsonQueryFunction
             evaluator = new JsonPathEvaluator(jsonPath, session, metadata, typeManager, functionManager);
             invocationContext.setEvaluator(evaluator);
         }
-        List<Object> pathResult;
+        List<Json> pathResult;
         try {
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
@@ -161,33 +158,33 @@ public class JsonQueryFunction
             return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionException("JSON path found no items"));
         }
 
-        // translate sequence to JSON items
-        ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
-        for (Object item : pathResult) {
+        // translate sequence to Json items: TypedValue items are encoded back into Json
+        ImmutableList.Builder<Json> builder = ImmutableList.builder();
+        for (Json item : pathResult) {
             if (item instanceof TypedValue typedValue) {
-                Optional<JsonNode> jsonNode = getJsonNode(typedValue);
-                if (jsonNode.isEmpty()) {
+                Optional<Json> json = getJson(typedValue);
+                if (json.isEmpty()) {
                     return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException(format(
                             "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
-                            typedValue.getType())));
+                            typedValue.type())));
                 }
-                builder.add(jsonNode.get());
+                builder.add(json.get());
             }
             else {
-                builder.add((JsonNode) item);
+                builder.add((Json) item);
             }
         }
-        List<JsonNode> sequence = builder.build();
+        List<Json> sequence = builder.build();
 
         // apply array wrapper behavior
         switch (ArrayWrapperBehavior.values()[(int) wrapperBehavior]) {
             case WITHOUT -> {
                 // do nothing
             }
-            case UNCONDITIONAL -> sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+            case UNCONDITIONAL -> sequence = ImmutableList.of(wrapInArray(sequence));
             case CONDITIONAL -> {
                 if (sequence.size() != 1 || (!sequence.get(0).isArray() && !sequence.get(0).isObject())) {
-                    sequence = ImmutableList.of(new ArrayNode(JsonNodeFactory.instance, sequence));
+                    sequence = ImmutableList.of(wrapInArray(sequence));
                 }
             }
             default -> throw new IllegalStateException("unexpected array wrapper behavior");
@@ -196,13 +193,22 @@ public class JsonQueryFunction
         // singleton sequence - return the only item
         if (sequence.size() == 1) {
             return sequence.get(0);
-            // if the only item is a TextNode, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
+            // if the only item is a VARCHAR scalar, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
         return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionException("JSON path found multiple items"));
     }
 
-    private static JsonNode handleSpecialCase(long behavior, Supplier<TrinoException> error)
+    private static Json wrapInArray(List<Json> elements)
+    {
+        return JsonItemBuilder.encodeArray(array -> {
+            for (Json element : elements) {
+                array.nest(element);
+            }
+        });
+    }
+
+    private static Json handleSpecialCase(long behavior, Supplier<TrinoException> error)
     {
         return switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
             case NULL -> null;

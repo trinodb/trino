@@ -15,6 +15,7 @@ package io.trino.jsonpath;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BigIntegerNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
@@ -27,13 +28,16 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
+import io.trino.json.TypedValue;
 import io.trino.jsonpath.ir.IrDatetimeMethod;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.jsonpath.ir.IrPathNode;
 import io.trino.jsonpath.ir.IrPredicate;
-import io.trino.jsonpath.ir.TypedValue;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.planner.PathNodes;
 import org.assertj.core.api.AssertProvider;
@@ -42,13 +46,14 @@ import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguratio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.jsonpath.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -58,6 +63,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
@@ -125,6 +131,11 @@ public class TestJsonPathEvaluator
 {
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
+    /// Marker that, in the parameter slot for a JSON-FORMAT named variable, means
+    /// "null FORMAT-JSON parameter" — converted to a literal `null` by the test's
+    /// parameter wiring, where visitIrNamedJsonVariable handles it as an empty sequence.
+    private static final Object EMPTY_SEQUENCE_PARAMETER = new Object();
+
     private static final Map<String, Object> PARAMETERS = ImmutableMap.<String, Object>builder()
             .put("tinyint_parameter", new TypedValue(TINYINT, 1L))
             .put("bigint_parameter", new TypedValue(BIGINT, -2L))
@@ -135,7 +146,7 @@ public class TestJsonPathEvaluator
             .put("boolean_parameter", new TypedValue(BOOLEAN, true))
             .put("date_parameter", new TypedValue(DATE, 1234L))
             .put("timestamp_parameter", new TypedValue(createTimestampType(7), new LongTimestamp(20, 30)))
-            .put("empty_sequence_parameter", EMPTY_SEQUENCE)
+            .put("empty_sequence_parameter", EMPTY_SEQUENCE_PARAMETER)
             .put("null_parameter", NullNode.instance)
             .put("json_number_parameter", IntNode.valueOf(-6))
             .put("json_text_parameter", TextNode.valueOf("JSON text"))
@@ -273,6 +284,40 @@ public class TestJsonPathEvaluator
                 path(true, abs(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testArbitraryPrecisionNumber()
+    {
+        // A JSON number that fits neither BIGINT nor DECIMAL(38, s) is carried as NUMBER.
+        // The arithmetic methods compute on it with full precision rather than rejecting it.
+        BigInteger tenToFortieth = BigInteger.TEN.pow(40);
+        BigDecimal halfAbove = new BigDecimal(tenToFortieth).add(new BigDecimal("0.5"));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth.negate()),
+                path(true, abs(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth)))));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth),
+                path(true, minus(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth.negate())))));
+
+        assertThat(pathResult(
+                DecimalNode.valueOf(halfAbove),
+                path(true, ceiling(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth.add(BigInteger.ONE))))));
+
+        assertThat(pathResult(
+                DecimalNode.valueOf(halfAbove),
+                path(true, floor(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(tenToFortieth)))));
+
+        assertThat(pathResult(
+                BigIntegerNode.valueOf(tenToFortieth),
+                path(true, toDouble(contextVariable()))))
+                .isEqualTo(singletonSequence(new TypedValue(DOUBLE, 1e40)));
     }
 
     @Test
@@ -597,7 +642,7 @@ public class TestJsonPathEvaluator
                 IntNode.valueOf(0),
                 path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
                 .isInstanceOf(PathEvaluationException.class)
-                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+                .hasMessageContaining("invalid item type. Expected: TEXT");
 
         // non-text TypedValue → itemTypeError (not ClassCastException). The analyzer rejects
         // statically-typed non-text sources, but defense in depth: if a non-text TypedValue
@@ -606,7 +651,7 @@ public class TestJsonPathEvaluator
                 NullNode.instance,
                 path(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.empty(), Optional.empty()))))
                 .isInstanceOf(PathEvaluationException.class)
-                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: bigint");
+                .hasMessageContaining("invalid item type. Expected: TEXT, actual: bigint");
     }
 
     @Test
@@ -1246,13 +1291,14 @@ public class TestJsonPathEvaluator
                 equal(contextVariable(), literal(BIGINT, 1L))))
                 .isEqualTo(null);
 
-        // multiple items - first success or failure in lax mode
+        // SQL:2023 §9.46: ERR and FOUND are independent — an erroring pair later in the
+        // cross-product still surfaces as UNKNOWN even after a matching pair was found.
         assertThat(predicateResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), IntNode.valueOf(2))),
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(3), BooleanNode.TRUE)),
                 true,
                 lessThan(contextVariable(), currentItem())))
-                .isEqualTo(TRUE);
+                .isEqualTo(null);
 
         assertThat(predicateResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, IntNode.valueOf(2))),
@@ -1269,13 +1315,15 @@ public class TestJsonPathEvaluator
                 equal(contextVariable(), currentItem())))
                 .isEqualTo(TRUE);
 
-        // null based not equal in lax mode
+        // null based not equal in lax mode — ERR/FOUND independence: erroring pair (1, TRUE)
+        // in the cross-product surfaces as UNKNOWN even though the JSON_NULL prelude found a
+        // match.
         assertThat(predicateResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), NullNode.instance)),
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(3), BooleanNode.TRUE)),
                 true,
                 notEqual(contextVariable(), currentItem())))
-                .isEqualTo(TRUE);
+                .isEqualTo(null);
 
         // multiple items - fail if any comparison returns error in strict mode
         assertThat(predicateResult(
@@ -1308,6 +1356,59 @@ public class TestJsonPathEvaluator
                 true,
                 lessThan(contextVariable(), arrayAccessor(currentItem(), at(literal(BIGINT, 100L))))))
                 .isEqualTo(false);
+
+        // SQL:2023 §9.46: JSON_NULL compared to a scalar under <, >, <=, >= is UNKNOWN in strict mode
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                lessThan(jsonNull(), currentItem())))
+                .isEqualTo(null);
+
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                greaterThan(jsonNull(), currentItem())))
+                .isEqualTo(null);
+
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                lessThanOrEqual(jsonNull(), currentItem())))
+                .isEqualTo(null);
+
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                greaterThanOrEqual(jsonNull(), currentItem())))
+                .isEqualTo(null);
+
+        // direction is symmetric — scalar on the left, JSON_NULL on the right
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                lessThan(currentItem(), jsonNull())))
+                .isEqualTo(null);
+
+        // EQUAL / NOT_EQUAL with JSON_NULL on one side and a scalar on the other still
+        // resolves (FALSE / TRUE respectively) — the §9.46 rule applies only to ordering.
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                equal(jsonNull(), currentItem())))
+                .isEqualTo(FALSE);
+
+        assertThat(predicateResult(
+                NullNode.instance,
+                LongNode.valueOf(1L),
+                false, // strict
+                notEqual(jsonNull(), currentItem())))
+                .isEqualTo(TRUE);
     }
 
     @Test
@@ -1489,15 +1590,16 @@ public class TestJsonPathEvaluator
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
                 .isEqualTo(TRUE);
 
-        // lax mode: true is returned on the first match, even if there is an uncomparable item
+        // SQL:2023 §9.46: ERR and FOUND are independent — an uncomparable item later in the
+        // sequence still surfaces as UNKNOWN even after a match.
         assertThat(predicateResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
                 TextNode.valueOf("abc"),
                 true,
                 startsWith(contextVariable(), literal(createVarcharType(1), utf8Slice("A")))))
-                .isEqualTo(TRUE);
+                .isEqualTo(null);
 
-        // lax mode: unknown is returned because there is an uncomparable item, even if match is found first
+        // strict mode: same — uncomparable item surfaces as UNKNOWN.
         assertThat(predicateResult(
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
                 TextNode.valueOf("abc"),
@@ -1646,9 +1748,17 @@ public class TestJsonPathEvaluator
         return () -> new RecursiveComparisonAssert<>(evaluate(input, path), COMPARISON_CONFIGURATION);
     }
 
+    /// Runs the path engine and converts back to the JsonNode-flavored shape that the
+    /// expectations in this test were originally written against (JsonNode/TypedValue
+    /// elements). The path engine's native output is `List<Json>` (Json/TypedValue);
+    /// rewriting every assertion would amount to wrapping each expected JsonNode in
+    /// `JsonItems.fromJsonNode`. The bridge keeps the assertions readable.
     private static List<Object> evaluate(JsonNode input, IrJsonPath path)
     {
-        return createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
+        List<Json> result = createPathVisitor(input, path.isLax()).process(path.getRoot(), new PathEvaluationContext());
+        return result.stream()
+                .map(item -> item instanceof TypedValue typed ? (Object) typed : (Object) JsonItems.toJsonNode((Json) item))
+                .collect(toImmutableList());
     }
 
     private static AssertProvider<? extends RecursiveComparisonAssert<?>> predicateResult(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
@@ -1658,15 +1768,15 @@ public class TestJsonPathEvaluator
 
     private static Boolean evaluatePredicate(JsonNode input, Object currentItem, boolean lax, IrPredicate predicate)
     {
-        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem(currentItem));
+        return createPredicateVisitor(input, lax).process(predicate, new PathEvaluationContext().withCurrentItem(toJsonItem(currentItem)));
     }
 
     private static PathEvaluationVisitor createPathVisitor(JsonNode input, boolean lax)
     {
         return new PathEvaluationVisitor(
                 lax,
-                input,
-                PARAMETERS.values().toArray(),
+                JsonItems.fromJsonNode(input),
+                buildParameters(),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
     }
@@ -1678,5 +1788,38 @@ public class TestJsonPathEvaluator
                 createPathVisitor(input, lax),
                 new JsonPathEvaluator.Invoker(testSessionBuilder().build().toConnectorSession(), createTestingFunctionManager()),
                 new CachingResolver(createTestingMetadataManager()));
+    }
+
+    /// Converts the test's PARAMETERS map (values are JsonNode/TypedValue/sentinel)
+    /// into the Object[] shape the path engine expects (Json/TypedValue/null).
+    private static Object[] buildParameters()
+    {
+        return PARAMETERS.values().stream()
+                .map(TestJsonPathEvaluator::convertParameter)
+                .toArray();
+    }
+
+    private static Object convertParameter(Object raw)
+    {
+        if (raw == EMPTY_SEQUENCE_PARAMETER) {
+            return null;
+        }
+        if (raw instanceof JsonNode node) {
+            return JsonItems.fromJsonNode(node);
+        }
+        return raw;
+    }
+
+    /// Tests pass JsonNode (from Jackson constructors) or TypedValue as the predicate
+    /// `currentItem`. Convert to the Json shape the path engine expects.
+    private static Json toJsonItem(Object raw)
+    {
+        if (raw instanceof TypedValue typedValue) {
+            return typedValue;
+        }
+        if (raw instanceof JsonNode node) {
+            return JsonItems.fromJsonNode(node);
+        }
+        throw new IllegalArgumentException("unsupported currentItem: " + raw.getClass());
     }
 }

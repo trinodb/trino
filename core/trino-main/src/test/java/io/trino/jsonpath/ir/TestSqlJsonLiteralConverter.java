@@ -16,7 +16,6 @@ package io.trino.jsonpath.ir;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BinaryNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
@@ -24,12 +23,16 @@ import com.fasterxml.jackson.databind.node.FloatNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.MissingNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
+import io.trino.json.TypedValue;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.TrinoNumber;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -51,6 +54,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -58,11 +62,17 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSqlJsonLiteralConverter
 {
-    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
+    // Slices originating from JsonItemEncoding.readTypedValue point at the encoded
+    // backing buffer (subview), so the field-by-field structural comparison sees
+    // different byte arrays than fresh `utf8Slice(...)` slices in the expectations.
+    // Use Slice.equals (which compares the visible bytes) instead.
+    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder()
+            .withStrictTypeChecking(true)
+            .withEqualsForType(Slice::equals, Slice.class)
+            .build();
 
     @Test
     public void testNumberToJson()
@@ -152,9 +162,10 @@ public class TestSqlJsonLiteralConverter
         assertThat(typedValueResult(BigIntegerNode.valueOf(BigInteger.valueOf(1000000000000000000L))))
                 .isEqualTo(new TypedValue(BIGINT, 1000000000000000000L));
 
-        assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue)))
-                .isInstanceOf(JsonLiteralConversionException.class)
-                .hasMessage("cannot convert 1000000000000000000000000000000000000 to Trino value (value too big)");
+        // BigInteger that doesn't fit in Long is now promoted to the arbitrary-precision
+        // NUMBER type rather than throwing.
+        assertThat(typedValueResult(BigIntegerNode.valueOf(bigValue)))
+                .isEqualTo(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(bigValue))));
 
         assertThat(typedValueResult(DecimalNode.valueOf(BigDecimal.ONE)))
                 .isEqualTo(new TypedValue(createDecimalType(1, 0), 1L));
@@ -162,9 +173,9 @@ public class TestSqlJsonLiteralConverter
         assertThat(typedValueResult(DecimalNode.valueOf(new BigDecimal(bigValue, 20))))
                 .isEqualTo(new TypedValue(createDecimalType(37, 20), Int128.valueOf(bigValue)));
 
-        assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue.multiply(bigValue))))
-                .isInstanceOf(JsonLiteralConversionException.class)
-                .hasMessage("cannot convert 1000000000000000000000000000000000000000000000000000000000000000000000000 to Trino value (value too big)");
+        // Even larger BigInteger also goes to NUMBER instead of throwing.
+        assertThat(typedValueResult(BigIntegerNode.valueOf(bigValue.multiply(bigValue))))
+                .isEqualTo(new TypedValue(NUMBER, TrinoNumber.from(new BigDecimal(bigValue.multiply(bigValue)))));
 
         assertThat(typedValueResult(DoubleNode.valueOf(1e0)))
                 .isEqualTo(new TypedValue(DOUBLE, 1e0));
@@ -214,28 +225,21 @@ public class TestSqlJsonLiteralConverter
     @Test
     public void testJsonToIncompatibleType()
     {
-        assertThat(getNumericTypedValue(TextNode.valueOf("abc")))
+        assertThat(getNumericTypedValue(json(TextNode.valueOf("abc"))))
                 .isEqualTo(Optional.empty());
 
-        assertThat(getTextTypedValue(NullNode.instance))
+        assertThat(getTextTypedValue(json(NullNode.instance)))
                 .isEqualTo(Optional.empty());
     }
 
     @Test
     public void testNoConversionFromJson()
     {
-        // unsupported node type
-        assertThat(getTextTypedValue(BinaryNode.valueOf(new byte[] {})))
-                .isEqualTo(Optional.empty());
-
         // not a value node
-        assertThat(getTextTypedValue(MissingNode.getInstance()))
+        assertThat(getTextTypedValue(json(new ObjectNode(JsonNodeFactory.instance))))
                 .isEqualTo(Optional.empty());
 
-        assertThat(getTextTypedValue(new ObjectNode(JsonNodeFactory.instance)))
-                .isEqualTo(Optional.empty());
-
-        assertThat(getTextTypedValue(new ArrayNode(JsonNodeFactory.instance)))
+        assertThat(getTextTypedValue(json(new ArrayNode(JsonNodeFactory.instance))))
                 .isEqualTo(Optional.empty());
     }
 
@@ -244,8 +248,13 @@ public class TestSqlJsonLiteralConverter
         return getJsonNode(value).orElseThrow();
     }
 
+    private static Json json(JsonNode node)
+    {
+        return JsonItems.fromJsonNode(node);
+    }
+
     private static AssertProvider<? extends RecursiveComparisonAssert<?>> typedValueResult(JsonNode node)
     {
-        return () -> new RecursiveComparisonAssert<>(getTypedValue(node).orElseThrow(), COMPARISON_CONFIGURATION);
+        return () -> new RecursiveComparisonAssert<>(getTypedValue(json(node)).orElseThrow(), COMPARISON_CONFIGURATION);
     }
 }

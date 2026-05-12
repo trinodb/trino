@@ -62,6 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.json.JsonItems.toText;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
@@ -296,7 +297,8 @@ public class H2QueryRunner
                         row.add(null);
                     }
                     else {
-                        row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
+                        // The result row holds text, so render the parsed value canonically.
+                        row.add(toText(jsonParse(utf8Slice(stringValue))).toStringUtf8());
                     }
                 }
                 else if (type instanceof VarcharType || type instanceof CharType) {

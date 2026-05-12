@@ -21,6 +21,7 @@ import com.google.common.math.LongMath;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -54,6 +55,7 @@ import io.trino.plugin.jdbc.ReadFunction;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
+import io.trino.plugin.jdbc.StandardColumnMappings;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
@@ -162,7 +164,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.GeometryUtils.createPoint;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
@@ -186,6 +187,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.jsonWriteMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.numberColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.numberWriteFunction;
@@ -862,7 +864,7 @@ public class PostgreSqlClient
             return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
         if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
+            return jsonWriteMapping("jsonb", typedVarcharWriteFunction("json"));
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
@@ -1724,10 +1726,11 @@ public class PostgreSqlClient
 
     private ColumnMapping arrayAsJsonColumnMapping(ColumnMapping baseElementMapping)
     {
-        return ColumnMapping.sliceMapping(
+        SliceReadFunction textReadFunction = arrayAsJsonReadFunction(baseElementMapping);
+        return ColumnMapping.objectMapping(
                 jsonType,
-                arrayAsJsonReadFunction(baseElementMapping),
-                (_, _, _) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
+                ObjectReadFunction.of(Json.class, (resultSet, columnIndex) -> Json.unchecked(textReadFunction.readSlice(resultSet, columnIndex))),
+                ObjectWriteFunction.of(Json.class, (_, _, _) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); }),
                 DISABLE_PUSHDOWN);
     }
 
@@ -1789,11 +1792,7 @@ public class PostgreSqlClient
 
     private ColumnMapping jsonColumnMapping()
     {
-        return ColumnMapping.sliceMapping(
-                jsonType,
-                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                typedVarcharWriteFunction("json"),
-                DISABLE_PUSHDOWN);
+        return StandardColumnMappings.jsonColumnMapping(jsonType, typedVarcharWriteFunction("json"));
     }
 
     private static ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)

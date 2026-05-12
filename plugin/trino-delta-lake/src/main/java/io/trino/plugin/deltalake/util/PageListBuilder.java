@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -38,6 +39,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public final class PageListBuilder
 {
     private final int channels;
+    private final List<Type> types;
     private final PageBuilder pageBuilder;
 
     private ImmutableList.Builder<Page> pages;
@@ -46,6 +48,7 @@ public final class PageListBuilder
     public PageListBuilder(List<Type> types)
     {
         this.channels = types.size();
+        this.types = List.copyOf(types);
         this.pageBuilder = new PageBuilder(types);
         reset();
     }
@@ -107,6 +110,13 @@ public final class PageListBuilder
     public void appendVarchar(String value)
     {
         VARCHAR.writeString(nextColumn(), value);
+    }
+
+    public void appendJson(String value)
+    {
+        // The value is canonical JSON text; write it through the JSON type rather than as a
+        // plain variable-width slice, since JsonType is backed by its own block.
+        types.get(channel).writeSlice(nextColumn(), utf8Slice(value));
     }
 
     public void appendVarcharVarcharMap(Map<String, String> values)

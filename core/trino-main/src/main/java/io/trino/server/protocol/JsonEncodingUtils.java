@@ -17,6 +17,8 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -46,6 +48,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.VariantType;
 import io.trino.spi.variant.Variant;
+import io.trino.type.JsonType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import io.trino.util.variant.VariantUtil;
@@ -85,6 +88,7 @@ public final class JsonEncodingUtils
     private static final TinyintEncoder TINYINT_ENCODER = new TinyintEncoder();
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
+    private static final JsonEncoder JSON_ENCODER = new JsonEncoder();
 
     public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
@@ -112,6 +116,7 @@ public final class JsonEncodingUtils
             case TinyintType _ -> TINYINT_ENCODER;
             case VarcharType _ -> VARCHAR_ENCODER;
             case VarbinaryType _ -> VARBINARY_ENCODER;
+            case JsonType _ -> JSON_ENCODER;
             case CharType charType -> new CharEncoder(charType.getLength());
             case VariantType _ -> new VariantEncoder(supportsVariant, supportsVariantBinary);
             // TODO: add specialized Short/Long decimal encoders
@@ -349,7 +354,9 @@ public final class JsonEncodingUtils
                 generator.writeEndObject();
             }
             else {
-                String json = VariantUtil.asJson(variant).toStringUtf8();
+                // VariantUtil.asJson emits the typed JSON encoding; render to canonical text for
+                // the protocol stream.
+                String json = JsonType.jsonText(VariantUtil.asJson(variant)).toStringUtf8();
                 if (supportsVariant) {
                     generator.writeRawValue(json);
                 }
@@ -357,6 +364,26 @@ public final class JsonEncodingUtils
                     generator.writeString(json);
                 }
             }
+        }
+    }
+
+    private static final class JsonEncoder
+            implements TypeEncoder
+    {
+        @Override
+        public void encode(JsonGenerator generator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                generator.writeNull();
+                return;
+            }
+
+            // Legacy text-only wire form. The typed-envelope variant (and the
+            // JSON_PARSED_ITEM_ENCODING capability that gates it) lives in the
+            // follow-on client-protocol commit.
+            Json json = (Json) JsonType.JSON.getObject(block, position);
+            generator.writeString(JsonItems.toText(json).toStringUtf8());
         }
     }
 

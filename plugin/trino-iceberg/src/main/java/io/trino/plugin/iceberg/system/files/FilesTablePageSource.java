@@ -28,6 +28,7 @@ import io.trino.spi.block.RowEntryBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.DeleteFile;
@@ -99,6 +100,7 @@ import static io.trino.plugin.iceberg.util.SystemTableUtil.partitionTypes;
 import static io.trino.plugin.iceberg.util.SystemTableUtil.readableMetricsToJson;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -117,6 +119,7 @@ public final class FilesTablePageSource
     private final List<PartitionField> partitionFields;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final Optional<io.trino.spi.type.Type> boundsColumnType;
+    private final io.trino.spi.type.Type jsonType;
     private final List<Types.NestedField> primitiveFields;
     private final Iterator<FileEntryWithMetadata> entryIterator;
     private final Map<String, Integer> columnNameToIndex;
@@ -142,6 +145,7 @@ public final class FilesTablePageSource
         this.partitionFields = getAllPartitionFields(schema, idToPartitionSpecMapping);
         this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, schema);
         this.boundsColumnType = split.boundsColumnType();
+        this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
@@ -257,7 +261,7 @@ public final class FilesTablePageSource
                     pageBuilder,
                     READABLE_METRICS_COLUMN_NAME,
                     () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
-                    (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
+                    (blkBldr, value) -> jsonType.writeSlice(blkBldr, Slices.utf8Slice(readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields))));
             writeValueOrNull(pageBuilder, ADDED_SNAPSHOT_ID_COLUMN_NAME, entry::snapshotId, BIGINT::writeLong);
             writeValueOrNull(pageBuilder, FILE_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::fileSequenceNumber, BIGINT::writeLong);
             writeValueOrNull(pageBuilder, DATA_SEQUENCE_NUMBER_COLUMN_NAME, contentFile::dataSequenceNumber, BIGINT::writeLong);

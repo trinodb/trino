@@ -184,10 +184,6 @@ resulting sequence is `100, 300`.
 
 All items in the input sequence must be JSON objects.
 
-:::{note}
-Trino does not support JSON objects with duplicate keys.
-:::
-
 #### wildcard member accessor
 
 Returns values from all key-value pairs for each JSON object in the input
@@ -835,8 +831,8 @@ kinds of errors:
 - Input conversion errors, such as malformed JSON
 - JSON path evaluation errors, e.g. division by zero
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -953,13 +949,14 @@ The constant string `json_path` is evaluated using the `json_input` as the
 context variable (`$`), and the passed arguments as the named variables
 (`$variable_name`).
 
-The returned value is a JSON item returned by the path. By default, it is
-represented as a character string (`varchar`). In the `RETURNING` clause,
-you can specify other character string type or `varbinary`. With
-`varbinary`, you can also specify the desired encoding.
+The returned value is a JSON item returned by the path. With no `RETURNING`
+clause it is a `JSON` value when the input is `JSON`-typed, and a character
+string (`varchar`) otherwise. In the `RETURNING` clause, you can specify
+another character string type or `varbinary`. With `varbinary`, you can also
+specify the desired encoding.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1154,8 +1151,8 @@ The returned value is the SQL scalar returned by the path. By default, it is
 converted to string (`varchar`). In the `RETURNING` clause, you can specify
 other desired type: a character string type, numeric, boolean or datetime type.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1339,7 +1336,8 @@ column_name FOR ORDINALITY
 | NESTED [ PATH ] json_path [ AS path_name ] COLUMNS ( column_definition [, ...] )
 ```
 
-`json_input` is a character string or a binary string. It must contain a single
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+must contain a single
 JSON item.
 
 `json_path` is a string literal containing the path mode specification and the
@@ -1780,9 +1778,8 @@ SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
 Note that this option is not supported if any of the arguments has a
 `FORMAT` specification.
 
-If `WITHOUT UNIQUE KEYS` is specified, duplicate keys are not supported due
-to implementation limitation. `WITHOUT UNIQUE KEYS` is the default
-configuration.
+`WITHOUT UNIQUE KEYS` is the default configuration; duplicate keys are
+preserved in insertion order.
 
 ### Returned type
 

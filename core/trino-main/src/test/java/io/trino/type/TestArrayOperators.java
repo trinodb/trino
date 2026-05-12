@@ -19,6 +19,8 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -115,12 +117,14 @@ public class TestArrayOperators
         assertions = null;
     }
 
+    // Test-only escape hatch that injects raw text into a JSON-typed column without running it
+    // through json_parse, so the tests can assert how the cast handles malformed input.
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static Json uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return JsonItems.fromText(slice);
     }
 
     @Test
@@ -595,20 +599,22 @@ public class TestArrayOperators
                 .hasMessage("Cannot cast to array(array(bigint)). Expected a json array, but got {\n[[1],{}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
+        // unchecked_to_json validates its input, so malformed JSON fails at injection time
+        // rather than at the downstream cast.
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "unchecked_to_json('1, 2, 3')").evaluate())
-                .hasMessage("Cannot cast to array(bigint).\n1, 2, 3")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "unchecked_to_json('[1] 2')").evaluate())
-                .hasMessage("Cannot cast to array(bigint). Unexpected trailing token: 2\n[1] 2")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "unchecked_to_json('[1, 2, 3')").evaluate())
-                .hasMessage("Cannot cast to array(bigint).\n[1, 2, 3")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS array(BIGINT))")
                 .binding("a", "JSON '[\"a\", \"b\"]'").evaluate())
@@ -1234,16 +1240,19 @@ public class TestArrayOperators
 
         // array with various types including scientific notation and string "null"
         String inputJsonArray = "[true, false, 12, 12.3, 1.23E1, 0, 0.000000000000000, 0e1000, 0e-1000, 1, 100000000000000000000000000000000000000000000000000000000000000000000e-68, 0.100000000000000, \"puppies\", \"kittens\", \"null\", null]";
-        String expectedVarcharArray = "ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]";
+        // The literal and json_parse paths both parse the raw text, so 100...0e-68 is an
+        // approximate literal (double, "1.0E0") on both, and the two bindings agree.
         assertThat(assertions.expression("cast(a as ARRAY(VARCHAR))")
                 .binding("a", "JSON '" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches(expectedVarcharArray);
-        // Same with json_parse, exercising SpecializeCastWithJsonParse
+                .matches("ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]");
+        // Same source, but the SpecializeCastWithJsonParse rule rewrites to
+        // JsonStringToArrayCast which keeps the input text as-is and parses on read,
+        // so Double-cast scientific forms ("0E0", "1.0E0") survive.
         assertThat(assertions.expression("cast(json_parse(a) as ARRAY(VARCHAR))")
                 .binding("a", "'" + inputJsonArray + "'"))
                 .hasType(new ArrayType(VARCHAR))
-                .matches(expectedVarcharArray);
+                .matches("ARRAY[VARCHAR 'true', 'false', '12', '1.23E1', '1.23E1', '0', '0E0', '0E0', '0E0', '1', '1.0E0', '1.0E-1', 'puppies', 'kittens', 'null', null]");
 
         // Number with leading zeros
         assertTrinoExceptionThrownBy(assertions.expression("cast(a as ARRAY(VARCHAR))")

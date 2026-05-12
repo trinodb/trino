@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.json.JsonItems;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
@@ -737,7 +737,7 @@ public class TranslationMap
         Type type = analysis.getType(expression);
 
         if (type.equals(JSON)) {
-            return new Constant(type, JsonTypeUtil.jsonParse(utf8Slice(expression.getValue())));
+            return new Constant(type, JsonItems.fromText(utf8Slice(expression.getValue())));
         }
 
         InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
@@ -1600,11 +1600,9 @@ public class TranslationMap
         ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
         io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(function, errorBehavior, omitQuotes));
 
-        // cast to requested returned type
-        Type returnedType = node.getReturnedType()
-                .map(TypeDescriptorTranslator::toTypeDescriptor)
-                .map(plannerContext.getTypeManager()::getType)
-                .orElse(VARCHAR);
+        // cast to the returned type determined by the analyzer: the declared RETURNING type, or the
+        // implicit type when the clause is absent (JSON for JSON-typed input per SQL:2023 §6.35 SR 1)
+        Type returnedType = analysis.getType(node);
 
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {

@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -53,7 +55,8 @@ public class JsonToRowCast
         extends SqlScalarFunction
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, Json.class);
+    static final MethodHandle TEXT_METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRowFromText", RowType.class, BlockBuilderAppender.class, Slice.class);
 
     private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
 
@@ -89,9 +92,15 @@ public class JsonToRowCast
     }
 
     @UsedByGeneratedCode
-    public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, Slice json)
+    public static SqlRow toRow(RowType rowType, BlockBuilderAppender rowAppender, Json json)
     {
-        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
+        return toRowFromText(rowType, rowAppender, JsonItems.toText(json));
+    }
+
+    @UsedByGeneratedCode
+    public static SqlRow toRowFromText(RowType rowType, BlockBuilderAppender rowAppender, Slice jsonText)
+    {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, jsonText)) {
             jsonParser.nextToken();
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 if (jsonParser.nextToken() != null) {
@@ -109,10 +118,10 @@ public class JsonToRowCast
             return rowType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(jsonText)), e);
         }
         catch (Exception e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(jsonText)), e);
         }
     }
 }

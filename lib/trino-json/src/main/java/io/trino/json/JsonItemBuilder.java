@@ -281,6 +281,22 @@ public final class JsonItemBuilder
             return this;
         }
 
+        public JsonItemWriter fieldName(Slice key)
+        {
+            int state = states[depth];
+            checkState(state == CTX_OBJECT_FIELD || state == CTX_INDEXED_OBJECT_FIELD,
+                    "fieldName called outside object (state=%s)",
+                    stateName(state));
+            if (state == CTX_INDEXED_OBJECT_FIELD) {
+                IndexedFrame frame = frames[depth];
+                frame.recordOffset(counts[depth], output.size());
+                frame.recordKey(counts[depth], key);
+            }
+            JsonItemEncoding.appendObjectKey(output, key);
+            states[depth] = (state == CTX_INDEXED_OBJECT_FIELD) ? CTX_INDEXED_OBJECT_VALUE : CTX_OBJECT_VALUE;
+            return this;
+        }
+
         public JsonItemWriter fieldName(String key)
         {
             int state = states[depth];
@@ -746,6 +762,12 @@ public final class JsonItemBuilder
         }
 
         public ObjectWriter nest(String key, Json item)
+        {
+            writer.fieldName(key).nest(item);
+            return this;
+        }
+
+        public ObjectWriter nest(Slice key, Json item)
         {
             writer.fieldName(key).nest(item);
             return this;

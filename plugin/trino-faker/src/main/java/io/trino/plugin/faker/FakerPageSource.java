@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -382,7 +381,9 @@ class FakerPageSource
             return blockBuilder -> blockBuilder.append(emptyBlock, 0);
         }
         if (type.getBaseName().equals(StandardTypes.JSON)) {
-            return blockBuilder -> type.writeSlice(blockBuilder, EMPTY_SLICE);
+            // An empty slice is not a valid JSON document and would fail the parse on read;
+            // the JSON null literal is the canonical empty value.
+            return blockBuilder -> type.writeSlice(blockBuilder, Slices.utf8Slice("null"));
         }
 
         Range genericRange = handle.domain().getValues().getRanges().getSpan();

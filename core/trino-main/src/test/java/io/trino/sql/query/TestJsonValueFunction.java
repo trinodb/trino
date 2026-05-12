@@ -49,6 +49,21 @@ public class TestJsonValueFunction
     }
 
     @Test
+    public void testDecimalFidelity()
+    {
+        // A JSON number carries the digits its text spells out. Parsed as a Double, the
+        // trailing digits of this value are unrecoverable; parsed as a BigDecimal they survive.
+        assertThat(assertions.query(
+                "SELECT json_value('{\"a\" : 3.14159265358979323846}', 'lax $.a' RETURNING decimal(21, 20))"))
+                .matches("VALUES DECIMAL '3.14159265358979323846'");
+
+        // Trailing zeros are part of the scale the text declared: 1.0 is DECIMAL(2, 1).
+        assertThat(assertions.query(
+                "SELECT json_value('{\"a\" : 1.0}', 'lax $.a' RETURNING varchar)"))
+                .matches("VALUES VARCHAR '1.0'");
+    }
+
+    @Test
     public void testJsonValue()
     {
         assertThat(assertions.query(
