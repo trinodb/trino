@@ -92,6 +92,7 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -435,6 +436,7 @@ public class TranslationMap
                 case Parameter expression -> translate(expression);
                 case JsonExists expression -> translate(expression);
                 case JsonValue expression -> translate(expression);
+                case JsonConstructor expression -> translate(expression);
                 case JsonQuery expression -> translate(expression);
                 case JsonSerialize expression -> translate(expression);
                 case JsonObject expression -> translate(expression);
@@ -1559,6 +1561,20 @@ public class TranslationMap
                                 new Constant(((FunctionType) resolvedFunction.get().signature().getArgumentType(7)).getReturnType(), null))));
 
         return new Call(resolvedFunction.get(), arguments.build());
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonConstructor node)
+    {
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getExpression()),
+                TRUE));
+
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        return new Call(outputFunction, ImmutableList.of(
+                input,
+                new Constant(TINYINT, (long) ERROR.ordinal()),
+                FALSE));
     }
 
     private io.trino.sql.ir.Expression translate(JsonQuery node)

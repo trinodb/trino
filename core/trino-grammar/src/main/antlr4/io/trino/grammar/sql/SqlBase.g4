@@ -637,9 +637,17 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
-    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
+    // JSON is currently non-reserved, so plain function-call syntax can also start with JSON.
+    // The semantic predicates prevent exactly the constructor shape JSON(...) from falling
+    // through to a generic function call, while qualified calls that merely start with a
+    // catalog or schema named json (e.g. json.schema.func(...)) keep parsing as calls.
+    // These predicates can be removed if and when JSON becomes a reserved identifier.
+    | {!(_input.LT(1).getType() == JSON && "(".equals(_input.LT(2).getText()))}?
+        processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
-    | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
+    | {!(_input.LT(1).getType() == JSON && "(".equals(_input.LT(2).getText()))}?
+        processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
         orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     | qualifiedName '::' methodName '(' (argument (',' argument)*)? ')'                   #staticMethodCall
     | primaryExpression '.' methodName '(' (argument (',' argument)*)? ')'                #methodCall

@@ -1268,6 +1268,27 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitJsonConstructor(JsonConstructor node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+            if (node.getExpression() != expression) {
+                return new JsonConstructor(
+                        node.getLocation().orElseThrow(),
+                        expression,
+                        node.getFormat());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitJsonQuery(JsonQuery node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

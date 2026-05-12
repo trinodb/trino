@@ -156,6 +156,7 @@ import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -2899,6 +2900,22 @@ class AstBuilder
                 emptyDefault,
                 errorBehavior,
                 errorDefault);
+    }
+
+    @Override
+    public Node visitJsonConstructor(SqlBaseParser.JsonConstructorContext context)
+    {
+        Expression jsonInput = (Expression) visit(context.jsonValueExpression().expression());
+
+        JsonFormat inputFormat;
+        if (context.jsonValueExpression().FORMAT() == null) {
+            inputFormat = JSON;
+        }
+        else {
+            inputFormat = getJsonFormat(context.jsonValueExpression().jsonRepresentation());
+        }
+
+        return new JsonConstructor(getLocation(context), jsonInput, inputFormat);
     }
 
     @Override

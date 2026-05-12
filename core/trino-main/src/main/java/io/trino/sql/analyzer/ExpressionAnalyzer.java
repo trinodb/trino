@@ -120,6 +120,7 @@ import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
@@ -3864,6 +3865,23 @@ public class ExpressionAnalyzer
             if (!subqueries.isEmpty()) {
                 throw semanticException(UNSUPPORTED_SUBQUERY, subqueries.getFirst(), "Subqueries are not supported in %s default expressions", callerName);
             }
+        }
+
+        @Override
+        public Type visitJsonConstructor(JsonConstructor node, Context context)
+        {
+            Expression inputExpression = node.getExpression();
+            Type inputType = process(inputExpression, context);
+
+            ResolvedFunction inputFunction = getInputFunction(inputType, node.getFormat(), inputExpression);
+            Type expectedType = inputFunction.signature().getArgumentType(0);
+            coerceType(inputExpression, inputType, expectedType, "JSON input argument");
+            jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
+
+            ResolvedFunction outputFunction = getOutputFunction(JSON, JsonFormat.JSON, node);
+            jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
+
+            return setExpressionType(node, JSON);
         }
 
         @Override

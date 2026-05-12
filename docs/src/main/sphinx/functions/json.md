@@ -1825,6 +1825,38 @@ should be represented as string values. The remaining functionality of the
 following functions is covered by the functions described previously.
 :::
 
+(json-value-constructor)=
+## JSON value constructor
+
+```text
+JSON(value_expression [ FORMAT JSON [ ENCODING { UTF8 | UTF16 | UTF32 } ] ])
+```
+
+Converts a character or binary string into a `JSON` value. With no `FORMAT` clause the input is treated as JSON
+text; `FORMAT JSON ENCODING …` parses a binary input with the named
+character encoding. Always returns `JSON`; there is no `RETURNING` clause.
+
+```
+SELECT JSON('[1, 2, 3]');                                     -- JSON '[1,2,3]'
+SELECT JSON(X'5B312C20322C20335D' FORMAT JSON ENCODING UTF8); -- JSON '[1,2,3]'
+SELECT JSON(JSON '{"a": 1}');                                 -- JSON '{"a":1}'
+```
+
+`JSON(...)` has no `ON ERROR` clause; malformed input raises a SQL error.
+
+Duplicate object keys are preserved, each with its own value, and member order
+follows the input. A `JSON` literal and {func}`json_parse` parse through the
+same value model, so they behave the same way:
+
+```
+SELECT json_format(JSON('{"a": 1, "a": 2}'));  -- '{"a":1,"a":2}'
+SELECT json_format(JSON '{"a": 1, "a": 2}');   -- '{"a":1,"a":2}'
+```
+
+`JSON` is not a reserved word, so a function named `json` remains callable: a
+qualified call such as `catalog.schema.json(...)` resolves to the function, and
+only the unqualified `JSON(x)` is the constructor.
+
 (json-serialize)=
 ## json_serialize
 
@@ -1841,7 +1873,7 @@ type defaults to `VARCHAR`; pass `RETURNING` to choose a `CHAR(n)`,
 `VARCHAR(n)`, or `VARBINARY` target. When the target is `VARBINARY`, the
 optional `FORMAT JSON ENCODING` clause selects the byte encoding (UTF-8,
 UTF-16, or UTF-32). Returning `JSON` itself is not allowed; use the
-`JSON(...)` constructor for the no-op case.
+[`JSON(...)`](#json-value-constructor) constructor for the no-op case.
 
 The `ON ERROR` clause controls what happens when the input is malformed
 or the conversion to the target type fails. `ERROR ON ERROR` (the default)

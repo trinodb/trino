@@ -6732,6 +6732,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testJsonConstructorInputFormats()
+    {
+        analyze("SELECT JSON(json_column) FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON(json_column FORMAT JSON) FROM (VALUES '-1', 'ala') t(json_column)");
+        analyze("SELECT JSON(json_column FORMAT JSON ENCODING UTF16) FROM (VALUES X'5B5D', X'7B7D') t(json_column)");
+
+        assertFails("SELECT JSON(1)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:13: Cannot read input of type integer as JSON using formatting JSON");
+    }
+
+    @Test
     public void testJsonSerializeOutputTypeAndFormat()
     {
         analyze("SELECT JSON_SERIALIZE(json_column) FROM (VALUES '-1', 'ala') t(json_column)");
