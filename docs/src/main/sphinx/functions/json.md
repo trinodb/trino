@@ -716,7 +716,7 @@ each step extends a JSON path applied to that value.
 
 | Syntax | Equivalent to |
 |--------|---------------|
-| `j.name` | `JSON_QUERY(j, 'lax $.name' WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)` |
+| `j.name` | `JSON_QUERY(j, 'lax $.name' RETURNING VARCHAR WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY NULL ON ERROR)` |
 | `j."FooBar"` | `JSON_QUERY(j, 'lax $."FooBar"' …)` — delimited identifier, case-sensitive |
 | `j.'foo bar'` | same as the delimited form |
 | `j[3]` | `JSON_QUERY(j, 'lax $[3]' …)` — integer subscript |
@@ -724,6 +724,9 @@ each step extends a JSON path applied to that value.
 | `j.*` (in `SELECT`) | `JSON_QUERY(j, 'lax $.*' …)` — member wildcard, produces one `VARCHAR` column |
 | `j.name.bigint()` | `JSON_VALUE(j, 'lax $.name' RETURNING BIGINT …)` — item method |
 | `j.payload.amount.decimal(18,2)` | `JSON_VALUE(j, 'lax $.payload.amount' RETURNING DECIMAL(18,2) …)` |
+
+Accessors without an item method return `VARCHAR`. The abbreviated `JSON_QUERY`
+expressions above include the same `RETURNING VARCHAR` and behavior clauses.
 
 Member, index, wildcard, and item-method steps compose freely:
 `j.rows[1].cells[*]`, `j.items[0].label`, `j.payload.*`, etc.
@@ -774,7 +777,7 @@ The `ON EMPTY` and `ON ERROR` clauses default to `NULL`.
 
 ### Member wildcard in `SELECT`
 
-`SELECT j.*` is shorthand for `SELECT JSON_QUERY(j, 'lax $.*' …)`. It
+`SELECT j.*` is shorthand for `SELECT JSON_QUERY(j, 'lax $.*' RETURNING VARCHAR …)`. It
 produces one `VARCHAR` output column whose value is a JSON array of the
 top-level members of `j`. An optional `AS (column_alias)` may supply the
 output column's name:
@@ -955,10 +958,11 @@ The constant string `json_path` is evaluated using the `json_input` as the
 context variable (`$`), and the passed arguments as the named variables
 (`$variable_name`).
 
-The returned value is a JSON item returned by the path. By default, it is
-represented as a character string (`varchar`). In the `RETURNING` clause,
-you can specify other character string type or `varbinary`. With
-`varbinary`, you can also specify the desired encoding.
+The returned value is a JSON item returned by the path. With no `RETURNING`
+clause it is a `JSON` value when the input is `JSON`-typed, and a character
+string (`varchar`) otherwise. In the `RETURNING` clause, you can specify
+another character string type or `varbinary`. With `varbinary`, you can also
+specify the desired encoding.
 
 `json_input` is a `JSON` value, a character string, or a binary string. A string
 should contain a single JSON item; for a binary string, you can specify encoding.
