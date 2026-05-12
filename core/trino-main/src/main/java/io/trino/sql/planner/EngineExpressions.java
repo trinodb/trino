@@ -13,16 +13,30 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.spi.expression.Call;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
 
 /**
  * Utilities for the {@code $engine_expression} synthetic function, which wraps an engine IR
- * expression as an opaque {@link io.trino.spi.expression.ConnectorExpression} payload for
- * connectors that support the {@link io.trino.spi.connector.ConnectorExpressionEvaluator} SPI.
+ * expression as an opaque {@link ConnectorExpression} payload for connectors that support the
+ * {@link io.trino.spi.connector.ConnectorExpressionEvaluator} SPI.
  */
 public final class EngineExpressions
 {
     public static final FunctionName ENGINE_EXPRESSION_FUNCTION_NAME = new FunctionName("$engine_expression");
 
     private EngineExpressions() {}
+
+    /**
+     * Returns {@code true} if {@code expression} contains at least one
+     * {@code $engine_expression} node anywhere in its subtree.
+     */
+    public static boolean containsEngineExpression(ConnectorExpression expression)
+    {
+        if (expression instanceof Call call && call.getFunctionName().equals(ENGINE_EXPRESSION_FUNCTION_NAME)) {
+            return true;
+        }
+        return expression.getChildren().stream().anyMatch(EngineExpressions::containsEngineExpression);
+    }
 }

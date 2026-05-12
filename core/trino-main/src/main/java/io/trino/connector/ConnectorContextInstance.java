@@ -21,6 +21,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
 import io.trino.spi.type.TypeManager;
@@ -40,6 +41,7 @@ public class ConnectorContextInstance
     private final PageIndexerFactory pageIndexerFactory;
     private final FunctionBundleFactory functionBundleFactory;
     private final BlocksHashFactory blocksHashFactory;
+    private final ConnectorExpressionEvaluator evaluator;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -51,7 +53,8 @@ public class ConnectorContextInstance
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             FunctionBundleFactory functionBundleFactory,
-            BlocksHashFactory blocksHashFactory)
+            BlocksHashFactory blocksHashFactory,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -63,6 +66,7 @@ public class ConnectorContextInstance
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -123,5 +127,11 @@ public class ConnectorContextInstance
     public BlocksHashFactory getBlocksHashFactory()
     {
         return blocksHashFactory;
+    }
+
+    @Override
+    public ConnectorExpressionEvaluator getExpressionEvaluator()
+    {
+        return evaluator;
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.connector.system.jdbc;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slices;
@@ -26,6 +25,8 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.connector.ConnectorExpressionEvaluator.EvaluationResult;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -57,11 +58,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
@@ -82,6 +83,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.EngineExpressions.containsEngineExpression;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -129,12 +131,14 @@ public class ColumnJdbcTable
 
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final ConnectorExpressionEvaluator evaluator;
 
     @Inject
-    public ColumnJdbcTable(Metadata metadata, AccessControl accessControl)
+    public ColumnJdbcTable(Metadata metadata, AccessControl accessControl, ConnectorExpressionEvaluator evaluator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     @Override
@@ -147,14 +151,17 @@ public class ColumnJdbcTable
     public TupleDomain<ColumnHandle> applyFilter(ConnectorSession connectorSession, Constraint constraint)
     {
         TupleDomain<ColumnHandle> tupleDomain = constraint.getSummary();
-        if (tupleDomain.isNone() || constraint.predicate().isEmpty()) {
+        Map<String, ColumnHandle> assignments = constraint.getAssignments();
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(constraint.getExpression(), connectorSession);
+        Set<String> arguments = prepared.getArguments();
+        if (tupleDomain.isNone() || arguments.isEmpty() || !containsEngineExpression(constraint.getExpression())) {
             return tupleDomain;
         }
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();
-        Set<ColumnHandle> predicateColumns = constraint.getPredicateColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
 
-        boolean hasSchemaPredicate = predicateColumns.contains(TABLE_SCHEMA_COLUMN);
-        boolean hasTablePredicate = predicateColumns.contains(TABLE_NAME_COLUMN);
+        Map<ColumnHandle, String> columnToVariable = assignments.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
+        boolean hasSchemaPredicate = arguments.contains(columnToVariable.getOrDefault(TABLE_SCHEMA_COLUMN, ""));
+        boolean hasTablePredicate = arguments.contains(columnToVariable.getOrDefault(TABLE_NAME_COLUMN, ""));
         if (!hasSchemaPredicate && !hasTablePredicate) {
             // No filter on schema name and table name at all.
             return tupleDomain;
@@ -177,17 +184,39 @@ public class ColumnJdbcTable
             // No need to narrow down the domain.
             return tupleDomain;
         }
-
+        String catalogVariable = columnToVariable.get(TABLE_CATALOG_COLUMN);
+        String schemaVariable = columnToVariable.get(TABLE_SCHEMA_COLUMN);
+        String tableVariable = columnToVariable.get(TABLE_NAME_COLUMN);
         List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogDomain).stream()
-                .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
+                .filter(catalogName -> {
+                    if (catalogVariable == null) {
+                        return true;
+                    }
+                    return switch (prepared.tryEvaluate(ImmutableMap.of(catalogVariable, toNullableValue(catalogName)))) {
+                        case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+                        case EvaluationResult.NoResult _ -> true;
+                    };
+                })
                 .collect(toImmutableList());
 
         List<CatalogSchemaName> schemas = catalogs.stream()
                 .flatMap(catalogName ->
                         listSchemas(session, metadata, accessControl, catalogName, schemaFilter).stream()
-                                .filter(schemaName -> !hasSchemaPredicate || predicate.test(ImmutableMap.of(
-                                        TABLE_CATALOG_COLUMN, toNullableValue(catalogName),
-                                        TABLE_SCHEMA_COLUMN, toNullableValue(schemaName))))
+                                .filter(schemaName -> schemaDomain.isAll() || schemaDomain.includesNullableValue(utf8Slice(schemaName)))
+                                .filter(schemaName -> {
+                                    if (!hasSchemaPredicate || schemaVariable == null) {
+                                        return true;
+                                    }
+                                    ImmutableMap.Builder<String, NullableValue> bindings = ImmutableMap.builder();
+                                    if (catalogVariable != null) {
+                                        bindings.put(catalogVariable, toNullableValue(catalogName));
+                                    }
+                                    bindings.put(schemaVariable, toNullableValue(schemaName));
+                                    return switch (prepared.tryEvaluate(bindings.buildOrThrow())) {
+                                        case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+                                        case EvaluationResult.NoResult _ -> true;
+                                    };
+                                })
                                 .map(schemaName -> new CatalogSchemaName(catalogName, schemaName)))
                 .collect(toImmutableList());
 
@@ -210,10 +239,23 @@ public class ColumnJdbcTable
                             ? new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName(), tableFilter.get())
                             : new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
                     return listTables(session, metadata, accessControl, tablePrefix).stream()
-                            .filter(schemaTableName -> predicate.test(ImmutableMap.of(
-                                    TABLE_CATALOG_COLUMN, toNullableValue(schema.getCatalogName()),
-                                    TABLE_SCHEMA_COLUMN, toNullableValue(schemaTableName.getSchemaName()),
-                                    TABLE_NAME_COLUMN, toNullableValue(schemaTableName.getTableName()))))
+                            .filter(schemaTableName -> {
+                                if (tableVariable == null) {
+                                    return true;
+                                }
+                                ImmutableMap.Builder<String, NullableValue> bindings = ImmutableMap.builder();
+                                if (catalogVariable != null) {
+                                    bindings.put(catalogVariable, toNullableValue(schema.getCatalogName()));
+                                }
+                                if (schemaVariable != null) {
+                                    bindings.put(schemaVariable, toNullableValue(schemaTableName.getSchemaName()));
+                                }
+                                bindings.put(tableVariable, toNullableValue(schemaTableName.getTableName()));
+                                return switch (prepared.tryEvaluate(bindings.buildOrThrow())) {
+                                    case EvaluationResult.Value(var value) -> Boolean.TRUE.equals(value);
+                                    case EvaluationResult.NoResult _ -> true;
+                                };
+                            })
                             .map(schemaTableName -> new CatalogSchemaTableName(schema.getCatalogName(), schemaTableName.getSchemaName(), schemaTableName.getTableName()));
                 })
                 .collect(toImmutableList());
