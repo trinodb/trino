@@ -67,7 +67,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
@@ -78,6 +78,7 @@ import io.trino.sql.tree.CurrentTimestamp;
 import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Extract;
@@ -90,7 +91,6 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
@@ -113,6 +113,9 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicate;
+import io.trino.sql.tree.Predicated;
+import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
@@ -343,7 +346,6 @@ public class TranslationMap
                 case AtLocal expression -> translate(expression);
                 case Format expression -> translate(expression);
                 case TryExpression expression -> translate(expression);
-                case LikePredicate expression -> translate(expression);
                 case Trim expression -> translate(expression);
                 case SubscriptExpression expression -> translate(expression);
                 case LambdaExpression expression -> translate(expression);
@@ -363,18 +365,14 @@ public class TranslationMap
                 case IntervalLiteral expression -> translate(expression);
                 case ArithmeticBinaryExpression expression -> translate(expression);
                 case ArithmeticUnaryExpression expression -> translate(expression);
-                case ComparisonExpression expression -> translate(expression);
                 case Cast expression -> translate(expression);
                 case Row expression -> translate(expression);
                 case NotExpression expression -> translate(expression);
                 case LogicalExpression expression -> translate(expression);
                 case NullLiteral _ -> new Constant(UnknownType.UNKNOWN, null);
                 case CoalesceExpression expression -> translate(expression);
-                case IsNullPredicate expression -> translate(expression);
-                case IsNotNullPredicate expression -> translate(expression);
-                case BetweenPredicate expression -> translate(expression);
+                case Predicated expression -> translate(expression);
                 case IfExpression expression -> translate(expression);
-                case InPredicate expression -> translate(expression);
                 case SimpleCaseExpression expression -> translate(expression);
                 case SearchedCaseExpression expression -> translate(expression);
                 case NullIfExpression expression -> translate(expression);
@@ -458,15 +456,6 @@ public class TranslationMap
                         .orElse(new Constant(analysis.getType(expression), null)));
     }
 
-    private io.trino.sql.ir.Expression translate(InPredicate expression)
-    {
-        return new In(
-                translateExpression(expression.getValue()),
-                ((InListExpression) expression.getValueList()).getValues().stream()
-                        .map(this::translateExpression)
-                        .collect(toImmutableList()));
-    }
-
     private io.trino.sql.ir.Expression translate(IfExpression expression)
     {
         if (expression.getFalseValue().isPresent()) {
@@ -486,25 +475,53 @@ public class TranslationMap
         return new Constant(analysis.getType(expression), Slices.wrappedBuffer(expression.getValue()));
     }
 
-    private io.trino.sql.ir.Expression translate(BetweenPredicate expression)
+    private io.trino.sql.ir.Expression translate(Predicated expression)
     {
-        return new Between(
-                translateExpression(expression.getValue()),
-                translateExpression(expression.getMin()),
-                translateExpression(expression.getMax()));
+        io.trino.sql.ir.Expression value = translateExpression(expression.getValue());
+        return translatePartial(value, expression.getPredicate());
     }
 
-    private io.trino.sql.ir.Expression translate(IsNullPredicate expression)
+    private io.trino.sql.ir.Expression translatePartial(io.trino.sql.ir.Expression value, Predicate clause)
     {
-        return new IsNull(translateExpression(expression.getValue()));
-    }
-
-    private io.trino.sql.ir.Expression translate(IsNotNullPredicate expression)
-    {
-        return not(
-                plannerContext.getMetadata(),
-                new IsNull(
-                        translateExpression(expression.getValue())));
+        return switch (clause) {
+            case BetweenPredicate predicate -> {
+                io.trino.sql.ir.Expression between = new Between(value, translateExpression(predicate.getMin()), translateExpression(predicate.getMax()));
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), between) : between;
+            }
+            case ComparisonPredicate predicate -> {
+                io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
+                yield switch (predicate.getOperator()) {
+                    case EQUAL -> new Comparison(EQUAL, value, right);
+                    case NOT_EQUAL -> new Comparison(NOT_EQUAL, value, right);
+                    case LESS_THAN -> new Comparison(LESS_THAN, value, right);
+                    case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, value, right);
+                    case GREATER_THAN -> new Comparison(GREATER_THAN, value, right);
+                    case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, value, right);
+                };
+            }
+            case DistinctFromPredicate predicate -> {
+                io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
+                io.trino.sql.ir.Expression identical = new Comparison(IDENTICAL, value, right);
+                yield predicate.isNegated() ? identical : not(plannerContext.getMetadata(), identical);
+            }
+            case InPredicate predicate -> {
+                if (!(predicate.getValueList() instanceof InListExpression valueList)) {
+                    throw new IllegalStateException("Subquery IN should have been planned by SubqueryPlanner: " + predicate.getValueList().getClass().getName());
+                }
+                io.trino.sql.ir.Expression in = new In(
+                        value,
+                        valueList.getValues().stream()
+                                .map(this::translateExpression)
+                                .collect(toImmutableList()));
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), in) : in;
+            }
+            case IsNullPredicate predicate -> {
+                io.trino.sql.ir.Expression isNull = new IsNull(value);
+                yield predicate.isNegated() ? not(plannerContext.getMetadata(), isNull) : isNull;
+            }
+            case LikePredicate predicate -> translateLike(value, predicate);
+            case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
+        };
     }
 
     private io.trino.sql.ir.Expression translate(CoalesceExpression expression)
@@ -579,22 +596,6 @@ public class TranslationMap
                         .map(this::translateExpression)
                         .collect(toImmutableList()),
                 (RowType) analysis.getType(expression));
-    }
-
-    private io.trino.sql.ir.Expression translate(ComparisonExpression expression)
-    {
-        io.trino.sql.ir.Expression left = translateExpression(expression.getLeft());
-        io.trino.sql.ir.Expression right = translateExpression(expression.getRight());
-
-        return switch (expression.getOperator()) {
-            case EQUAL -> new Comparison(EQUAL, left, right);
-            case NOT_EQUAL -> new Comparison(NOT_EQUAL, left, right);
-            case LESS_THAN -> new Comparison(LESS_THAN, left, right);
-            case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left, right);
-            case GREATER_THAN -> new Comparison(GREATER_THAN, left, right);
-            case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left, right);
-            case IS_DISTINCT_FROM -> not(plannerContext.getMetadata(), new Comparison(IDENTICAL, left, right));
-        };
     }
 
     private io.trino.sql.ir.Expression translate(Cast expression)
@@ -989,11 +990,10 @@ public class TranslationMap
                 .build();
     }
 
-    private io.trino.sql.ir.Expression translate(LikePredicate node)
+    private io.trino.sql.ir.Expression translateLike(io.trino.sql.ir.Expression value, LikePredicate predicate)
     {
-        io.trino.sql.ir.Expression value = translateExpression(node.getValue());
-        io.trino.sql.ir.Expression pattern = translateExpression(node.getPattern());
-        Optional<io.trino.sql.ir.Expression> escape = node.getEscape().map(this::translateExpression);
+        io.trino.sql.ir.Expression pattern = translateExpression(predicate.getPattern());
+        Optional<io.trino.sql.ir.Expression> escape = predicate.getEscape().map(this::translateExpression);
 
         Call patternCall;
         if (escape.isPresent()) {
@@ -1010,11 +1010,12 @@ public class TranslationMap
                     .build();
         }
 
-        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+        io.trino.sql.ir.Expression like = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(LIKE_FUNCTION_NAME)
                 .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();
+        return predicate.isNegated() ? not(plannerContext.getMetadata(), like) : like;
     }
 
     private io.trino.sql.ir.Expression translate(Trim node)

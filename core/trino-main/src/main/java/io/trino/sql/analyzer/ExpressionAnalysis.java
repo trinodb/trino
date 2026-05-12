@@ -19,9 +19,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.Map;
@@ -34,26 +33,26 @@ public class ExpressionAnalysis
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final Map<NodeRef<Expression>, Type> expressionCoercions;
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences;
-    private final Set<NodeRef<InPredicate>> subqueryInPredicates;
+    private final Set<NodeRef<Predicated>> subqueryPredicates;
     private final Set<NodeRef<SubqueryExpression>> subqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
-    private final Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons;
+    private final Set<NodeRef<Predicated>> quantifiedComparisons;
     private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
             Map<NodeRef<Expression>, Type> expressionTypes,
             Map<NodeRef<Expression>, Type> expressionCoercions,
-            Set<NodeRef<InPredicate>> subqueryInPredicates,
+            Set<NodeRef<Predicated>> subqueryPredicates,
             Set<NodeRef<SubqueryExpression>> subqueries,
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
             Map<NodeRef<Expression>, ResolvedField> columnReferences,
-            Set<NodeRef<QuantifiedComparisonExpression>> quantifiedComparisons,
+            Set<NodeRef<Predicated>> quantifiedComparisons,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         this.expressionCoercions = ImmutableMap.copyOf(requireNonNull(expressionCoercions, "expressionCoercions is null"));
         this.columnReferences = ImmutableMap.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
-        this.subqueryInPredicates = ImmutableSet.copyOf(requireNonNull(subqueryInPredicates, "subqueryInPredicates is null"));
+        this.subqueryPredicates = ImmutableSet.copyOf(requireNonNull(subqueryPredicates, "subqueryPredicates is null"));
         this.subqueries = ImmutableSet.copyOf(requireNonNull(subqueries, "subqueries is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableSet.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
@@ -80,9 +79,9 @@ public class ExpressionAnalysis
         return columnReferences.containsKey(NodeRef.of(node));
     }
 
-    public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
+    public Set<NodeRef<Predicated>> getSubqueryInPredicates()
     {
-        return subqueryInPredicates;
+        return subqueryPredicates;
     }
 
     public Set<NodeRef<SubqueryExpression>> getSubqueries()
@@ -95,7 +94,7 @@ public class ExpressionAnalysis
         return existsSubqueries;
     }
 
-    public Set<NodeRef<QuantifiedComparisonExpression>> getQuantifiedComparisons()
+    public Set<NodeRef<Predicated>> getQuantifiedComparisons()
     {
         return quantifiedComparisons;
     }

@@ -76,6 +76,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -267,10 +268,7 @@ public final class ShowQueriesRewrite
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(
-                        identifier("table_name"),
-                        new StringLiteral(likePattern.get()),
-                        showTables.getEscape().map(StringLiteral::new));
+                Expression likePredicate = new Predicated(null, identifier("table_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), showTables.getEscape().map(StringLiteral::new)));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -410,10 +408,7 @@ public final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(
-                        identifier("schema_name"),
-                        new StringLiteral(likePattern.get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = Optional.of(new Predicated(null, identifier("schema_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(
@@ -436,10 +431,7 @@ public final class ShowQueriesRewrite
                 predicate = Optional.of(BooleanLiteral.FALSE_LITERAL);
             }
             else if (node.getLikePattern().isPresent()) {
-                predicate = Optional.of(new LikePredicate(
-                        identifier("catalog"),
-                        new StringLiteral(node.getLikePattern().get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = Optional.of(new Predicated(null, identifier("catalog"), new LikePredicate(null, false, new StringLiteral(node.getLikePattern().get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(
@@ -500,10 +492,7 @@ public final class ShowQueriesRewrite
                     equal(identifier("table_name"), new StringLiteral(targetTableName.objectName())));
             Optional<String> likePattern = showColumns.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(
-                        identifier("column_name"),
-                        new StringLiteral(likePattern.get()),
-                        showColumns.getEscape().map(StringLiteral::new));
+                Expression likePredicate = new Predicated(null, identifier("column_name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), showColumns.getEscape().map(StringLiteral::new)));
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -772,10 +761,7 @@ public final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
                     node.getLikePattern()
-                            .map(like -> new LikePredicate(
-                                    identifier("function_name"),
-                                    new StringLiteral(like),
-                                    node.getEscape().map(StringLiteral::new)))
+                            .map(like -> new Predicated(null, identifier("function_name"), new LikePredicate(null, false, new StringLiteral(like), node.getEscape().map(StringLiteral::new))))
                             .map(Expression.class::cast)
                             .orElse(TRUE_LITERAL),
                     ordering(
@@ -904,10 +890,7 @@ public final class ShowQueriesRewrite
             Expression predicate = identifier("include");
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = and(predicate, new LikePredicate(
-                        identifier("name"),
-                        new StringLiteral(likePattern.get()),
-                        node.getEscape().map(StringLiteral::new)));
+                predicate = and(predicate, new Predicated(null, identifier("name"), new LikePredicate(null, false, new StringLiteral(likePattern.get()), node.getEscape().map(StringLiteral::new))));
             }
 
             return simpleQuery(
