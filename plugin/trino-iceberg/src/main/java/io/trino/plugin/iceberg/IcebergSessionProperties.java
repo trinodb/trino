@@ -107,6 +107,7 @@ public final class IcebergSessionProperties
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
     public static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
+    private static final String PARTITIONS_TABLE_BATCH_SIZE = "partitions_table_batch_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -396,6 +397,18 @@ public final class IcebergSessionProperties
                             }
                         },
                         false))
+                .add(integerProperty(
+                        PARTITIONS_TABLE_BATCH_SIZE,
+                        "Maximum number of partitions aggregated per batch when reading the $partitions metadata table; 0 disables batching",
+                        icebergConfig.getPartitionsTableBatchSize(),
+                        value -> {
+                            if (value < 0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be non-negative: %s", PARTITIONS_TABLE_BATCH_SIZE, value));
+                            }
+                        },
+                        false))
                 .build();
     }
 
@@ -638,5 +651,10 @@ public final class IcebergSessionProperties
     public static int maxPartitionsPerWriter(ConnectorSession session)
     {
         return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
+    }
+
+    public static int getPartitionsTableBatchSize(ConnectorSession session)
+    {
+        return session.getProperty(PARTITIONS_TABLE_BATCH_SIZE, Integer.class);
     }
 }

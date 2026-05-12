@@ -118,6 +118,13 @@ implementation is used:
   - Maximum number of partitions handled per writer. The equivalent catalog session property is
     `max_partitions_per_writer`.
   - `100`
+* - `iceberg.partitions-table-batch-size`
+  - Maximum number of partitions aggregated per batch when reading the
+    `$partitions` metadata table. Set to a positive integer to bound the
+    coordinator memory footprint of `$partitions` queries on tables with many
+    partitions; `0` disables batching. The equivalent catalog session property
+    is `partitions_table_batch_size`.
+  - `0`
 * - `iceberg.target-max-file-size`
   - Target maximum size of written files; the actual size may be larger.
   - `1GB`
@@ -1479,6 +1486,27 @@ The output of the query has the following columns:
   - `ROW(... ROW (min ..., max ... , null_count BIGINT, nan_count BIGINT))`
   - Partition range metadata.
 :::
+
+By default, querying the `$partitions` table aggregates statistics for
+every partition in memory on the coordinator before emitting any rows.
+For tables with millions of partitions this can require tens to hundreds
+of gigabytes of coordinator heap. To bound the coordinator memory
+footprint, set the `iceberg.partitions-table-batch-size` configuration
+property (or the equivalent `partitions_table_batch_size` catalog
+session property) to a positive integer:
+
+```sql
+SET SESSION iceberg.partitions_table_batch_size = 10000;
+SELECT * FROM "test_table$partitions";
+```
+
+When set to a positive value `N`, the connector first enumerates the
+distinct partition keys and then aggregates partition statistics in
+batches of at most `N` partitions, releasing the per-partition
+aggregation state between batches. The trade-off is a second pass over
+the manifest entries, so very small batch sizes on very large tables can
+increase query latency. The default value of `0` uses the original
+non-batched implementation.
 
 ##### `$files` table
 

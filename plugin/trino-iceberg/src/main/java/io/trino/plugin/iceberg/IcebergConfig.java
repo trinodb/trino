@@ -68,6 +68,7 @@ public class IcebergConfig
     private Optional<Integer> maxPreviousVersions = Optional.empty();
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private int partitionsTableBatchSize;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
@@ -214,6 +215,20 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    @Min(0)
+    public int getPartitionsTableBatchSize()
+    {
+        return partitionsTableBatchSize;
+    }
+
+    @Config("iceberg.partitions-table-batch-size")
+    @ConfigDescription("Maximum number of partitions aggregated per batch when reading the $partitions metadata table; 0 disables batching")
+    public IcebergConfig setPartitionsTableBatchSize(int partitionsTableBatchSize)
+    {
+        this.partitionsTableBatchSize = partitionsTableBatchSize;
         return this;
     }
 

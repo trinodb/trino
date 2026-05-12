@@ -15,8 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.system.PartitionsTable;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -37,15 +43,19 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -54,12 +64,14 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -163,6 +175,109 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
+    }
+
+    @Test
+    public void testPartitionsTableBatchSizeSweep()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_batch_sweep",
+                "(id BIGINT, dt DATE) WITH (partitioning = ARRAY['dt'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                    "(1, DATE '2024-01-01'), " +
+                    "(2, DATE '2024-01-02'), " +
+                    "(3, DATE '2024-01-03'), " +
+                    "(4, DATE '2024-01-04'), " +
+                    "(5, DATE '2024-01-05')", 5);
+
+            String query = "SELECT p.dt FROM (SELECT partition AS p FROM \"" + table.getName() + "$partitions\") t";
+            String expected = "VALUES (DATE '2024-01-01'), (DATE '2024-01-02'), (DATE '2024-01-03'), (DATE '2024-01-04'), (DATE '2024-01-05')";
+
+            for (int batchSize : new int[] {0, 1, 2, 3, 4, 5, 100}) {
+                Session session = Session.builder(getSession())
+                        .setCatalogSessionProperty("iceberg", "partitions_table_batch_size", String.valueOf(batchSize))
+                        .build();
+                assertQuery(session, query, expected);
+            }
+        }
+    }
+
+    @Test
+    public void testPartitionsTableNullPartitionValue()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_null_partition",
+                "(id BIGINT, dt DATE) WITH (partitioning = ARRAY['dt'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                    "(1, DATE '2024-01-01'), " +
+                    "(2, NULL), " +
+                    "(3, DATE '2024-01-02')", 3);
+            assertQuery(
+                    "SELECT p.dt FROM (SELECT partition AS p FROM \"" + table.getName() + "$partitions\") t",
+                    "VALUES (DATE '2024-01-01'), (CAST(NULL AS DATE)), (DATE '2024-01-02')");
+        }
+    }
+
+    @Test
+    public void testPartitionsTableEmptySnapshot()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_empty_partitions",
+                "(id BIGINT, dt DATE) WITH (partitioning = ARRAY['dt'])")) {
+            // Querying $partitions on a table that has never been written to should return no rows.
+            assertQueryReturnsEmptyResult("SELECT * FROM \"" + table.getName() + "$partitions\"");
+        }
+    }
+
+    @Test
+    public void testPartitionsTableSpecEvolution()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_spec_evolution",
+                "(a BIGINT, b BIGINT, dt DATE) WITH (partitioning = ARRAY['dt'])")) {
+            // Write under the original spec (partitioning = dt).
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                    "(1, 10, DATE '2024-01-01'), " +
+                    "(2, 20, DATE '2024-01-02')", 2);
+            // Evolve the partition spec.
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['a']");
+            // Write under the new spec (partitioning = a).
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " +
+                    "(3, 30, DATE '2024-01-03'), " +
+                    "(4, 40, DATE '2024-01-04')", 2);
+            // 2 partitions under the original spec + 2 under the new spec.
+            assertQuery(
+                    "SELECT count(*) FROM \"" + table.getName() + "$partitions\"",
+                    "VALUES 4");
+        }
+    }
+
+    @Test
+    public void testPartitionsTableBatchedDispatch()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable(
+                "test_dispatch",
+                "WITH (partitioning = ARRAY['dt']) AS SELECT 1 id, DATE '2024-01-01' dt")) {
+            BaseTable icebergTable = loadTable(table.getName());
+            SchemaTableName name = new SchemaTableName("tpch", table.getName() + "$partitions");
+            OptionalLong snapshotId = OptionalLong.of(icebergTable.currentSnapshot().snapshotId());
+            ExecutorService executor = newDirectExecutorService();
+            try {
+                PartitionsTable legacy = new PartitionsTable(name, TESTING_TYPE_MANAGER, icebergTable, snapshotId, executor, 0);
+                assertThatThrownBy(() -> legacy.pageSource(null, null, TupleDomain.all()))
+                        .isInstanceOf(UnsupportedOperationException.class);
+
+                PartitionsTable batched = new PartitionsTable(name, TESTING_TYPE_MANAGER, icebergTable, snapshotId, executor, 10);
+                try (ConnectorPageSource source = batched.pageSource(null, null, TupleDomain.all())) {
+                    assertThat(source).isNotInstanceOf(RecordPageSource.class);
+                    assertThat(source.getClass().getSimpleName()).isEqualTo("BatchedPartitionsPageSource");
+                }
+            }
+            finally {
+                executor.shutdownNow();
+            }
+        }
     }
 
     @Test
