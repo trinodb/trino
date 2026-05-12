@@ -86,7 +86,7 @@ public class TestJsonOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '12345678901234567890'").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         assertThat(assertions.expression("cast(a as BIGINT)")
                 .binding("a", "JSON '128.9'"))
@@ -814,12 +814,11 @@ public class TestJsonOperators
                 .binding("a", "JSON '128.9'"))
                 .isEqualTo(true);
 
-        // smaller than minimum subnormal positive
+        // 1e-324 is an approximate literal, so its value is the double it denotes: zero.
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "JSON '1e-324'"))
                 .isEqualTo(false);
 
-        // overflow if parsed as double
         assertThat(assertions.expression("cast(a as BOOLEAN)")
                 .binding("a", "JSON '1e309'"))
                 .isEqualTo(true);
@@ -905,11 +904,15 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("0");
 
+        // 0.000000000000000 fits DECIMAL(15,15); the cast still routes through Jackson's
+        // VALUE_NUMBER_FLOAT path → DoubleOperators.castToVarchar → "0E0".
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0.000000000000000'"))
                 .hasType(VARCHAR)
                 .isEqualTo("0E0");
 
+        // An exponent makes the literal approximate, so these are doubles, and a double
+        // renders in scientific form.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '0e1000'"))
                 .hasType(VARCHAR)
@@ -925,6 +928,7 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("1");
 
+        // The exponent makes this an approximate literal, so it is the double it denotes: 1.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '100000000000000000000000000000000000000000000000000000000000000000000e-68'"))
                 .hasType(VARCHAR)
@@ -946,19 +950,19 @@ public class TestJsonOperators
                 .hasType(VARCHAR)
                 .isEqualTo("1.289E2");
 
-        // smaller than minimum subnormal positive
+        // smaller than minimum subnormal positive — still rounds to Double 0 because the
+        // VARCHAR cast path goes through DoubleOperators.castToVarchar.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e-324'"))
                 .hasType(VARCHAR)
                 .isEqualTo("0E0");
 
-        // overflow
+        // An approximate literal beyond DOUBLE's range is the infinity it denotes.
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '1e309'"))
                 .hasType(VARCHAR)
                 .isEqualTo("Infinity");
 
-        // underflow
         assertThat(assertions.expression("cast(a as VARCHAR)")
                 .binding("a", "JSON '-1e309'"))
                 .hasType(VARCHAR)
@@ -1299,9 +1303,11 @@ public class TestJsonOperators
                 .binding("a", "JSON '128.9'"))
                 .matches("NUMBER '128.9'");
 
+        // 1e-324 is an approximate literal: the item is the double it denotes, which
+        // underflows to zero, so the NUMBER it casts to is zero rather than 1E-324.
         assertThat(assertions.expression("cast(a as NUMBER)")
                 .binding("a", "JSON '1e-324'"))
-                .matches("NUMBER '1E-324'");
+                .matches("NUMBER '0'");
 
         assertThat(assertions.expression("cast(a as NUMBER)")
                 .binding("a", "JSON '1e308'"))

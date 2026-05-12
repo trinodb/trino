@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.function.LiteralParameters;
@@ -108,9 +110,9 @@ public class TestRowOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static Json uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return JsonItems.fromText(slice);
     }
 
     @Test
@@ -485,7 +487,6 @@ public class TestRowOperators
                         null,
                         asList(1L, 2L, 3L, null)));
 
-        // invalid cast
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a as ROW(a BIGINT, b BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}')")
                 .evaluate())

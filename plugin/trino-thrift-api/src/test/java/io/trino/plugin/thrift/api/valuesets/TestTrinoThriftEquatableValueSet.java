@@ -14,6 +14,7 @@
 package io.trino.plugin.thrift.api.valuesets;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.json.Json;
 import io.trino.plugin.thrift.api.datatypes.TrinoThriftJson;
 import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoThriftEquatableValueSet
 {
-    private static final String JSON1 = "\"key1\":\"value1\"";
-    private static final String JSON2 = "\"key2\":\"value2\"";
+    private static final String JSON1 = "{\"key1\":\"value1\"}";
+    private static final String JSON2 = "{\"key2\":\"value2\"}";
 
     @Test
     public void testFromValueSetAll()
@@ -51,7 +52,7 @@ public class TestTrinoThriftEquatableValueSet
     @Test
     public void testFromValueSetOf()
     {
-        TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(JSON, utf8Slice(JSON1), utf8Slice(JSON2)));
+        TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(JSON, Json.unchecked(utf8Slice(JSON1)), Json.unchecked(utf8Slice(JSON2))));
         assertThat(thriftValueSet.getEquatableValueSet()).isNotNull();
         assertThat(thriftValueSet.getEquatableValueSet().isInclusive()).isTrue();
         assertThat(thriftValueSet.getEquatableValueSet().getValues()).isEqualTo(ImmutableList.of(

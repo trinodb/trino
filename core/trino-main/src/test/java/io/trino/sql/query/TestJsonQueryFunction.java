@@ -406,16 +406,48 @@ public class TestJsonQueryFunction
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
 
-        // default RETURNING (VARCHAR) leaves OMIT QUOTES legal — SR 1 maps the input's varchar type to the
-        // return type, and SR 3 only applies to JSON returns. Both a direct character input and a JSON_QUERY
-        // input fall in this bucket today (the SQL/JSON producers default to VARCHAR; an explicit
-        // RETURNING JSON on the input would be caught at JSON_QUERY's input-coercion step).
+        // SR 1: input is JSON-typed and no RETURNING clause given, so the effective return type is JSON
         assertThat(assertions.query(
-                "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' OMIT QUOTES ON SCALAR STRING)"))
-                .matches("VALUES cast('some scalar text value' AS varchar)");
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+
+        // SR 1: input is a JSON-returning function call (the nested call's own SR 1 makes it JSON-typed)
         assertThat(assertions.query(
-                "SELECT json_query(json_query('" + INPUT + "', 'lax \"some scalar text value\"'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                "SELECT json_query(json_query(JSON '" + INPUT + "', 'lax $'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+
+        // a nested call over a character string input returns varchar, so the outer input is not JSON-typed
+        assertThat(assertions.query(
+                "SELECT json_query(json_query('" + INPUT + "', 'lax $'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
+
+        // explicit RETURNING varchar with JSON-typed input keeps OMIT QUOTES legal
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '\"some scalar text value\"', 'lax $' RETURNING varchar OMIT QUOTES ON SCALAR STRING)"))
                 .matches("VALUES cast('some scalar text value' AS varchar)");
+    }
+
+    @Test
+    public void testImplicitJsonReturnTypeForJsonTypedInput()
+    {
+        // SQL:2023 §6.35 SR 1: JSON-typed input with no RETURNING clause yields a JSON-typed result
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $')"))
+                .matches("VALUES JSON '[\"a\",\"b\",\"c\"]'");
+
+        // a character string input keeps the varchar default
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $')"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
+
+        // an explicit RETURNING clause overrides the implicit JSON return
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $' RETURNING varchar)"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
     }
 
     @Test

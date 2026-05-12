@@ -17,8 +17,9 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
@@ -79,7 +80,7 @@ public class ArrayToJsonCast
                 methodHandle);
     }
 
-    public static Slice toJson(JsonGeneratorWriter writer, Block block)
+    public static Json toJson(JsonGeneratorWriter writer, Block block)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);
@@ -90,7 +91,7 @@ public class ArrayToJsonCast
                 }
                 jsonGenerator.writeEndArray();
             }
-            return output.slice();
+            return JsonItems.fromText(output.slice());
         }
         catch (IOException e) {
             throw new RuntimeException(e);

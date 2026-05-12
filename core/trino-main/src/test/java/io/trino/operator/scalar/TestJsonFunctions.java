@@ -480,39 +480,41 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayGetString()
     {
+        // A JSON column holds JSON values, so a string element round-trips through
+        // getObjectValue as the quoted form `"jhfa"` — a bare `jhfa` is not valid JSON.
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);

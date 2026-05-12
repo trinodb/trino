@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -97,9 +100,9 @@ public class TestMapOperators
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice uncheckedToJson(@SqlType("varchar(x)") Slice slice)
+    public static Json uncheckedToJson(@SqlType("varchar(x)") Slice slice)
     {
-        return slice;
+        return JsonItems.fromText(slice);
     }
 
     @Test
@@ -659,20 +662,21 @@ public class TestMapOperators
                 .hasMessage("Cannot cast to map(varchar, map(varchar, bigint)). Expected a json object, but got [\n{\"1\":{\"a\":1},\"2\":[]}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
+        // unchecked_to_json validates its input, so malformed JSON fails at injection time.
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('\"a\": 1, \"b\": 2')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Expected a json object, but got a\n\"a\": 1, \"b\": 2")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\": 1} 2')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint). Unexpected trailing token: 2\n{\"a\": 1} 2")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\": 1')").evaluate())
-                .hasMessage("Cannot cast to map(varchar, bigint).\n{\"a\": 1")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+                .hasMessageContaining("invalid JSON")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(VARCHAR, BIGINT))")
                 .binding("a", "JSON '{\"a\": \"b\"}'").evaluate())
@@ -686,12 +690,12 @@ public class TestMapOperators
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as MAP(BIGINT, BIGINT))")
                 .binding("a", "JSON '{\"1\":1, \"01\": 2}'").evaluate())
-                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"01\":2,\"1\":1}")
+                .hasMessage("Cannot cast to map(bigint, bigint). Duplicate map keys are not allowed\n{\"1\":1,\"01\":2}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as ARRAY(MAP(BIGINT, BIGINT)))")
                 .binding("a", "JSON '[{\"1\":1, \"01\": 2}]'").evaluate())
-                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"01\":2,\"1\":1}]")
+                .hasMessage("Cannot cast to array(map(bigint, bigint)). Duplicate map keys are not allowed\n[{\"1\":1,\"01\":2}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         // some other key/value type combinations

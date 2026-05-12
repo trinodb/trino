@@ -313,6 +313,11 @@ public final class JsonItemEncoding
         writeSlice(output, utf8Slice(key));
     }
 
+    public static void appendObjectKey(SliceOutput output, Slice key)
+    {
+        writeSlice(output, key);
+    }
+
     public static void appendBigint(SliceOutput output, long value)
     {
         output.appendByte(ItemTag.TYPED_VALUE.encoded());

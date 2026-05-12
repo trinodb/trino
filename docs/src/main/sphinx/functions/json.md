@@ -184,10 +184,6 @@ resulting sequence is `100, 300`.
 
 All items in the input sequence must be JSON objects.
 
-:::{note}
-Trino does not support JSON objects with duplicate keys.
-:::
-
 #### wildcard member accessor
 
 Returns values from all key-value pairs for each JSON object in the input
@@ -835,8 +831,8 @@ kinds of errors:
 - Input conversion errors, such as malformed JSON
 - JSON path evaluation errors, e.g. division by zero
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -953,13 +949,14 @@ The constant string `json_path` is evaluated using the `json_input` as the
 context variable (`$`), and the passed arguments as the named variables
 (`$variable_name`).
 
-The returned value is a JSON item returned by the path. By default, it is
-represented as a character string (`varchar`). In the `RETURNING` clause,
-you can specify other character string type or `varbinary`. With
-`varbinary`, you can also specify the desired encoding.
+The returned value is a JSON item returned by the path. With no `RETURNING`
+clause it is a `JSON` value when the input is `JSON`-typed, and a character
+string (`varchar`) otherwise. In the `RETURNING` clause, you can specify
+another character string type or `varbinary`. With `varbinary`, you can also
+specify the desired encoding.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1154,8 +1151,8 @@ The returned value is the SQL scalar returned by the path. By default, it is
 converted to string (`varchar`). In the `RETURNING` clause, you can specify
 other desired type: a character string type, numeric, boolean or datetime type.
 
-`json_input` is a character string or a binary string. It should contain
-a single JSON item. For a binary string, you can specify encoding.
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+should contain a single JSON item; for a binary string, you can specify encoding.
 
 `json_path` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
@@ -1339,7 +1336,8 @@ column_name FOR ORDINALITY
 | NESTED [ PATH ] json_path [ AS path_name ] COLUMNS ( column_definition [, ...] )
 ```
 
-`json_input` is a character string or a binary string. It must contain a single
+`json_input` is a `JSON` value, a character string, or a binary string. A string
+must contain a single
 JSON item.
 
 `json_path` is a string literal containing the path mode specification and the
@@ -1780,9 +1778,8 @@ SELECT json_object('x' : null, 'x' : 1 WITH UNIQUE KEYS)
 Note that this option is not supported if any of the arguments has a
 `FORMAT` specification.
 
-If `WITHOUT UNIQUE KEYS` is specified, duplicate keys are not supported due
-to implementation limitation. `WITHOUT UNIQUE KEYS` is the default
-configuration.
+`WITHOUT UNIQUE KEYS` is the default configuration; duplicate keys are
+preserved in insertion order.
 
 ### Returned type
 
@@ -1986,26 +1983,13 @@ SELECT json_array_contains('[1, 2, 3]', 2); -- true
 ```
 :::
 
-::::{function} json_array_get(json_array, index) -> json
-
-:::{warning}
-The semantics of this function are broken. If the extracted element
-is a string, it will be converted into an invalid `JSON` value that
-is not properly quoted (the value will not be surrounded by quotes
-and any interior quotes will not be escaped).
-
-We recommend against using this function. It cannot be fixed without
-impacting existing usages and may be removed in a future release.
-
-Use {ref}`json_query<json-query>` instead with JSONPath array indexing
-syntax, e.g., `json_query(json_array, 'lax $[0]')`.
-:::
+:::{function} json_array_get(json_array, index) -> json
 
 Returns the element at the specified index into the `json_array`.
 The index is zero-based:
 
 ```
-SELECT json_array_get('["a", [3, 9], "c"]', 0); -- JSON 'a' (invalid JSON)
+SELECT json_array_get('["a", [3, 9], "c"]', 0); -- JSON '"a"'
 SELECT json_array_get('["a", [3, 9], "c"]', 1); -- JSON '[3,9]'
 ```
 
@@ -2013,7 +1997,7 @@ This function also supports negative indexes for fetching element indexed
 from the end of an array:
 
 ```
-SELECT json_array_get('["c", [3, 9], "a"]', -1); -- JSON 'a' (invalid JSON)
+SELECT json_array_get('["c", [3, 9], "a"]', -1); -- JSON '"a"'
 SELECT json_array_get('["c", [3, 9], "a"]', -2); -- JSON '[3,9]'
 ```
 
@@ -2024,7 +2008,7 @@ SELECT json_array_get('[]', 0);                -- NULL
 SELECT json_array_get('["a", "b", "c"]', 10);  -- NULL
 SELECT json_array_get('["c", "b", "a"]', -10); -- NULL
 ```
-::::
+:::
 
 :::{function} json_array_length(json) -> bigint
 Returns the array length of `json` (a string containing a JSON array):

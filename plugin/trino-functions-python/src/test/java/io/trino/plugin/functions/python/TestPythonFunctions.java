@@ -1576,7 +1576,7 @@ public class TestPythonFunctions
                 AS $$
                 import json
                 def update_json(x):
-                    assert x == '{"bar":456,"foo":123}'
+                    assert x == '{"foo":123,"bar":456}'
                     v = json.loads(x)
                     v['abc'] = 'xyz'
                     return json.dumps(v)
@@ -1585,7 +1585,7 @@ public class TestPythonFunctions
                 """))
                 .matches(
                         """
-                        VALUES json '{"abc": "xyz", "bar": 456, "foo": 123}'
+                        VALUES json '{"foo": 123, "bar": 456, "abc": "xyz"}'
                         """);
 
         assertThat(assertions.query(
@@ -2004,7 +2004,7 @@ public class TestPythonFunctions
                         datetime(2024, 5, 6, 11, 42, 54, 123457, timezone(timedelta(hours=-7))),
                         67,
                         timedelta(days=5, hours=9, minutes=23, seconds=56, milliseconds=123),
-                        '{"bar":456,"foo":123}',
+                        '{"foo":123,"bar":456}',
                         UUID('6b5f5b65-67e4-43b0-8ee3-586cd49f58a1'),
                         ip_address('12.34.56.78'))
                     return x
@@ -2061,7 +2061,7 @@ public class TestPythonFunctions
                             timestamp '2024-05-06 11:42:54.12346-07:00',
                             interval '5-7' year to month,
                             interval '5 09:23:56.123' day to second,
-                            json '{"bar": 456, "foo": 123}',
+                            json '{"foo": 123, "bar": 456}',
                             uuid '6b5f5b65-67e4-43b0-8ee3-586cd49f58a1',
                             ipaddress '12.34.56.78')
                         """);
