@@ -137,6 +137,15 @@ public final class JsonOutputFunctions
 
     private static Slice serialize(Json json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
     {
+        // A JSON_ERROR input carries the failure forward from a failOnError=false input
+        // function call (e.g. JSON_SERIALIZE / JSON_VALUE / JSON_QUERY under NULL ON ERROR
+        // when the input couldn't be parsed). The dispatch applies uniformly to all four
+        // ON ERROR ordinals (NULL/ERROR/EMPTY_ARRAY/EMPTY_OBJECT) so the caller's clause
+        // governs the outcome regardless of which leg produced the sentinel.
+        if (json.isError()) {
+            return onError(constants, errorBehavior, new JsonOutputConversionException("JSON value cannot be serialized"));
+        }
+
         if (omitQuotes && json.isScalar() && json.scalarType() == TypeTag.VARCHAR) {
             // unquoted-scalar-string output: emit the raw text without JSON-escaping the wrapping quotes
             String text = ((Slice) json.materializeScalar().getObjectValue()).toStringUtf8();
@@ -151,24 +160,29 @@ public final class JsonOutputFunctions
             JsonItemEncoding.writeJson(json.backingSlice(), json.viewOffset(), generator);
         }
         catch (JsonProcessingException e) {
-            if (errorBehavior == NULL.ordinal()) {
-                return null;
-            }
-            if (errorBehavior == ERROR.ordinal()) {
-                throw new JsonOutputConversionException(e);
-            }
-            if (errorBehavior == EMPTY_ARRAY.ordinal()) {
-                return constants.emptyArray;
-            }
-            if (errorBehavior == EMPTY_OBJECT.ordinal()) {
-                return constants.emptyObject;
-            }
-            throw new IllegalStateException("unexpected behavior");
+            return onError(constants, errorBehavior, new JsonOutputConversionException(e));
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
         return output.slice();
+    }
+
+    private static Slice onError(EncodingSpecificConstants constants, long errorBehavior, JsonOutputConversionException cause)
+    {
+        if (errorBehavior == NULL.ordinal()) {
+            return null;
+        }
+        if (errorBehavior == ERROR.ordinal()) {
+            throw cause;
+        }
+        if (errorBehavior == EMPTY_ARRAY.ordinal()) {
+            return constants.emptyArray;
+        }
+        if (errorBehavior == EMPTY_OBJECT.ordinal()) {
+            return constants.emptyObject;
+        }
+        throw new IllegalStateException("unexpected behavior");
     }
 
     private static class EncodingSpecificConstants

@@ -1825,6 +1825,39 @@ should be represented as string values. The remaining functionality of the
 following functions is covered by the functions described previously.
 :::
 
+(json-serialize)=
+## json_serialize
+
+```text
+JSON_SERIALIZE(
+    json_value_expression
+    [ RETURNING data_type [ FORMAT JSON [ ENCODING { UTF8 | UTF16 | UTF32 } ] ] ]
+    [ { NULL | ERROR } ON ERROR ]
+    )
+```
+
+Serializes a JSON value to its canonical text or binary form. The returned
+type defaults to `VARCHAR`; pass `RETURNING` to choose a `CHAR(n)`,
+`VARCHAR(n)`, or `VARBINARY` target. When the target is `VARBINARY`, the
+optional `FORMAT JSON ENCODING` clause selects the byte encoding (UTF-8,
+UTF-16, or UTF-32). Returning `JSON` itself is not allowed; use the
+`JSON(...)` constructor for the no-op case.
+
+The `ON ERROR` clause controls what happens when the input is malformed
+or the conversion to the target type fails. `ERROR ON ERROR` (the default)
+raises a SQL error; `NULL ON ERROR` yields SQL `NULL` instead.
+
+Trino also accepts character and binary string input, which is read with an
+implicit `FORMAT JSON`, and supports `{ NULL | ERROR } ON ERROR`.
+
+```
+SELECT JSON_SERIALIZE(JSON '[1, 2, 3]');                         -- VARCHAR '[1,2,3]'
+SELECT JSON_SERIALIZE('[1, 2]' RETURNING varchar(20));           -- VARCHAR(20) '[1,2]'
+SELECT JSON_SERIALIZE(JSON '{"a": 1}'
+                      RETURNING varbinary FORMAT JSON ENCODING UTF16);
+SELECT JSON_SERIALIZE('not json' NULL ON ERROR);                 -- NULL
+```
+
 ## Cast to JSON
 
 The following types can be cast to JSON:

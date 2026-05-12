@@ -71,6 +71,7 @@ import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -979,6 +980,30 @@ public final class ExpressionFormatter
                     .append(" ON ERROR")
                     .append(")");
 
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitJsonSerialize(JsonSerialize node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append("JSON_SERIALIZE(")
+                    .append(formatJsonExpression(node.getExpression(), Optional.of(node.getInputFormat())));
+
+            if (node.getReturnedType().isPresent()) {
+                builder.append(" RETURNING ")
+                        .append(process(node.getReturnedType().get()))
+                        .append(node.getOutputFormat().map(value -> " FORMAT " + value).orElse(""));
+            }
+
+            // Emit ON ERROR only when it differs from the default (ERROR), so unchanged
+            // expressions round-trip to their original SQL.
+            if (node.getErrorBehavior() != JsonSerialize.OnErrorBehavior.ERROR) {
+                builder.append(" ").append(node.getErrorBehavior()).append(" ON ERROR");
+            }
+
+            builder.append(")");
             return builder.toString();
         }
 

@@ -236,6 +236,7 @@
 - {func}`json_parse`
 - [json_query()](json-query)
 - {func}`json_scalar`
+- [json_serialize()](json-serialize)
 - {func}`json_size`
 - [json_value()](json-value)
 

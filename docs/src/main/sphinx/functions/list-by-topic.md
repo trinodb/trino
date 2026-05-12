@@ -354,6 +354,7 @@ For more details, see {doc}`json`
 - {ref}`json_object() <json-object>`
 - {ref}`json_query() <json-query>`
 - {func}`json_scalar`
+- {ref}`json_serialize() <json-serialize>`
 - {func}`json_size`
 - {ref}`json_value() <json-value>`
 
