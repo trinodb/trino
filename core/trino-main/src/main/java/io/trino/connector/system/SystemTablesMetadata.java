@@ -13,7 +13,6 @@
  */
 package io.trino.connector.system;
 
-import com.google.common.collect.Sets;
 import io.trino.connector.system.jdbc.JdbcTable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -31,6 +30,7 @@ import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -150,13 +150,13 @@ public class SystemTablesMetadata
 
         TupleDomain<ColumnHandle> oldDomain = table.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        if (oldDomain.equals(newDomain) && constraint.predicate().isEmpty()) {
+        if (oldDomain.equals(newDomain) && Constant.TRUE.equals(constraint.getExpression())) {
             return Optional.empty();
         }
 
         SystemTable systemTable = checkAndGetTable(session, table);
         if (systemTable instanceof JdbcTable jdbcTable) {
-            TupleDomain<ColumnHandle> filtered = jdbcTable.applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
+            TupleDomain<ColumnHandle> filtered = jdbcTable.applyFilter(session, effectiveConstraint(constraint, newDomain));
             newDomain = newDomain.intersect(filtered);
         }
 
@@ -190,16 +190,8 @@ public class SystemTablesMetadata
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table credentials");
     }
 
-    private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    private Constraint effectiveConstraint(Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
     {
-        if (effectiveDomain.isNone() || newConstraint.predicate().isEmpty()) {
-            return new Constraint(effectiveDomain);
-        }
-        return new Constraint(
-                effectiveDomain,
-                oldDomain.asPredicate().and(newConstraint.predicate().get()),
-                Sets.union(
-                        oldDomain.getDomains().orElseThrow().keySet(),
-                        newConstraint.getPredicateColumns().orElseThrow()));
+        return new Constraint(effectiveDomain, newConstraint.getExpression(), newConstraint.getAssignments());
     }
 }

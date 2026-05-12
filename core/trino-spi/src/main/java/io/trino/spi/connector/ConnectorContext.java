@@ -95,4 +95,9 @@ public interface ConnectorContext
     {
         throw new UnsupportedOperationException();
     }
+
+    default ConnectorExpressionEvaluator getExpressionEvaluator()
+    {
+        return ConnectorExpressionEvaluator.NO_OP;
+    }
 }
