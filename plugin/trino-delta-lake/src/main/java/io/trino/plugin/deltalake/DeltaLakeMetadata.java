@@ -105,6 +105,7 @@ import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -138,6 +139,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -483,6 +485,7 @@ public class DeltaLakeMetadata
     private final Map<QueriedTable, TableSnapshot> queriedSnapshots = new ConcurrentHashMap<>();
     private final Executor metadataFetchingExecutor;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
+    private final ConnectorExpressionEvaluator evaluator;
 
     private record QueriedTable(SchemaTableName schemaTableName, long version)
     {
@@ -513,7 +516,8 @@ public class DeltaLakeMetadata
             boolean useUniqueTableLocation,
             boolean allowManagedTableRename,
             Executor metadataFetchingExecutor,
-            TransactionLogReaderFactory transactionLogReaderFactory)
+            TransactionLogReaderFactory transactionLogReaderFactory,
+            ConnectorExpressionEvaluator evaluator)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
@@ -537,6 +541,7 @@ public class DeltaLakeMetadata
         this.allowManagedTableRename = allowManagedTableRename;
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
     }
 
     private TableSnapshot getSnapshot(ConnectorSession session, DeltaLakeTableHandle table)
@@ -3626,8 +3631,10 @@ public class DeltaLakeMetadata
 
         UtcConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<ColumnHandle> predicate = extractionResult.tupleDomain();
+        Map<String, ColumnHandle> assignments = constraint.getAssignments();
+        ConnectorExpressionEvaluator.Prepared prepared = evaluator.prepare(constraint.getExpression(), session);
 
-        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
+        if (predicate.isAll() && Constant.TRUE.equals(constraint.getExpression())) {
             return Optional.empty();
         }
 
@@ -3640,8 +3647,8 @@ public class DeltaLakeMetadata
             newEnforcedConstraint = TupleDomain.none();
             newUnenforcedConstraint = TupleDomain.all();
             newRemainingConstraint = TupleDomain.all();
-            newConstraintColumns = constraint.getPredicateColumns().stream()
-                    .flatMap(Collection::stream)
+            newConstraintColumns = prepared.getArguments().stream()
+                    .map(assignments::get)
                     .map(DeltaLakeColumnHandle.class::cast)
                     .collect(toImmutableSet());
         }
@@ -3655,8 +3662,8 @@ public class DeltaLakeMetadata
             ImmutableSet.Builder<DeltaLakeColumnHandle> constraintColumns = ImmutableSet.builder();
             // We need additional field to track partition columns used in queries as enforceDomains seem to be not catching
             // cases when partition columns is used within complex filter as 'partitionColumn % 2 = 0'
-            constraint.getPredicateColumns().stream()
-                    .flatMap(Collection::stream)
+            prepared.getArguments().stream()
+                    .map(assignments::get)
                     .map(DeltaLakeColumnHandle.class::cast)
                     .forEach(constraintColumns::add);
             for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
