@@ -353,6 +353,7 @@ For more details, see {doc}`json`
 - {func}`json_parse`
 - {ref}`json_object() <json-object>`
 - {ref}`json_query() <json-query>`
+- {func}`json_scalar`
 - {func}`json_size`
 - {ref}`json_value() <json-value>`
 

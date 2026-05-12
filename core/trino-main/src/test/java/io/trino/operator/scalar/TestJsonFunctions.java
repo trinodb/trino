@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.Session;
 import io.trino.json.Json;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
@@ -22,10 +23,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonItems.toText;
 import static io.trino.operator.scalar.JsonFunctions.jsonArrayGet;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -158,6 +161,161 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1, 2] trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
+    public void testJsonScalar()
+    {
+        // SQL:2023 §6.41 GR 2a: a SQL null input yields the SQL null value, not the JSON null item
+        assertThat(assertions.function("json_scalar", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "CAST(null AS bigint)"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "CAST('abc' AS char(5))"))
+                .hasType(JSON)
+                .isEqualTo("\"abc  \"");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '1.20'"))
+                .hasType(JSON)
+                .isEqualTo("1.20");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '12345678901234567890.123456789'"))
+                .hasType(JSON)
+                .isEqualTo("12345678901234567890.123456789");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123456789012+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123 +02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012 +02:00\"");
+
+        // The datetime items keep their SQL type, so casting back is lossless — a JSON string
+        // that merely looks like a date would have to be re-parsed.
+        assertThat(assertions.expression("CAST(json_scalar(DATE '2024-01-02') AS DATE)"))
+                .matches("DATE '2024-01-02'");
+
+        assertThat(assertions.expression("CAST(json_scalar(TIME '03:04:05.123') AS TIME(3))"))
+                .matches("TIME '03:04:05.123'");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessageContaining("Unexpected parameters (array(integer)) for function json_scalar");
+
+        assertThat(assertions.function("json_scalar", "CAST(NULL AS NUMBER)"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "NUMBER '123456789012345678901234567890123456789.125'"))
+                .hasType(JSON)
+                .isEqualTo("123456789012345678901234567890123456789.125");
+
+        assertThat(assertions.expression("JSON_VALUE(json_scalar(NUMBER '123456789012345678901234567890123456789.125'), 'strict $' RETURNING NUMBER)"))
+                .matches("NUMBER '123456789012345678901234567890123456789.125'");
+    }
+
+    @Test
+    public void testJsonScalarCharPadding()
+    {
+        assertThat(assertions.function("json_scalar", "CAST(NULL AS CHAR(5))"))
+                .isNull(JSON);
+        for (boolean legacyCoercion : List.of(false, true)) {
+            Session session = assertions.sessionBuilder()
+                    .setSystemProperty("legacy_varchar_to_char_coercion", Boolean.toString(legacyCoercion))
+                    .build();
+            assertThat(assertions.query(
+                    session,
+                    """
+                    WITH t(j) AS (VALUES json_scalar(CAST('é🙂' AS CHAR(4))))
+                    SELECT JSON_VALUE(j, 'lax $'),
+                           JSON_VALUE(ARRAY[j][1], 'lax $'),
+                           JSON_VALUE(JSON_ARRAY(CAST('é🙂' AS CHAR(4)) RETURNING JSON), 'lax $[0]'),
+                           JSON_VALUE(JSON_OBJECT('x': CAST('é🙂' AS CHAR(4)) RETURNING JSON), 'lax $.x')
+                    FROM t
+                    """))
+                    .matches("VALUES (VARCHAR 'é🙂  ', VARCHAR 'é🙂  ', VARCHAR 'é🙂  ', VARCHAR 'é🙂  ')");
+        }
+    }
+
+    @Test
+    public void testJsonScalarNumericTypes()
+    {
+        for (var value : Map.of("TINYINT '-128'", "-128", "SMALLINT '-32768'", "-32768", "INTEGER '-2147483648'", "-2147483648").entrySet()) {
+            assertThat(assertions.function("json_scalar", value.getKey()))
+                    .hasType(JSON)
+                    .isEqualTo(value.getValue());
+        }
+
+        for (String type : List.of("REAL", "DOUBLE")) {
+            assertThat(assertions.function("json_scalar", "CAST(1.25 AS " + type + ")"))
+                    .hasType(JSON)
+                    .isEqualTo("1.25");
+
+            for (var value : Map.of("nan()", "\"NaN\"", "infinity()", "\"Infinity\"", "-infinity()", "\"-Infinity\"").entrySet()) {
+                assertThat(assertions.function("json_scalar", "CAST(" + value.getKey() + " AS " + type + ")"))
+                        .hasType(JSON)
+                        .isEqualTo(value.getValue());
+                assertThat(assertions.expression("CAST(json_scalar(x) AS " + type + ")")
+                        .binding("x", "CAST(" + value.getKey() + " AS " + type + ")"))
+                        .matches("CAST(" + value.getKey() + " AS " + type + ")");
+            }
+        }
+    }
+
+    @Test
+    public void testJsonScalarDatetimeBoundaries()
+    {
+        for (var value : Map.of(
+                "DATE '1969-12-31'", "1969-12-31",
+                "TIME '12:34:56'", "12:34:56",
+                "TIME '12:34:56.123456789012'", "12:34:56.123456789012",
+                "TIME '12:34:56 +02:00'", "12:34:56+02:00",
+                "TIMESTAMP '1969-12-31 23:59:59'", "1969-12-31 23:59:59",
+                "TIMESTAMP '1969-12-31 23:59:59.123456789012'", "1969-12-31 23:59:59.123456789012",
+                "TIMESTAMP '1969-12-31 23:59:59 +02:00'", "1969-12-31 23:59:59 +02:00",
+                "TIMESTAMP '1969-12-31 23:59:59.123456789012 +02:00'", "1969-12-31 23:59:59.123456789012 +02:00").entrySet()) {
+            assertThat(assertions.function("json_scalar", value.getKey()))
+                    .hasType(JSON)
+                    .isEqualTo('"' + value.getValue() + '"');
+        }
     }
 
     @Test
