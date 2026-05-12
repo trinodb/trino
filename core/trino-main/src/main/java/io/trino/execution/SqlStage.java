@@ -56,9 +56,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
@@ -77,7 +79,7 @@ public final class SqlStage
 {
     private final Session session;
     private final StageStateMachine stateMachine;
-    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
+    private final Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider;
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
@@ -135,7 +137,7 @@ public final class SqlStage
                 nodeTaskMap,
                 summarizeTaskInfo,
                 bucketCountProvider,
-                extractTableCredentials(session, metadata, fragment));
+                memoize(() -> extractTableCredentials(session, metadata, fragment)));
         sqlStage.initialize();
         return sqlStage;
     }
@@ -147,7 +149,7 @@ public final class SqlStage
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
             LocalExchangeBucketCountProvider bucketCountProvider,
-            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
+            Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -157,7 +159,7 @@ public final class SqlStage
         this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
 
         this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
-        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     private static Map<PlanNodeId, ConnectorTableCredentials> extractTableCredentials(Session session, Metadata metadata, PlanFragment fragment)
@@ -308,7 +310,7 @@ public final class SqlStage
                 node,
                 speculative,
                 fragment,
-                tableCredentials,
+                tableCredentialsProvider.get(),
                 splits,
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
