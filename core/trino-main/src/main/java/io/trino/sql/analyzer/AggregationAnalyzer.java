@@ -50,6 +50,7 @@ import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Literal;
@@ -765,6 +766,12 @@ class AggregationAnalyzer
         protected Boolean visitJsonQuery(JsonQuery node, Void context)
         {
             return process(node.getJsonPathInvocation(), context);
+        }
+
+        @Override
+        protected Boolean visitJsonSerialize(JsonSerialize node, Void context)
+        {
+            return process(node.getExpression(), context);
         }
 
         @Override

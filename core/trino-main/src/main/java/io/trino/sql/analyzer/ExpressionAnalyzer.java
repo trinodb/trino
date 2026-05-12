@@ -127,6 +127,7 @@ import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
@@ -3877,6 +3878,50 @@ public class ExpressionAnalyzer
                     node.getReturnedType(),
                     node.getOutputFormat(),
                     JSON.equals(getExpressionType(node.getJsonPathInvocation().getInputExpression())));
+            return setExpressionType(node, returnedType);
+        }
+
+        @Override
+        public Type visitJsonSerialize(JsonSerialize node, Context context)
+        {
+            Expression inputExpression = node.getExpression();
+            Type inputType = process(inputExpression, context);
+
+            ResolvedFunction inputFunction = getInputFunction(inputType, node.getInputFormat(), inputExpression);
+            Type expectedType = inputFunction.signature().getArgumentType(0);
+            coerceType(inputExpression, inputType, expectedType, "JSON_SERIALIZE input argument");
+            jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
+
+            Type returnedType = VARCHAR;
+            if (node.getReturnedType().isPresent()) {
+                try {
+                    returnedType = plannerContext.getTypeManager().getType(toTypeDescriptor(node.getReturnedType().get()));
+                }
+                catch (TypeNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getReturnedType().get());
+                }
+            }
+
+            // isStringType is the union of character strings (CHAR/VARCHAR) and VARBINARY;
+            // JSON is neither. SQL:2023 §6.37 requires the returned type to be a string type.
+            if (!isStringType(returnedType)) {
+                throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_SERIALIZE: %s", returnedType);
+            }
+
+            JsonFormat outputFormat = node.getOutputFormat().orElse(JsonFormat.JSON);
+            ResolvedFunction outputFunction = getOutputFunction(returnedType, outputFormat, node);
+            jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
+
+            Type outputType = outputFunction.signature().getReturnType();
+            if (!outputType.equals(returnedType)) {
+                try {
+                    plannerContext.getMetadata().getCoercion(outputType, returnedType);
+                }
+                catch (OperatorNotFoundException e) {
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot return type %s from JSON_SERIALIZE function", returnedType);
+                }
+            }
+
             return setExpressionType(node, returnedType);
         }
 

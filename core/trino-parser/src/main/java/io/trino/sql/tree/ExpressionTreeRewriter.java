@@ -1295,6 +1295,30 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitJsonSerialize(JsonSerialize node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteJsonSerialize(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.getExpression(), context.get());
+            if (node.getExpression() != expression) {
+                return new JsonSerialize(
+                        node.getLocation().orElseThrow(),
+                        expression,
+                        node.getInputFormat(),
+                        node.getReturnedType(),
+                        node.getOutputFormat(),
+                        node.getErrorBehavior());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitJsonObject(JsonObject node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

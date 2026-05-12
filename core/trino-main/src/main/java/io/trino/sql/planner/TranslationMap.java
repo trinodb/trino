@@ -97,6 +97,7 @@ import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -435,6 +436,7 @@ public class TranslationMap
                 case JsonExists expression -> translate(expression);
                 case JsonValue expression -> translate(expression);
                 case JsonQuery expression -> translate(expression);
+                case JsonSerialize expression -> translate(expression);
                 case JsonObject expression -> translate(expression);
                 case JsonArray expression -> translate(expression);
                 case LongLiteral expression -> translate(expression);
@@ -1607,6 +1609,40 @@ public class TranslationMap
         Type resultType = outputFunction.signature().getReturnType();
         if (!resultType.equals(returnedType)) {
             result = cast(plannerContext.getTypeManager(), result, returnedType);
+        }
+
+        return result;
+    }
+
+    private io.trino.sql.ir.Expression translate(JsonSerialize node)
+    {
+        // Map the SQL:2023 ON ERROR clause: ERROR raises on parse/conversion failures, NULL
+        // yields SQL NULL instead. The input function carries failOnError; the output function
+        // carries an error-behavior tinyint that reuses the JsonQuery error-behavior encoding.
+        boolean failOnError = node.getErrorBehavior() == JsonSerialize.OnErrorBehavior.ERROR;
+        long outputErrorBehavior = failOnError
+                ? JsonQuery.EmptyOrErrorBehavior.ERROR.ordinal()
+                : JsonQuery.EmptyOrErrorBehavior.NULL.ordinal();
+
+        ResolvedFunction inputToJson = analysis.getJsonInputFunction(node.getExpression());
+        io.trino.sql.ir.Expression input = new Call(inputToJson, ImmutableList.of(
+                translateExpression(node.getExpression()),
+                failOnError ? TRUE : FALSE));
+
+        ResolvedFunction outputFunction = analysis.getJsonOutputFunction(node);
+        io.trino.sql.ir.Expression result = new Call(outputFunction, ImmutableList.of(
+                input,
+                new Constant(TINYINT, outputErrorBehavior),
+                FALSE));
+
+        Type returnedType = node.getReturnedType()
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
+                .map(plannerContext.getTypeManager()::getType)
+                .orElse(VARCHAR);
+
+        Type resultType = outputFunction.signature().getReturnType();
+        if (!resultType.equals(returnedType)) {
+            result = new io.trino.sql.ir.Cast(result, returnedType);
         }
 
         return result;
