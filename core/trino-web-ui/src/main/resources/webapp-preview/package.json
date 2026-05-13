@@ -41,7 +41,7 @@
     "@types/lodash.merge": "^4.6.9",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.44.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.56.0",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
