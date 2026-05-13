@@ -57,6 +57,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
@@ -64,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -76,9 +78,12 @@ import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -93,6 +98,7 @@ import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -112,6 +118,7 @@ import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.Transactions.createOrReplaceTableTransaction;
 import static org.apache.iceberg.Transactions.createTableTransaction;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 public abstract class AbstractTrinoCatalog
         implements TrinoCatalog
@@ -359,7 +366,7 @@ public abstract class AbstractTrinoCatalog
         return storageTable;
     }
 
-    private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
+    protected List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
                 .map(column -> {
@@ -505,6 +512,52 @@ public abstract class AbstractTrinoCatalog
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .buildOrThrow();
+    }
+
+    protected void replaceMaterializedViewStorageTable(
+            ConnectorSession session,
+            SchemaTableName storageTableName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            ExecutorService icebergScanExecutor)
+    {
+        BaseTable icebergTable = loadTable(session, storageTableName);
+        AbstractIcebergTableOperations tableOperations = (AbstractIcebergTableOperations) icebergTable.operations();
+        if (isMaterializedViewStorage(storageTableName.getTableName())) {
+            // Update the view definition while performing the commit operation on the iceberg table
+            Map<String, String> viewProperties = createMaterializedViewProperties(session, Location.of(tableOperations.current().metadataFileLocation()));
+            tableOperations.applyMaterializedViewCommitData(Optional.of(new MaterializedViewCommitData(
+                    encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition)),
+                    viewProperties)));
+        }
+
+        Optional<String> providedTableLocation = getTableLocation(materializedViewProperties);
+        if (providedTableLocation.isPresent() && !stripTrailingSlash(providedTableLocation.get()).equals(icebergTable.location())) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("The provided location '%s' does not match the existing storage table location '%s'", providedTableLocation.get(), icebergTable.location()));
+        }
+
+        List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
+        Schema schema = IcebergUtil.schemaFromMetadata(columns);
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(materializedViewProperties));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(materializedViewProperties));
+        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false);
+        TableMetadata newTableMetadata = icebergTable.operations().current()
+                // don't inherit table properties from earlier snapshots
+                .replaceProperties(properties)
+                .buildReplacement(schema, partitionSpec, sortOrder, icebergTable.location(), properties);
+        Transaction transaction = createOrReplaceTableTransaction(storageTableName.getTableName(), icebergTable.operations(), newTableMetadata);
+        transaction.newDelete()
+                .deleteFromRowFilter(Expressions.alwaysTrue())
+                .scanManifestsWith(icebergScanExecutor)
+                .commit();
+        try {
+            transaction.commitTransaction();
+        }
+        finally {
+            if (isMaterializedViewStorage(storageTableName.getTableName())) {
+                tableOperations.applyMaterializedViewCommitData(Optional.empty());
+            }
+        }
     }
 
     protected abstract void invalidateTableCache(SchemaTableName schemaTableName);

@@ -77,6 +77,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -108,6 +109,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConn
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -141,6 +143,7 @@ public class TrinoHiveCatalog
     private final boolean deleteSchemaLocationsFallback;
     private final boolean hideMaterializedViewStorageTable;
     private final Executor metadataFetchingExecutor;
+    private final ExecutorService icebergScanExecutor;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -158,7 +161,8 @@ public class TrinoHiveCatalog
             boolean isUsingSystemSecurity,
             boolean deleteSchemaLocationsFallback,
             boolean hideMaterializedViewStorageTable,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            ExecutorService icebergScanExecutor)
     {
         super(catalogName, useUniqueTableLocation, typeManager, tableOperationsProvider, fileSystemFactory, fileIoFactory);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -167,6 +171,7 @@ public class TrinoHiveCatalog
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
     }
 
     public CachingHiveMetastore getMetastore()
@@ -578,11 +583,13 @@ public class TrinoHiveCatalog
                 }
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
             }
+
+            replaceMaterializedView(session, viewName, definition, materializedViewProperties, existing.get());
+            return;
         }
 
         if (hideMaterializedViewStorageTable) {
             Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
-
             Map<String, String> viewProperties = createMaterializedViewProperties(session, storageMetadataLocation);
             Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
             Table.Builder tableBuilder = Table.builder()
@@ -600,14 +607,8 @@ public class TrinoHiveCatalog
                     .setViewExpandedText(Optional.of("/* " + ICEBERG_MATERIALIZED_VIEW_COMMENT + " */"));
             Table table = tableBuilder.build();
             PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-
             try {
-                if (existing.isPresent()) {
-                    metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
-                }
-                else {
-                    metastore.createTable(table, principalPrivileges);
-                }
+                metastore.createTable(table, principalPrivileges);
             }
             catch (RuntimeException e) {
                 try {
@@ -621,11 +622,38 @@ public class TrinoHiveCatalog
                 }
                 throw e;
             }
-
-            existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
         }
         else {
-            createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
+            createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties);
+        }
+    }
+
+    private void replaceMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            Table existingMetastoreTable)
+    {
+        ConnectorMaterializedViewDefinition existingDefinition = getMaterializedView(session, viewName)
+                .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "Materialized view definition missing: " + viewName));
+        SchemaTableName storageTableName = existingDefinition.getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + viewName));
+
+        replaceMaterializedViewStorageTable(session, storageTableName, definition, materializedViewProperties, icebergScanExecutor);
+
+        if (!isMaterializedViewStorage(storageTableName.getTableName())) {
+            // Replace the existing view definition
+            Map<String, String> viewProperties = createMaterializedViewProperties(session, storageTableName);
+            Table table = Table.builder(existingMetastoreTable)
+                    .setOwner(isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()))
+                    .setViewOriginalText(Optional.of(
+                            encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition))))
+                    .setParameters(viewProperties)
+                    .build();
+            PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
         }
     }
 
@@ -633,8 +661,7 @@ public class TrinoHiveCatalog
             ConnectorSession session,
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
-            Map<String, Object> materializedViewProperties,
-            Optional<Table> existing)
+            Map<String, Object> materializedViewProperties)
     {
         SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition, materializedViewProperties);
 
@@ -657,19 +684,6 @@ public class TrinoHiveCatalog
                 .setViewExpandedText(Optional.of("/* " + ICEBERG_MATERIALIZED_VIEW_COMMENT + " */"));
         Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-        if (existing.isPresent()) {
-            // drop the current storage table
-            String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
-            if (oldStorageTable != null) {
-                String storageSchema = Optional.ofNullable(existing.get().getParameters().get(STORAGE_SCHEMA))
-                        .orElse(viewName.getSchemaName());
-                metastore.dropTable(storageSchema, oldStorageTable, true);
-            }
-            // Replace the existing view definition
-            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
-            return;
-        }
-        // create the view definition
         metastore.createTable(table, principalPrivileges);
     }
 
