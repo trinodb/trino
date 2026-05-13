@@ -22,6 +22,7 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
@@ -42,6 +43,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -60,6 +64,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMerge
         extends BasePlanTest
@@ -152,5 +158,134 @@ public class TestMerge
                                                                                         assignUniqueId(
                                                                                                 "source_unique_id",
                                                                                                 tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2")))))))))))));
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceRejectSourceColumnInPredicate()
+    {
+        // Source column reference in BY SOURCE AND predicate must be rejected
+        assertThatThrownBy(() -> assertPlan(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND b.column2 > 0 " +
+                        "THEN DELETE",
+                anyTree(anyTree())))
+                .satisfies(e -> {
+                    Throwable cause = e;
+                    while (cause.getCause() != null && !(cause instanceof TrinoException)) {
+                        cause = cause.getCause();
+                    }
+                    assertThat(cause)
+                            .isInstanceOf(TrinoException.class)
+                            .hasMessageContaining("Columns from the source relation cannot be referenced in a WHEN NOT MATCHED BY SOURCE clause");
+                    assertThat(((TrinoException) cause).getErrorCode())
+                            .isEqualTo(INVALID_COLUMN_REFERENCE.toErrorCode());
+                });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceRejectSourceColumnInSetExpression()
+    {
+        // Source column reference in BY SOURCE UPDATE SET expression must be rejected
+        assertThatThrownBy(() -> assertPlan(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE " +
+                        "THEN UPDATE SET column2 = b.column2",
+                anyTree(anyTree())))
+                .satisfies(e -> {
+                    Throwable cause = e;
+                    while (cause.getCause() != null && !(cause instanceof TrinoException)) {
+                        cause = cause.getCause();
+                    }
+                    assertThat(cause)
+                            .isInstanceOf(TrinoException.class)
+                            .hasMessageContaining("Columns from the source relation cannot be referenced in a WHEN NOT MATCHED BY SOURCE clause");
+                    assertThat(((TrinoException) cause).getErrorCode())
+                            .isEqualTo(INVALID_COLUMN_REFERENCE.toErrorCode());
+                });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceValidDeleteAccepted()
+    {
+        // BY SOURCE DELETE with no predicate — valid, should produce a plan without error
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN NOT MATCHED BY SOURCE " +
+                            "THEN DELETE",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceValidDeleteWithTargetPredicateAccepted()
+    {
+        // BY SOURCE DELETE with target-only predicate — valid
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 " +
+                            "THEN DELETE",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
+    }
+
+    @Test
+    public void testMergeNotMatchedBySourceValidUpdateWithTargetColumnsOnlyAccepted()
+    {
+        // BY SOURCE UPDATE with no source column in SET expression — valid
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN NOT MATCHED BY SOURCE " +
+                            "THEN UPDATE SET column2 = 0",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
+    }
+
+    @Test
+    public void testMergeAllThreeClauseKindsAccepted()
+    {
+        // MATCHED + BY TARGET + BY SOURCE — valid combination requiring FULL OUTER join
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN MATCHED THEN UPDATE SET column2 = b.column2 " +
+                            "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2) " +
+                            "WHEN NOT MATCHED BY SOURCE THEN DELETE",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
     }
 }
