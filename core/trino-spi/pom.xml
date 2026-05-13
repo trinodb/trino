@@ -335,6 +335,30 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint::predicate()</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.Constraint::getPredicateColumns()</old>
+                                    <justification>Constraint predicate removed; use ConnectorExpression instead</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
                                     <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
