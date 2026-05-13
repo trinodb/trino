@@ -38,6 +38,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
@@ -691,7 +692,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
                 table(QualifiedName.of("changes")),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t
@@ -707,7 +708,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t")),
                 aliased(table(QualifiedName.of("changes")), "s"),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t
@@ -768,7 +769,7 @@ public class TestSqlFormatter
                 new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
                 aliased(table(QualifiedName.of("changes")), "c"),
                 new BooleanLiteral(new NodeLocation(1, 1), "true"),
-                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), MergeCaseKind.MATCHED, Optional.empty())))))
                 .isEqualTo(
                         """
                         MERGE INTO t@main
