@@ -132,6 +132,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -3766,7 +3767,148 @@ public class TestSqlParser
                                 new Identifier(location(2, 20), "c", false),
                                 null),
                         new BooleanLiteral(location(3, 6), "true"),
-                        ImmutableList.of(new MergeDelete(location(4, 1), Optional.empty()))));
+                        ImmutableList.of(new MergeDelete(location(4, 1), MergeCaseKind.MATCHED, Optional.empty()))));
+    }
+
+    @Test
+    public void testMergeNotMatchedBySource()
+    {
+        NodeLocation anyLocation = new NodeLocation(1, 1);
+
+        // WHEN NOT MATCHED BY SOURCE THEN DELETE
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeDelete(anyLocation, MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // WHEN NOT MATCHED BY SOURCE AND <predicate> THEN DELETE
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.active = true THEN DELETE
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeDelete(
+                                        anyLocation,
+                                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                        Optional.of(equal(nameReference("t", "active"), new BooleanLiteral("true")))))));
+
+        // WHEN NOT MATCHED BY SOURCE THEN UPDATE
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET archived = true
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        anyLocation,
+                                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                        Optional.empty(),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier("archived"), new BooleanLiteral("true")))))));
+
+        // WHEN NOT MATCHED BY SOURCE AND <predicate> THEN UPDATE
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.active = false THEN UPDATE SET archived = true
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        anyLocation,
+                                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                        Optional.of(equal(nameReference("t", "active"), new BooleanLiteral("false"))),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier("archived"), new BooleanLiteral("true")))))));
+
+        // Explicit BY TARGET qualifier is equivalent to bare WHEN NOT MATCHED
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY TARGET THEN INSERT (id) VALUES (s.id)
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeInsert(
+                                        Optional.empty(),
+                                        ImmutableList.of(new Identifier("id")),
+                                        ImmutableList.of(nameReference("s", "id"))))));
+
+        // All three clause kinds together
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN MATCHED THEN UPDATE SET value = s.value
+                WHEN NOT MATCHED BY TARGET THEN INSERT (id, value) VALUES (s.id, s.value)
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        Optional.empty(),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier("value"), nameReference("s", "value")))),
+                                new MergeInsert(
+                                        Optional.empty(),
+                                        ImmutableList.of(new Identifier("id"), new Identifier("value")),
+                                        ImmutableList.of(nameReference("s", "id"), nameReference("s", "value"))),
+                                new MergeDelete(anyLocation, MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // Multiple BY SOURCE clauses with different predicates, evaluated in declaration order
+        assertStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE AND t.status = 'new' THEN UPDATE SET archived = false
+                WHEN NOT MATCHED BY SOURCE THEN DELETE
+                """,
+                new Merge(
+                        anyLocation,
+                        new AliasedRelation(anyLocation, table(QualifiedName.of("target")), new Identifier("t"), null),
+                        aliased(table(QualifiedName.of("source")), "s"),
+                        equal(nameReference("t", "id"), nameReference("s", "id")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        anyLocation,
+                                        MergeCaseKind.NOT_MATCHED_BY_SOURCE,
+                                        Optional.of(equal(nameReference("t", "status"), new StringLiteral("new"))),
+                                        ImmutableList.of(new MergeUpdate.Assignment(new Identifier("archived"), new BooleanLiteral("false")))),
+                                new MergeDelete(anyLocation, MergeCaseKind.NOT_MATCHED_BY_SOURCE, Optional.empty()))));
+
+        // WHEN NOT MATCHED BY SOURCE THEN INSERT must be rejected at parse time
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                """
+                MERGE INTO target t USING source s ON t.id = s.id
+                WHEN NOT MATCHED BY SOURCE THEN INSERT (id) VALUES (s.id)
+                """))
+                .isInstanceOf(ParsingException.class);
     }
 
     @Test
