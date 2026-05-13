@@ -170,17 +170,17 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         }
     }
 
-    public String toSql()
+    public String toSql(String offsetId)
     {
         List<String> fromClause = new ArrayList<>();
         boolean fromSubQuery = false;
         if (subQuery.isPresent()) {
             CouchbaseTableHandle sq = subQuery.get();
             if (this.topNCount.get() < 0 && this.whereClauses().isEmpty() && this.orderClauses.isEmpty() && sq.selectClauses().containsAll(this.selectClauses) && this.groupings.isEmpty()) {
-                return sq.toSql();
+                return sq.toSql(offsetId);
             }
             if (sq != this && (sq.schema().equals(schema) && sq.name().equals(name))) {
-                fromClause.add(String.format("(%s) `%s`", sq.toSql(), "data"));
+                fromClause.add(String.format("(%s) `%s`", sq.toSql(offsetId), "data"));
 //                    selectClauses.add(new NamedParametrizedString("data", ParametrizedString.from(String.format("`%s`.*", "data"))));
                 fromSubQuery = true;
             }
@@ -211,8 +211,12 @@ public record CouchbaseTableHandle(String schema, String name, Optional<Couchbas
         if (!whereClauses.isEmpty()) {
             whereClause.append(String.format(" WHERE %s",
                     whereClauses.stream().map(ParametrizedString::toString).collect(joining(" AND "))));
+        } else {
+            whereClause.append(" WHERE TRUE");
         }
-
+        if (offsetId != null) {
+            whereClause.append(String.format(" AND META().id > '%s'", offsetId));
+        }
 
         String query = String.format("SELECT %s FROM %s%s%s%s",
                 selectClauses.isEmpty() ? String.format("`%s`.*", subQuery.isPresent() ? "data" : name()):

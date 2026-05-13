@@ -123,6 +123,8 @@ public class CouchbaseMetadata
                 .findAny().isPresent();
     }
 
+
+
     @Nullable
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)

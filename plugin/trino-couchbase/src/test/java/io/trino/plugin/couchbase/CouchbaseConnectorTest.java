@@ -69,7 +69,7 @@ public class CouchbaseConnectorTest
     @Test
     public void testFailingItems()
     {
-        assertQuery("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5");
+        assertQuery("SELECT orderkey FROM orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
     }
 
     @Override

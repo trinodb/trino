@@ -84,11 +84,10 @@ public final class CouchbasePageSource
     private final CouchbaseTableHandle table;
     private final PageBuilder pageBuilder;
     private final CouchbaseClient client;
-    private final String queryString;
     private final Long pageSize;
     private final List<Type> types = new LinkedList<>();
     private final List<String> names = new LinkedList<>();
-    private long offset;
+    private String lastId = null;
     private long total, pageCount, duration, errors;
     private boolean finished;
 
@@ -132,9 +131,6 @@ public final class CouchbasePageSource
             names.add(column.name());
         });
         this.pageBuilder = new PageBuilder((int) Math.min(limit, pageSize), types);
-        queryString = String.format("SELECT %s FROM (%s) data OFFSET %%d LIMIT %%d",
-                names.stream().collect(Collectors.joining("`, `", "`", "`")),
-                table.toSql().replaceAll("%", "%%"));
     }
 
     @Override
@@ -143,6 +139,11 @@ public final class CouchbasePageSource
         if (finished) {
             return null;
         }
+
+        String queryString = String.format("SELECT %s, META().id __trino_id FROM (%s) data",
+                names.stream().collect(Collectors.joining("`, `", "`", "`")),
+                table.toSql(lastId));
+
         final long started = System.currentTimeMillis();
         verify(pageBuilder.isEmpty());
         JsonArray queryArgs = JsonArray.create();
@@ -150,14 +151,14 @@ public final class CouchbasePageSource
         QueryOptions options = QueryOptions.queryOptions().parameters(queryArgs);
 
         try {
-            final String query = String.format(queryString, offset, pageSize);
-            QueryResult result = client.getScope().query(query, options);
+            QueryResult result = client.getScope().query(queryString, options);
             List<JsonObject> rows = result.rowsAsObject();
-            LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), query, queryArgs);
+            LOG.info("Couchbase query ({} result rows): {}; arguments: {}", rows.size(), queryString, queryArgs);
 
             for (int j = 0; j < rows.size(); j++) {
                 JsonObject row = rows.get(j);
                 pageBuilder.declarePosition();
+                lastId = row.getString("__trino_id");
                 for (int i = 0; i < names.size(); i++) {
                     Type type = types.get(i);
                     BlockBuilder output = pageBuilder.getBlockBuilder(i);
@@ -166,7 +167,6 @@ public final class CouchbasePageSource
             }
 
             // update metrics
-            offset += pageSize;
             total += rows.size();
             pageCount++;
             duration += System.currentTimeMillis() - started;
