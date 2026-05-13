@@ -15,13 +15,13 @@ package io.trino.sql.ir.optimizer.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Row;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 
@@ -32,7 +32,10 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.mayBeNull;
+import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Partial evaluation of IsNull. E.g.,
@@ -48,6 +51,13 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 public class EvaluateIsNull
         implements IrOptimizerRule
 {
+    private final PlannerContext plannerContext;
+
+    public EvaluateIsNull(PlannerContext plannerContext)
+    {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+    }
+
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
@@ -57,19 +67,11 @@ public class EvaluateIsNull
 
         return switch (isNull.value()) {
             case Constant inner -> Optional.of(inner.value() == null ? TRUE : FALSE);
-            case IsNull _ -> Optional.of(FALSE);
-            case Row _ -> Optional.of(FALSE);
             case Comparison inner when inner.operator() != IDENTICAL -> Optional.of(new Logical(OR, ImmutableList.of(
                     new IsNull(inner.left()),
                     new IsNull(inner.right()))));
-            case Comparison inner when inner.operator() == IDENTICAL -> Optional.of(FALSE);
             case Call inner when inner.function().name().equals(builtinFunctionName("$not")) -> Optional.of(new IsNull(inner.arguments().getFirst()));
-            case Call inner when
-                    inner.function().deterministic() &&
-                            !inner.function().functionNullability().isReturnNullable() &&
-                            inner.function().functionNullability().getArgumentNullable().stream().allMatch(Boolean.TRUE::equals) -> Optional.of(FALSE);
-            // TODO: if function can't return null and non-nullable arguments are passed a non-null value, then the
-            //       the call is guaranteed to not return null
+            case Expression value when !mayBeNull(plannerContext, value) && !mayFail(plannerContext, value) -> Optional.of(FALSE);
             default -> Optional.empty();
         };
     }
