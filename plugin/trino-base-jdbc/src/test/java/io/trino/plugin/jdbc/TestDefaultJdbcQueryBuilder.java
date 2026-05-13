@@ -226,7 +226,8 @@ public class TestDefaultJdbcQueryBuilder
                                         Range.equal(INTEGER, 96L),
                                         Range.lessThan(INTEGER, 0L))),
                         false))
-                .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
+                .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(
+                                BOOLEAN,
                                 ImmutableList.of(Range.equal(BOOLEAN, true))),
                         false))
                 .buildOrThrow());

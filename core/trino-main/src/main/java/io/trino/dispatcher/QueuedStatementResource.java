@@ -309,7 +309,7 @@ public class QueuedStatementResource
     {
         NOT_SUBMITTED,
         SUBMITTED,
-        ABANDONED
+        ABANDONED,
     }
 
     private static final class Query

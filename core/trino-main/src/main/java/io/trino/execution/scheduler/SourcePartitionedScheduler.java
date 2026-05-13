@@ -79,7 +79,7 @@ public class SourcePartitionedScheduler
          * All splits have been provided to caller of this scheduler.
          * Cleanup operations are done
          */
-        FINISHED
+        FINISHED,
     }
 
     private final StageExecution stageExecution;

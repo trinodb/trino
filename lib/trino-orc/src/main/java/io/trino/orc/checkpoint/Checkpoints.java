@@ -81,28 +81,17 @@ public final class Checkpoints
 
             ColumnPositionsList columnPositionsList = new ColumnPositionsList(columnId, columnType, positionsList);
             switch (columnType) {
-                case BOOLEAN ->
-                    checkpoints.putAll(getBooleanColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case BYTE ->
-                    checkpoints.putAll(getByteColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case SHORT, INT, LONG, DATE ->
-                    checkpoints.putAll(getLongColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
-                case FLOAT ->
-                    checkpoints.putAll(getFloatColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case DOUBLE ->
-                    checkpoints.putAll(getDoubleColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case TIMESTAMP, TIMESTAMP_INSTANT ->
-                    checkpoints.putAll(getTimestampColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
-                case BINARY, STRING, VARCHAR, CHAR ->
-                    checkpoints.putAll(getSliceColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
-                case LIST, MAP ->
-                    checkpoints.putAll(getListOrMapColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
-                case STRUCT ->
-                    checkpoints.putAll(getStructColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case UNION ->
-                    checkpoints.putAll(getUnionColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
-                case DECIMAL ->
-                    checkpoints.putAll(getDecimalColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
+                case BOOLEAN -> checkpoints.putAll(getBooleanColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case BYTE -> checkpoints.putAll(getByteColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case SHORT, INT, LONG, DATE -> checkpoints.putAll(getLongColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
+                case FLOAT -> checkpoints.putAll(getFloatColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case DOUBLE -> checkpoints.putAll(getDoubleColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case TIMESTAMP, TIMESTAMP_INSTANT -> checkpoints.putAll(getTimestampColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
+                case BINARY, STRING, VARCHAR, CHAR -> checkpoints.putAll(getSliceColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
+                case LIST, MAP -> checkpoints.putAll(getListOrMapColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
+                case STRUCT -> checkpoints.putAll(getStructColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case UNION -> checkpoints.putAll(getUnionColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                case DECIMAL -> checkpoints.putAll(getDecimalColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
                 default -> throw new IllegalArgumentException("Unsupported column type " + columnType);
             }
         }

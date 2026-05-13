@@ -65,8 +65,8 @@ public class TestValidateScaledWritersUsage
 {
     private static final PartitioningHandle CUSTOM_HANDLE = new PartitioningHandle(
             Optional.of(TEST_CATALOG_HANDLE),
-            Optional.of(new ConnectorTransactionHandle() { }),
-            new ConnectorPartitioningHandle() { },
+            Optional.of(new ConnectorTransactionHandle() {}),
+            new ConnectorPartitioningHandle() {},
             true);
 
     private PlanTester planTester;

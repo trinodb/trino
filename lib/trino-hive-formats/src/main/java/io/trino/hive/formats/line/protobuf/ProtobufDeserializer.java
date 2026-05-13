@@ -105,7 +105,8 @@ public class ProtobufDeserializer
         if (fieldDescriptor == null) {
             return null;
         }
-        return requireNonNullElseGet(message.getField(fieldDescriptor),
+        return requireNonNullElseGet(
+                message.getField(fieldDescriptor),
                 () -> fieldDescriptor.hasDefaultValue() ? fieldDescriptor.getDefaultValue() : null);
     }
 

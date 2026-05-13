@@ -152,16 +152,14 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, 1L)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, deltaLakeConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
                 assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, (long) keyColumnValue)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, deltaLakeConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
                 SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
@@ -254,12 +252,10 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> differentDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
+                            dateColumnHandle, Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
             TupleDomain<ColumnHandle> nonOverlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentDatePredicate, nonOverlappingDatePredicate)) {
                 try (ConnectorPageSource emptyPageSource = createTestingPageSource(
                         transaction,
@@ -274,12 +270,10 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> sameDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, dateColumnValue)));
+                            dateColumnHandle, Domain.singleValue(DATE, dateColumnValue)));
             TupleDomain<ColumnHandle> overlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameDatePredicate, overlappingDatePredicate)) {
                 try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
                         transaction,

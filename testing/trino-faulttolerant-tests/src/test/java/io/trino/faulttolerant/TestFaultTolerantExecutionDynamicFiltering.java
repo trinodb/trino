@@ -75,8 +75,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());
@@ -93,8 +92,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());
@@ -113,8 +111,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 Set.of(PART_KEY_HANDLE),
                 collectedDomain -> {
                     TupleDomain<ColumnHandle> expectedRange = TupleDomain.withColumnDomains(ImmutableMap.of(
-                            PART_KEY_HANDLE,
-                            Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
+                            PART_KEY_HANDLE, Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 2000L, true)), false)));
                     // Collected domain is {[1,41], [42,82], [83,123], [124,164], ..., [1928,2000]}
                     assertThat(collectedDomain.simplify(2)).isEqualTo(expectedRange);
                     collectedDomain.getDomains().orElseThrow().values().forEach(domain -> assertThat(domain.isNullableDiscreteSet()).isFalse());

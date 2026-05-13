@@ -1142,7 +1142,8 @@ public class TestWebUi
         return assertResponseCode(client, url, expectedCode, false);
     }
 
-    private static Optional<String> assertResponseCode(OkHttpClient client,
+    private static Optional<String> assertResponseCode(
+            OkHttpClient client,
             String url,
             int expectedCode,
             boolean postLogin)
@@ -1374,12 +1375,12 @@ public class TestWebUi
         private static Claims createClaims()
         {
             return Jwts.claims()
-                .issuer(TOKEN_ISSUER)
-                .audience().add(OAUTH_CLIENT_ID)
-                .and()
-                .subject("test-user")
-                .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))))
-                .build();
+                    .issuer(TOKEN_ISSUER)
+                    .audience().add(OAUTH_CLIENT_ID)
+                    .and()
+                    .subject("test-user")
+                    .expiration(Date.from(Instant.now().plus(Duration.ofMinutes(5))))
+                    .build();
         }
 
         public static String randomNonce()

@@ -99,7 +99,8 @@ public class FileResourceGroupConfigurationManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format("Unknown property at line %s:%s: %s",
+                String message = format(
+                        "Unknown property at line %s:%s: %s",
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),
                         ex.getPropertyName());

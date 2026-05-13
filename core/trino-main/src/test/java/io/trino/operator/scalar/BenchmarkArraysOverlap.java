@@ -106,7 +106,8 @@ public class BenchmarkArraysOverlap
             ArrayType arrayType = new ArrayType(elementType);
             List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction(name, fromTypes(arrayType, arrayType)),
-                    new Reference(arrayType, "$col_0"), new Reference(arrayType, "$col_1")));
+                    new Reference(arrayType, "$col_0"),
+                    new Reference(arrayType, "$col_1")));
 
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(

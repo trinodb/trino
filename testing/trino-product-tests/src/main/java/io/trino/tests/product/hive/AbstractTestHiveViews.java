@@ -106,7 +106,8 @@ public abstract class AbstractTestHiveViews
                 "CREATE OR REPLACE VIEW test_common_table_expression AS " +
                         "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8) SELECT * FROM t");
 
-        assertViewQuery("SELECT * FROM test_common_table_expression",
+        assertViewQuery(
+                "SELECT * FROM test_common_table_expression",
                 queryAssert -> queryAssert.containsOnly(row(8, 2)));
 
         onHive().executeQuery("DROP VIEW test_common_table_expression");
@@ -121,7 +122,8 @@ public abstract class AbstractTestHiveViews
                         "WITH t AS (SELECT n_nationkey, n_regionkey FROM nation WHERE n_nationkey = 8), " +
                         "t2 AS (SELECT n_nationkey * 2 AS nationkey, n_regionkey * 2 AS regionkey FROM t) SELECT * FROM t2");
 
-        assertViewQuery("SELECT * FROM test_nested_common_table_expression",
+        assertViewQuery(
+                "SELECT * FROM test_nested_common_table_expression",
                 queryAssert -> queryAssert.containsOnly(row(16, 4)));
 
         onHive().executeQuery("DROP VIEW test_nested_common_table_expression");
@@ -152,9 +154,11 @@ public abstract class AbstractTestHiveViews
                         ", MAP(o_clerk, MAP(o_orderpriority, o_shippriority)) AS nested_map" +
                         " FROM orders");
 
-        assertViewQuery("SELECT simple_map['Clerk#000000951'] FROM test_map_construction_view WHERE o_orderkey = 1",
+        assertViewQuery(
+                "SELECT simple_map['Clerk#000000951'] FROM test_map_construction_view WHERE o_orderkey = 1",
                 queryAssert -> queryAssert.containsOnly(row("5-LOW")));
-        assertViewQuery("SELECT nested_map['Clerk#000000951']['5-LOW'] FROM test_map_construction_view WHERE o_orderkey = 1",
+        assertViewQuery(
+                "SELECT nested_map['Clerk#000000951']['5-LOW'] FROM test_map_construction_view WHERE o_orderkey = 1",
                 queryAssert -> queryAssert.containsOnly(row(0)));
 
         onHive().executeQuery("DROP VIEW test_map_construction_view");
@@ -232,7 +236,8 @@ public abstract class AbstractTestHiveViews
     {
         onHive().executeQuery("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM nation LIMIT 1)");
 
-        assertViewQuery("SELECT * FROM view_outer_parentheses",
+        assertViewQuery(
+                "SELECT * FROM view_outer_parentheses",
                 queryAssert -> queryAssert.containsOnly(row("parentheses")));
 
         onHive().executeQuery("DROP VIEW view_outer_parentheses");
@@ -247,7 +252,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("INSERT INTO hive_table_date_function (s) values ('2021-08-21')");
         onHive().executeQuery("CREATE OR REPLACE VIEW hive_view_date_function AS SELECT date(s) AS col FROM hive_table_date_function");
 
-        assertViewQuery("SELECT * FROM hive_view_date_function",
+        assertViewQuery(
+                "SELECT * FROM hive_view_date_function",
                 queryAssert -> queryAssert.containsOnly(row(sqlDate(2021, 8, 21))));
 
         onHive().executeQuery("DROP VIEW hive_view_date_function");
@@ -263,7 +269,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("INSERT INTO hive_table_pmod_function (n, m) values (-5, 2)");
         onHive().executeQuery("CREATE OR REPLACE VIEW hive_view_pmod_function AS SELECT pmod(n, m) AS col FROM hive_table_pmod_function");
 
-        assertViewQuery("SELECT * FROM hive_view_pmod_function",
+        assertViewQuery(
+                "SELECT * FROM hive_view_pmod_function",
                 queryAssert -> queryAssert.containsOnly(row(1)));
 
         onHive().executeQuery("DROP VIEW hive_view_pmod_function");
@@ -342,7 +349,8 @@ public abstract class AbstractTestHiveViews
                 "FROM `default`.`nation` AS `n` \n" +
                 // join, subquery
                 "LEFT JOIN (SELECT * FROM orders WHERE o_custkey > 1000) `o` ON `o`.`o_orderkey` = `n`.`n_nationkey` ");
-        assertViewQuery("" +
+        assertViewQuery(
+                "" +
                         "SELECT" +
                         "   n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name," +
                         "   rounded_tan, the_orderdate, arithmetic " +

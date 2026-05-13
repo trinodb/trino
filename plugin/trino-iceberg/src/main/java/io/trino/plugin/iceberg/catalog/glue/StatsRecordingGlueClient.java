@@ -72,7 +72,8 @@ public class StatsRecordingGlueClient
     public Table getTable(SchemaTableName tableName)
     {
         return stats.getGetTable().call(() ->
-                glueClient.getTable(request -> request
+                glueClient
+                        .getTable(request -> request
                                 .databaseName(tableName.getSchemaName())
                                 .name(tableName.getTableName()))
                         .table());

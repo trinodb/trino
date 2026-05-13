@@ -22,5 +22,5 @@ package io.trino.spi;
 public enum RefreshType
 {
     INCREMENTAL,
-    FULL
+    FULL,
 }

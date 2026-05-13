@@ -148,11 +148,13 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             throw new UnsupportedOperationException("Only implement what is needed by worker catalog manager");
         }
     };
-    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor() {
+    private static final TaskExecutor NOOP_TASK_EXECUTOR = new TaskExecutor()
+    {
         @Override
         public TaskHandle addTask(TaskId taskId, DoubleSupplier utilizationSupplier, int initialSplitConcurrency, Duration splitConcurrencyAdjustFrequency, OptionalInt maxDriversPerTask)
         {
-            return new TaskHandle() {
+            return new TaskHandle()
+            {
                 @Override
                 public boolean isDestroyed()
                 {
@@ -205,8 +207,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
                 new CatalogPruneTaskConfig(),
                 workerTaskManager);
 
-        Future<Void> catalogTaskFuture = Futures.submit(() ->
-        {
+        Future<Void> catalogTaskFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 CatalogName catalogName = new CatalogName("catalog_" + i);
                 CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogVersion(UUID.randomUUID().toString()));
@@ -236,8 +237,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             }
         }, threadPoolExecutor);
 
-        Future<Void> pruneCatalogsFuture = Futures.submit(() ->
-        {
+        Future<Void> pruneCatalogsFuture = Futures.submit(() -> {
             for (int i = 0; i < NUM_TASKS; i++) {
                 catalogPruneTask.pruneCatalogs();
                 try {

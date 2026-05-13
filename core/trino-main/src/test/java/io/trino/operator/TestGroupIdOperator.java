@@ -77,7 +77,8 @@ public class TestGroupIdOperator
                 .build();
 
         GroupIdOperatorFactory operatorFactory =
-                new GroupIdOperatorFactory(0,
+                new GroupIdOperatorFactory(
+                        0,
                         new PlanNodeId("test"),
                         ImmutableList.of(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT),
                         ImmutableList.of(ImmutableMap.of(0, 1, 1, 2, 3, 0), ImmutableMap.of(2, 3, 3, 0)));

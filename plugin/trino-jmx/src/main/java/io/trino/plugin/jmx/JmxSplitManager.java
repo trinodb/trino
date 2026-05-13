@@ -62,7 +62,7 @@ public class JmxSplitManager
     {
         JmxTableHandle tableHandle = (JmxTableHandle) table;
 
-        //TODO is there a better way to get the node column?
+        // TODO is there a better way to get the node column?
         Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.columnHandles().stream()
                 .filter(jmxColumnHandle -> jmxColumnHandle.columnName().equals(NODE_COLUMN_NAME))
                 .findFirst();

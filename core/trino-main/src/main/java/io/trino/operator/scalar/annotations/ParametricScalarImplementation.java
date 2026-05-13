@@ -510,7 +510,9 @@ public class ParametricScalarImplementation
             for (TypeParameter typeParameter : typeParameters) {
                 checkArgument(
                         typeParameter.value().matches("[A-Z][A-Z0-9]*"),
-                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
+                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]",
+                        typeParameter.value(),
+                        method);
             }
 
             inferSpecialization(method, actualReturnType, returnType.value());

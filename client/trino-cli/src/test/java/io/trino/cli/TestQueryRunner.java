@@ -130,7 +130,7 @@ public class TestQueryRunner
                         .setProgressPercentage(OptionalDouble.empty())
                         .setRunningPercentage(OptionalDouble.empty())
                         .build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                // new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,

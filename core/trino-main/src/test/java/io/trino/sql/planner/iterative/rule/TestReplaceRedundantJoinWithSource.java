@@ -44,32 +44,28 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1),
                                 p.values(0, p.symbol("a"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(0, p.symbol("a")),
                                 p.values(1)))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(1),
                                 p.values(0, p.symbol("a"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(1),
                                 p.values(0, p.symbol("a"))))
                 .doesNotFire();
@@ -80,32 +76,28 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(10, p.symbol("a")),
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
@@ -116,8 +108,7 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1)))
                 .matches(
@@ -125,8 +116,7 @@ public class TestReplaceRedundantJoinWithSource
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT))))
                 .matches(
@@ -138,8 +128,7 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
@@ -150,8 +139,7 @@ public class TestReplaceRedundantJoinWithSource
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
@@ -166,8 +154,7 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1)))
                 .matches(
@@ -176,8 +163,7 @@ public class TestReplaceRedundantJoinWithSource
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                LEFT,
+                        p.join(LEFT,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
@@ -190,8 +176,7 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT))))
                 .matches(
@@ -200,8 +185,7 @@ public class TestReplaceRedundantJoinWithSource
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                RIGHT,
+                        p.join(RIGHT,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
@@ -214,8 +198,7 @@ public class TestReplaceRedundantJoinWithSource
     {
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(10, p.symbol("a", BIGINT)),
                                 p.values(1)))
                 .matches(
@@ -223,8 +206,7 @@ public class TestReplaceRedundantJoinWithSource
 
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT))))
                 .matches(
@@ -233,8 +215,7 @@ public class TestReplaceRedundantJoinWithSource
         // in case of outer join, filter does not affect the result
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
@@ -246,8 +227,7 @@ public class TestReplaceRedundantJoinWithSource
         // if left source was empty.
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
                                         p.values(10, p.symbol("a", BIGINT))),
@@ -259,8 +239,7 @@ public class TestReplaceRedundantJoinWithSource
         // if right source was empty.
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
-                        p.join(
-                                FULL,
+                        p.join(FULL,
                                 p.values(1),
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),

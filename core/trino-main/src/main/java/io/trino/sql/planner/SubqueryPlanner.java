@@ -343,19 +343,17 @@ class SubqueryPlanner
                 }
             };
             case NOT_EQUAL -> switch (quantifier) {
-                case ALL ->
-                    // A <> ALL B <=> !(A IN B)
-                        addNegation(
-                                planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions),
-                                cluster,
-                                output);
-                case ANY, SOME ->
-                    // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
-                    // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
-                        addNegation(
-                                planQuantifiedComparison(subPlan, ComparisonExpression.Operator.EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
-                                cluster,
-                                output);
+                // A <> ALL B <=> !(A IN B)
+                case ALL -> addNegation(
+                        planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions),
+                        cluster,
+                        output);
+                // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
+                // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
+                case ANY, SOME -> addNegation(
+                        planQuantifiedComparison(subPlan, ComparisonExpression.Operator.EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
+                        cluster,
+                        output);
             };
             case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                 subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);

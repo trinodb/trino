@@ -260,7 +260,8 @@ public class TestPushFilterThroughBoolOrAggregation
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                ImmutableMap.of(
+                                        "g", expression(new Reference(BIGINT, "g")),
                                         "bool", expression(new Reference(BOOLEAN, "bool")),
                                         "aggrbool", expression(TRUE)),
                                 aggregation(
@@ -296,7 +297,8 @@ public class TestPushFilterThroughBoolOrAggregation
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                ImmutableMap.of(
+                                        "g", expression(new Reference(BIGINT, "g")),
                                         "bool", expression(new Reference(BOOLEAN, "bool")),
                                         "aggrbool", expression(TRUE)),
                                 aggregation(
@@ -334,7 +336,8 @@ public class TestPushFilterThroughBoolOrAggregation
                         filter(
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "g"), new Constant(BIGINT, 5L)),
                                 project(
-                                        ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                        ImmutableMap.of(
+                                                "g", expression(new Reference(BIGINT, "g")),
                                                 "bool", expression(new Reference(BOOLEAN, "bool")),
                                                 "aggrbool", expression(TRUE)),
                                         aggregation(
@@ -371,7 +374,8 @@ public class TestPushFilterThroughBoolOrAggregation
                         project(
                                 ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool"))),
                                 project(
-                                        ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                        ImmutableMap.of(
+                                                "g", expression(new Reference(BIGINT, "g")),
                                                 "aggrbool", expression(TRUE)),
                                         aggregation(
                                                 ImmutableMap.of(),
@@ -403,7 +407,8 @@ public class TestPushFilterThroughBoolOrAggregation
                         project(
                                 ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool"))),
                                 project(
-                                        ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                        ImmutableMap.of(
+                                                "g", expression(new Reference(BIGINT, "g")),
                                                 "aggrbool", expression(TRUE)),
                                         aggregation(
                                                 ImmutableMap.of(),
@@ -434,7 +439,8 @@ public class TestPushFilterThroughBoolOrAggregation
                                 project(
                                         ImmutableMap.of("aggrbool", expression(new Reference(BOOLEAN, "aggrbool")), "g", expression(new Reference(BIGINT, "g"))),
                                         project(
-                                                ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                                ImmutableMap.of(
+                                                        "g", expression(new Reference(BIGINT, "g")),
                                                         "aggrbool", expression(TRUE)),
                                                 aggregation(
                                                         ImmutableMap.of(),
@@ -463,7 +469,8 @@ public class TestPushFilterThroughBoolOrAggregation
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("g", expression(new Reference(BIGINT, "g")),
+                                ImmutableMap.of(
+                                        "g", expression(new Reference(BIGINT, "g")),
                                         "aggrbool", expression(TRUE)),
                                 aggregation(
                                         singleGroupingSet("g"),

@@ -40,7 +40,6 @@ import static io.trino.sql.analyzer.SemanticExceptions.ambiguousAttributeExcepti
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.requireDelimiterException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -136,11 +135,6 @@ public class Scope
         return new Scope(parent, canonicalizer, requireDelimiter, false, relationId, relation, namedQueries);
     }
 
-    public Scope withCanonicalizers(Optional<Scope> parent, List<Function<Identifier, String>> canonicalizers)
-    {
-        return new Scope(parent, Optional.empty(), requireDelimiter, false, relationId, relation, namedQueries);
-    }
-
     public Scope getQueryBoundaryScope()
     {
         Scope scope = this;
@@ -216,25 +210,9 @@ public class Scope
         return (canonicalizerKind() & other.canonicalizerKind()) == 0;
     }
 
-    public String canonicalize(Identifier identifier, boolean half)
+    public Optional<Function<Identifier, String>> getCanonicalizer()
     {
-        if (canonicalizers.isEmpty()) {
-            return identifier.getValue();
-        }
-        return half ? canonicalizers.getLast().apply(identifier) : canonicalizers.getFirst().apply(identifier);
-    }
-
-    public Function<Identifier, String> getCanonicalizer()
-    {
-        if (canonicalizers.isEmpty()) {
-            return Identifier::getValue;
-        }
-        return canonicalizers.getFirst();
-    }
-
-    public List<Function<Identifier, String>> getCanonicalizers()
-    {
-        return canonicalizers;
+        return canonicalizer;
     }
 
     public Optional<Function<Identifier, String>> getLastCanonicalizer()
@@ -569,6 +547,6 @@ public class Scope
     enum BasisType
     {
         TABLE,
-        FIELD
+        FIELD,
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
@@ -25,6 +26,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,8 +67,11 @@ public class TestCassandraTable
             }
 
             // Ensure that the currently created table is visible to Trino
-            assertEventually(() -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspace, tableName)).getRowCount())
-                    .isEqualTo(rowsToInsert.size()));
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspace, tableName))
+                            .getRowCount())
+                            .isEqualTo(rowsToInsert.size()));
         }
         catch (Exception e) {
             try (TestCassandraTable ignored = this) {

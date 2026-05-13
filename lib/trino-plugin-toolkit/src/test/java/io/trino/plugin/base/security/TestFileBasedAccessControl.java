@@ -25,7 +25,8 @@ public class TestFileBasedAccessControl
     @Override
     protected ConnectorAccessControl createAccessControl(Path configFile, Map<String, String> properties)
     {
-        return createAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put("security.config-file",
+        return createAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put(
+                "security.config-file",
                 configFile.toAbsolutePath().toString()).buildOrThrow());
     }
 }

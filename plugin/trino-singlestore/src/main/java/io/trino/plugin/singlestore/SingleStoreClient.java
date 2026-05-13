@@ -170,8 +170,7 @@ public class SingleStoreClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        this(
-                config,
+        this(config,
                 connectionFactory,
                 queryBuilder,
                 typeManager,
@@ -301,14 +300,13 @@ public class SingleStoreClient
             case Types.SMALLINT -> Optional.of(smallintColumnMapping());
             case Types.INTEGER -> Optional.of(integerColumnMapping());
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
-            case Types.REAL ->
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                    Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.CHAR, Types.NCHAR -> // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
                     Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
@@ -341,9 +339,9 @@ public class SingleStoreClient
             }
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(checkNullUsingBytes(varbinaryColumnMapping()));
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    dateWriteFunction()));
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 yield Optional.of(ColumnMapping.longMapping(

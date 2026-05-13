@@ -288,9 +288,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -713,7 +711,8 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
-                throw semanticException(TYPE_MISMATCH,
+                throw semanticException(
+                        TYPE_MISMATCH,
                         insert,
                         "Insert query has mismatched column types: Table: [%s], Query: [%s]",
                         Joiner.on(", ").join(tableTypes),
@@ -793,7 +792,8 @@ class StatementAnalyzer
 
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     refreshMaterializedView.getTable(),
-                    targetTableHandle, query,
+                    targetTableHandle,
+                    query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
             List<Type> tableTypes = insertColumns.stream()
@@ -2420,7 +2420,7 @@ class StatementAnalyzer
                             .withRelationType(baseScope.getRelationId(), baseScope.getRelationType())
                             .build();
                     analysis.setScope(table, resultScope);
-                    analysis.setRelationName(table, tableName);
+                    analysis.setRelationName(table, table.getName());
                     return resultScope;
                 }
             }
@@ -2730,7 +2730,8 @@ class StatementAnalyzer
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view, Function<Identifier, String> canonicalizer)
         {
-            return createScopeForView(table,
+            return createScopeForView(
+                    table,
                     name,
                     scope,
                     view.getOriginalSql(),
@@ -3801,7 +3802,8 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, expressionTypes)) {
-                throw semanticException(TYPE_MISMATCH,
+                throw semanticException(
+                        TYPE_MISMATCH,
                         update,
                         "UPDATE table column types don't match SET expressions: Table: [%s], Expressions: [%s]",
                         Joiner.on(", ").join(tableTypes),
@@ -3833,7 +3835,7 @@ class StatementAnalyzer
             updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
 
-            return createAndAssignScope(update, scope, tableScope.getCanonicalizers(), newUnqualified("rows", BIGINT));
+            return createAndAssignScope(update, scope, tableScope.getCanonicalizer(), newUnqualified("rows", BIGINT));
         }
 
         @Override
@@ -3995,7 +3997,8 @@ class StatementAnalyzer
                 List<Type> setColumnTypes = setColumnTypesBuilder.build();
                 List<Type> setExpressionTypes = setExpressionTypesBuilder.build();
                 if (!typesMatchForInsert(setColumnTypes, setExpressionTypes)) {
-                    throw semanticException(TYPE_MISMATCH,
+                    throw semanticException(
+                            TYPE_MISMATCH,
                             operation,
                             "MERGE table column types don't match for MERGE case %s, SET expressions: Table: [%s], Expressions: [%s]",
                             caseCounter,
@@ -4022,7 +4025,9 @@ class StatementAnalyzer
 
             checkArgument(
                     mergeCaseColumnHandles.size() == merge.getMergeCases().size(),
-                    "Unexpected mergeCaseColumnHandles size: %s with merge cases size: %s", mergeCaseColumnHandles.size(), merge.getMergeCases().size());
+                    "Unexpected mergeCaseColumnHandles size: %s with merge cases size: %s",
+                    mergeCaseColumnHandles.size(),
+                    merge.getMergeCases().size());
             ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnHandles = ImmutableMultimap.builder();
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase mergeCase = merge.getMergeCases().get(caseCounter);
@@ -4355,7 +4360,8 @@ class StatementAnalyzer
             for (RowType rowType : rowTypes) {
                 // check field count consistency for rows
                 if (rowType.getFields().size() != fieldCount) {
-                    throw semanticException(TYPE_MISMATCH,
+                    throw semanticException(
+                            TYPE_MISMATCH,
                             node,
                             "Values rows have mismatched sizes: %s vs %s",
                             fieldCount,
@@ -4364,7 +4370,8 @@ class StatementAnalyzer
 
                 // determine common super type of the rows
                 commonSuperType = (RowType) typeCoercion.getCommonSuperType(rowType, commonSuperType)
-                        .orElseThrow(() -> semanticException(TYPE_MISMATCH,
+                        .orElseThrow(() -> semanticException(
+                                TYPE_MISMATCH,
                                 node,
                                 // TODO should the message quote first type and current, or commonSuperType and current?
                                 "Values rows have mismatched types: %s vs %s",
@@ -4888,12 +4895,20 @@ class StatementAnalyzer
                     crossProduct = Math.multiplyExact(crossProduct, product);
                 }
                 catch (ArithmeticException e) {
-                    throw semanticException(TOO_MANY_GROUPING_SETS, node,
-                            "GROUP BY has more than %s grouping sets but can contain at most %s", Integer.MAX_VALUE, getMaxGroupingSets(session));
+                    throw semanticException(
+                            TOO_MANY_GROUPING_SETS,
+                            node,
+                            "GROUP BY has more than %s grouping sets but can contain at most %s",
+                            Integer.MAX_VALUE,
+                            getMaxGroupingSets(session));
                 }
                 if (crossProduct > getMaxGroupingSets(session)) {
-                    throw semanticException(TOO_MANY_GROUPING_SETS, node,
-                            "GROUP BY has %s grouping sets but can contain at most %s", crossProduct, getMaxGroupingSets(session));
+                    throw semanticException(
+                            TOO_MANY_GROUPING_SETS,
+                            node,
+                            "GROUP BY has %s grouping sets but can contain at most %s",
+                            crossProduct,
+                            getMaxGroupingSets(session));
                 }
             }
         }
@@ -5202,7 +5217,7 @@ class StatementAnalyzer
 
             ImmutableSet.Builder<Field> accessibleFields = ImmutableSet.builder();
 
-            //collect fields by table
+            // collect fields by table
             ListMultimap<QualifiedObjectName, Field> tableFieldsMap = ArrayListMultimap.create();
             fields.forEach(field -> {
                 Optional<QualifiedObjectName> originTable = field.getOriginTable();
@@ -5220,8 +5235,7 @@ class StatementAnalyzer
                                 session.toSecurityContext(),
                                 table.catalogName(),
                                 ImmutableMap.of(
-                                        table.asSchemaTableName(),
-                                        tableFields.stream()
+                                        table.asSchemaTableName(), tableFields.stream()
                                                 .map(field -> field.getOriginColumnName().get())
                                                 .collect(toImmutableSet())))
                         .getOrDefault(table.asSchemaTableName(), ImmutableSet.of());
@@ -5348,7 +5362,8 @@ class StatementAnalyzer
             Type type = expressionAnalysis.getType(expression);
             if (node.getSelect().isDistinct() && !type.isComparable()) {
                 throw semanticException(
-                        TYPE_MISMATCH, node.getSelect(),
+                        TYPE_MISMATCH,
+                        node.getSelect(),
                         "DISTINCT can only be applied to comparable types (actual: %s): %s",
                         type,
                         expression);
@@ -5646,8 +5661,8 @@ class StatementAnalyzer
             try {
                 Identity constraintIdentity = constraint.getSecurityIdentity()
                         .map(user -> Identity.forUser(user)
-                            .withGroups(groupProvider.getGroups(user))
-                            .build())
+                                .withGroups(groupProvider.getGroups(user))
+                                .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         session.createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, constraint.getPath()),
@@ -5948,7 +5963,7 @@ class StatementAnalyzer
                     .filter(isTableWithName(canonicalizer, name));
 
             // TODO: recursive references could be supported in subquery before the point of shadowing.
-            //currently, the recursive query name is considered shadowed in the whole subquery if the subquery defines a common table with the same name
+            // currently, the recursive query name is considered shadowed in the whole subquery if the subquery defines a common table with the same name
             Set<Node> shadowedReferences = preOrder(node)
                     .filter(isQueryWithNameShadowed(canonicalizer, name))
                     .flatMap(query -> preOrder(query)
@@ -6188,13 +6203,14 @@ class StatementAnalyzer
 
         /**
          * @return true if the Query / QuerySpecification containing the analyzed
-         * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
+         *         Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
          */
         private boolean analyzeLimit(Node node, Scope scope)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
-                    "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
+                    "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s",
+                    node.getClass().getName());
             if (node instanceof FetchFirst fetchFirst) {
                 return analyzeLimit(fetchFirst, scope);
             }
@@ -6293,6 +6309,11 @@ class StatementAnalyzer
             return createAndAssignScope(node, parentScope, new RelationType(fields), Optional.of(canonicalizer));
         }
 
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Optional<Function<Identifier, String>> canonicalizer, Field... fields)
+        {
+            return createAndAssignScope(node, parentScope, new RelationType(fields), canonicalizer);
+        }
+
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Function<Identifier, String> canonicalizer, List<Field> fields)
         {
             return createAndAssignScope(node, parentScope, new RelationType(fields), Optional.of(canonicalizer));
@@ -6307,10 +6328,12 @@ class StatementAnalyzer
         {
             return createAndAssignScope(node, parentScope, relationType, Optional.empty());
         }
+
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType, Optional<Function<Identifier, String>> canonicalizer)
         {
             return createAndAssignScope(node, parentScope, relationType, canonicalizer, false);
         }
+
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType, Optional<Function<Identifier, String>> canonicalizer, boolean requireDelimiter)
         {
             Scope scope = scopeBuilder(parentScope, canonicalizer)
@@ -6355,9 +6378,7 @@ class StatementAnalyzer
             else {
                 outerQueryScope.ifPresent(scopeBuilder::withOuterQueryParent);
             }
-            if (canonicalizer.isPresent()) {
-                scopeBuilder.withCanonicalizer(canonicalizer.get());
-            }
+            canonicalizer.ifPresent(scopeBuilder::withCanonicalizer);
 
             return scopeBuilder;
         }
@@ -6448,7 +6469,9 @@ class StatementAnalyzer
                 if (!(type instanceof TimestampWithTimeZoneType ||
                         type instanceof TimestampType ||
                         type instanceof DateType)) {
-                    throw semanticException(TYPE_MISMATCH, queryPeriod,
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            queryPeriod,
                             "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
                             type.getDisplayName());
                 }

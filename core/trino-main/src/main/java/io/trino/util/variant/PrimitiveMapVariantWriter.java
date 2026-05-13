@@ -122,6 +122,7 @@ public record PrimitiveMapVariantWriter(MapType type, PrimitiveVariantEncoder va
     }
 
     /// Extract map keys from the SqlMap, ensuring no null or duplicate keys
+    ///
     /// @throws IllegalArgumentException if a map key is null or if there are duplicate keys
     static List<Slice> getMapKeys(SqlMap sqlMap)
     {
@@ -148,6 +149,7 @@ public record PrimitiveMapVariantWriter(MapType type, PrimitiveVariantEncoder va
     /// Determine the order to write entries. Object fields must be written in lexicographical
     /// order of the field names. Since the metadata dictionary is sorted, the fieldIds are also
     /// in lexicographical order of the field names.
+    ///
     /// @param fieldIds from a globally sorted metadata dictionary
     /// @return the order to write entries so that field names are in lexicographical order
     static int[] determineWriteOrder(int[] fieldIds)

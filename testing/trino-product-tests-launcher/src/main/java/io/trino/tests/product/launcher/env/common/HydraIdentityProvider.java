@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.testing.containers.wait.strategy.SelectedPortWaitStrategy;
 import io.trino.tests.product.launcher.docker.DockerFiles;
@@ -133,18 +134,23 @@ public class HydraIdentityProvider
             String audience,
             String callbackUrl)
     {
+        String[] command = ImmutableList.<String>builder()
+                .add("clients", "create")
+                .add("--endpoint", "https://hydra:4445")
+                .add("--skip-tls-verify")
+                .add("--id", clientId)
+                .add("--secret", clientSecret)
+                .add("--audience", audience)
+                .add("-g", "authorization_code,refresh_token,client_credentials")
+                .add("-r", "token,code,id_token")
+                .add("--scope", "openid,offline")
+                .add("--token-endpoint-auth-method", tokenEndpointAuthMethod)
+                .add("--callbacks", callbackUrl)
+                .build()
+                .toArray(String[]::new);
+
         DockerContainer clientCreatingContainer = new DockerContainer(HYDRA_IMAGE, "hydra-client-preparation")
-                .withCommand("clients", "create",
-                        "--endpoint", "https://hydra:4445",
-                        "--skip-tls-verify",
-                        "--id", clientId,
-                        "--secret", clientSecret,
-                        "--audience", audience,
-                        "-g", "authorization_code,refresh_token,client_credentials",
-                        "-r", "token,code,id_token",
-                        "--scope", "openid,offline",
-                        "--token-endpoint-auth-method", tokenEndpointAuthMethod,
-                        "--callbacks", callbackUrl)
+                .withCommand(command)
                 .setTemporary(true);
 
         builder.addContainer(clientCreatingContainer);

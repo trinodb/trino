@@ -148,7 +148,8 @@ public class WorkerResource
         private final String state;
 
         @JsonCreator
-        public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
+        public JsonNodeInfo(
+                @JsonProperty("nodeId") String nodeId,
                 @JsonProperty("nodeIp") String nodeIp,
                 @JsonProperty("nodeVersion") String nodeVersion,
                 @JsonProperty("coordinator") boolean coordinator,

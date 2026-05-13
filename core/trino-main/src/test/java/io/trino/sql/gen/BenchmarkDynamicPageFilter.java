@@ -117,8 +117,7 @@ public class BenchmarkDynamicPageFilter
                 }
             }
             return TupleDomain.withColumnDomains(ImmutableMap.of(
-                    new TestingColumnHandle("dummy"),
-                    Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
+                    new TestingColumnHandle("dummy"), Domain.create(ValueSet.copyOf(type, valuesBuilder.build()), nullsAllowed)));
         }
 
         private List<Page> createInputTestData(

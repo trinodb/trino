@@ -571,15 +571,17 @@ public class SqlServerClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        return Jdbi.open(connection).createQuery("""
-                                                 SELECT c.name AS column_name, c.collation_name FROM sys.columns c
-                                                 INNER JOIN sys.tables t ON c.object_id = t.object_id
-                                                 INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
-                                                 WHERE s.name = :schema_name AND t.name = :table_name
-                                                 """)
+        return Jdbi.open(connection).createQuery(
+                        """
+                        SELECT c.name AS column_name, c.collation_name FROM sys.columns c
+                        INNER JOIN sys.tables t ON c.object_id = t.object_id
+                        INNER JOIN sys.schemas s ON s.schema_id = t.schema_id
+                        WHERE s.name = :schema_name AND t.name = :table_name
+                        """)
                 .bind("schema_name", remoteTableName.getSchemaName().orElseThrow())
                 .bind("table_name", remoteTableName.getTableName())
-                .collectRows(toImmutableMap(rowView -> rowView.getColumn("column_name", String.class),
+                .collectRows(toImmutableMap(
+                        rowView -> rowView.getColumn("column_name", String.class),
                         rowView -> toCaseSensitivity(rowView.getColumn("collation_name", String.class))));
     }
 
@@ -653,9 +655,9 @@ public class SqlServerClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(varbinaryColumnMapping());
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        sqlServerDateWriteFunction()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    sqlServerDateWriteFunction()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(typeHandle.requiredDecimalDigits());
@@ -1369,8 +1371,7 @@ public class SqlServerClient
         int maxAttemptCount = 3;
         RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
-                .handleIf(throwable ->
-                {
+                .handleIf(throwable -> {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException sqlServerException &&
                             sqlServerException.getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;

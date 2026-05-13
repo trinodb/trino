@@ -251,9 +251,9 @@ public class RowToRowCast
     private static MethodHandle getNullSafeCast(FunctionDependencies functionDependencies, Type fromElementType, Type toElementType)
     {
         MethodHandle castMethod = functionDependencies.getCastImplementation(
-                fromElementType,
-                toElementType,
-                new InvocationConvention(ImmutableList.of(BLOCK_POSITION_NOT_NULL), NULLABLE_RETURN, true, false))
+                        fromElementType,
+                        toElementType,
+                        new InvocationConvention(ImmutableList.of(BLOCK_POSITION_NOT_NULL), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
 
         // normalize so cast always has a session

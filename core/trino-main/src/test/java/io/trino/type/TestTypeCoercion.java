@@ -268,8 +268,13 @@ public class TestTypeCoercion
                     for (Type sourceType : types) {
                         if (typeCoercion.canCoerce(sourceType, transitiveType)) {
                             if (!typeCoercion.canCoerce(sourceType, resultType)) {
-                                fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
-                                        sourceType, resultType, sourceType, transitiveType, resultType));
+                                fail(format(
+                                        "'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                        sourceType,
+                                        resultType,
+                                        sourceType,
+                                        transitiveType,
+                                        resultType));
                             }
                         }
                     }

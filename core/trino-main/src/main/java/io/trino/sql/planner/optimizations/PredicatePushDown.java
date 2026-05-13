@@ -920,7 +920,8 @@ public class PredicatePushDown
                 }
             });
 
-            return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
+            return new OuterJoinPushDownResult(
+                    combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
                     combineConjuncts(postJoinConjuncts.build()));
@@ -1533,7 +1534,7 @@ public class PredicatePushDown
                 return new FilterNode(idAllocator.getNextId(), node, inheritedPredicate);
             }
 
-            //TODO for LEFT or INNER join type, push down UnnestNode's filter on replicate symbols
+            // TODO for LEFT or INNER join type, push down UnnestNode's filter on replicate symbols
             EqualityInference equalityInference = new EqualityInference(inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();

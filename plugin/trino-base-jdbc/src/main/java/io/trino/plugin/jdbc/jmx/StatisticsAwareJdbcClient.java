@@ -260,7 +260,8 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<PreparedQuery> implementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             Map<JdbcColumnHandle, String> leftProjections,
@@ -273,7 +274,8 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<PreparedQuery> legacyImplementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,

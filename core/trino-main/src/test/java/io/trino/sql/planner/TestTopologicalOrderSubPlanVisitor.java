@@ -65,11 +65,13 @@ public class TestTopologicalOrderSubPlanVisitor
         SubPlan b = valuesSubPlan("b");
         SubPlan c = valuesSubPlan("c");
 
-        SubPlan middle = createSubPlan("middle",
+        SubPlan middle = createSubPlan(
+                "middle",
                 f.apply("middle_join", remoteSource("b"), remoteSource("c")),
                 ImmutableList.of(b, c));
 
-        SubPlan root = createSubPlan("root",
+        SubPlan root = createSubPlan(
+                "root",
                 f.apply("root_join", remoteSource("a"), remoteSource("middle")),
                 ImmutableList.of(a, middle));
 
@@ -175,7 +177,10 @@ public class TestTopologicalOrderSubPlanVisitor
     private static SubPlan valuesSubPlan(String fragmentId)
     {
         Symbol symbol = new Symbol(UNKNOWN, "column");
-        return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
+        return createSubPlan(
+                fragmentId,
+                new ValuesNode(
+                        new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableList.of());

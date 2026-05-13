@@ -98,13 +98,17 @@ public class TestWindowFrameRange
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
                                                                 Optional.empty()))),
-                                project(// coerce sort key to compare sort key values with frame start values
+                                project(
+                                        // coerce sort key to compare sort key values with frame start values
                                         ImmutableMap.of("key_for_frame_start_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
-                                        project(// calculate frame start value (sort key - frame offset)
+                                        project(
+                                                // calculate frame start value (sort key - frame offset)
                                                 ImmutableMap.of("frame_start_value", expression(new Call(SUBTRACT_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "key_for_frame_start_calculation"), new Reference(createDecimalType(10, 0), "x"))))),
-                                                project(// coerce sort key to calculate frame start values
+                                                project(
+                                                        // coerce sort key to calculate frame start values
                                                         ImmutableMap.of("key_for_frame_start_calculation", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(10, 0)))),
-                                                        filter(// validate offset values
+                                                        filter(
+                                                                // validate offset values
                                                                 ifExpression(
                                                                         new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(2, 1), "x"), new Constant(createDecimalType(2, 1), 0L)),
                                                                         TRUE,
@@ -146,16 +150,20 @@ public class TestWindowFrameRange
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
                                                                 Optional.of(new Symbol(UNKNOWN, "key_for_frame_end_comparison"))))),
-                                project(// coerce sort key to compare sort key values with frame end values
+                                project(
+                                        // coerce sort key to compare sort key values with frame end values
                                         ImmutableMap.of("key_for_frame_end_comparison", expression(new Cast(new Reference(INTEGER, "key"), createDecimalType(12, 1)))),
-                                        project(// calculate frame end value (sort key + frame offset)
+                                        project(
+                                                // calculate frame end value (sort key + frame offset)
                                                 ImmutableMap.of("frame_end_value", expression(new Call(ADD_DECIMAL_10_0, ImmutableList.of(new Reference(createDecimalType(10, 0), "key"), new Reference(createDecimalType(10, 0), "offset"))))),
-                                                filter(// validate offset values
+                                                filter(
+                                                        // validate offset values
                                                         ifExpression(
                                                                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createDecimalType(10, 0), "offset"), new Constant(createDecimalType(10, 0), 0L)),
                                                                 TRUE,
                                                                 new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
-                                                        project(// coerce offset value to calculate frame end values
+                                                        project(
+                                                                // coerce offset value to calculate frame end values
                                                                 ImmutableMap.of("offset", expression(new Cast(new Reference(DOUBLE, "x"), createDecimalType(10, 0)))),
                                                                 anyTree(
                                                                         values(
@@ -194,16 +202,20 @@ public class TestWindowFrameRange
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_end_value")),
                                                                 Optional.of(new Symbol(UNKNOWN, "key"))))),
-                                project(// calculate frame end value (sort key + frame end offset)
+                                project(
+                                        // calculate frame end value (sort key + frame end offset)
                                         ImmutableMap.of("frame_end_value", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "key"), new Reference(INTEGER, "y"))))),
-                                        filter(// validate frame end offset values
+                                        filter(
+                                                // validate frame end offset values
                                                 ifExpression(
                                                         new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "y"), new Constant(INTEGER, 0L)),
                                                         TRUE,
                                                         new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) INVALID_WINDOW_FRAME.toErrorCode().getCode()), new Constant(VARCHAR, Slices.utf8Slice("Window frame offset value must not be negative or null")))), BOOLEAN)),
-                                                project(// calculate frame start value (sort key - frame start offset)
+                                                project(
+                                                        // calculate frame start value (sort key - frame start offset)
                                                         ImmutableMap.of("frame_start_value", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "key"), new Reference(INTEGER, "x"))))),
-                                                        filter(// validate frame start offset values
+                                                        filter(
+                                                                // validate frame start offset values
                                                                 ifExpression(
                                                                         new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)),
                                                                         TRUE,

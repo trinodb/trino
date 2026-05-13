@@ -275,8 +275,9 @@ public final class DecimalOperators
         }
         else {
             // The precision and scale calculations are modeled after MSSQL (https://learn.microsoft.com/en-us/sql/t-sql/data-types/precision-scale-and-length-transact-sql),
+            // except that raw_precision is a_precision + b_precision instead of a_precision + b_precision + 1,
             // as follows, with all expressions inlined:
-            //     raw_precision = a_precision + b_precision + 1;
+            //     raw_precision = a_precision + b_precision;
             //     raw_scale = a_scale + b_scale;
             //
             // Adjustment if precision doesn't fit into 38 digits:
@@ -284,8 +285,8 @@ public final class DecimalOperators
             //     precision = min(raw_precision, 38);
             //     scale = min(raw_scale, integral > 32 ? 6 : 38 - integral);
             signature
-                    .longVariable("r_precision", "min(a_precision + b_precision + 1, 38)")
-                    .longVariable("r_scale", "min(a_scale + b_scale, if(a_precision + b_precision + 1 - (a_scale + b_scale) > 32, 6, 38 - (a_precision + b_precision + 1 - (a_scale + b_scale))))");
+                    .longVariable("r_precision", "min(a_precision + b_precision, 38)")
+                    .longVariable("r_scale", "min(a_scale + b_scale, if(a_precision + b_precision - (a_scale + b_scale) > 32, 6, 38 - (a_precision + b_precision - (a_scale + b_scale))))");
         }
 
         return new PolymorphicScalarFunctionBuilder(MULTIPLY, DecimalOperators.class)

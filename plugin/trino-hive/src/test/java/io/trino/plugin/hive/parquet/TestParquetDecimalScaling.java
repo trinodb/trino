@@ -247,7 +247,8 @@ public class TestParquetDecimalScaling
                     writerVersion);
 
             testReadingRescaledDecimals(
-                    10, 2,
+                    10,
+                    2,
                     true,
                     12,
                     4,

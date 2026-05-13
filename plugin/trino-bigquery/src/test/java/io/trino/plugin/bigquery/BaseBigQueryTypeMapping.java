@@ -567,76 +567,175 @@ public abstract class BaseBigQueryTypeMapping
     {
         return SqlDataTypeTest.create()
                 // min value in BigQuery
-                .addRoundTrip(inputType, "TIMESTAMP '0001-01-01 00:00:00.000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '0001-01-01 00:00:00.000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '0001-01-01 00:00:00.000000 UTC'")
                 // before epoch
-                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
-                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
-                         TIMESTAMP_TZ_MICROS, "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1958-01-01 13:18:03.123 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1958-01-01 13:18:03.123456 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1958-01-01 13:18:03.123000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1958-01-01 07:48:03.123000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1969-12-31 23:59:59.999995 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1969-12-31 23:59:59.999949 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1969-12-31 23:59:59.999994 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:00.000000 Asia/Kathmandu'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1969-12-31 18:30:00.000000 UTC'")
                 // epoch
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:00.000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
                 // after epoch
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.100000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.120000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.1234 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123400 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.12345 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123450 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.000000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.000000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.000 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.000000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.456000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987000 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
-                .addRoundTrip(inputType, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.1 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.100000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.12 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.120000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.123 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.123000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.1234 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.123400 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.12345 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.123450 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:00:01.123456 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:13:42.000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:13:42.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1970-01-01 00:13:42.123456 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1986-01-01 00:13:07.000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1986-01-01 00:13:07.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '1986-01-01 00:13:07.456789 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-03-25 03:17:17.000 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-03-25 03:17:17.000000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-03-25 03:17:17.456789 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-04-01 02:13:55.123 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-04-01 02:13:55.123000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-04-01 02:13:55.123456 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-10-28 01:33:17.456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-10-28 01:33:17.456000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-10-28 01:33:17.123456 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-10-28 03:33:33.333 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-10-28 03:33:33.333000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2018-10-28 03:33:33.333333 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2019-03-18 10:01:17.987 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987000 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2019-03-18 10:01:17.987654 UTC'")
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '2021-09-07 23:59:59.999999 UTC'")
                 // max value in BigQuery
-                .addRoundTrip(inputType, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'",
-                        TIMESTAMP_TZ_MICROS, "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'");
+                .addRoundTrip(
+                        inputType,
+                        "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'",
+                        TIMESTAMP_TZ_MICROS,
+                        "TIMESTAMP '9999-12-31 23:59:59.999999 UTC'");
     }
 
     @Test
@@ -713,7 +812,8 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip("ARRAY(BOOLEAN)", "ARRAY[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
                 .addRoundTrip("ARRAY(INT)", "ARRAY[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
                 .addRoundTrip("ARRAY(VARCHAR)", "ARRAY['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
-                .addRoundTrip("ARRAY(ROW(x INT, y VARCHAR))",
+                .addRoundTrip(
+                        "ARRAY(ROW(x INT, y VARCHAR))",
                         "ARRAY[ROW(1, 'string')]",
                         new ArrayType(RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR)))),
                         "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
@@ -725,7 +825,8 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip("ARRAY<BOOLEAN>", "[true]", new ArrayType(BOOLEAN), "ARRAY[true]")
                 .addRoundTrip("ARRAY<INT64>", "[1]", new ArrayType(BIGINT), "ARRAY[BIGINT '1']")
                 .addRoundTrip("ARRAY<STRING>", "['string']", new ArrayType(VARCHAR), "ARRAY[VARCHAR 'string']")
-                .addRoundTrip("ARRAY<STRUCT<x INT64, y STRING>>",
+                .addRoundTrip(
+                        "ARRAY<STRUCT<x INT64, y STRING>>",
                         "[(1, 'string')]",
                         new ArrayType(RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR)))),
                         "ARRAY[CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))]")
@@ -761,19 +862,23 @@ public abstract class BaseBigQueryTypeMapping
     public void testStruct()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("ROW(x INT)",
+                .addRoundTrip(
+                        "ROW(x INT)",
                         "ROW(1)",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
                         "CAST(ROW(1) AS ROW(x BIGINT))")
-                .addRoundTrip("ROW(x INT, y VARCHAR)",
+                .addRoundTrip(
+                        "ROW(x INT, y VARCHAR)",
                         "(1, 'string')",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR))),
                         "CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))")
-                .addRoundTrip("ROW(x ROW(y VARCHAR))",
+                .addRoundTrip(
+                        "ROW(x ROW(y VARCHAR))",
                         "ROW(ROW('nested'))",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), RowType.from(ImmutableList.of(new Field(Optional.of("y"), VARCHAR)))))),
                         "CAST(ROW(ROW('nested')) AS ROW(X ROW(Y VARCHAR)))")
-                .addRoundTrip("ROW(x INT)",
+                .addRoundTrip(
+                        "ROW(x INT)",
                         "NULL",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
                         "CAST(NULL AS ROW(x BIGINT))")
@@ -781,19 +886,23 @@ public abstract class BaseBigQueryTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert("test.row"));
 
         SqlDataTypeTest.create()
-                .addRoundTrip("STRUCT<x INT64>",
+                .addRoundTrip(
+                        "STRUCT<x INT64>",
                         "STRUCT(1)",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
                         "CAST(ROW(1) AS ROW(x BIGINT))")
-                .addRoundTrip("STRUCT<x INT64, y STRING>",
+                .addRoundTrip(
+                        "STRUCT<x INT64, y STRING>",
                         "(1, 'string')",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT), new Field(Optional.of("y"), VARCHAR))),
                         "CAST(ROW(1, 'string') AS ROW(x BIGINT, y VARCHAR))")
-                .addRoundTrip("STRUCT<x STRUCT<y STRING>>",
+                .addRoundTrip(
+                        "STRUCT<x STRUCT<y STRING>>",
                         "STRUCT(STRUCT('nested' AS y) AS x)",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), RowType.from(ImmutableList.of(new Field(Optional.of("y"), VARCHAR)))))),
                         "CAST(ROW(ROW('nested')) AS ROW(X ROW(Y VARCHAR)))")
-                .addRoundTrip("STRUCT<x INT64>",
+                .addRoundTrip(
+                        "STRUCT<x INT64>",
                         "NULL",
                         RowType.from(ImmutableList.of(new Field(Optional.of("x"), BIGINT))),
                         "CAST(NULL AS ROW(x BIGINT))")

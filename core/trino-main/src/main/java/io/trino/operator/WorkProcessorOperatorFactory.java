@@ -32,6 +32,6 @@ public interface WorkProcessorOperatorFactory
 
     default void close()
     {
-        //do nothing
+        // do nothing
     }
 }

@@ -202,7 +202,7 @@ public class HashBuilderOperator
         /**
          * No longer needed
          */
-        CLOSED
+        CLOSED,
     }
 
     private static final double INDEX_COMPACTION_ON_REVOCATION_TARGET = 0.8;

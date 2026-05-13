@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -34,10 +35,14 @@ class TestPluginReader
                 .setOut(new PrintWriter(writer))
                 .setErr(new PrintWriter(writer));
 
-        int exitCode = cmd.execute(
-                "--impacted-modules", "src/test/resources/gib-impacted.log",
-                "--plugin-dir", "src/test/resources/server-plugins",
-                "--root-pom", "src/test/resources/pom.xml");
+        String[] command = ImmutableList.<String>builder()
+                .add("--impacted-modules", "src/test/resources/gib-impacted.log")
+                .add("--plugin-dir", "src/test/resources/server-plugins")
+                .add("--root-pom", "src/test/resources/pom.xml")
+                .build()
+                .toArray(String[]::new);
+
+        int exitCode = cmd.execute(command);
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
     }
@@ -51,11 +56,15 @@ class TestPluginReader
                 .setOut(new PrintWriter(writer))
                 .setErr(new PrintWriter(writer));
 
-        int exitCode = cmd.execute(
-                "--impacted-modules", "src/test/resources/gib-impacted.log",
-                "--plugin-dir", "src/test/resources/server-plugins",
-                "--plugin-dir", tempDir.toString(),
-                "--root-pom", "src/test/resources/pom.xml");
+        String[] command = ImmutableList.<String>builder()
+                .add("--impacted-modules", "src/test/resources/gib-impacted.log")
+                .add("--plugin-dir", "src/test/resources/server-plugins")
+                .add("--plugin-dir", tempDir.toString())
+                .add("--root-pom", "src/test/resources/pom.xml")
+                .build()
+                .toArray(String[]::new);
+
+        int exitCode = cmd.execute(command);
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
     }

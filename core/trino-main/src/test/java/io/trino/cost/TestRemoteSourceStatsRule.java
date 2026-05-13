@@ -151,25 +151,21 @@ public class TestRemoteSourceStatsRule
     {
         PlanNodeStatsEstimate symbolEstimate = new PlanNodeStatsEstimate(10000,
                 ImmutableMap.of(
-                        new Symbol(VARCHAR, "col_a"),
-                        SymbolStatsEstimate.builder()
+                        new Symbol(VARCHAR, "col_a"), SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(100)
                                 .build(),
-                        new Symbol(VARCHAR, "col_b"),
-                        SymbolStatsEstimate.builder()
+                        new Symbol(VARCHAR, "col_b"), SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(233)
                                 .build(),
-                        new Symbol(BIGINT, "col_c"),
-                        SymbolStatsEstimate.builder()
+                        new Symbol(BIGINT, "col_c"), SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(98)
                                 .setHighValue(100)
                                 .setLowValue(3)
                                 .build(),
-                        new Symbol(DOUBLE, "col_d"),
-                        SymbolStatsEstimate.builder()
+                        new Symbol(DOUBLE, "col_d"), SymbolStatsEstimate.builder()
                                 .setNullsFraction(nullFraction)
                                 .setDistinctValuesCount(300)
                                 .setHighValue(100)

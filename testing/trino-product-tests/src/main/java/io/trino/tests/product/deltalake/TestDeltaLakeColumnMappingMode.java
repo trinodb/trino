@@ -120,13 +120,14 @@ public class TestDeltaLakeColumnMappingMode
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     public void testTrinoColumnMappingModeReaderAndWriterVersion(String mode)
     {
-        testColumnMappingModeReaderAndWriterVersion(tableName -> onTrino().executeQuery("" +
-                "CREATE TABLE delta.default." + tableName +
-                "(x INT) " +
-                "WITH (" +
-                " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
-                " column_mapping_mode = '" + mode + "'" +
-                ")"),
+        testColumnMappingModeReaderAndWriterVersion(
+                tableName -> onTrino().executeQuery("" +
+                        "CREATE TABLE delta.default." + tableName +
+                        "(x INT) " +
+                        "WITH (" +
+                        " location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                        " column_mapping_mode = '" + mode + "'" +
+                        ")"),
                 5);
     }
 
@@ -206,12 +207,13 @@ public class TestDeltaLakeColumnMappingMode
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     public void testDeltaColumnMappingModeReaderAndWriterVersion(String mode)
     {
-        testColumnMappingModeReaderAndWriterVersion(tableName -> onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                "(x INT) " +
-                "USING delta " +
-                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                "TBLPROPERTIES ('delta.columnMapping.mode'='" + mode + "')"),
+        testColumnMappingModeReaderAndWriterVersion(
+                tableName -> onDelta().executeQuery("" +
+                        "CREATE TABLE default." + tableName +
+                        "(x INT) " +
+                        "USING delta " +
+                        "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                        "TBLPROPERTIES ('delta.columnMapping.mode'='" + mode + "')"),
                 7);
     }
 

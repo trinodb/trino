@@ -315,8 +315,7 @@ public class TestRedshiftConnectorTest
                                                             .setComment(Optional.of("Dynamic Column."))
                                                             .setColumnType(BIGINT)
                                                             .setNullable(true)
-                                                            .build(),
-                                                    Domain.multipleValues(BIGINT, List.of(1L, 2L, 3L, 4L), false)));
+                                                            .build(), Domain.multipleValues(BIGINT, List.of(1L, 2L, 3L, 4L), false)));
                             assertThat(effectivePredicate).isEqualTo(expectedPredicate);
                             return true;
                         }));
@@ -605,7 +604,8 @@ public class TestRedshiftConnectorTest
             assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTableName)).isFullyPushedDown();
         }
 
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+        try (TestTable testTable = createAggregationTestTable(
+                schemaName + ".test_aggregation_pushdown",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             String testTableName = testTable.getName() + "_" + distStyle;
             copyWithDistStyle(testTable.getName(), testTableName, distStyle, Optional.of("a_bigint"));
@@ -672,8 +672,10 @@ public class TestRedshiftConnectorTest
                 "12345789.9876543210",
                 format("%s.%s", "1".repeat(28), "9".repeat(10)));
 
-        try (TestTable testTable = newTrinoTable(TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
-                "(t_decimal DECIMAL(38, 10))", rows)) {
+        try (TestTable testTable = newTrinoTable(
+                TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
+                "(t_decimal DECIMAL(38, 10))",
+                rows)) {
             // Redshift avg rounds down decimal result which doesn't match Presto semantics
             assertThatThrownBy(() -> assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown())
                     .isInstanceOf(AssertionError.class)
@@ -694,8 +696,10 @@ public class TestRedshiftConnectorTest
                 "0.987654321234567890",
                 format("0.%s", "1".repeat(18)));
 
-        try (TestTable testTable = newTrinoTable(TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
-                "(t_decimal DECIMAL(18, 18))", rows)) {
+        try (TestTable testTable = newTrinoTable(
+                TEST_SCHEMA + ".test_agg_pushdown_avg_max_decimal",
+                "(t_decimal DECIMAL(18, 18))",
+                rows)) {
             assertThat(query("SELECT avg(t_decimal) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }

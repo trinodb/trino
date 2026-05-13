@@ -15,7 +15,6 @@ package io.trino.plugin.google.sheets;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.HttpBackOffIOExceptionHandler;
-import com.google.api.client.http.HttpBackOffUnsuccessfulResponseHandler;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
@@ -31,21 +30,29 @@ import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
-import static io.trino.plugin.google.sheets.SheetsClient.BACKOFF;
+import static io.trino.plugin.google.sheets.SheetsClient.newBackOff;
+import static io.trino.plugin.google.sheets.SheetsClient.newUnsuccessfulResponseHandler;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Disabled // TODO https://github.com/trinodb/trino/issues/29407 Fix 'Invalid JWT Signature' failure
+@Execution(SAME_THREAD)
+@ResourceLock("google-sheets")
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
@@ -203,7 +210,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s'))".formatted(DATA_SHEET_ID) +
-                "WHERE number = '1' and text = 'one'",
+                        "WHERE number = '1' and text = 'one'",
                 "VALUES " +
                         "('1', 'one')");
     }
@@ -252,7 +259,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!A1:A6") +
-                "WHERE number = number",
+                        "WHERE number = number",
                 "VALUES " +
                         "('1')," +
                         "('2')," +
@@ -266,7 +273,7 @@ public class TestGoogleSheets
     {
         assertQuery(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s', range => '%s'))".formatted(DATA_SHEET_ID, "number_text!B3:B5") +
-                "WHERE \"two\" = \"two\"",
+                        "WHERE \"two\" = \"two\"",
                 "VALUES " +
                         "('three')," +
                         "('four')");
@@ -320,7 +327,8 @@ public class TestGoogleSheets
     private Sheets getSheetsService()
             throws Exception
     {
-        return new Sheets.Builder(newTrustedTransport(),
+        return new Sheets.Builder(
+                newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
                 setTimeout(getCredentials()))
                 .setApplicationName(APPLICATION_NAME)
@@ -341,8 +349,8 @@ public class TestGoogleSheets
             requestInitializer.initialize(httpRequest);
             httpRequest.setConnectTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
             httpRequest.setReadTimeout(toIntExact(TimeUnit.MINUTES.toMillis(1)));
-            httpRequest.setUnsuccessfulResponseHandler(new HttpBackOffUnsuccessfulResponseHandler(BACKOFF));
-            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(BACKOFF));
+            httpRequest.setUnsuccessfulResponseHandler(newUnsuccessfulResponseHandler());
+            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(newBackOff()));
         };
     }
 }

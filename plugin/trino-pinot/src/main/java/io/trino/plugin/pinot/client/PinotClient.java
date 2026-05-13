@@ -557,10 +557,13 @@ public class PinotClient
 
             ImmutableMultimap.Builder<HeaderName, String> additionalHeadersBuilder = ImmutableMultimap.builder();
             brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
-            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
+            BrokerResponseNative response = doHttpActionWithHeadersJson(
+                    builder,
+                    Optional.of(queryRequest),
+                    brokerResponseCodec,
                     additionalHeadersBuilder.build());
 
-            if (response.getExceptionsSize() > 0 && response.getExceptions() != null && !response.getExceptions().isEmpty()) {
+            if (response.getExceptionsSize() > 0 && !response.getExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200
                 // so we treat any exception as an error
                 String processingExceptionMessage = response.getExceptions().stream()

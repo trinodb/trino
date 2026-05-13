@@ -105,7 +105,8 @@ public class TestDeltaLakeDelete
     public void testDeleteOnPartitionKey()
     {
         String tableName = "test_delete_on_partition_key";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, p_key) WITH (partitioned_by = ARRAY['p_key']) " +
                         "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
                 6);
@@ -117,7 +118,8 @@ public class TestDeltaLakeDelete
     public void testDeleteFromPartitionedTable()
     {
         String tableName = "test_delete_from_partitioned_table";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, p_key) WITH (partitioned_by = ARRAY['p_key']) " +
                         "AS VALUES (1, 'a'), (2, 'b'), (3, 'c'), (2, 'a'), (null, null), (1, null)",
                 6);
@@ -226,7 +228,8 @@ public class TestDeltaLakeDelete
     public void testDeleteWithRowFilter()
     {
         String tableName = "test_delete_with_row_filter";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['regionkey']) " +
                         "AS SELECT nationkey, regionkey FROM tpch.tiny.nation",
                 25);
@@ -238,7 +241,8 @@ public class TestDeltaLakeDelete
     public void testDeleteMultiplePartitionKeys()
     {
         String tableName = "test_delete_multiple_partition_keys";
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (partitioned_by = ARRAY['b', 'c']) " +
                         "AS VALUES (1, 2, 3), (1, 2, 4), (3, 2, 1), (null, null, null), (1, 1, 1)",
                 5);

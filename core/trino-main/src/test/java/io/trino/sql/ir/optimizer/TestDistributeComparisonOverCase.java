@@ -50,9 +50,11 @@ public class TestDistributeComparisonOverCase
                 .describedAs("case(...) < reference")
                 .isEqualTo(Optional.of(new Case(
                         ImmutableList.of(
-                                new WhenClause(new Reference(BOOLEAN, "a"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "a"),
                                         new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                new WhenClause(new Reference(BOOLEAN, "b"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "b"),
                                         new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                         new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
@@ -68,9 +70,11 @@ public class TestDistributeComparisonOverCase
                 .describedAs("case(...) < constant")
                 .isEqualTo(Optional.of(new Case(
                         ImmutableList.of(
-                                new WhenClause(new Reference(BOOLEAN, "a"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "a"),
                                         new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                new WhenClause(new Reference(BOOLEAN, "b"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "b"),
                                         new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                         new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
 
@@ -86,9 +90,11 @@ public class TestDistributeComparisonOverCase
                 .describedAs("reference < case(...)")
                 .isEqualTo(Optional.of(new Case(
                         ImmutableList.of(
-                                new WhenClause(new Reference(BOOLEAN, "a"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "a"),
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                new WhenClause(new Reference(BOOLEAN, "b"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "b"),
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                         new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
@@ -104,9 +110,11 @@ public class TestDistributeComparisonOverCase
                 .describedAs("constant < case(...)")
                 .isEqualTo(Optional.of(new Case(
                         ImmutableList.of(
-                                new WhenClause(new Reference(BOOLEAN, "a"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "a"),
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                new WhenClause(new Reference(BOOLEAN, "b"),
+                                new WhenClause(
+                                        new Reference(BOOLEAN, "b"),
                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                         new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
     }

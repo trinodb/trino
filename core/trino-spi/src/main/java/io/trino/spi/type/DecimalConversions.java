@@ -70,7 +70,11 @@ public final class DecimalConversions
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
     {
-        return floatToRawIntBits(((float) decimal) / tenToScale);
+        // Divide in double to avoid double-rounding: ((float) decimal) / tenToScale first
+        // rounds the unscaled value to float (losing precision for |decimal| > 2^24),
+        // then divides — the composition can land on a different float than the correctly
+        // rounded mathematical result.
+        return floatToRawIntBits((float) ((double) decimal / tenToScale));
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)

@@ -86,8 +86,8 @@ public class StatisticsEstimator
 
     private Optional<Long> addDistinctValuesCount(TpchColumn<?> partitionColumn, String columnName, ColumnStatisticsData leftStats, ColumnStatisticsData rightStats)
     {
-        //unique values count can't be added between different partitions
-        //for columns other than the partition column (because almost certainly there are duplicates)
+        // unique values count can't be added between different partitions
+        // for columns other than the partition column (because almost certainly there are duplicates)
         return combine(leftStats.distinctValuesCount(), rightStats.distinctValuesCount(), Long::sum)
                 .filter(_ -> columnName.equals(partitionColumn.getColumnName()));
     }

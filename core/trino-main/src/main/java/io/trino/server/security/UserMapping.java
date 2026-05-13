@@ -114,8 +114,7 @@ public final class UserMapping
                 @JsonProperty("allow") Optional<Boolean> allow,
                 @JsonProperty("case") Optional<Case> userCase)
         {
-            this(
-                    pattern,
+            this(pattern,
                     user.orElse("$1"),
                     allow.orElse(TRUE),
                     userCase.orElse(KEEP));

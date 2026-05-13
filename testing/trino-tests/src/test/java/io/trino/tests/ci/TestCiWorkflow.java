@@ -51,6 +51,7 @@ public class TestCiWorkflow
     {
         String uploadTestResultsStepName = "Upload test results";
         Set<String> nonTestSteps = ImmutableSet.of(
+                "Cancel merge queue workflow",
                 uploadTestResultsStepName,
                 "Maven Install");
 

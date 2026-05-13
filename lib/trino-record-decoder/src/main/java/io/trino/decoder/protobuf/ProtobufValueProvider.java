@@ -291,7 +291,7 @@ public class ProtobufValueProvider
         if (blockBuilder == null) {
             return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
         }
-        ((RowBlockBuilder) blockBuilder).buildEntry((fieldBuilders) -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> buildRow(rowType, columnName, (DynamicMessage) value, fieldBuilders));
         return null;
     }
 

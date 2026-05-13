@@ -293,7 +293,7 @@ public class PushFilterThroughBoolOrAggregation
     private static boolean isGroupedAggregation(AggregationNode node)
     {
         return node.hasNonEmptyGroupingSet() &&
-               node.getGroupingSetCount() == 1 &&
-               node.getStep() == SINGLE;
+                node.getGroupingSetCount() == 1 &&
+                node.getStep() == SINGLE;
     }
 }

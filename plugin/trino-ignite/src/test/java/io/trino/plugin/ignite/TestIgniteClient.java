@@ -165,7 +165,8 @@ public class TestIgniteClient
     public void testConvertIsNull()
     {
         // c_varchar IS NULL
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
                                 new IsNull(
                                         new Reference(VARCHAR, "c_varchar_symbol"))),
@@ -179,7 +180,8 @@ public class TestIgniteClient
     public void testConvertIsNotNull()
     {
         // c_varchar IS NOT NULL
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
                                 not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
@@ -192,7 +194,8 @@ public class TestIgniteClient
     public void testConvertNotExpression()
     {
         // NOT(expression)
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
                                 not(
                                         PLANNER_CONTEXT.getMetadata(),

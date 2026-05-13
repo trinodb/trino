@@ -786,7 +786,8 @@ public class TestingColumnReader
                 // timestamps read as bigint
                 new ColumnReaderFormat<>(INT64, timestampType(false, MILLIS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, timestampType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
-                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG)};
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, ASSERT_LONG),
+        };
     }
 
     // Simple helper interface that writes given data into the parquet writer

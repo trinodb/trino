@@ -44,7 +44,7 @@ public final class TeradataStringFunctions
                     name = "strpos",
                     argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR},
                     convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
-                    MethodHandle method,
+            MethodHandle method,
             @SqlType(StandardTypes.VARCHAR) Slice string,
             @SqlType(StandardTypes.VARCHAR) Slice substring)
     {

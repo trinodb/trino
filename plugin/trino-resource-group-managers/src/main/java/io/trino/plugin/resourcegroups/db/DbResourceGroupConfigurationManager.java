@@ -97,8 +97,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             @ForEnvironment String environment)
     {
-        this(
-                Optional.of(lifeCycleManager),
+        this(Optional.of(lifeCycleManager),
                 memoryPoolManager,
                 config,
                 dao,
@@ -112,8 +111,7 @@ public class DbResourceGroupConfigurationManager
             ResourceGroupsDao dao,
             String environment)
     {
-        this(
-                Optional.empty(),
+        this(Optional.empty(),
                 memoryPoolManager,
                 config,
                 dao,
@@ -313,7 +311,8 @@ public class DbResourceGroupConfigurationManager
     }
 
     // Populate temporary data structures to build resource group specs and selectors from db
-    private synchronized void populateFromDbHelper(Map<Long, ResourceGroupSpecBuilder> recordMap,
+    private synchronized void populateFromDbHelper(
+            Map<Long, ResourceGroupSpecBuilder> recordMap,
             Set<Long> rootGroupIds,
             Map<Long, ResourceGroupIdTemplate> resourceGroupIdTemplateMap,
             Map<Long, Set<Long>> subGroupIdsToBuild)
@@ -393,8 +392,7 @@ public class DbResourceGroupConfigurationManager
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
                                 selectorRecord.getSelectorResourceEstimate(),
-                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
-                ).collect(Collectors.toList());
+                                resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))).collect(Collectors.toList());
 
         ResourceGroupGlobalProperties globalProperties = dao.getResourceGroupGlobalProperties();
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, globalProperties.getCpuQuotaPeriod(), globalProperties.getPhysicalDataScanQuotaPeriod());

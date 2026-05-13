@@ -76,8 +76,7 @@ public class TableChangesFunction
     @Inject
     public TableChangesFunction(TrinoCatalogFactory trinoCatalogFactory, TypeManager typeManager)
     {
-        super(
-                "system",
+        super("system",
                 FUNCTION_NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder()

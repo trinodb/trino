@@ -69,9 +69,13 @@ public final class MergeQuantileDigestFunction
         }
         else {
             checkArgument(nearlyEqual(previous.getMaxError(), input.getMaxError(), COMPARISON_EPSILON),
-                    "Cannot merge qdigests with different accuracies (%s vs. %s)", state.getQuantileDigest().getMaxError(), input.getMaxError());
+                    "Cannot merge qdigests with different accuracies (%s vs. %s)",
+                    state.getQuantileDigest().getMaxError(),
+                    input.getMaxError());
             checkArgument(nearlyEqual(previous.getAlpha(), input.getAlpha(), COMPARISON_EPSILON),
-                    "Cannot merge qdigests with different alpha values (%s vs. %s)", state.getQuantileDigest().getAlpha(), input.getAlpha());
+                    "Cannot merge qdigests with different alpha values (%s vs. %s)",
+                    state.getQuantileDigest().getAlpha(),
+                    input.getAlpha());
             state.addMemoryUsage(-previous.estimatedInMemorySizeInBytes());
             previous.merge(input);
             state.addMemoryUsage(previous.estimatedInMemorySizeInBytes());

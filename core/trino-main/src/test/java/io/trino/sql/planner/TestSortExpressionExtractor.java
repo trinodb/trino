@@ -95,11 +95,15 @@ public class TestSortExpressionExtractor
         assertGetSortExpression(
                 new Logical(AND, ImmutableList.of(
                         new Between(new Reference(BIGINT, "p1"), new Reference(BIGINT, "b1"), new Reference(BIGINT, "b2")),
-                        new Comparison(LESS_THAN, new Reference(BIGINT, "b2"),
+                        new Comparison(
+                                LESS_THAN,
+                                new Reference(BIGINT, "b2"),
                                 new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p2"), new Constant(BIGINT, 1L)))))),
                 "b2",
                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "p1"), new Reference(BIGINT, "b2")),
-                new Comparison(LESS_THAN, new Reference(BIGINT, "b2"),
+                new Comparison(
+                        LESS_THAN,
+                        new Reference(BIGINT, "b2"),
                         new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "p2"), new Constant(BIGINT, 1L)))));
 
         assertGetSortExpression(

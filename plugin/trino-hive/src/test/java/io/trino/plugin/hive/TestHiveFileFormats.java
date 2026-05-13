@@ -1826,77 +1826,98 @@ public final class TestHiveFileFormats
             .add(new TestColumn("t_decimal_18", DECIMAL_TYPE_18, WRITE_DECIMAL_18, EXPECTED_DECIMAL_18))
             .add(new TestColumn("t_decimal_38", DECIMAL_TYPE_38, WRITE_DECIMAL_38, EXPECTED_DECIMAL_38))
             .add(new TestColumn("t_binary", VARBINARY, utf8Slice("test2").getBytes(), utf8Slice("test2")))
-            .add(new TestColumn("t_map_string",
+            .add(new TestColumn(
+                    "t_map_string",
                     new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS),
                     ImmutableMap.of("test", "test"),
                     sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), "test", "test")))
-            .add(new TestColumn("t_map_tinyint",
+            .add(new TestColumn(
+                    "t_map_tinyint",
                     new MapType(TINYINT, TINYINT, TYPE_OPERATORS),
                     ImmutableMap.of((byte) 1, (byte) 1),
                     sqlMapOf(TINYINT, TINYINT, (byte) 1, (byte) 1)))
-            .add(new TestColumn("t_map_varchar",
+            .add(new TestColumn(
+                    "t_map_varchar",
                     new MapType(VARCHAR_HIVE_MAX, VARCHAR_HIVE_MAX, TYPE_OPERATORS),
                     ImmutableMap.of(new HiveVarchar("test", MAX_VARCHAR_LENGTH), new HiveVarchar("test", MAX_VARCHAR_LENGTH)),
                     sqlMapOf(createVarcharType(MAX_VARCHAR_LENGTH), createVarcharType(MAX_VARCHAR_LENGTH), "test", "test")))
-            .add(new TestColumn("t_map_char",
+            .add(new TestColumn(
+                    "t_map_char",
                     new MapType(CHAR_10, CHAR_10, TYPE_OPERATORS),
                     ImmutableMap.of(new HiveChar("test", 10), new HiveChar("test", 10)),
                     sqlMapOf(createCharType(10), createCharType(10), "test", "test")))
-            .add(new TestColumn("t_map_smallint",
+            .add(new TestColumn(
+                    "t_map_smallint",
                     new MapType(SMALLINT, SMALLINT, TYPE_OPERATORS),
                     ImmutableMap.of((short) 2, (short) 2),
                     sqlMapOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
-            .add(new TestColumn("t_map_null_key",
+            .add(new TestColumn(
+                    "t_map_null_key",
                     new MapType(BIGINT, BIGINT, TYPE_OPERATORS),
                     asMap(new Long[] {null, 2L}, new Long[] {0L, 3L}),
                     sqlMapOf(BIGINT, BIGINT, 2, 3)))
-            .add(new TestColumn("t_map_int",
+            .add(new TestColumn(
+                    "t_map_int",
                     new MapType(INTEGER, INTEGER, TYPE_OPERATORS),
                     ImmutableMap.of(3, 3),
                     sqlMapOf(INTEGER, INTEGER, 3, 3)))
-            .add(new TestColumn("t_map_bigint",
+            .add(new TestColumn(
+                    "t_map_bigint",
                     new MapType(BIGINT, BIGINT, TYPE_OPERATORS),
                     ImmutableMap.of(4L, 4L),
                     sqlMapOf(BIGINT, BIGINT, 4L, 4L)))
-            .add(new TestColumn("t_map_float",
+            .add(new TestColumn(
+                    "t_map_float",
                     new MapType(REAL, REAL, TYPE_OPERATORS),
-                    ImmutableMap.of(5.0f, 5.0f), sqlMapOf(REAL, REAL, 5.0f, 5.0f)))
-            .add(new TestColumn("t_map_double",
+                    ImmutableMap.of(5.0f, 5.0f),
+                    sqlMapOf(REAL, REAL, 5.0f, 5.0f)))
+            .add(new TestColumn(
+                    "t_map_double",
                     new MapType(DOUBLE, DOUBLE, TYPE_OPERATORS),
-                    ImmutableMap.of(6.0, 6.0), sqlMapOf(DOUBLE, DOUBLE, 6.0, 6.0)))
-            .add(new TestColumn("t_map_boolean",
+                    ImmutableMap.of(6.0, 6.0),
+                    sqlMapOf(DOUBLE, DOUBLE, 6.0, 6.0)))
+            .add(new TestColumn(
+                    "t_map_boolean",
                     new MapType(BOOLEAN, BOOLEAN, TYPE_OPERATORS),
                     ImmutableMap.of(true, true),
                     sqlMapOf(BOOLEAN, BOOLEAN, true, true)))
-            .add(new TestColumn("t_map_date",
+            .add(new TestColumn(
+                    "t_map_date",
                     new MapType(DATE, DATE, TYPE_OPERATORS),
                     ImmutableMap.of(HIVE_DATE, HIVE_DATE),
                     sqlMapOf(DATE, DATE, DATE_DAYS, DATE_DAYS)))
-            .add(new TestColumn("t_map_timestamp",
+            .add(new TestColumn(
+                    "t_map_timestamp",
                     new MapType(TIMESTAMP_MILLIS, TIMESTAMP_MILLIS, TYPE_OPERATORS),
                     ImmutableMap.of(HIVE_TIMESTAMP, HIVE_TIMESTAMP),
                     sqlMapOf(TIMESTAMP_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS_VALUE, TIMESTAMP_MICROS_VALUE)))
-            .add(new TestColumn("t_map_decimal_2",
+            .add(new TestColumn(
+                    "t_map_decimal_2",
                     new MapType(DECIMAL_TYPE_2, DECIMAL_TYPE_2, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_2, WRITE_DECIMAL_2),
                     decimalSqlMapOf(DECIMAL_TYPE_2, EXPECTED_DECIMAL_2)))
-            .add(new TestColumn("t_map_decimal_4",
+            .add(new TestColumn(
+                    "t_map_decimal_4",
                     new MapType(DECIMAL_TYPE_4, DECIMAL_TYPE_4, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_4, WRITE_DECIMAL_4),
                     decimalSqlMapOf(DECIMAL_TYPE_4, EXPECTED_DECIMAL_4)))
-            .add(new TestColumn("t_map_decimal_8",
+            .add(new TestColumn(
+                    "t_map_decimal_8",
                     new MapType(DECIMAL_TYPE_8, DECIMAL_TYPE_8, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_8, WRITE_DECIMAL_8),
                     decimalSqlMapOf(DECIMAL_TYPE_8, EXPECTED_DECIMAL_8)))
-            .add(new TestColumn("t_map_decimal_17",
+            .add(new TestColumn(
+                    "t_map_decimal_17",
                     new MapType(DECIMAL_TYPE_17, DECIMAL_TYPE_17, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_17, WRITE_DECIMAL_17),
                     decimalSqlMapOf(DECIMAL_TYPE_17, EXPECTED_DECIMAL_17)))
-            .add(new TestColumn("t_map_decimal_18",
+            .add(new TestColumn(
+                    "t_map_decimal_18",
                     new MapType(DECIMAL_TYPE_18, DECIMAL_TYPE_18, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_18, WRITE_DECIMAL_18),
                     decimalSqlMapOf(DECIMAL_TYPE_18, EXPECTED_DECIMAL_18)))
-            .add(new TestColumn("t_map_decimal_38",
+            .add(new TestColumn(
+                    "t_map_decimal_38",
                     new MapType(DECIMAL_TYPE_38, DECIMAL_TYPE_38, TYPE_OPERATORS),
                     ImmutableMap.of(WRITE_DECIMAL_38, WRITE_DECIMAL_38),
                     decimalSqlMapOf(DECIMAL_TYPE_38, EXPECTED_DECIMAL_38)))
@@ -1919,77 +1940,95 @@ public final class TestHiveFileFormats
                     new ArrayType(CHAR_10),
                     ImmutableList.of(new HiveChar("test", 10)),
                     arrayBlockOf(createCharType(10), "test")))
-            .add(new TestColumn("t_array_date",
+            .add(new TestColumn(
+                    "t_array_date",
                     new ArrayType(DATE),
                     ImmutableList.of(HIVE_DATE),
                     arrayBlockOf(DATE, DATE_DAYS)))
-            .add(new TestColumn("t_array_timestamp",
+            .add(new TestColumn(
+                    "t_array_timestamp",
                     new ArrayType(TIMESTAMP_MILLIS),
                     ImmutableList.of(HIVE_TIMESTAMP),
                     arrayBlockOf(TIMESTAMP_MILLIS, TIMESTAMP_MICROS_VALUE)))
-            .add(new TestColumn("t_array_decimal_2",
+            .add(new TestColumn(
+                    "t_array_decimal_2",
                     new ArrayType(DECIMAL_TYPE_2),
                     ImmutableList.of(WRITE_DECIMAL_2),
                     decimalArrayBlockOf(DECIMAL_TYPE_2, EXPECTED_DECIMAL_2)))
-            .add(new TestColumn("t_array_decimal_4",
+            .add(new TestColumn(
+                    "t_array_decimal_4",
                     new ArrayType(DECIMAL_TYPE_4),
                     ImmutableList.of(WRITE_DECIMAL_4),
                     decimalArrayBlockOf(DECIMAL_TYPE_4, EXPECTED_DECIMAL_4)))
-            .add(new TestColumn("t_array_decimal_8",
+            .add(new TestColumn(
+                    "t_array_decimal_8",
                     new ArrayType(DECIMAL_TYPE_8),
                     ImmutableList.of(WRITE_DECIMAL_8),
                     decimalArrayBlockOf(DECIMAL_TYPE_8, EXPECTED_DECIMAL_8)))
-            .add(new TestColumn("t_array_decimal_17",
+            .add(new TestColumn(
+                    "t_array_decimal_17",
                     new ArrayType(DECIMAL_TYPE_17),
                     ImmutableList.of(WRITE_DECIMAL_17),
                     decimalArrayBlockOf(DECIMAL_TYPE_17, EXPECTED_DECIMAL_17)))
-            .add(new TestColumn("t_array_decimal_18",
+            .add(new TestColumn(
+                    "t_array_decimal_18",
                     new ArrayType(DECIMAL_TYPE_18),
                     ImmutableList.of(WRITE_DECIMAL_18),
                     decimalArrayBlockOf(DECIMAL_TYPE_18, EXPECTED_DECIMAL_18)))
-            .add(new TestColumn("t_array_decimal_38",
+            .add(new TestColumn(
+                    "t_array_decimal_38",
                     new ArrayType(DECIMAL_TYPE_38),
                     ImmutableList.of(WRITE_DECIMAL_38),
                     decimalArrayBlockOf(DECIMAL_TYPE_38, EXPECTED_DECIMAL_38)))
-            .add(new TestColumn("t_struct_bigint",
+            .add(new TestColumn(
+                    "t_struct_bigint",
                     rowType(field("s_bigint", BIGINT)),
                     ImmutableList.of(1L),
                     rowBlockOf(ImmutableList.of(BIGINT), 1)))
-            .add(new TestColumn("t_complex",
+            .add(new TestColumn(
+                    "t_complex",
                     new MapType(
                             VARCHAR,
                             new ArrayType(rowType(field("s_int", INTEGER))),
                             TYPE_OPERATORS),
                     ImmutableMap.of("test", ImmutableList.<Object>of(ImmutableList.of(1))),
-                    sqlMapOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
-                            "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
-            .add(new TestColumn("t_map_null_key_complex_value",
+                    sqlMapOf(createUnboundedVarcharType(),
+                            new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                            "test",
+                            arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
+            .add(new TestColumn(
+                    "t_map_null_key_complex_value",
                     new MapType(
                             VARCHAR,
                             new MapType(BIGINT, BOOLEAN, TYPE_OPERATORS),
                             TYPE_OPERATORS),
                     asMap(new String[] {null, "k"}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
                     sqlMapOf(createUnboundedVarcharType(), mapType(BIGINT, BOOLEAN), "k", sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
-            .add(new TestColumn("t_map_null_key_complex_key_value",
+            .add(new TestColumn(
+                    "t_map_null_key_complex_key_value",
                     new MapType(
                             new ArrayType(VARCHAR),
                             new MapType(BIGINT, BOOLEAN, TYPE_OPERATORS),
                             TYPE_OPERATORS),
                     asMap(new ImmutableList[] {null, ImmutableList.of("k", "ka")}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
                     sqlMapOf(new ArrayType(createUnboundedVarcharType()), mapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
-            .add(new TestColumn("t_struct_nested",
+            .add(new TestColumn(
+                    "t_struct_nested",
                     rowType(field("struct_field", new ArrayType(VARCHAR))),
                     ImmutableList.of(ImmutableList.of("1", "2", "3")),
                     rowBlockOf(ImmutableList.of(new ArrayType(createUnboundedVarcharType())), arrayBlockOf(createUnboundedVarcharType(), "1", "2", "3"))))
-            .add(new TestColumn("t_struct_null",
+            .add(new TestColumn(
+                    "t_struct_null",
                     rowType(field("struct_field_null", VARCHAR), field("struct_field_null2", VARCHAR)),
                     Arrays.asList(null, null),
                     rowBlockOf(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()), null, null)))
-            .add(new TestColumn("t_struct_non_nulls_after_nulls",
+            .add(new TestColumn(
+                    "t_struct_non_nulls_after_nulls",
                     rowType(field("struct_non_nulls_after_nulls1", INTEGER), field("struct_non_nulls_after_nulls2", VARCHAR)),
                     Arrays.asList(null, "some string"),
                     rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "some string")))
-            .add(new TestColumn("t_nested_struct_non_nulls_after_nulls",
+            .add(new TestColumn(
+                    "t_nested_struct_non_nulls_after_nulls",
                     rowType(
                             field("struct_field1", INTEGER),
                             field("struct_field2", VARCHAR),
@@ -2000,8 +2039,11 @@ public final class TestHiveFileFormats
                                     INTEGER,
                                     createUnboundedVarcharType(),
                                     RowType.anonymous(ImmutableList.of(INTEGER, createUnboundedVarcharType()))),
-                            null, "some string", rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
-            .add(new TestColumn("t_map_null_value",
+                            null,
+                            "some string",
+                            rowBlockOf(ImmutableList.of(INTEGER, createUnboundedVarcharType()), null, "nested_string2"))))
+            .add(new TestColumn(
+                    "t_map_null_value",
                     new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS),
                     asMap(new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"}),
                     sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"})))

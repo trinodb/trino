@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>372</version>
+        <version>375</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>481-SNAPSHOT</version>
+    <version>482-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -150,7 +150,7 @@
     <properties>
         <project.build.targetJdk>25</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2026-03-24T22:23:02Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2026-05-11T23:54:59Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -204,7 +204,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
         <dep.okio.version>3.17.0</dep.okio.version>
-        <dep.netty.version>4.2.12.Final</dep.netty.version>
+        <dep.netty.version>4.2.13.Final</dep.netty.version>
         <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
         <dep.swagger.version>2.2.49</dep.swagger.version>
@@ -314,7 +314,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.43.0</version>
+                <version>2.44.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -384,7 +384,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.62</version>
+                <version>1.0.0-beta.63</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -439,7 +439,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.2.3</version>
+                <version>3.2.4</version>
             </dependency>
 
             <dependency>
@@ -2114,7 +2114,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.22.0</version>
+                <version>0.23.0</version>
             </dependency>
 
             <dependency>

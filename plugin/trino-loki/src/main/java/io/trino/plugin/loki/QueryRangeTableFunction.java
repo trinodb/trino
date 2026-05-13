@@ -60,8 +60,7 @@ public class QueryRangeTableFunction
 
     public QueryRangeTableFunction(LokiMetadata metadata)
     {
-        super(
-                SCHEMA_NAME,
+        super(SCHEMA_NAME,
                 NAME,
                 List.of(
                         ScalarArgumentSpecification.builder()

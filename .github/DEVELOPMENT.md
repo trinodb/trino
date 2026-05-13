@@ -116,9 +116,15 @@ Prefer AssertJ for complex assertions.
 For thing not easily expressible with AssertJ, use Airlift's `Assertions` class
 if there is one that covers your case.
 
-### Avoid `var`
+### Use `var` judiciously
 
-Using ``var`` is discouraged.
+Use `var` only when it improves readability. Prefer it when the type
+is obvious from the initializer, such as with `new` expressions, or
+when the explicit type is long or heavily generic and adds noise
+without improving clarity.
+
+Avoid `var` when the inferred type is unclear, surprising, or
+important to understanding the code.
 
 ### Prefer Guava immutable collections
 

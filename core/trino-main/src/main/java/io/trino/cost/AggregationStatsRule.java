@@ -57,7 +57,8 @@ public class AggregationStatsRule
         PlanNodeStatsEstimate estimate;
 
         if (node.getStep() == PARTIAL || node.getStep() == INTERMEDIATE) {
-            estimate = partialGroupBy(context.statsProvider().getStats(node.getSource()),
+            estimate = partialGroupBy(
+                    context.statsProvider().getStats(node.getSource()),
                     node.getGroupingKeys(),
                     node.getAggregations());
         }

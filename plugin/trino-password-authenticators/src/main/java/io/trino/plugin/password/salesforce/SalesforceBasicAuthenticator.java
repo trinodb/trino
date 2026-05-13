@@ -141,7 +141,8 @@ public class SalesforceBasicAuthenticator
         StringResponseHandler.StringResponse response = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());
 
         if (response.getStatusCode() != 200) {
-            throw new AccessDeniedException(format("Invalid response for login\n.%s",
+            throw new AccessDeniedException(format(
+                    "Invalid response for login\n.%s",
                     response.getBody()));
         }
 
@@ -153,7 +154,8 @@ public class SalesforceBasicAuthenticator
                     response.getBody())));
         }
         catch (ParserConfigurationException | SAXException | IOException e) {
-            throw new RuntimeException(format("Error parsing response: %s\n\tReceived error message: %s",
+            throw new RuntimeException(format(
+                    "Error parsing response: %s\n\tReceived error message: %s",
                     response.getBody(),
                     e.getMessage()));
         }

@@ -55,7 +55,8 @@ public class TestMapUnionAggregation
         mapType = mapType(DOUBLE, BIGINT);
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                "map_union", fromTypes(mapType),
+                "map_union",
+                fromTypes(mapType),
                 ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L, 4.0, 44L),
                 arrayBlockOf(
                         mapType,
@@ -112,22 +113,16 @@ public class TestMapUnionAggregation
                                 DOUBLE,
                                 new ArrayType(VARCHAR),
                                 ImmutableMap.of(
-                                        1.0,
-                                        ImmutableList.of("a", "b"),
-                                        2.0,
-                                        ImmutableList.of("c", "d"),
-                                        3.0,
-                                        ImmutableList.of("e", "f"))),
+                                        1.0, ImmutableList.of("a", "b"),
+                                        2.0, ImmutableList.of("c", "d"),
+                                        3.0, ImmutableList.of("e", "f"))),
                         sqlMapOf(
                                 DOUBLE,
                                 new ArrayType(VARCHAR),
                                 ImmutableMap.of(
-                                        1.0,
-                                        ImmutableList.of("x", "y"),
-                                        4.0,
-                                        ImmutableList.of("r", "s"),
-                                        3.0,
-                                        ImmutableList.of("w", "z")))));
+                                        1.0, ImmutableList.of("x", "y"),
+                                        4.0, ImmutableList.of("r", "s"),
+                                        3.0, ImmutableList.of("w", "z")))));
 
         mapType = mapType(DOUBLE, mapType(VARCHAR, VARCHAR));
         assertAggregation(
@@ -144,16 +139,13 @@ public class TestMapUnionAggregation
                                 DOUBLE,
                                 mapType(VARCHAR, VARCHAR),
                                 ImmutableMap.of(
-                                        1.0,
-                                        ImmutableMap.of("a", "b"),
-                                        2.0,
-                                        ImmutableMap.of("c", "d"))),
+                                        1.0, ImmutableMap.of("a", "b"),
+                                        2.0, ImmutableMap.of("c", "d"))),
                         sqlMapOf(
                                 DOUBLE,
                                 mapType(VARCHAR, VARCHAR),
                                 ImmutableMap.of(
-                                        3.0,
-                                        ImmutableMap.of("e", "f")))));
+                                        3.0, ImmutableMap.of("e", "f")))));
 
         mapType = mapType(new ArrayType(VARCHAR), DOUBLE);
         assertAggregation(
@@ -170,16 +162,13 @@ public class TestMapUnionAggregation
                                 new ArrayType(VARCHAR),
                                 DOUBLE,
                                 ImmutableMap.of(
-                                        ImmutableList.of("a", "b"),
-                                        1.0,
-                                        ImmutableList.of("e", "f"),
-                                        3.0)),
+                                        ImmutableList.of("a", "b"), 1.0,
+                                        ImmutableList.of("e", "f"), 3.0)),
                         sqlMapOf(
                                 new ArrayType(VARCHAR),
                                 DOUBLE,
                                 ImmutableMap.of(
-                                        ImmutableList.of("c", "d"),
-                                        2.0))));
+                                        ImmutableList.of("c", "d"), 2.0))));
     }
 
     private static Map<Object, Object> mapOf(Object... entries)

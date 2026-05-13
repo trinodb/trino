@@ -91,9 +91,9 @@ public class ArraySubscriptOperator
     {
         Type elementType = boundSignature.getReturnType();
         MethodHandle methodHandle = functionDependencies.getOperatorImplementation(
-                READ_VALUE,
-                ImmutableList.of(elementType),
-                simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))
+                        READ_VALUE,
+                        ImmutableList.of(elementType),
+                        simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))
                 .getMethodHandle();
         Class<?> expectedReturnType = methodType(elementType.getJavaType()).wrap().returnType();
         methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(expectedReturnType));

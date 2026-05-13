@@ -196,25 +196,25 @@ public class TestTpchMetadata
         Stream.of("tiny", "sf1").forEach(schema -> {
             double scaleFactor = TpchMetadata.schemaNameToScaleFactor(schema);
 
-            //id column
+            // id column
             testColumnStats(schema, NATION, NATION_KEY, columnStatistics(25, 0, 24));
 
-            //foreign key to dictionary identifier columns
+            // foreign key to dictionary identifier columns
             testColumnStats(schema, SUPPLIER, NATION_KEY, columnStatistics(25, 0, 24));
 
-            //foreign key to scalable identifier column
+            // foreign key to scalable identifier column
             testColumnStats(schema, PART_SUPPLIER, PART_KEY, columnStatistics(200_000 * scaleFactor, 1, 200_000 * scaleFactor));
 
-            //dictionary
+            // dictionary
             testColumnStats(schema, CUSTOMER, MARKET_SEGMENT, columnStatistics(5, 45));
 
-            //low-valued numeric column
+            // low-valued numeric column
             testColumnStats(schema, LINE_ITEM, LINE_NUMBER, columnStatistics(7, 1, 7));
 
-            //date
+            // date
             testColumnStats(schema, ORDERS, ORDER_DATE, columnStatistics(2_400, 8_035, 10_440));
 
-            //varchar and double columns
+            // varchar and double columns
             if (schema.equals("tiny")) {
                 testColumnStats(schema, CUSTOMER, NAME, columnStatistics(150_000 * scaleFactor, 27000));
                 testColumnStats(schema, PART, RETAIL_PRICE, columnStatistics(1_099, 901, 1900.99));
@@ -232,32 +232,32 @@ public class TestTpchMetadata
         SUPPORTED_SCHEMAS.forEach(schema -> {
             double scaleFactor = TpchMetadata.schemaNameToScaleFactor(schema);
 
-            //value count, min and max are supported for the constrained column
+            // value count, min and max are supported for the constrained column
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F"), columnStatistics(1, 1));
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "O"), columnStatistics(1, 1));
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "P"), columnStatistics(1, 1));
 
-            //only min and max values for non-scaling columns can be estimated for non-constrained columns
+            // only min and max values for non-scaling columns can be estimated for non-constrained columns
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F"), rangeStatistics(3, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "O"), rangeStatistics(1, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "P"), rangeStatistics(65, 6_000_000 * scaleFactor));
             testColumnStats(schema, ORDERS, CLERK, constraint(ORDER_STATUS, "O"), createColumnStatistics(Optional.empty(), Optional.empty(), Optional.of(15000.0)));
 
-            //nothing can be said for always false constraints
+            // nothing can be said for always false constraints
             testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysFalse(), noColumnStatistics());
             testColumnStats(schema, ORDERS, ORDER_KEY, alwaysFalse(), noColumnStatistics());
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "NO SUCH STATUS"), noColumnStatistics());
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "NO SUCH STATUS"), noColumnStatistics());
 
-            //unmodified stats are returned for the always true constraint
+            // unmodified stats are returned for the always true constraint
             testColumnStats(schema, ORDERS, ORDER_STATUS, alwaysTrue(), columnStatistics(3, 3));
             testColumnStats(schema, ORDERS, ORDER_KEY, alwaysTrue(), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
-            //constraints on columns other than ORDER_STATUS are not supported and are ignored
+            // constraints on columns other than ORDER_STATUS are not supported and are ignored
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(CLERK, "NO SUCH CLERK"), columnStatistics(3, 3));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(CLERK, "Clerk#000000001"), columnStatistics(1_500_000 * scaleFactor, 1, 6_000_000 * scaleFactor));
 
-            //compound constraints are supported
+            // compound constraints are supported
             testColumnStats(schema, ORDERS, ORDER_STATUS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), columnStatistics(1, 1));
             testColumnStats(schema, ORDERS, ORDER_KEY, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), rangeStatistics(3, 6_000_000 * scaleFactor));
 

@@ -1150,34 +1150,35 @@ public final class ExpressionFormatter
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
     {
-        return groupingElements.stream().map(groupingElement -> {
-            String result = "";
-            if (groupingElement instanceof SimpleGroupBy) {
-                List<Expression> columns = groupingElement.getExpressions();
-                if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns));
-                }
-                else {
-                    result = formatGroupingSet(columns);
-                }
-            }
-            else if (groupingElement instanceof AutoGroupBy) {
-                result = "AUTO";
-            }
-            else if (groupingElement instanceof GroupingSets groupingSets) {
-                String type = switch (groupingSets.getType()) {
-                    case EXPLICIT -> "GROUPING SETS";
-                    case CUBE -> "CUBE";
-                    case ROLLUP -> "ROLLUP";
-                };
+        return groupingElements.stream()
+                .map(groupingElement -> {
+                    String result = "";
+                    if (groupingElement instanceof SimpleGroupBy) {
+                        List<Expression> columns = groupingElement.getExpressions();
+                        if (columns.size() == 1) {
+                            result = formatExpression(getOnlyElement(columns));
+                        }
+                        else {
+                            result = formatGroupingSet(columns);
+                        }
+                    }
+                    else if (groupingElement instanceof AutoGroupBy) {
+                        result = "AUTO";
+                    }
+                    else if (groupingElement instanceof GroupingSets groupingSets) {
+                        String type = switch (groupingSets.getType()) {
+                            case EXPLICIT -> "GROUPING SETS";
+                            case CUBE -> "CUBE";
+                            case ROLLUP -> "ROLLUP";
+                        };
 
-                result = groupingSets.getSets().stream()
-                        .map(ExpressionFormatter::formatGroupingSet)
-                        .collect(joining(", ", type + " (", ")"));
-            }
-            return result;
-        })
-        .collect(joining(", "));
+                        result = groupingSets.getSets().stream()
+                                .map(ExpressionFormatter::formatGroupingSet)
+                                .collect(joining(", ", type + " (", ")"));
+                    }
+                    return result;
+                })
+                .collect(joining(", "));
     }
 
     private static String formatGroupingSet(List<Expression> groupingSet)

@@ -177,8 +177,8 @@ public interface WorkProcessor<T>
          * Processes input elements and returns current transformation state.
          *
          * @param element an element to be transformed. Will be null
-         * when there are no more elements. In such case transformation should
-         * finish processing and flush any remaining data.
+         *         when there are no more elements. In such case transformation should
+         *         finish processing and flush any remaining data.
          * @return the current transformation state, optionally bearing a result
          * @see TransformationState#needsMoreData()
          * @see TransformationState#blocked(ListenableFuture)
@@ -217,7 +217,7 @@ public interface WorkProcessor<T>
             BLOCKED,
             YIELD,
             RESULT,
-            FINISHED
+            FINISHED,
         }
 
         private final Type type;
@@ -326,7 +326,7 @@ public interface WorkProcessor<T>
             BLOCKED,
             YIELD,
             RESULT,
-            FINISHED
+            FINISHED,
         }
 
         private final Type type;

@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Splitter.MapSplitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,14 +25,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
@@ -247,7 +244,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -258,8 +254,6 @@ import static com.google.common.collect.Iterables.size;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.units.Duration.ZERO;
-import static io.trino.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -512,7 +506,7 @@ public class IcebergMetadata
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
-    private final NonEvictableCache<SchemaTableName, IcebergTableCredentials> tableCredentialsCache;
+    private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
 
     private Transaction transaction;
@@ -552,7 +546,7 @@ public class IcebergMetadata
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
         this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
-        this.tableCredentialsCache = buildNonEvictableCache(CacheBuilder.newBuilder());
+        this.tableCredentialsProvider = new IcebergTableCredentialsProvider(catalog);
     }
 
     @Override
@@ -564,36 +558,19 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getOrLoadTableCredentials(session, getSchemaTableName(tableHandle));
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle));
     }
 
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
-        return getOrLoadTableCredentials(session, getSchemaTableName(tableHandle));
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle));
     }
 
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
-        return getOrLoadTableCredentials(session, getSchemaTableName(tableFunctionHandle));
-    }
-
-    private Optional<ConnectorTableCredentials> getOrLoadTableCredentials(ConnectorSession session, SchemaTableName schemaTableName)
-    {
-        try {
-            return Optional.of(uncheckedCacheGet(
-                tableCredentialsCache,
-                schemaTableName,
-                () -> {
-                    BaseTable baseTable = catalog.loadTable(session, schemaTableName);
-                    return new IcebergTableCredentials(baseTable.io().properties());
-                }));
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfUnchecked(e.getCause());
-            throw e;
-        }
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableFunctionHandle));
     }
 
     private static SchemaTableName getSchemaTableName(ConnectorTableHandle tableHandle)
@@ -1605,7 +1582,7 @@ public class IcebergMetadata
 
     private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table)
     {
-        tableCredentialsCache.put(name, IcebergTableCredentials.forFileIO(table.io()));
+        tableCredentialsProvider.putTableCredentials(name, IcebergTableCredentials.forFileIO(table.io()));
         SortFieldInfo sortInfo = getSupportedSortFields(table.schema(), table.sortOrder());
         return new IcebergWritableTableHandle(
                 name,
@@ -1915,10 +1892,14 @@ public class IcebergMetadata
 
         checkProcedureArgument(
                 icebergTable.schema().columns().size() >= sourceTable.getDataColumns().size(),
-                "Target table should have at least %d columns but got %d", sourceTable.getDataColumns().size(), icebergTable.schema().columns().size());
+                "Target table should have at least %d columns but got %d",
+                sourceTable.getDataColumns().size(),
+                icebergTable.schema().columns().size());
         checkProcedureArgument(
                 icebergTable.spec().fields().size() == sourceTable.getPartitionColumns().size(),
-                "Numbers of partition columns should be equivalent. target: %d, source: %d", icebergTable.spec().fields().size(), sourceTable.getPartitionColumns().size());
+                "Numbers of partition columns should be equivalent. target: %d, source: %d",
+                icebergTable.spec().fields().size(),
+                sourceTable.getPartitionColumns().size());
 
         // TODO Add files from all partitions when partition filter is not provided
         checkProcedureArgument(
@@ -2341,7 +2322,8 @@ public class IcebergMetadata
             // It is not known if future version won't bring any new kind of metadata or data files
             // because of the way procedures are implemented it is safer to fail here than to potentially remove
             // files that should stay there
-            throw new TrinoException(NOT_SUPPORTED, format("%s is not supported for Iceberg table format version > %d. " +
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "%s is not supported for Iceberg table format version > %d. " +
                             "Table %s format version is %s.",
                     procedureName,
                     CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION,
@@ -2441,9 +2423,9 @@ public class IcebergMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         List<String> partitionFields = icebergTableHandle.getSpecId().isPresent() ?
                 PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), icebergTableHandle.getPartitionSpecJsons().get(icebergTableHandle.getSpecId().getAsInt()))
-                        .fields().stream()
-                        .map(field -> field.name() + ": " + field.transform())
-                        .collect(toImmutableList()) : ImmutableList.of();
+                .fields().stream()
+                .map(field -> field.name() + ": " + field.transform())
+                .collect(toImmutableList()) : ImmutableList.of();
 
         Map<String, String> summary = ImmutableMap.of();
         if (icebergTableHandle.getSnapshotId().isPresent()) {
@@ -3171,8 +3153,7 @@ public class IcebergMetadata
         Table table = transaction.table();
         if (handle.getSnapshotId().isEmpty()) {
             // No snapshot, table is empty
-            verify(
-                    computedStatistics.size() == 1,
+            verify(computedStatistics.size() == 1,
                     "The computedStatistics size must be 1: %s",
                     computedStatistics);
             ComputedStatistics statistics = getOnlyElement(computedStatistics);
@@ -4381,7 +4362,10 @@ public class IcebergMetadata
     }
 
     private sealed interface TableChangeInfo
-            permits NoTableChange, FirstChangeSnapshot, UnknownTableChange, GoneOrCorruptedTableChange {}
+            permits FirstChangeSnapshot,
+                    GoneOrCorruptedTableChange,
+                    NoTableChange,
+                    UnknownTableChange {}
 
     private record NoTableChange()
             implements TableChangeInfo {}

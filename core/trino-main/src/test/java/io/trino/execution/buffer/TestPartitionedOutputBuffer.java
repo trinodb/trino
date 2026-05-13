@@ -579,7 +579,9 @@ public class TestPartitionedOutputBuffer
         assertFutureIsDone(secondEnqueuePage);
 
         // get and acknowledge the last 6 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
+        assertBufferResultEquals(
+                TYPES,
+                getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 

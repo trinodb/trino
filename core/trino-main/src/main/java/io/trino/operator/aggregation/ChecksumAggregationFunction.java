@@ -56,7 +56,7 @@ public final class ChecksumAggregationFunction
                     operator = OperatorType.XX_HASH_64,
                     argumentTypes = "T",
                     convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
-                    MethodHandle xxHash64Operator,
+            MethodHandle xxHash64Operator,
             @AggregationState NullableLongState state,
             @SqlNullable @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)

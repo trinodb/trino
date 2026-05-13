@@ -350,11 +350,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCreateTablePartitionValidation()
     {
         String tableName = "test_create_table_partition_validation_" + randomNameSuffix();
-        assertQueryFails("CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e'])",
                 "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
 
-        assertQueryFails("CREATE TABLE " + tableName + " (a, b, c) " +
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (a, b, c) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e']) " +
                         "AS VALUES (1, 'one', TIMESTAMP '2020-02-03 01:02:03.123 UTC')",
                 "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
@@ -598,7 +600,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 "   location = '%s',\n" +
                                 "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
-                        DELTA_CATALOG, SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
+                        DELTA_CATALOG,
+                        SCHEMA,
+                        tableName,
+                        getLocationForTable(bucketName, tableName)));
         assertQuery("SELECT * FROM " + tableName, "SELECT name, regionkey, comment FROM nation");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -625,7 +630,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_create_table_partitioned_by_date_" + randomNameSuffix();
         assertUpdate(
                 format("CREATE TABLE %s (i, d) WITH (location = '%s', partitioned_by = ARRAY['d']) AS VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')",
-                        tableName, getLocationForTable(bucketName, tableName)),
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
                 2);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, DATE '2020-01-01'), (2, DATE '1700-01-01')");
     }
@@ -1176,7 +1182,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "(3, NULL, NULL, 'DaTaBrIcKs')," +
                         "(4, NULL, NULL, NULL)");
 
-        assertUpdate("INSERT INTO insert_nested_nonlowercase_columns VALUES " +
+        assertUpdate(
+                "INSERT INTO insert_nested_nonlowercase_columns VALUES " +
                         "(10, ROW('trino', 'TRINO', 'TrInO'))," +
                         "(20, ROW('trino', 'TRINO', NULL))," +
                         "(30, ROW(NULL, NULL, 'TrInO'))," +
@@ -1408,7 +1415,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         getLocationForTable(bucketName, tableName)));
         assertUpdate(
                 disableStatisticsCollectionOnWrite(getSession()),
-                "INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue, 2);
+                "INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue,
+                2);
 
         // TODO: Open checkpoint parquet file and verify 'stats_parsed' field directly
         assertThat(getTableFiles(tableName))
@@ -1648,7 +1656,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         + " WITH ("
                         + "location = '" + getLocationForTable(bucketName, tableName) + "'"
                         + ")"
-                        + " AS SELECT * FROM tpch.sf1.nation", 25);
+                        + " AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -2366,7 +2375,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         assertUpdate("CREATE TABLE " + tableName +
                 " (id BIGINT, nested1 ROW(child1 BIGINT, child2 VARCHAR, child3 INT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))");
-        assertUpdate("INSERT INTO " + tableName + " VALUES" +
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES" +
                         " (100, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))," +
                         " (3, ROW(30, 'to_be_deleted', 300), ROW(30.30, false, DATE '2000-04-16'))," +
                         " (2, ROW(20, 'b', 200), ROW(20.20, false, DATE '1990-04-20'))," +
@@ -2483,7 +2493,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             // One thread submits some CREATE OR REPLACE statements
             futures.add(executor.submit(() -> {
                 barrier.await(30, SECONDS);
-                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(_ -> {
                     try {
                         getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
                     }
@@ -2504,9 +2514,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             }));
             // Other 4 threads continue try to read the same table, none of the reads should fail.
             IntStream.range(0, threads)
-                    .forEach(threadNumber -> futures.add(executor.submit(() -> {
+                    .forEach(_ -> futures.add(executor.submit(() -> {
                         barrier.await(30, SECONDS);
-                        IntStream.range(0, numOfReads).forEach(readIndex -> {
+                        IntStream.range(0, numOfReads).forEach(_ -> {
                             try {
                                 MaterializedResult result = computeActual("SELECT * FROM " + tableName);
                                 if (result.getRowCount() == 1) {
@@ -2636,7 +2646,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             // T2: (2, 10)
             // T3: (3, 10)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
+                    .mapToObj(_ -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         try {
                             getQueryRunner().execute("INSERT INTO " + tableName + " SELECT COUNT(*), 10 AS part FROM " + tableName);

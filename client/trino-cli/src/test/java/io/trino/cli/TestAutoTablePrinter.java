@@ -41,10 +41,10 @@ public class TestAutoTablePrinter
         OutputPrinter printer = new AutoTablePrinter(columns, writer, 100);
 
         printer.printRows(rows(
-                row("hello", "world", 123),
-                row("a", null, 4.5),
-                row("b", null, null),
-                row("bye", "done", -15)),
+                        row("hello", "world", 123),
+                        row("a", null, 4.5),
+                        row("b", null, null),
+                        row("bye", "done", -15)),
                 true);
         printer.finish();
 

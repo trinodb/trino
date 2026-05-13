@@ -341,10 +341,8 @@ public class TestDeltaLakeMetadata
                 newMockSchemaTableName(),
                 tableColumns,
                 ImmutableMap.of(
-                        PARTITIONED_BY_PROPERTY,
-                        getPartitionColumnNames(partitionTableColumns),
-                        COLUMN_MAPPING_MODE_PROPERTY,
-                        "none"));
+                        PARTITIONED_BY_PROPERTY, getPartitionColumnNames(partitionTableColumns),
+                        COLUMN_MAPPING_MODE_PROPERTY, "none"));
     }
 
     @Test

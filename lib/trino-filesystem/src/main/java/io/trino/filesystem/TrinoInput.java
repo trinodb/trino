@@ -34,7 +34,7 @@ public interface TrinoInput
      * @param bufferOffset the offset in the buffer to start writing bytes to; must be non-negative
      * @param length the number of bytes to read; must be non-negative
      * @throws IndexOutOfBoundsException when {@code length} or {@code bufferOffset} is negative,
-     * or when {@code bufferOffset + length} is greater than {@code buffer.length}
+     *         or when {@code bufferOffset + length} is greater than {@code buffer.length}
      * @throws EOFException when input has fewer than {@code position + length} bytes
      * @throws IOException when {@code position} is negative, or when any other I/O error occurs
      */
@@ -50,7 +50,7 @@ public interface TrinoInput
      * @param bufferOffset the offset in the buffer to start writing bytes to; must be non-negative
      * @param maxLength the maximum number of bytes to read; must be non-negative
      * @return the number of bytes actually read, which may be less than {@code maxLength} if
-     * the input contains fewer bytes than {@code maxLength}
+     *         the input contains fewer bytes than {@code maxLength}
      */
     int readTail(byte[] buffer, int bufferOffset, int maxLength)
             throws IOException;

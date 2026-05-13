@@ -103,8 +103,7 @@ public class PushProjectionIntoTableScan
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                session
-                        ).entrySet().stream())
+                                session).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates

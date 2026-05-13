@@ -89,14 +89,15 @@ public final class DescribeOutputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
-                new Row[] {row(
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
-                        new Cast(new NullLiteral(), toSqlType(BOOLEAN)))},
+                new Row[] {
+                        row(new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                                new Cast(new NullLiteral(), toSqlType(BOOLEAN))),
+                },
                 Optional.of(new Limit(new LongLiteral("0"))));
 
         private final Session session;

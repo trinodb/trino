@@ -117,7 +117,8 @@ public class BenchmarkArrayTransform
                                 ImmutableList.of(new Symbol(BIGINT, "x")),
                                 call(
                                         functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                        new Constant(BIGINT, 0L), new Reference(BIGINT, "x")))));
+                                        new Constant(BIGINT, 0L),
+                                        new Reference(BIGINT, "x")))));
                 layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }

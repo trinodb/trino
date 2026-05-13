@@ -358,7 +358,9 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName,
+    public void updateViewComment(
+            ConnectorSession session,
+            SchemaTableName schemaViewName,
             Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "updateViewComment is not supported for Iceberg Nessie catalogs");

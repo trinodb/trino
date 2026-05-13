@@ -142,7 +142,8 @@ public class TestTableWriterOperator
         blockingPageSink.complete();
         // and getOutput which actually finishes the operator
         List<Type> expectedTypes = ImmutableList.of(BIGINT, VARBINARY);
-        assertPageEquals(expectedTypes,
+        assertPageEquals(
+                expectedTypes,
                 operator.getOutput(),
                 rowPagesBuilder(expectedTypes).row(2, null).build().get(0));
 

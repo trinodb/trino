@@ -171,19 +171,24 @@ public class BenchmarkAndColumnarFilterTpchData
                 ImmutableList.of(
                         call(
                                 functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                                new Constant(VARCHAR, MIN_SHIP_DATE), new Reference(VARCHAR, COL_SHIP_DATE)),
+                                new Constant(VARCHAR, MIN_SHIP_DATE),
+                                new Reference(VARCHAR, COL_SHIP_DATE)),
                         call(
                                 functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
-                                new Reference(VARCHAR, COL_SHIP_DATE), new Constant(VARCHAR, MAX_SHIP_DATE)),
+                                new Reference(VARCHAR, COL_SHIP_DATE),
+                                new Constant(VARCHAR, MAX_SHIP_DATE)),
                         call(
                                 functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                new Constant(DOUBLE, 0.05), new Reference(DOUBLE, COL_DISCOUNT)),
+                                new Constant(DOUBLE, 0.05),
+                                new Reference(DOUBLE, COL_DISCOUNT)),
                         call(
                                 functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
-                                new Reference(DOUBLE, COL_DISCOUNT), new Constant(DOUBLE, 0.07)),
+                                new Reference(DOUBLE, COL_DISCOUNT),
+                                new Constant(DOUBLE, 0.07)),
                         call(
                                 functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(DOUBLE, DOUBLE)),
-                                new Reference(DOUBLE, COL_QUANTITY), new Constant(DOUBLE, 24.0))));
+                                new Reference(DOUBLE, COL_QUANTITY),
+                                new Constant(DOUBLE, 24.0))));
     }
 
     static void main()

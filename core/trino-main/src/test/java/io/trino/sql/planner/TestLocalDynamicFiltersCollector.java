@@ -228,8 +228,7 @@ public class TestLocalDynamicFiltersCollector
         assertThat(filter.isComplete()).isTrue();
         assertThat(isBlocked.isDone()).isTrue();
         assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
-                column,
-                Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 6L, false)), false))));
+                column, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 6L, false)), false))));
     }
 
     @Test

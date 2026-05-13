@@ -40,7 +40,7 @@ public record IcebergPartitionFunction(Transform transform, List<Integer> dataPa
         HOUR,
         VOID,
         BUCKET,
-        TRUNCATE
+        TRUNCATE,
     }
 
     public IcebergPartitionFunction(Transform transform, List<Integer> dataPath, Type type)

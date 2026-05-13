@@ -136,8 +136,7 @@ public class HiveSplitManager
             TypeManager typeManager,
             SplitAffinityProvider splitAffinityProvider)
     {
-        this(
-                transactionManager,
+        this(transactionManager,
                 partitionManager,
                 fileSystemFactory,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
@@ -537,7 +536,8 @@ public class HiveSplitManager
 
     private static TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
     {
-        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                "" +
                         "There is a mismatch between the table and partition schemas. " +
                         "The types are incompatible and cannot be coerced. " +
                         "The column '%s' in table '%s' is declared as type '%s', " +

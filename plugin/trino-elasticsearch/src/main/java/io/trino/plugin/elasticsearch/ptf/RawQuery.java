@@ -75,8 +75,7 @@ public class RawQuery
 
         public RawQueryFunction(ElasticsearchMetadata metadata)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(
                             ScalarArgumentSpecification.builder()

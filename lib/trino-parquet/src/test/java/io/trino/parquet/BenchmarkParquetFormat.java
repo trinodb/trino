@@ -80,7 +80,7 @@ public class BenchmarkParquetFormat
     @Param({
             "UNCOMPRESSED",
             "SNAPPY",
-            "ZSTD"
+            "ZSTD",
     })
     public CompressionCodec compression;
 

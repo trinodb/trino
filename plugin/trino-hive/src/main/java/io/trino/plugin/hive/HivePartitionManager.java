@@ -52,8 +52,7 @@ public class HivePartitionManager
     @Inject
     public HivePartitionManager(HiveConfig hiveConfig)
     {
-        this(
-                hiveConfig.getMaxPartitionsForEagerLoad(),
+        this(hiveConfig.getMaxPartitionsForEagerLoad(),
                 hiveConfig.getDomainCompactionThreshold());
     }
 

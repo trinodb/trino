@@ -74,8 +74,7 @@ public class RawQuery
 
         public RawQueryFunction(OpenSearchMetadata metadata)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(
                             ScalarArgumentSpecification.builder()

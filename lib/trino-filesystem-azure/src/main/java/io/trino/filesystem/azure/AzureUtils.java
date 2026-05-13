@@ -49,7 +49,7 @@ final class AzureUtils
             return BlobErrorCode.BLOB_NOT_FOUND.equals(blobStorageException.getErrorCode());
         }
         if (exception instanceof DataLakeStorageException dataLakeStorageException) {
-            return "PathNotFound" .equals(dataLakeStorageException.getErrorCode());
+            return "PathNotFound".equals(dataLakeStorageException.getErrorCode());
         }
         return false;
     }

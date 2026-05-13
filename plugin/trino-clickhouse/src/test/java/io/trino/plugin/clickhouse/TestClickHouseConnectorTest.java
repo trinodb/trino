@@ -417,7 +417,7 @@ public class TestClickHouseConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
 
-        //Log families
+        // Log families
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'log')");
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'tinylog')");
@@ -425,7 +425,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'stripelog')");
         assertUpdate("DROP TABLE " + tableName);
 
-        //NOT support engine
+        // NOT support engine
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
                 ".* Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
@@ -656,7 +656,8 @@ public class TestClickHouseConnectorTest
     public void testNumericAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+        try (TestTable testTable = createAggregationTestTable(
+                schemaName + ".test_aggregation_pushdown",
                 ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();

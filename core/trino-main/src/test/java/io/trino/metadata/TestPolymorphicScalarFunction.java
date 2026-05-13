@@ -95,9 +95,11 @@ public class TestPolymorphicScalarFunction
                 .choice(choice -> choice
                         .argumentProperties(BLOCK_POSITION, BLOCK_POSITION)
                         .implementation(methodsGroup -> methodsGroup
-                                .methodWithExplicitJavaTypes("blockPositionLongLong",
+                                .methodWithExplicitJavaTypes(
+                                        "blockPositionLongLong",
                                         asList(Optional.of(Int128.class), Optional.of(Int128.class)))
-                                .methodWithExplicitJavaTypes("blockPositionShortShort",
+                                .methodWithExplicitJavaTypes(
+                                        "blockPositionShortShort",
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 

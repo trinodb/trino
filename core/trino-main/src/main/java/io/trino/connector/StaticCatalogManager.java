@@ -64,7 +64,9 @@ public class StaticCatalogManager
     private static final Logger log = Logger.get(StaticCatalogManager.class);
 
     private enum State
-    { CREATED, INITIALIZED, STOPPED }
+    {
+        CREATED, INITIALIZED, STOPPED
+    }
 
     private final CatalogFactory catalogFactory;
     private final List<CatalogProperties> catalogProperties;

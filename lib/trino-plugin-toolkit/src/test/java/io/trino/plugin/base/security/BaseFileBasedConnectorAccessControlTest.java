@@ -85,7 +85,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanCreateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"), Map.of());
         accessControl.checkCanDropTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
         accessControl.checkCanTruncateTable(UNKNOWN, new SchemaTableName("unknown", "unknown"));
-        accessControl.checkCanRenameTable(UNKNOWN,
+        accessControl.checkCanRenameTable(
+                UNKNOWN,
                 new SchemaTableName("unknown", "unknown"),
                 new SchemaTableName("unknown", "new_unknown"));
         accessControl.checkCanAlterColumn(UNKNOWN, new SchemaTableName("unknown", "unknown"));
@@ -684,7 +685,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
             throws Exception
     {
         Path configFile = getResourcePath("visibility-with-json-pointer.json");
-        ConnectorAccessControl accessControl = createAccessControl(configFile,
+        ConnectorAccessControl accessControl = createAccessControl(
+                configFile,
                 ImmutableMap.of("security.json-pointer", "/data"));
         assertFilterSchemas(accessControl);
     }

@@ -166,6 +166,6 @@ public final class StructuralTestUtil
     public static ArrayType arrayType(Type elementType)
     {
         return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
-                    TypeParameter.typeParameter(elementType.getTypeSignature())));
+                TypeParameter.typeParameter(elementType.getTypeSignature())));
     }
 }

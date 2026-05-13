@@ -391,8 +391,7 @@ public class ExpressionAnalyzer
             Session session,
             WarningCollector warningCollector)
     {
-        this(
-                plannerContext,
+        this(plannerContext,
                 accessControl,
                 (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
@@ -979,7 +978,8 @@ public class ExpressionAnalyzer
                 coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
             }
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -997,7 +997,8 @@ public class ExpressionAnalyzer
         {
             coerceCaseOperandToToSingleType(node, context);
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -1917,10 +1918,10 @@ public class ExpressionAnalyzer
         private static NavigationMode mapProcessingMode(Optional<ProcessingMode> processingMode)
         {
             return processingMode.map(mode -> switch (mode.getMode()) {
-                case FINAL -> NavigationMode.FINAL;
-                case RUNNING -> NavigationMode.RUNNING;
-            })
-            .orElse(NavigationMode.RUNNING);
+                        case FINAL -> NavigationMode.FINAL;
+                        case RUNNING -> NavigationMode.RUNNING;
+                    })
+                    .orElse(NavigationMode.RUNNING);
         }
 
         private static int getNavigationOffset(FunctionCall node, int defaultOffset)
@@ -1989,13 +1990,16 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.getFirst(),
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedNavigationFunctions.getFirst().getName(), name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedNavigationFunctions.getFirst().getName(),
+                            name);
                 }
                 if (nestedNavigationFunctions.size() > 1) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.get(1),
-                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function", name);
+                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function",
+                            name);
                 }
                 FunctionCall nested = getOnlyElement(nestedNavigationFunctions);
                 String nestedName = nested.getName().getSuffix();
@@ -2003,7 +2007,9 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedName, name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedName,
+                            name);
                 }
                 if (nested != node.getArguments().getFirst()) {
                     throw semanticException(
@@ -2065,7 +2071,8 @@ public class ExpressionAnalyzer
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         node,
-                        "All labels and classifiers inside the call to '%s' must match", name);
+                        "All labels and classifiers inside the call to '%s' must match",
+                        name);
             }
 
             Optional<String> label = Iterables.getOnlyElement(allLabels);
@@ -2460,7 +2467,8 @@ public class ExpressionAnalyzer
             }
 
             if (valueList instanceof InListExpression inListExpression) {
-                Type type = coerceToSingleType(context,
+                Type type = coerceToSingleType(
+                        context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
@@ -2642,8 +2650,12 @@ public class ExpressionAnalyzer
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
-                throw semanticException(INVALID_PARAMETER_USAGE, node,
-                        "Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size());
+                throw semanticException(
+                        INVALID_PARAMETER_USAGE,
+                        node,
+                        "Expected a lambda that takes %s argument(s) but got %s",
+                        types.size(),
+                        lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -3446,7 +3458,9 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(),
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            Iterables.get(typeExpressions.get(type), 0).getNode(),
                             "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                             description,
                             superType,
@@ -3462,7 +3476,9 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(),
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                Iterables.get(coercionCandidates, 0).getNode(),
                                 "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                                 description,
                                 superType,
@@ -3493,11 +3509,11 @@ public class ExpressionAnalyzer
             boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
                     (composite.getFrom() instanceof IntervalField.Day() && (
                             composite.getTo() instanceof IntervalField.Hour() ||
-                            composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Minute() ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Hour() && (
                             composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
 
             if (!valid) {

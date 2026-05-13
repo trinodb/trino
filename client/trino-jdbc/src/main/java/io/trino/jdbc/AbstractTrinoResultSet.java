@@ -1870,8 +1870,7 @@ abstract class AbstractTrinoResultSet
             boolean variantObjectRepresentation = type == Object.class &&
                     columnTypeSignature.getRawType().equals("variant");
             // VARIANT null is a non-SQL-null value whose Java object representation is null.
-            verify(
-                    converted != null || variantObjectRepresentation,
+            verify(converted != null || variantObjectRepresentation,
                     "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }

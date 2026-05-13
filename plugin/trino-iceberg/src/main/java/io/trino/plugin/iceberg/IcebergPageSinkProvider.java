@@ -143,8 +143,10 @@ public class IcebergPageSinkProvider
                 IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.procedureHandle();
                 Schema schema = SchemaParser.fromJson(optimizeHandle.schemaAsJson());
                 PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.partitionSpecAsJson());
-                LocationProvider locationProvider = getLocationProvider(executeHandle.schemaTableName(),
-                        executeHandle.tableLocation(), optimizeHandle.tableStorageProperties());
+                LocationProvider locationProvider = getLocationProvider(
+                        executeHandle.schemaTableName(),
+                        executeHandle.tableLocation(),
+                        optimizeHandle.tableStorageProperties());
                 yield new IcebergPageSink(
                         schema,
                         partitionSpec,

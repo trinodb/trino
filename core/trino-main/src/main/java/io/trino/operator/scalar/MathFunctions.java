@@ -1504,7 +1504,10 @@ public final class MathFunctions
     private static void checkRadix(long radix)
     {
         checkCondition(radix >= MIN_RADIX && radix <= MAX_RADIX,
-                INVALID_FUNCTION_ARGUMENT, "Radix must be between %d and %d", MIN_RADIX, MAX_RADIX);
+                INVALID_FUNCTION_ARGUMENT,
+                "Radix must be between %d and %d",
+                MIN_RADIX,
+                MAX_RADIX);
     }
 
     @Description("The bucket number of a value given a lower and upper bound and the number of buckets")
@@ -1592,11 +1595,13 @@ public final class MathFunctions
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+            BlockPositionIsIdentical varcharIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode varcharHashCode,
             @SqlType("map(varchar,double)") SqlMap leftMap,
             @SqlType("map(varchar,double)") SqlMap rightMap)
     {
@@ -1620,11 +1625,13 @@ public final class MathFunctions
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+            BlockPositionIsIdentical varcharIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode varcharHashCode,
             @SqlType("map(varchar,double)") SqlMap leftMap,
             @SqlType("map(varchar,double)") SqlMap rightMap)
     {

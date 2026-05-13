@@ -122,9 +122,11 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testDuplicatedRowCreateTable()
     {
-        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, a integer)",
                 "line 1:31: Column name 'a' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
 
         assertQueryFails("CREATE TABLE test (a integer, A integer)",
@@ -383,7 +385,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Timeout(30)
     public void testSelectiveLimit()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT * FROM (" +
                         "   (SELECT orderkey AS a FROM tpch.sf10000.orders WHERE orderkey=-1)" +
                         " UNION ALL SELECT * FROM (values -1) AS t(a))" +

@@ -89,7 +89,8 @@ public class BenchmarkArrayJoin
 
             List<Expression> projections = ImmutableList.of(call(
                     functionResolution.resolveFunction("array_join", fromTypes(new ArrayType(BIGINT), VARCHAR)),
-                    new Reference(new ArrayType(BIGINT), "$col_0"), new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
+                    new Reference(new ArrayType(BIGINT), "$col_0"),
+                    new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
 
             pageProcessor = functionResolution.getExpressionCompiler()
                     .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(new ArrayType(BIGINT), "$col_0"), 0))

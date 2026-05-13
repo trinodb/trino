@@ -61,7 +61,7 @@ public class BenchmarkRleBitPackingDecoder
             // This encoding is not meant to store big numbers so 2^20 is enough
             "1", "2", "3", "4", "5", "6", "7", "8",
             "9", "10", "11", "12", "13", "14", "15",
-            "16", "17", "18", "19", "20"
+            "16", "17", "18", "19", "20",
     })
     public int bitWidth;
 

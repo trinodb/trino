@@ -216,18 +216,12 @@ public class ColumnarFilterCompiler
 
         return switch (comparison.operator()) {
             case NOT_EQUAL -> Optional.empty();
-            case EQUAL ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
-            case LESS_THAN ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
-            case LESS_THAN_OR_EQUAL ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
-            case GREATER_THAN ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN, ImmutableList.of(right.type(), left.type())), ImmutableList.of(right, left), layout);
-            case GREATER_THAN_OR_EQUAL ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, ImmutableList.of(right.type(), left.type())), ImmutableList.of(right, left), layout);
-            case IDENTICAL ->
-                    generateCallFilter(metadata.resolveOperator(OperatorType.IDENTICAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
+            case EQUAL -> generateCallFilter(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
+            case LESS_THAN -> generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
+            case LESS_THAN_OR_EQUAL -> generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
+            case GREATER_THAN -> generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN, ImmutableList.of(right.type(), left.type())), ImmutableList.of(right, left), layout);
+            case GREATER_THAN_OR_EQUAL -> generateCallFilter(metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, ImmutableList.of(right.type(), left.type())), ImmutableList.of(right, left), layout);
+            case IDENTICAL -> generateCallFilter(metadata.resolveOperator(OperatorType.IDENTICAL, ImmutableList.of(left.type(), right.type())), ImmutableList.of(left, right), layout);
         };
     }
 
@@ -255,8 +249,10 @@ public class ColumnarFilterCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
+                throw new TrinoException(
+                        QUERY_EXCEEDED_COMPILER_LIMIT,
+                        "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
+                        e);
             }
             throw new TrinoException(COMPILER_ERROR, e.getCause());
         }

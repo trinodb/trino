@@ -105,7 +105,7 @@ public class AlluxioFileSystemInputFile
             throws IOException
     {
         try {
-            //TODO: create a URIStatus object based on the location field
+            // TODO: create a URIStatus object based on the location field
             return fileSystem.getStatus(convertToAlluxioURI(location, mountRoot));
         }
         catch (FileDoesNotExistException | NotFoundRuntimeException e) {

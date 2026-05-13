@@ -222,14 +222,14 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "null_predicate1";
         @Language("JSON")
         String properties =
-        """
-        {
-          "properties": {
-            "null_keyword": { "type": "keyword" },
-            "custkey": { "type": "keyword" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "null_keyword": { "type": "keyword" },
+                    "custkey": { "type": "keyword" }
+                  }
+                }
+                """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
@@ -257,14 +257,14 @@ public abstract class BaseElasticsearchConnectorTest
 
         indexName = "null_predicate2";
         properties =
-        """
-        {
-          "properties": {
-            "null_keyword": { "type": "keyword" },
-            "custkey": { "type": "keyword" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "null_keyword": { "type": "keyword" },
+                    "custkey": { "type": "keyword" }
+                  }
+                }
+                """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.of("custkey", 1301));
 
@@ -348,84 +348,84 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "a": {
-                "b": {
-                  "y": {
-                    "isArray": true
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "a": {
+                        "b": {
+                          "y": {
+                            "isArray": true
+                          }
+                        }
+                      },
+                      "c": {
+                        "f": {
+                          "g": {
+                            "isArray": true
+                          },
+                          "isArray": true
+                        }
+                      },
+                      "j": {
+                        "isArray": true
+                      },
+                      "k": {
+                        "isArray": true
+                      }
+                    }
+                  },
+                  "properties":{
+                    "a": {
+                      "type": "object",
+                      "properties": {
+                        "b": {
+                          "type": "object",
+                          "properties": {
+                            "x": {
+                              "type": "integer"
+                            },
+                            "y": {
+                              "type": "keyword"
+                            }
+                          }\s
+                        }
+                      }
+                    },
+                    "c": {
+                      "type": "object",
+                      "properties": {
+                        "d": {
+                          "type": "keyword"
+                        },
+                        "e": {
+                          "type": "keyword"
+                        },
+                        "f": {
+                          "type": "object",
+                          "properties": {
+                            "g": {
+                              "type": "integer"
+                            },
+                            "h": {
+                              "type": "integer"
+                            }
+                          }\s
+                        }
+                      }
+                    },
+                    "i": {
+                      "type": "long"
+                    },
+                    "j": {
+                      "type": "long"
+                    },
+                    "k": {
+                      "type": "long"
+                    }
                   }
                 }
-              },
-              "c": {
-                "f": {
-                  "g": {
-                    "isArray": true
-                  },
-                  "isArray": true
-                }
-              },
-              "j": {
-                "isArray": true
-              },
-              "k": {
-                "isArray": true
-              }
-            }
-          },
-          "properties":{
-            "a": {
-              "type": "object",
-              "properties": {
-                "b": {
-                  "type": "object",
-                  "properties": {
-                    "x": {
-                      "type": "integer"
-                    },
-                    "y": {
-                      "type": "keyword"
-                    }
-                  }\s
-                }
-              }
-            },
-            "c": {
-              "type": "object",
-              "properties": {
-                "d": {
-                  "type": "keyword"
-                },
-                "e": {
-                  "type": "keyword"
-                },
-                "f": {
-                  "type": "object",
-                  "properties": {
-                    "g": {
-                      "type": "integer"
-                    },
-                    "h": {
-                      "type": "integer"
-                    }
-                  }\s
-                }
-              }
-            },
-            "i": {
-              "type": "long"
-            },
-            "j": {
-              "type": "long"
-            },
-            "k": {
-              "type": "long"
-            }
-          }
-        }
-        """;
+                """;
 
         createIndex(indexName, mapping);
 
@@ -477,90 +477,90 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "es_object": {
-                "array_of_string_arrays": {
-                  "asRawJson": true
-                },
-                "arrayOfIntArrays": {
-                  "asRawJson": true
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "es_object": {
+                        "array_of_string_arrays": {
+                          "asRawJson": true
+                        },
+                        "arrayOfIntArrays": {
+                          "asRawJson": true
+                        }
+                      },
+                      "es_array_object": {
+                        "isArray": true,
+                        "array_of_string_arrays": {
+                          "asRawJson": true
+                        },
+                        "arrayOfIntArrays": {
+                          "asRawJson": true
+                        }
+                      },
+                      "es_raw_object": {
+                        "asRawJson": true,
+                        "array_of_string_arrays": {
+                          "isArray": true
+                        },
+                        "arrayOfIntArrays": {
+                          "isArray": true
+                        }
+                      },
+                      "array_of_string_arrays": {
+                        "asRawJson": true
+                      },
+                      "array_of_long_arrays": {
+                        "asRawJson": true
+                      }
+                    }
+                  },
+                  "properties": {
+                    "es_object": {
+                      "type": "object",
+                      "properties": {
+                        "array_of_string_arrays": {
+                          "type": "keyword"
+                        },
+                        "arrayOfIntArrays": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "es_array_object": {
+                      "type": "object",
+                      "properties": {
+                        "array_of_string_arrays": {
+                          "type": "keyword"
+                        },
+                        "arrayOfIntArrays": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "es_raw_object": {
+                      "type": "object",
+                      "properties": {
+                        "array_of_string_arrays": {
+                          "type": "keyword"
+                        },
+                        "arrayOfIntArrays": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "array_of_string_arrays": {
+                      "type": "text"
+                    },
+                    "array_of_long_arrays": {
+                      "type": "long"
+                    },
+                    "order_field": {
+                      "type": "integer"
+                    }
+                  }
                 }
-              },
-              "es_array_object": {
-                "isArray": true,
-                "array_of_string_arrays": {
-                  "asRawJson": true
-                },
-                "arrayOfIntArrays": {
-                  "asRawJson": true
-                }
-              },
-              "es_raw_object": {
-                "asRawJson": true,
-                "array_of_string_arrays": {
-                  "isArray": true
-                },
-                "arrayOfIntArrays": {
-                  "isArray": true
-                }
-              },
-              "array_of_string_arrays": {
-                "asRawJson": true
-              },
-              "array_of_long_arrays": {
-                "asRawJson": true
-              }
-            }
-          },
-          "properties": {
-            "es_object": {
-              "type": "object",
-              "properties": {
-                "array_of_string_arrays": {
-                  "type": "keyword"
-                },
-                "arrayOfIntArrays": {
-                  "type": "integer"
-                }
-              }
-            },
-            "es_array_object": {
-              "type": "object",
-              "properties": {
-                "array_of_string_arrays": {
-                  "type": "keyword"
-                },
-                "arrayOfIntArrays": {
-                  "type": "integer"
-                }
-              }
-            },
-            "es_raw_object": {
-              "type": "object",
-              "properties": {
-                "array_of_string_arrays": {
-                  "type": "keyword"
-                },
-                "arrayOfIntArrays": {
-                  "type": "integer"
-                }
-              }
-            },
-            "array_of_string_arrays": {
-              "type": "text"
-            },
-            "array_of_long_arrays": {
-              "type": "long"
-            },
-            "order_field": {
-              "type": "integer"
-            }
-          }
-        }
-        """;
+                """;
 
         createIndex(indexName, mapping);
 
@@ -737,66 +737,66 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "es_binary": {
-                "asRawJson": true
-              },
-              "es_boolean": {
-                "asRawJson": true
-              },
-              "es_long": {
-                "asRawJson": true
-              },
-              "es_integer": {
-                "asRawJson": true
-              },
-              "es_short": {
-                "asRawJson": true
-              },
-              "es_byte": {
-                "asRawJson": true
-              },
-              "es_double": {
-                "asRawJson": true
-              },
-              "es_float": {
-                "asRawJson": true
-              }
-            }
-          },
-          "properties": {
-            "es_binary": {
-              "type": "binary"
-            },
-            "es_boolean": {
-              "type": "boolean"
-            },
-            "es_long": {
-              "type": "long"
-            },
-            "es_integer": {
-              "type": "integer"
-            },
-            "es_short": {
-              "type": "short"
-            },
-            "es_byte": {
-              "type": "byte"
-            },
-            "es_double": {
-              "type": "double"
-            },
-            "es_float": {
-              "type": "float"
-            },
-            "order_field": {
-              "type": "integer"
-            }
-          }
-        }""";
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "es_binary": {
+                        "asRawJson": true
+                      },
+                      "es_boolean": {
+                        "asRawJson": true
+                      },
+                      "es_long": {
+                        "asRawJson": true
+                      },
+                      "es_integer": {
+                        "asRawJson": true
+                      },
+                      "es_short": {
+                        "asRawJson": true
+                      },
+                      "es_byte": {
+                        "asRawJson": true
+                      },
+                      "es_double": {
+                        "asRawJson": true
+                      },
+                      "es_float": {
+                        "asRawJson": true
+                      }
+                    }
+                  },
+                  "properties": {
+                    "es_binary": {
+                      "type": "binary"
+                    },
+                    "es_boolean": {
+                      "type": "boolean"
+                    },
+                    "es_long": {
+                      "type": "long"
+                    },
+                    "es_integer": {
+                      "type": "integer"
+                    },
+                    "es_short": {
+                      "type": "short"
+                    },
+                    "es_byte": {
+                      "type": "byte"
+                    },
+                    "es_double": {
+                      "type": "double"
+                    },
+                    "es_float": {
+                      "type": "float"
+                    },
+                    "order_field": {
+                      "type": "integer"
+                    }
+                  }
+                }""";
 
         createIndex(indexName, mapping);
 
@@ -846,33 +846,33 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "es_binary": {
-                "asRawJson": true
-              },
-              "es_boolean": {
-                "asRawJson": true
-              },
-              "es_timestamp": {
-                "asRawJson": true
-              }
-            }
-          },
-          "properties": {
-            "es_binary": {
-              "type": "binary"
-            },
-            "es_boolean": {
-              "type": "boolean"
-            },
-            "es_timestamp": {
-              "type": "date"
-            }
-          }
-        }""";
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "es_binary": {
+                        "asRawJson": true
+                      },
+                      "es_boolean": {
+                        "asRawJson": true
+                      },
+                      "es_timestamp": {
+                        "asRawJson": true
+                      }
+                    }
+                  },
+                  "properties": {
+                    "es_binary": {
+                      "type": "binary"
+                    },
+                    "es_boolean": {
+                      "type": "boolean"
+                    },
+                    "es_timestamp": {
+                      "type": "date"
+                    }
+                  }
+                }""";
 
         createIndex(indexName, mapping);
 
@@ -910,23 +910,23 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "array_raw_field": {
-                "asRawJson": true,
-                "isArray": true
-              }
-            }
-          },
-          "properties": {
-            "array_raw_field": {
-              "type": "text"
-            }
-          }
-        }
-        """;
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "array_raw_field": {
+                        "asRawJson": true,
+                        "isArray": true
+                      }
+                    }
+                  },
+                  "properties": {
+                    "array_raw_field": {
+                      "type": "text"
+                    }
+                  }
+                }
+                """;
 
         createIndex(indexName, mapping);
 
@@ -948,22 +948,22 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "_meta": {
-            "trino": {
-              "a": {
-                "isArray": true
-              }
-            }
-          },
-          "properties": {
-            "a": {
-              "type": "keyword"
-            }
-          }
-        }
-        """;
+                """
+                {
+                  "_meta": {
+                    "trino": {
+                      "a": {
+                        "isArray": true
+                      }
+                    }
+                  },
+                  "properties": {
+                    "a": {
+                      "type": "keyword"
+                    }
+                  }
+                }
+                """;
 
         createIndex(indexName, mapping);
 
@@ -985,19 +985,19 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mapping =
-        """
-        {
-          "properties": {
-            "byte_column":         {"type": "byte"},
-            "short_column":        {"type": "short"},
-            "integer_column":      {"type": "integer"},
-            "long_column":         {"type": "long"},
-            "float_column":        {"type": "float"},
-            "scaled_float_column": {"type": "scaled_float", "scaling_factor": 100},
-            "double_column":       {"type": "double"}
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "byte_column":         {"type": "byte"},
+                    "short_column":        {"type": "short"},
+                    "integer_column":      {"type": "integer"},
+                    "long_column":         {"type": "long"},
+                    "float_column":        {"type": "float"},
+                    "scaled_float_column": {"type": "scaled_float", "scaling_factor": 100},
+                    "double_column":       {"type": "double"}
+                  }
+                }
+                """;
 
         createIndex(indexName, mapping);
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -1057,18 +1057,18 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
-                                ImmutableMap.of("c",
-                                        "value1"))));
+                                ImmutableMap.of(
+                                        "c", "value1"))));
 
         index(indexName,
                 ImmutableMap.of("a.b",
-                        ImmutableMap.of("c",
-                                "value2")));
+                        ImmutableMap.of(
+                                "c", "value2")));
 
         index(indexName,
                 ImmutableMap.of("a",
-                        ImmutableMap.of("b.c",
-                                "value3")));
+                        ImmutableMap.of(
+                                "b.c", "value3")));
 
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
@@ -1089,14 +1089,14 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "keyword_column":   { "type": "keyword" },
-            "text_column":      { "type": "text" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "keyword_column":   { "type": "keyword" },
+                    "text_column":      { "type": "text" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1214,24 +1214,24 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "boolean_column":      { "type": "boolean" },
-            "float_column":        { "type": "float" },
-            "double_column":       { "type": "double" },
-            "integer_column":      { "type": "integer" },
-            "long_column":         { "type": "long" },
-            "keyword_column":      { "type": "keyword" },
-            "text_column":         { "type": "text" },
-            "binary_column":       { "type": "binary" },
-            "timestamp_column":    { "type": "date" },
-            "ipv4_column":         { "type": "ip" },
-            "ipv6_column":         { "type": "ip" },
-            "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "boolean_column":      { "type": "boolean" },
+                    "float_column":        { "type": "float" },
+                    "double_column":       { "type": "double" },
+                    "integer_column":      { "type": "integer" },
+                    "long_column":         { "type": "long" },
+                    "keyword_column":      { "type": "keyword" },
+                    "text_column":         { "type": "text" },
+                    "binary_column":       { "type": "binary" },
+                    "timestamp_column":    { "type": "date" },
+                    "ipv4_column":         { "type": "ip" },
+                    "ipv6_column":         { "type": "ip" },
+                    "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1295,14 +1295,14 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "long_column":      { "type": "long" },
-            "unsupported_type": { "type": "completion"}
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "long_column":      { "type": "long" },
+                    "unsupported_type": { "type": "completion"}
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1327,13 +1327,13 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "boolean_column":   { "type": "boolean" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "boolean_column":   { "type": "boolean" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1368,13 +1368,13 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "timestamp_column":   { "type": "date" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "timestamp_column":   { "type": "date" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1406,17 +1406,17 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties":{
-            "field": {
-              "properties": {
-                "timestamp_column": { "type": "date" }
-              }
-            }
-          }
-        }
-        """;
+                """
+                {
+                  "properties":{
+                    "field": {
+                      "properties": {
+                        "timestamp_column": { "type": "date" }
+                      }
+                    }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1440,14 +1440,14 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "text_column":         { "type": "text" },
-            "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "text_column":         { "type": "text" },
+                    "scaled_float_column": { "type": "scaled_float", "scaling_factor": 100 }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1486,16 +1486,16 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "float_column":     { "type": "float" },
-            "double_column":    { "type": "double" },
-            "integer_column":   { "type": "integer" },
-            "long_column":      { "type": "long" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "float_column":     { "type": "float" },
+                    "double_column":    { "type": "double" },
+                    "integer_column":   { "type": "integer" },
+                    "long_column":      { "type": "long" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1531,23 +1531,23 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "boolean_column":   { "type": "boolean" },
-            "float_column":     { "type": "float" },
-            "double_column":    { "type": "double" },
-            "integer_column":   { "type": "integer" },
-            "long_column":      { "type": "long" },
-            "keyword_column":   { "type": "keyword" },
-            "text_column":      { "type": "text" },
-            "binary_column":    { "type": "binary" },
-            "timestamp_column": { "type": "date" },
-            "ipv4_column":      { "type": "ip" },
-            "ipv6_column":      { "type": "ip" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "boolean_column":   { "type": "boolean" },
+                    "float_column":     { "type": "float" },
+                    "double_column":    { "type": "double" },
+                    "integer_column":   { "type": "integer" },
+                    "long_column":      { "type": "long" },
+                    "keyword_column":   { "type": "keyword" },
+                    "text_column":      { "type": "text" },
+                    "binary_column":    { "type": "binary" },
+                    "timestamp_column": { "type": "date" },
+                    "ipv4_column":      { "type": "ip" },
+                    "ipv6_column":      { "type": "ip" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -1745,33 +1745,32 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String properties =
-        """
-        {
-          "properties": {
-            "field": {
-              "properties": {
-                "boolean_column":   { "type": "boolean" },
-                "float_column":     { "type": "float" },
-                "double_column":    { "type": "double" },
-                "integer_column":   { "type": "integer" },
-                "long_column":      { "type": "long" },
-                "keyword_column":   { "type": "keyword" },
-                "text_column":      { "type": "text" },
-                "binary_column":    { "type": "binary" },
-                "timestamp_column": { "type": "date" },
-                "ipv4_column":      { "type": "ip" },
-                "ipv6_column":      { "type": "ip" }
-              }
-            }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "field": {
+                      "properties": {
+                        "boolean_column":   { "type": "boolean" },
+                        "float_column":     { "type": "float" },
+                        "double_column":    { "type": "double" },
+                        "integer_column":   { "type": "integer" },
+                        "long_column":      { "type": "long" },
+                        "keyword_column":   { "type": "keyword" },
+                        "text_column":      { "type": "text" },
+                        "binary_column":    { "type": "binary" },
+                        "timestamp_column": { "type": "date" },
+                        "ipv4_column":      { "type": "ip" },
+                        "ipv6_column":      { "type": "ip" }
+                      }
+                    }
+                  }
+                }
+                """;
 
         createIndex(indexName, properties);
 
         index(indexName, ImmutableMap.of(
-                "field",
-                ImmutableMap.<String, Object>builder()
+                "field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1803,8 +1802,17 @@ public abstract class BaseElasticsearchConnectorTest
                 """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -1818,34 +1826,33 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "nested_field": {
-              "type":"nested",
-              "properties": {
-                "boolean_column":   { "type": "boolean" },
-                "float_column":     { "type": "float" },
-                "double_column":    { "type": "double" },
-                "integer_column":   { "type": "integer" },
-                "long_column":      { "type": "long" },
-                "keyword_column":   { "type": "keyword" },
-                "text_column":      { "type": "text" },
-                "binary_column":    { "type": "binary" },
-                "timestamp_column": { "type": "date" },
-                "ipv4_column":      { "type": "ip" },
-                "ipv6_column":      { "type": "ip" }
-              }
-            }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "nested_field": {
+                      "type":"nested",
+                      "properties": {
+                        "boolean_column":   { "type": "boolean" },
+                        "float_column":     { "type": "float" },
+                        "double_column":    { "type": "double" },
+                        "integer_column":   { "type": "integer" },
+                        "long_column":      { "type": "long" },
+                        "keyword_column":   { "type": "keyword" },
+                        "text_column":      { "type": "text" },
+                        "binary_column":    { "type": "binary" },
+                        "timestamp_column": { "type": "date" },
+                        "ipv4_column":      { "type": "ip" },
+                        "ipv6_column":      { "type": "ip" }
+                      }
+                    }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.of(
-                "nested_field",
-                ImmutableMap.<String, Object>builder()
+                "nested_field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1877,8 +1884,17 @@ public abstract class BaseElasticsearchConnectorTest
                 """);
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -1915,13 +1931,13 @@ public abstract class BaseElasticsearchConnectorTest
         String indexName = "numeric_keyword";
         @Language("JSON")
         String properties =
-        """
-        {
-          "properties":{
-            "numeric_keyword":   { "type": "keyword" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties":{
+                    "numeric_keyword":   { "type": "keyword" }
+                  }
+                }
+                """;
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.of("numeric_keyword", 20));
 
@@ -1981,13 +1997,13 @@ public abstract class BaseElasticsearchConnectorTest
 
         @Language("JSON")
         String mappings =
-        """
-        {
-          "properties": {
-            "dummy_column":     { "type": "long" }
-          }
-        }
-        """;
+                """
+                {
+                  "properties": {
+                    "dummy_column":     { "type": "long" }
+                  }
+                }
+                """;
 
         createIndex(indexName, mappings);
 
@@ -2032,10 +2048,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select single record
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)"))
                 .matches("VALUES VARCHAR '{\"nationkey\":0,\"name\":\"ALGERIA\",\"regionkey\":0,\"comment\":\" haggle. carefully final deposits detect slyly agai\"}'");
 
         // parameters
@@ -2049,24 +2065,24 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select multiple records by range. Use array wrapper to wrap multiple results
         assertThat(query("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)"))
                 .matches("VALUES CAST(ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA'] AS ARRAY(VARCHAR))");
 
         // use aggregations
         @Language("JSON")
         String query =
-        """
-        {
-            "size": 0,
-            "aggs" : {
-                "max_orderkey" : { "max" : { "field" : "orderkey" } },
-                "sum_orderkey" : { "sum" : { "field" : "orderkey" } }
-            }
-        }
-        """;
+                """
+                {
+                    "size": 0,
+                    "aggs" : {
+                        "max_orderkey" : { "max" : { "field" : "orderkey" } },
+                        "sum_orderkey" : { "sum" : { "field" : "orderkey" } }
+                    }
+                }
+                """;
 
         assertThat(query(
                 """
@@ -2083,10 +2099,10 @@ public abstract class BaseElasticsearchConnectorTest
 
         // no matches
         assertThat(query("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "schema => 'tpch', " +
-                        "index => 'nation', " +
-                        "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
+                "schema => 'tpch', " +
+                "index => 'nation', " +
+                "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)"))
                 .matches("VALUES VARCHAR '[]'");
 
         // syntax error

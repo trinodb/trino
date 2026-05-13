@@ -250,8 +250,7 @@ public class TestGlobalFunctionCatalog
     public void testResolveFunctionForUnknown()
     {
         assertThatResolveFunction()
-                .among(
-                        functionSignature("bigint"))
+                .among(functionSignature("bigint"))
                 .forParameters(UnknownType.UNKNOWN)
                 .returns(functionSignature("bigint"));
 

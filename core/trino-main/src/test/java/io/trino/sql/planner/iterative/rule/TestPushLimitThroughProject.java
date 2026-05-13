@@ -100,8 +100,10 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new Reference(BIGINT, "a"),
-                                            projectedC, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                            projectedA,
+                                            new Reference(BIGINT, "a"),
+                                            projectedC,
+                                            new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -126,8 +128,10 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedC),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new Reference(BIGINT, "a"),
-                                            projectedC, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                            projectedA,
+                                            new Reference(BIGINT, "a"),
+                                            projectedC,
+                                            new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -157,8 +161,10 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), 0),
-                                            p.symbol("c"), new FieldReference(a.toSymbolReference(), 1)),
+                                            p.symbol("b"),
+                                            new FieldReference(a.toSymbolReference(), 0),
+                                            p.symbol("c"),
+                                            new FieldReference(a.toSymbolReference(), 1)),
                                     p.values(a)));
                 })
                 .doesNotFire();
@@ -180,8 +186,10 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedC),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new Reference(BIGINT, "a"),
-                                            projectedC, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                            projectedA,
+                                            new Reference(BIGINT, "a"),
+                                            projectedC,
+                                            new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                     p.values(a, b)));
                 })
                 .doesNotFire();
@@ -199,8 +207,10 @@ public class TestPushLimitThroughProject
                             ImmutableList.of(projectedA),
                             p.project(
                                     Assignments.of(
-                                            projectedA, new Reference(BIGINT, "a"),
-                                            projectedC, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
+                                            projectedA,
+                                            new Reference(BIGINT, "a"),
+                                            projectedC,
+                                            new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))),
                                     p.values(a, b)));
                 })
                 .matches(
@@ -220,8 +230,10 @@ public class TestPushLimitThroughProject
                     return p.limit(1,
                             p.project(
                                     Assignments.of(
-                                            p.symbol("b"), new FieldReference(a.toSymbolReference(), 0),
-                                            p.symbol("c", rowType), a.toSymbolReference()),
+                                            p.symbol("b"),
+                                            new FieldReference(a.toSymbolReference(), 0),
+                                            p.symbol("c", rowType),
+                                            a.toSymbolReference()),
                                     p.values(a)));
                 })
                 .matches(

@@ -327,7 +327,8 @@ public class TestHivePlans
                                                 tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))
                                 .right(
                                         exchange(LOCAL,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))));
     }
 

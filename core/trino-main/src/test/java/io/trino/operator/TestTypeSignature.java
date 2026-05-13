@@ -241,7 +241,8 @@ public class TestTypeSignature
                 ImmutableList.of("bigint", "bigint"));
         assertSignature(
                 "map(bigint,array(bigint))",
-                "map", ImmutableList.of("bigint", "array(bigint)"));
+                "map",
+                ImmutableList.of("bigint", "array(bigint)"));
         assertSignature(
                 "map(bigint,map(bigint,map(varchar,bigint)))",
                 "map",

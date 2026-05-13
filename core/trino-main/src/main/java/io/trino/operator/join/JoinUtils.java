@@ -83,14 +83,14 @@ public final class JoinUtils
         if (node instanceof JoinNode joinNode) {
             return PlanNodeSearcher.searchFrom(joinNode.getRight())
                     .recurseOnlyWhen(planNode -> planNode instanceof ProjectNode ||
-                                    isLocalRepartitionExchange(planNode) ||
-                                    isLocalGatherExchange(planNode))  // used in cross join case
+                            isLocalRepartitionExchange(planNode) ||
+                            isLocalGatherExchange(planNode))  // used in cross join case
                     .where(planNode -> isRemoteReplicatedExchange(planNode) || isRemoteReplicatedSourceNode(planNode))
                     .matches();
         }
         return PlanNodeSearcher.searchFrom(((SemiJoinNode) node).getFilteringSource())
                 .recurseOnlyWhen(planNode -> planNode instanceof ProjectNode ||
-                                isLocalGatherExchange(planNode))
+                        isLocalGatherExchange(planNode))
                 .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                 .matches();
     }
@@ -106,9 +106,9 @@ public final class JoinUtils
         if (dynamicFilterSourceNodes.isEmpty()) {
             return dynamicFilters;
         }
-        verify(
-                dynamicFilters.isEmpty(),
-                "Dynamic filters %s present in a join with a DynamicFilterSourceNode on it's build side", dynamicFilters);
+        verify(dynamicFilters.isEmpty(),
+                "Dynamic filters %s present in a join with a DynamicFilterSourceNode on it's build side",
+                dynamicFilters);
         verify(dynamicFilterSourceNodes.size() == 1, "Expected only 1 dynamic filter source node");
         return ((DynamicFilterSourceNode) getOnlyElement(dynamicFilterSourceNodes)).getDynamicFilters();
     }
@@ -124,9 +124,9 @@ public final class JoinUtils
         if (dynamicFilterSourceNodes.isEmpty()) {
             return dynamicFilterId;
         }
-        verify(
-                dynamicFilterId.isEmpty(),
-                "Dynamic filter %s present in a semi join with a DynamicFilterSourceNode on it's filtering source side", dynamicFilterId);
+        verify(dynamicFilterId.isEmpty(),
+                "Dynamic filter %s present in a semi join with a DynamicFilterSourceNode on it's filtering source side",
+                dynamicFilterId);
         verify(dynamicFilterSourceNodes.size() == 1, "Expected only 1 dynamic filter source node");
         return Optional.of(getOnlyElement(((DynamicFilterSourceNode) getOnlyElement(dynamicFilterSourceNodes)).getDynamicFilters().keySet()));
     }

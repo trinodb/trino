@@ -19,16 +19,16 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static io.trino.sql.planner.GroupingOperationRewriter.calculateGrouping;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupingOperationRewriter
 {
-    private static final List<Integer> fortyIntegers = ImmutableList.of(
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-            29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40);
+    private static final List<Integer> fortyIntegers = IntStream.rangeClosed(1, 40)
+            .boxed()
+            .toList();
 
     @Test
     public void testGroupingOperationAllBitsSet()

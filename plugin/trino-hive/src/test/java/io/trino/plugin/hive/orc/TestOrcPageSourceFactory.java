@@ -247,19 +247,19 @@ public class TestOrcPageSourceFactory
                 new HiveConfig());
 
         ConnectorPageSource pageSource = pageSourceFactory.createPageSource(
-                SESSION,
-                location,
-                0,
-                fileSize,
-                fileSize,
-                12345,
-                createSchema(),
-                columnHandles,
-                tupleDomain,
-                acidInfo,
-                OptionalInt.empty(),
-                false,
-                NO_ACID_TRANSACTION)
+                        SESSION,
+                        location,
+                        0,
+                        fileSize,
+                        fileSize,
+                        12345,
+                        createSchema(),
+                        columnHandles,
+                        tupleDomain,
+                        acidInfo,
+                        OptionalInt.empty(),
+                        false,
+                        NO_ACID_TRANSACTION)
                 .orElseThrow();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");

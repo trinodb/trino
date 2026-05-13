@@ -186,7 +186,8 @@ public class TestDomainTranslator
         Domain testDomain = Domain.create(
                 ValueSet.all(BIGINT)
                         .subtract(ValueSet.ofRanges(
-                                Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))), false);
+                                Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))),
+                false);
 
         TupleDomain<Symbol> tupleDomain = tupleDomain(C_BIGINT, testDomain);
         assertThat(toPredicate(tupleDomain)).isEqualTo(not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L))));
@@ -195,7 +196,8 @@ public class TestDomainTranslator
                 ValueSet.ofRanges(
                         Range.lessThan(BIGINT, 4L)).intersect(
                         ValueSet.all(BIGINT)
-                                .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)))), false);
+                                .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)))),
+                false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
         assertThat(toPredicate(tupleDomain)).isEqualTo(and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))));
@@ -214,7 +216,8 @@ public class TestDomainTranslator
                                 Range.lessThan(BIGINT, 4L))
                         .intersect(ValueSet.all(BIGINT)
                                 .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))))
-                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, true, 9L, true))), false);
+                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, true, 9L, true))),
+                false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))), between(C_BIGINT, bigintLiteral(7L), bigintLiteral(9L))));
@@ -223,7 +226,8 @@ public class TestDomainTranslator
                 ValueSet.ofRanges(Range.lessThan(BIGINT, 4L))
                         .intersect(ValueSet.all(BIGINT)
                                 .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))))
-                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, false, 9L, false), Range.range(BIGINT, 11L, false, 13L, false))), false);
+                        .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, false, 9L, false), Range.range(BIGINT, 11L, false, 13L, false))),
+                false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
         assertThat(toPredicate(tupleDomain)).isEqualTo(or(
@@ -484,8 +488,10 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertThat(result.getRemainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(
-                C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false),
-                C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 1.0)), false)));
+                C_BIGINT,
+                Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false),
+                C_DOUBLE,
+                Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 1.0)), false)));
 
         // We can't make those inferences if the unprocessableExpressions are non-deterministic
         originalPredicate = or(
@@ -669,20 +675,24 @@ public class TestDomainTranslator
                 comparison(LESS_THAN_OR_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false)));
 
-        assertPredicateTranslates(comparison(EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(
+                comparison(EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 2L)), false)));
 
-        assertPredicateTranslates(comparison(EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
+        assertPredicateTranslates(
+                comparison(EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), false)));
 
-        assertPredicateTranslates(comparison(NOT_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
+        assertPredicateTranslates(
+                comparison(NOT_EQUAL, bigintLiteral(2L), C_BIGINT.toSymbolReference()),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), false)));
 
         assertPredicateTranslates(
                 comparison(NOT_EQUAL, colorLiteral(COLOR_VALUE_1), C_COLOR.toSymbolReference()),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), false)));
 
-        assertPredicateTranslates(not(comparison(IDENTICAL, bigintLiteral(2L), C_BIGINT.toSymbolReference())),
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, bigintLiteral(2L), C_BIGINT.toSymbolReference())),
                 tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L), Range.greaterThan(BIGINT, 2L)), true)));
 
         assertPredicateTranslates(
@@ -1294,8 +1304,10 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 expression,
                 tupleDomain(
-                        C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false),
-                        C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
+                        C_DOUBLE,
+                        Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false),
+                        C_BIGINT,
+                        Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
 
         assertThat(toPredicate(fromPredicate(expression).getTupleDomain())).isEqualTo(and(
                 comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
@@ -1403,9 +1415,12 @@ public class TestDomainTranslator
                 C_VARCHAR,
                 like(C_VARCHAR, "abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0%"),
                 Domain.create(
-                        ValueSet.ofRanges(Range.range(varcharType,
-                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"), true,
-                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
+                        ValueSet.ofRanges(Range.range(
+                                varcharType,
+                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"),
+                                true,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"),
+                                false)),
                         false));
 
         // dynamic escape
@@ -1461,9 +1476,12 @@ public class TestDomainTranslator
                 C_VARCHAR,
                 startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0")),
                 Domain.create(
-                        ValueSet.ofRanges(Range.range(varcharType,
-                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"), true,
-                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
+                        ValueSet.ofRanges(Range.range(
+                                varcharType,
+                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"),
+                                true,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"),
+                                false)),
                         false));
     }
 

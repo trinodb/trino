@@ -627,8 +627,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     " WHERE partitioning_column_2 IS NULL");
 
             assertThat(onTrino().executeQuery(
-                    "SELECT * FROM delta.default." + tableName
-            )).containsOnly(
+                    "SELECT * FROM delta.default." + tableName)).containsOnly(
                     row("testValue1", 1, "partition1"),
                     row("testValue2", 2, "partition2"));
 
@@ -758,7 +757,8 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     row(4, "pageUrl4", 400, "update_preimage", 3),
                     row(3, "pageUrl3", 300, "update_preimage", 4),
                     row(3, "pageUrl30", 300, "update_postimage", 4),
-                    row(1, "pageUrl1", 100, "delete", 5)};
+                    row(1, "pageUrl1", 100, "delete", 5),
+            };
             assertThat(onTrino().executeQuery(
                     "SELECT page_id, page_url, views, _change_type, _commit_version " +
                             "FROM TABLE(delta.system.table_changes('default', '" + targetTableName + "'))"))
@@ -849,7 +849,8 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         return new Object[][] {
                 {"name"},
                 {"id"},
-                {"none"}};
+                {"none"},
+        };
     }
 
     private void assertThereIsNoCdfFileGenerated(String tableName, String tableProperty)

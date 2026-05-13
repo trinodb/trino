@@ -68,7 +68,9 @@ public final class SingleLevelArraySchemaConverter
         return convertType(name, typeInfo, Repetition.OPTIONAL);
     }
 
-    private static Type convertType(String name, TypeInfo typeInfo,
+    private static Type convertType(
+            String name,
+            TypeInfo typeInfo,
             Repetition repetition)
     {
         if (typeInfo.getCategory() == Category.PRIMITIVE) {
@@ -165,9 +167,12 @@ public final class SingleLevelArraySchemaConverter
     // 2 elements: "key", "value"
     private static GroupType convertMapType(String name, MapTypeInfo typeInfo, Repetition repetition)
     {
-        Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
-                typeInfo.getMapKeyTypeInfo(), Repetition.REQUIRED);
-        Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
+        Type keyType = convertType(
+                ParquetHiveSerDe.MAP_KEY.toString(),
+                typeInfo.getMapKeyTypeInfo(),
+                Repetition.REQUIRED);
+        Type valueType = convertType(
+                ParquetHiveSerDe.MAP_VALUE.toString(),
                 typeInfo.getMapValueTypeInfo());
         return ConversionPatterns.mapType(repetition, name, keyType, valueType);
     }

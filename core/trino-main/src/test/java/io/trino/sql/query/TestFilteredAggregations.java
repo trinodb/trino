@@ -120,7 +120,9 @@ public class TestFilteredAggregations
     public void rewriteAddFilterWithMultipleFilters()
     {
         PlanMatchPattern source = tableScan(
-                "orders", ImmutableMap.of("totalprice", "totalprice",
+                "orders",
+                ImmutableMap.of(
+                        "totalprice", "totalprice",
                         "custkey", "custkey"));
         assertPlan(
                 "SELECT sum(totalprice) FILTER(WHERE totalprice > 0), sum(custkey) FILTER(WHERE custkey > 0) FROM orders",

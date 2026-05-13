@@ -60,8 +60,8 @@ public class TestSwapAdjacentWindowsBySpecifications
                 .on(p -> p.window(new DataOrganizationSpecification(
                                 ImmutableList.of(p.symbol("a")),
                                 Optional.empty()),
-                        ImmutableMap.of(p.symbol("avg_1"),
-                                new WindowNode.Function(resolvedFunction, ImmutableList.of(), Optional.empty(), DEFAULT_FRAME, false, false)),
+                        ImmutableMap.of(
+                                p.symbol("avg_1"), new WindowNode.Function(resolvedFunction, ImmutableList.of(), Optional.empty(), DEFAULT_FRAME, false, false)),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -80,13 +80,13 @@ public class TestSwapAdjacentWindowsBySpecifications
                         p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
-                                ImmutableMap.of(p.symbol("avg_1", DOUBLE),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "a")), Optional.empty(), DEFAULT_FRAME, false, false)),
+                                ImmutableMap.of(
+                                        p.symbol("avg_1", DOUBLE), new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "a")), Optional.empty(), DEFAULT_FRAME, false, false)),
                                 p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
-                                        ImmutableMap.of(p.symbol("avg_2", DOUBLE),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "b")), Optional.empty(), DEFAULT_FRAME, false, false)),
+                                        ImmutableMap.of(
+                                                p.symbol("avg_2", DOUBLE), new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "b")), Optional.empty(), DEFAULT_FRAME, false, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
@@ -106,13 +106,13 @@ public class TestSwapAdjacentWindowsBySpecifications
                         p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a", BIGINT)),
                                         Optional.empty()),
-                                ImmutableMap.of(p.symbol("avg_1", DOUBLE),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(DOUBLE, "avg_2")), Optional.empty(), DEFAULT_FRAME, false, false)),
+                                ImmutableMap.of(
+                                        p.symbol("avg_1", DOUBLE), new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(DOUBLE, "avg_2")), Optional.empty(), DEFAULT_FRAME, false, false)),
                                 p.window(new DataOrganizationSpecification(
                                                 ImmutableList.of(p.symbol("a", BIGINT), p.symbol("b", BIGINT)),
                                                 Optional.empty()),
-                                        ImmutableMap.of(p.symbol("avg_2", DOUBLE),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "a")), Optional.empty(), DEFAULT_FRAME, false, false)),
+                                        ImmutableMap.of(
+                                                p.symbol("avg_2", DOUBLE), new WindowNode.Function(resolvedFunction, ImmutableList.of(new Reference(BIGINT, "a")), Optional.empty(), DEFAULT_FRAME, false, false)),
                                         p.values(p.symbol("a", BIGINT), p.symbol("b", BIGINT)))))
                 .doesNotFire();
     }

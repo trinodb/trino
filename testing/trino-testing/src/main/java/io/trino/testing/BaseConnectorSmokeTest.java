@@ -354,12 +354,13 @@ public abstract class BaseConnectorSmokeTest
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
 
-            assertUpdate("MERGE INTO " + table.getName() + " t " +
-                    "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
-                    "ON (t.a = s.a) " +
-                    "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
-                    "WHEN MATCHED AND s.b = 0 THEN DELETE " +
-                    "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t " +
+                            "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
+                            "ON (t.a = s.a) " +
+                            "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
+                            "WHEN MATCHED AND s.b = 0 THEN DELETE " +
+                            "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
                     4);
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 1.3), (1, 2.5), (2, 7.9), (4, 10.0), (5, 5.7)"));

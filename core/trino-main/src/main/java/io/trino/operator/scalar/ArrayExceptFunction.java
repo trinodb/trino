@@ -44,11 +44,13 @@ public final class ArrayExceptFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical identicalOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical identicalOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

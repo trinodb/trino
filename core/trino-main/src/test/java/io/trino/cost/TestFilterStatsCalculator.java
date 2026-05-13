@@ -195,7 +195,8 @@ public class TestFilterStatsCalculator
         for (Expression minusThree : ImmutableList.of(
                 new Constant(createDecimalType(3), Decimals.valueOfShort(new BigDecimal("-3"))),
                 new Constant(DOUBLE, -3.0),
-                new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 7.0))), new Cast(new Constant(INTEGER, -3L), createDecimalType(7, 3)))) {
+                new Call(SUBTRACT_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 7.0))),
+                new Cast(new Constant(INTEGER, -3L), createDecimalType(7, 3)))) {
             assertExpression(new Comparison(EQUAL, new Reference(DOUBLE, "x"), new Cast(minusThree, DOUBLE)))
                     .outputRowsCount(18.75)
                     .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->

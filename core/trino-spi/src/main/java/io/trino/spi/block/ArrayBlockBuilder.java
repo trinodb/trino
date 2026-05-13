@@ -54,24 +54,21 @@ public class ArrayBlockBuilder
      */
     public ArrayBlockBuilder(BlockBuilder valuesBlock, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 valuesBlock,
                 expectedEntries);
     }
 
     public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry),
                 expectedEntries);
     }
 
     public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this(
-                blockBuilderStatus,
+        this(blockBuilderStatus,
                 elementType.createBlockBuilder(blockBuilderStatus, expectedEntries),
                 expectedEntries);
     }

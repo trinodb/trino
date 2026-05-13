@@ -65,8 +65,7 @@ public class TestRemoveEmptyUnionBranches
 
     private final Map<SchemaTableName, ConnectorViewDefinition> views =
             ImmutableMap.of(
-                    new SchemaTableName(SCHEMA_NAME, "view_of_union"),
-                    new ConnectorViewDefinition(
+                    new SchemaTableName(SCHEMA_NAME, "view_of_union"), new ConnectorViewDefinition(
                             "SELECT " +
                                     "   t1.a, t1.b, t1.c " +
                                     "FROM " +

@@ -39,7 +39,8 @@ public final class ConvexHullAggregation
     private ConvexHullAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state,
+    public static void input(
+            @AggregationState GeometryState state,
             @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
         if (state.getGeometry() == null) {
@@ -61,7 +62,8 @@ public final class ConvexHullAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState GeometryState state,
+    public static void combine(
+            @AggregationState GeometryState state,
             @AggregationState GeometryState otherState)
     {
         if (state.getGeometry() == null) {

@@ -252,10 +252,10 @@ public class ParametricAggregationImplementation
             parseLongVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
-                            stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
-                            inputDependencies.stream(),
-                            outputDependencies.stream(),
-                            combineDependencies.stream())
+                                    stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
+                                    inputDependencies.stream(),
+                                    outputDependencies.stream(),
+                                    combineDependencies.stream())
                             .reduce(Stream::concat)
                             .orElseGet(Stream::empty)
                             .collect(toImmutableList());
@@ -371,7 +371,8 @@ public class ParametricAggregationImplementation
 
             Annotation annotation = baseTypes.getFirst();
             checkArgument((!isBlock && !nullable) || (annotation instanceof SqlType),
-                    "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
+                    "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType",
+                    methodName);
 
             return annotation;
         }

@@ -130,7 +130,8 @@ public class UnwrapCastInComparison
         return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, expression);
     }
 
-    public static Expression unwrapCasts(Session session,
+    public static Expression unwrapCasts(
+            Session session,
             PlannerContext plannerContext,
             Expression expression)
     {
@@ -250,8 +251,7 @@ public class UnwrapCastInComparison
                             case GREATER_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, max));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case LESS_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
-                            case EQUAL, NOT_EQUAL, IDENTICAL ->
-                                    new Comparison(operator, cast.expression(), new Constant(sourceType, max));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> new Comparison(operator, cast.expression(), new Constant(sourceType, max));
                         };
                     }
 
@@ -275,8 +275,7 @@ public class UnwrapCastInComparison
                             case LESS_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, min));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case GREATER_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
-                            case EQUAL, NOT_EQUAL, IDENTICAL ->
-                                    new Comparison(operator, cast.expression(), new Constant(sourceType, min));
+                            case EQUAL, NOT_EQUAL, IDENTICAL -> new Comparison(operator, cast.expression(), new Constant(sourceType, min));
                         };
                     }
                 }
@@ -322,10 +321,9 @@ public class UnwrapCastInComparison
                             }
                             yield new Comparison(LESS_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
                         }
-                        case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
-                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                            // larger than the next value in the source type
-                                new Comparison(GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                        // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                        // larger than the next value in the source type
+                        case GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                     };
                 }
 
@@ -335,10 +333,9 @@ public class UnwrapCastInComparison
                         case EQUAL -> falseIfNotNull(cast.expression());
                         case NOT_EQUAL -> trueIfNotNull(cast.expression());
                         case IDENTICAL -> FALSE;
-                        case LESS_THAN, LESS_THAN_OR_EQUAL ->
-                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                            // smaller than the next value in the source type
-                                new Comparison(LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
+                        // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                        // smaller than the next value in the source type
+                        case LESS_THAN, LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN, cast.expression(), new Constant(sourceType, literalInSourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
                                 new Comparison(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType)) :
                                 new Comparison(GREATER_THAN_OR_EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));

@@ -126,11 +126,10 @@ public final class PartitionFields
 
     public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix, boolean includeWidthInPartitionName)
     {
-        boolean matched =
-                tryMatch(field, IDENTITY_PATTERN, match -> {
-                    // identity doesn't allow specifying an alias
-                    builder.identity(fromIdentifierToColumn(match.group()));
-                }) ||
+        boolean matched = tryMatch(field, IDENTITY_PATTERN, match -> {
+            // identity doesn't allow specifying an alias
+            builder.identity(fromIdentifierToColumn(match.group()));
+        }) ||
                 tryMatch(field, YEAR_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
                     builder.year(column, column + "_year" + suffix);

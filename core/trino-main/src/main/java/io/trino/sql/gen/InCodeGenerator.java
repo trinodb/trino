@@ -81,7 +81,7 @@ public class InCodeGenerator
     {
         DIRECT_SWITCH,
         HASH_SWITCH,
-        SET_CONTAINS
+        SET_CONTAINS,
     }
 
     @VisibleForTesting

@@ -62,7 +62,8 @@ public class PlannerContext
     private final ResolverManager resolverManager;
 
     @Inject
-    public PlannerContext(Metadata metadata,
+    public PlannerContext(
+            Metadata metadata,
             TypeOperators typeOperators,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager,

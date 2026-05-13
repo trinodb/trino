@@ -429,12 +429,14 @@ public class SnowflakeClient
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
-            return ColumnMapping.longMapping(createTimestampWithTimeZoneType(precision),
+            return ColumnMapping.longMapping(
+                    createTimestampWithTimeZoneType(precision),
                     (resultSet, columnIndex) -> {
                         ZonedDateTime timestamp = SNOWFLAKE_DATETIME_FORMATTER.parse(resultSet.getString(columnIndex), ZonedDateTime::from);
                         return DateTimeEncoding.packDateTimeWithZone(timestamp.toInstant().toEpochMilli(), timestamp.getZone().getId());
                     },
-                    shortTimestampWithTimeZoneWriteFunction(), PredicatePushdownController.FULL_PUSHDOWN);
+                    shortTimestampWithTimeZoneWriteFunction(),
+                    PredicatePushdownController.FULL_PUSHDOWN);
         }
         return ColumnMapping.objectMapping(createTimestampWithTimeZoneType(precision), longTimestampWithTimezoneReadFunction(), longTimestampWithTimeZoneWriteFunction());
     }
@@ -443,7 +445,8 @@ public class SnowflakeClient
     {
         return ObjectReadFunction.of(LongTimestampWithTimeZone.class, (resultSet, columnIndex) -> {
             ZonedDateTime timestamp = SNOWFLAKE_DATETIME_FORMATTER.parse(resultSet.getString(columnIndex), ZonedDateTime::from);
-            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(timestamp.toEpochSecond(),
+            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                    timestamp.toEpochSecond(),
                     (long) timestamp.getNano() * Timestamps.PICOSECONDS_PER_NANOSECOND,
                     TimeZoneKey.getTimeZoneKey(timestamp.getZone().getId()));
         });

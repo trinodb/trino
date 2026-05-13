@@ -52,8 +52,7 @@ public class MapBlockBuilder
 
     public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        this(
-                mapType,
+        this(mapType,
                 blockBuilderStatus,
                 mapType.getKeyType().createBlockBuilder(blockBuilderStatus, expectedEntries),
                 mapType.getValueType().createBlockBuilder(blockBuilderStatus, expectedEntries),

@@ -93,7 +93,8 @@ public class TestIterativeOptimizer
                 .setSystemProperty("iterative_optimizer_timeout", "1ms");
 
         try (PlanTester planTester = PlanTester.create(sessionBuilder.build())) {
-            planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
+            planTester.createCatalog(
+                    planTester.getDefaultSession().getCatalog().get(),
                     new TpchConnectorFactory(1),
                     ImmutableMap.of());
 

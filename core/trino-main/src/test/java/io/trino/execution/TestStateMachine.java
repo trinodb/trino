@@ -146,7 +146,8 @@ public class TestStateMachine
         assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.DINNER, State.LUNCH));
 
         // match with new state
-        assertStateChange(stateMachine,
+        assertStateChange(
+                stateMachine,
                 () -> stateMachine.compareAndSet(State.BREAKFAST, State.LUNCH),
                 State.LUNCH);
 

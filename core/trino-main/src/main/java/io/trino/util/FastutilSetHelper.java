@@ -160,7 +160,8 @@ public final class FastutilSetHelper
         public LongIterator iterator()
         {
             PrimitiveIterator.OfInt iterator = bitmask.stream().iterator();
-            return new AbstractLongIterator() {
+            return new AbstractLongIterator()
+            {
                 @Override
                 public long nextLong()
                 {

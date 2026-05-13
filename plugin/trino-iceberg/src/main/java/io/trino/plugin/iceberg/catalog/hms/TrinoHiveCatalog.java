@@ -309,7 +309,8 @@ public class TrinoHiveCatalog
     public Transaction newCreateOrReplaceTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
-            Schema schema, PartitionSpec partitionSpec,
+            Schema schema,
+            PartitionSpec partitionSpec,
             SortOrder sortOrder,
             String location,
             Map<String, String> properties)

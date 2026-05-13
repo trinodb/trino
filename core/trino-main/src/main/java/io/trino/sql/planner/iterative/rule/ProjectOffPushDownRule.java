@@ -32,8 +32,8 @@ import static io.trino.sql.planner.plan.Patterns.source;
 
 /**
  * @param <N> The node type to look for under the ProjectNode
- * Looks for a Project parent over a N child, such that the parent doesn't use all the output columns of the child.
- * Given that situation, invokes the pushDownProjectOff helper to possibly rewrite the child to produce fewer outputs.
+ *         Looks for a Project parent over a N child, such that the parent doesn't use all the output columns of the child.
+ *         Given that situation, invokes the pushDownProjectOff helper to possibly rewrite the child to produce fewer outputs.
  */
 public abstract class ProjectOffPushDownRule<N extends PlanNode>
         implements Rule<ProjectNode>

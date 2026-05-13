@@ -133,16 +133,16 @@ public class TestDeltaLakeInsertCompatibility
         String tableName = "test_dl_timestamp_ntz_insert_" + randomNameSuffix();
 
         onTrino().executeQuery("" +
-                               "CREATE TABLE delta.default." + tableName +
-                               "(id INT, ts TIMESTAMP(6))" +
-                               "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+                "CREATE TABLE delta.default." + tableName +
+                "(id INT, ts TIMESTAMP(6))" +
+                "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES" +
-                                   "(1, TIMESTAMP '0001-01-01 00:00:00.000')," +
-                                   "(2, TIMESTAMP '2023-01-02 01:02:03.999')");
+                    "(1, TIMESTAMP '0001-01-01 00:00:00.000')," +
+                    "(2, TIMESTAMP '2023-01-02 01:02:03.999')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES" +
-                                   "(3, TIMESTAMP '2023-03-04 01:02:03.999')," +
-                                   "(4, TIMESTAMP '9999-12-31 23:59:59.999')");
+                    "(3, TIMESTAMP '2023-03-04 01:02:03.999')," +
+                    "(4, TIMESTAMP '9999-12-31 23:59:59.999')");
 
             List<Row> expected = ImmutableList.<Row>builder()
                     .add(row(1, "0001-01-01 00:00:00.000"))

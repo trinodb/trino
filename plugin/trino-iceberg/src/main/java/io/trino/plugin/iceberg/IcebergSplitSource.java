@@ -775,7 +775,10 @@ public class IcebergSplitSource
         verify(referenced != null, "Deletion vector is missing referencedDataFile: %s", deleteFile.location());
 
         verify(referenced.equals(task.file().location()),
-                "Deletion vector referencedDataFile mismatch: referenced=%s dataFile=%s dv=%s", referenced, task.file().location(), deleteFile.location());
+                "Deletion vector referencedDataFile mismatch: referenced=%s dataFile=%s dv=%s",
+                referenced,
+                task.file().location(),
+                deleteFile.location());
     }
 
     private double getSplitWeight(FileScanTask task)

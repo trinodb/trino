@@ -66,14 +66,14 @@ abstract class BaseBlockEncodingTest<T>
         Random random = getRandom();
 
         Object[] values = Stream.of(
-                BlockFill.MIXED,
-                BlockFill.ONLY_NULLS,
-                BlockFill.MIXED,
-                BlockFill.ONLY_VALUES,
-                BlockFill.MIXED,
-                BlockFill.ONLY_NULLS,
-                BlockFill.ONLY_VALUES,
-                BlockFill.MIXED)
+                        BlockFill.MIXED,
+                        BlockFill.ONLY_NULLS,
+                        BlockFill.MIXED,
+                        BlockFill.ONLY_VALUES,
+                        BlockFill.MIXED,
+                        BlockFill.ONLY_NULLS,
+                        BlockFill.ONLY_VALUES,
+                        BlockFill.MIXED)
                 .map(fill -> getObjects(8, fill, random))
                 .flatMap(Arrays::stream)
                 .toArray();
@@ -147,6 +147,5 @@ abstract class BaseBlockEncodingTest<T>
         ONLY_NULLS,
         ONLY_VALUES,
         MIXED,
-        /**/
     }
 }

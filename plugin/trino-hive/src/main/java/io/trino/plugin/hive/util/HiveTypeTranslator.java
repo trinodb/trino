@@ -202,13 +202,13 @@ public final class HiveTypeTranslator
                     throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
                 yield rowType(Streams.zip(
-                        // We lower case the struct field names.
-                        // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
-                        // Users can't work around this by casting in their queries because Trino parser always lower case types.
-                        // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
-                        fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
-                        fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
-                        TypeParameter::namedField)
+                                // We lower case the struct field names.
+                                // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
+                                // Users can't work around this by casting in their queries because Trino parser always lower case types.
+                                // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
+                                fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
+                                fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
+                                TypeParameter::namedField)
                         .collect(Collectors.toList()));
             }
             case UNION -> {

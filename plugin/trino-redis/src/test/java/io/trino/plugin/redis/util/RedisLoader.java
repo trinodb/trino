@@ -112,8 +112,7 @@ public class RedisLoader
                             client.hset(redisKey, columns.get(i).getName(), fields.get(i).toString());
                         }
                     }
-                    default ->
-                        throw new AssertionError("unhandled value type: " + dataFormat);
+                    default -> throw new AssertionError("unhandled value type: " + dataFormat);
                 }
             }
         }

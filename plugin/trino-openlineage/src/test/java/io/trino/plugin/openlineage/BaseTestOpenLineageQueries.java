@@ -492,7 +492,8 @@ public abstract class BaseTestOpenLineageQueries
                      mktsegment,
                      nationkey
                  FROM tpch.tiny.customer
-                """, outputTable);
+                """,
+                outputTable);
 
         String createTableQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), createTableQuery)
@@ -512,7 +513,8 @@ public abstract class BaseTestOpenLineageQueries
                  WHEN NOT MATCHED THEN
                      INSERT (custkey, name, mktsegment, nationkey)
                      VALUES (building_customers.custkey, building_customers.name, building_customers.mktsegment, building_customers.nationkey)
-                """, outputTable);
+                """,
+                outputTable);
 
         String mergeQueryId = this.getQueryRunner()
                 .executeWithPlan(this.getSession(), mergeQuery)
@@ -543,14 +545,12 @@ public abstract class BaseTestOpenLineageQueries
 
     public enum LineageTestTableType
     {
-        TABLE(
-                "TABLE",
+        TABLE("TABLE",
                 QueryType.INSERT,
                 true,
                 47,
                 true),
-        VIEW(
-                "VIEW",
+        VIEW("VIEW",
                 QueryType.DATA_DEFINITION,
                 false,
                 46,

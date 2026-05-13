@@ -497,12 +497,12 @@ public abstract class AbstractColumnReaderRowRangesTest
     {
         NONE,
         ALL,
-        MIXED
+        MIXED,
     }
 
     /**
      * @return mapping from row index to nullability of the values for that row. e.g
-     * 5 -&gt; (false, true, false) means that the row 5 consist of (null, some value, null)
+     *         5 -&gt; (false, true, false) means that the row 5 consist of (null, some value, null)
      */
     private static Int2ObjectMap<BooleanList> getRequiredPositions(List<TestingPage> testingPages, int maxDef, boolean required)
     {

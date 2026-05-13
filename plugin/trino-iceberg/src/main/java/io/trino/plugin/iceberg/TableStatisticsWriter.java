@@ -124,8 +124,8 @@ public class TableStatisticsWriter
         long snapshotSequenceNumber = snapshot.sequenceNumber();
         TableOperations operations = ((HasTableOperations) table).operations();
         Schema schema = table.schemas().get(snapshot.schemaId());
-        Set<Integer> validFieldIds = stream(
-                Traverser.forTree((Types.NestedField nestedField) -> {
+        Set<Integer> validFieldIds = stream(Traverser
+                .forTree((Types.NestedField nestedField) -> {
                     Type type = nestedField.type();
                     if (type instanceof Type.NestedType nestedType) {
                         return nestedType.fields();

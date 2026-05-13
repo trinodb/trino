@@ -201,7 +201,8 @@ public class AlluxioFileSystem
         }
 
         try {
-            List<URIStatus> filesStatus = alluxioClient.listStatus(convertToAlluxioURI(location, mountRoot),
+            List<URIStatus> filesStatus = alluxioClient.listStatus(
+                    convertToAlluxioURI(location, mountRoot),
                     ListStatusPOptions.newBuilder().setRecursive(true).build());
             return new AlluxioFileIterator(filesStatus.stream().filter(status -> !status.isFolder() & status.isCompleted()).toList(), getAlluxioBase(location.toString()));
         }

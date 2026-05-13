@@ -404,7 +404,7 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
-        return executeRequest(request, "fetching next", (e) -> true);
+        return executeRequest(request, "fetching next", e -> true);
     }
 
     public void heartbeat()

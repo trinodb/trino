@@ -55,7 +55,8 @@ public class IndexSnapshotBuilder
 
     private final PageBuilder missingKeysPageBuilder;
 
-    public IndexSnapshotBuilder(List<Type> outputTypes,
+    public IndexSnapshotBuilder(
+            List<Type> outputTypes,
             List<Integer> keyOutputChannels,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,

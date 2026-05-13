@@ -181,8 +181,8 @@ public class PartitionsTable
                 StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
 
                 partitions.computeIfAbsent(
-                        structLikeWrapperWithFieldIdToIndex,
-                        _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
+                                structLikeWrapperWithFieldIdToIndex,
+                                _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
                         .acceptDataFile(dataFile, fileScanTask.spec());
             }
 

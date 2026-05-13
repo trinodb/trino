@@ -101,7 +101,7 @@ public class BlockSet
      * Add the value to this set.
      *
      * @return {@code true} if the value was added, or {@code false} if it was
-     * already in this set.
+     *         already in this set.
      */
     public boolean add(Block block, int position)
     {

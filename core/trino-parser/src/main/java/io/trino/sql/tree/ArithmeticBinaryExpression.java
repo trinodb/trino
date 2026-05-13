@@ -29,6 +29,7 @@ public class ArithmeticBinaryExpression
         MULTIPLY("*"),
         DIVIDE("/"),
         MODULO("%");
+
         private final String value;
 
         Operator(String value)

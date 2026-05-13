@@ -204,13 +204,13 @@ public final class MergePatternRecognitionNodes
         Set<Symbol> sourceCreatedOutputs = child.getCreatedSymbols();
 
         return Streams.concat(
-                parent.getWindowFunctions().values().stream()
-                        .map(SymbolsExtractor::extractAll)
-                        .flatMap(Collection::stream),
-                parent.getMeasures().values().stream()
-                        .map(Measure::getExpressionAndValuePointers)
-                        .map(ExpressionAndValuePointers::getInputSymbols)
-                        .flatMap(Collection::stream))
+                        parent.getWindowFunctions().values().stream()
+                                .map(SymbolsExtractor::extractAll)
+                                .flatMap(Collection::stream),
+                        parent.getMeasures().values().stream()
+                                .map(Measure::getExpressionAndValuePointers)
+                                .map(ExpressionAndValuePointers::getInputSymbols)
+                                .flatMap(Collection::stream))
                 .anyMatch(sourceCreatedOutputs::contains);
     }
 

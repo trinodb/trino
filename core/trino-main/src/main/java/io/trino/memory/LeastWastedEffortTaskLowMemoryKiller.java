@@ -44,9 +44,9 @@ public class LeastWastedEffortTaskLowMemoryKiller
     public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Set<QueryId> queriesWithTaskRetryPolicy = runningQueries.stream()
-                                                          .filter(query -> query.getRetryPolicy() == RetryPolicy.TASK)
-                                                          .map(RunningQueryInfo::getQueryId)
-                                                          .collect(toImmutableSet());
+                .filter(query -> query.getRetryPolicy() == RetryPolicy.TASK)
+                .map(RunningQueryInfo::getQueryId)
+                .collect(toImmutableSet());
 
         if (queriesWithTaskRetryPolicy.isEmpty()) {
             return Optional.empty();

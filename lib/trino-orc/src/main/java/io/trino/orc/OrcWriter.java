@@ -142,7 +142,7 @@ public final class OrcWriter
             OrcWriterStats stats)
     {
         this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, types)
-                .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+                                            .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

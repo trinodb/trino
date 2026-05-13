@@ -37,7 +37,8 @@ public class TestSingleStoreJdbcConfig
                 .collect(toOptional())
                 .orElseThrow();
         assertThatThrownBy(() -> factory.create(
-                "test", ImmutableMap.of(
+                "test",
+                ImmutableMap.of(
                         "connection-url", "jdbc:mariadb:test",
                         "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))

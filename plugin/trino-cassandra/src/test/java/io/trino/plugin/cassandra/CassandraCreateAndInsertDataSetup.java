@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
@@ -49,13 +50,15 @@ public class CassandraCreateAndInsertDataSetup
     private final String tableNamePrefix;
     private final String keyspaceName;
     private final CassandraServer cassandraServer;
+    private final QueryRunner queryRunner;
 
-    public CassandraCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, CassandraServer cassandraServer)
+    public CassandraCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, CassandraServer cassandraServer, QueryRunner queryRunner)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.tableNamePrefix = requireNonNull(tableNamePrefix, "tableNamePrefix is null");
         keyspaceName = verifyTableNamePrefixAndGetKeyspaceName(tableNamePrefix);
         this.cassandraServer = requireNonNull(cassandraServer, "cassandraServer is null");
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
     }
 
     private static String verifyTableNamePrefixAndGetKeyspaceName(String tableNamePrefix)
@@ -105,9 +108,8 @@ public class CassandraCreateAndInsertDataSetup
 
     private void waitForTableVisibility(String keyspaceName, String tableName)
     {
-        assertEventually(() -> assertThat(cassandraServer.getSession()
-                .execute(format("SELECT table_name FROM system_schema.tables WHERE keyspace_name = '%s' AND table_name = '%s'", keyspaceName, tableName)).all())
-                .isNotEmpty());
+        assertEventually(() -> assertThat(queryRunner.execute(format("SELECT * FROM %s.%s", keyspaceName, tableName)).getRowCount())
+                .isEqualTo(1));
     }
 
     private TestTable createTestTable(List<ColumnSetup> inputs)

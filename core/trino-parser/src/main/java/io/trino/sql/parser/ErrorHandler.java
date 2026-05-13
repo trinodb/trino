@@ -212,8 +212,8 @@ class ErrorHandler
             while (!endTokens.isEmpty() && context.invokingState != -1) {
                 ATNState nextState = ((RuleTransition) atn.states.get(context.invokingState).transition(0)).followState;
                 endTokens = endTokens.stream()
-                    .flatMap(endToken -> process(new ParsingState(nextState, endToken, false, parser), 0).stream())
-                    .collect(Collectors.toSet());
+                        .flatMap(endToken -> process(new ParsingState(nextState, endToken, false, parser), 0).stream())
+                        .collect(Collectors.toSet());
                 context = context.parent;
             }
 

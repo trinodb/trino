@@ -32,6 +32,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -47,6 +49,9 @@ public class TestHdfsFileSystemHdfs
     private HdfsEnvironment hdfsEnvironment;
     private HdfsContext hdfsContext;
     private TrinoFileSystem fileSystem;
+
+    @RegisterExtension
+    final AfterTestExecutionCallback hadoopDiagnostics = Hadoop.printDiagnosticsOnFailure(() -> hadoop);
 
     @BeforeAll
     void beforeAll()

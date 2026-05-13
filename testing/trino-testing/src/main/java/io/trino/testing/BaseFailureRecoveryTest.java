@@ -670,12 +670,12 @@ public abstract class BaseFailureRecoveryTest
 
         public FailureRecoveryAssert finishesSuccessfully()
         {
-            return finishesSuccessfully(queryId -> {});
+            return finishesSuccessfully(_ -> {});
         }
 
         public FailureRecoveryAssert finishesSuccessfullyWithoutTaskFailures()
         {
-            return finishesSuccessfully(queryId -> {}, false);
+            return finishesSuccessfully(_ -> {}, false);
         }
 
         private FailureRecoveryAssert finishesSuccessfully(Consumer<QueryId> queryAssertion)
@@ -964,7 +964,7 @@ public abstract class BaseFailureRecoveryTest
     protected Object[] parallelTest(String name, Runnable runnable)
     {
         return new Object[] {
-                new ParallelTestRunnable(name, runnable)
+                new ParallelTestRunnable(name, runnable),
         };
     }
 

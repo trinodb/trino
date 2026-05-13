@@ -584,8 +584,7 @@ public class MongoSession
     {
         for (MongoColumnHandle existingColumn : existingColumns) {
             List<String> existingColumnDereferenceNames = existingColumn.dereferenceNames();
-            verify(
-                    column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
+            verify(column.dereferenceNames().size() >= existingColumnDereferenceNames.size(),
                     "Selected column's dereference size must be greater than or equal to the existing column's dereference size");
             if (existingColumn.baseName().equals(column.baseName())
                     && column.dereferenceNames().subList(0, existingColumnDereferenceNames.size()).equals(existingColumnDereferenceNames)) {
@@ -908,7 +907,8 @@ public class MongoSession
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
                 metadata.append(FIELDS_TYPE_KEY, fieldType.get().getDisplayName());
-                metadata.append(FIELDS_HIDDEN_KEY,
+                metadata.append(
+                        FIELDS_HIDDEN_KEY,
                         key.equals("_id") && fieldType.get().equals(OBJECT_ID));
 
                 builder.add(metadata);

@@ -42,7 +42,8 @@ public final class Split
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         checkArgument(connectorSplit.getAffinityKey().isEmpty() || connectorSplit.isRemotelyAccessible(),
-                "Split with an affinity key must be remotely accessible: %s", connectorSplit);
+                "Split with an affinity key must be remotely accessible: %s",
+                connectorSplit);
     }
 
     @JsonProperty

@@ -214,9 +214,9 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
                 session,
                 subject,
                 schemaRegistryClient.parseSchema(
-                        schemaMetadata.getSchemaType(),
-                        schemaMetadata.getSchema(),
-                        schemaMetadata.getReferences())
+                                schemaMetadata.getSchemaType(),
+                                schemaMetadata.getSchema(),
+                                schemaMetadata.getReferences())
                         .orElseThrow());
     }
 

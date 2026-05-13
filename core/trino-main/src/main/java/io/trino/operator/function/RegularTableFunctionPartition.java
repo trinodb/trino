@@ -85,7 +85,6 @@ public class RegularTableFunctionPartition
             List<List<Integer>> requiredChannels,
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications)
-
     {
         checkArgument(pagesIndex.getPositionCount() != 0, "PagesIndex is empty for regular table function partition");
         this.pagesIndex = pagesIndex;
@@ -163,9 +162,9 @@ public class RegularTableFunctionPartition
      * to the declared source semantics (set or rows).
      *
      * @return A List containing:
-     * - Optional Page for every source that is not fully consumed
-     * - Optional.empty() for every source that is fully consumed
-     * or null if all sources are fully consumed.
+     *         - Optional Page for every source that is not fully consumed
+     *         - Optional.empty() for every source that is fully consumed
+     *         or null if all sources are fully consumed.
      */
     private List<Optional<Page>> prepareInputPages()
     {

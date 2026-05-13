@@ -28,7 +28,7 @@ public interface BucketFunction
      * Note the tuple values may be null.
      *
      * @param buckets the array to hold the buckets of length at least {@code length}.
-     * Value at index {@code i} should hold the bucket for position {@code positionOffset + i}.
+     *         Value at index {@code i} should hold the bucket for position {@code positionOffset + i}.
      */
     default void getBuckets(Page page, int positionOffset, int length, int[] buckets)
     {

@@ -117,7 +117,9 @@ public class TestHiveGlueMetastoreAccessOperations
                     .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                     .setCatalogSessionProperty("hive", "statistics_enabled", "false")
                     .build();
-            assertInvocations(insertOverwriteSession, "INSERT INTO " + tableName + " VALUES (3, 1)",
+            assertInvocations(
+                    insertOverwriteSession,
+                    "INSERT INTO " + tableName + " VALUES (3, 1)",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .add(DELETE_COLUMN_STATISTICS_FOR_PARTITION)
                             .add(GET_COLUMN_STATISTICS_FOR_PARTITION)
@@ -582,7 +584,8 @@ public class TestHiveGlueMetastoreAccessOperations
     }
 
     private void assertInvocations(
-            Session session, @Language("SQL") String query,
+            Session session,
+            @Language("SQL") String query,
             Multiset<GlueMetastoreMethod> determinedExpectedGlueInvocations,
             Multiset<GlueMetastoreMethod> possibleExpectedGlueInvocations)
     {

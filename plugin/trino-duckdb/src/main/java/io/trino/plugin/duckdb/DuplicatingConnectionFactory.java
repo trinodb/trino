@@ -44,8 +44,7 @@ public class DuplicatingConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        verify(
-                credentialProvider.getConnectionUser(Optional.ofNullable(session.getIdentity())).isEmpty(),
+        verify(credentialProvider.getConnectionUser(Optional.ofNullable(session.getIdentity())).isEmpty(),
                 "DuckDB does not support user authentication");
 
         if (currentConnection.get() == null) {

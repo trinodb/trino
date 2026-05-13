@@ -313,11 +313,11 @@ public final class LambdaBytecodeGenerator
                 parameters);
 
         body.append(
-                generateLambda(
-                        generatorContext,
-                        ImmutableList.of(),
-                        compiledLambdaMap.get(lambdaExpression),
-                        lambdaInterface))
+                        generateLambda(
+                                generatorContext,
+                                ImmutableList.of(),
+                                compiledLambdaMap.get(lambdaExpression),
+                                lambdaInterface))
                 .retObject();
 
         // constructor

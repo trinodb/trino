@@ -299,9 +299,9 @@ public class Analysis
                 .map(field -> new ColumnLineageInfo(
                         field.getName().orElse(""),
                         getSourceColumns(field)
-                            .stream()
-                            .map(SourceColumn::getColumnDetail)
-                            .collect(toImmutableSet())))
+                                .stream()
+                                .map(SourceColumn::getColumnDetail)
+                                .collect(toImmutableSet())))
                 .collect(toImmutableList());
         return lineageInfo.isEmpty() ? Optional.empty() : Optional.of(lineageInfo);
     }
@@ -1730,15 +1730,15 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream),
-                    rollups.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream),
-                    ordinarySets.stream()
-                            .flatMap(Collection::stream)
-                            .flatMap(Collection::stream))
+                            cubes.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream),
+                            rollups.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream),
+                            ordinarySets.stream()
+                                    .flatMap(Collection::stream)
+                                    .flatMap(Collection::stream))
                     .collect(toImmutableSet());
         }
     }

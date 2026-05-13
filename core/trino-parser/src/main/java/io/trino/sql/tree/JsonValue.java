@@ -66,7 +66,7 @@ public class JsonValue
     {
         NULL, // default
         ERROR,
-        DEFAULT
+        DEFAULT,
     }
 
     public JsonPathInvocation getJsonPathInvocation()

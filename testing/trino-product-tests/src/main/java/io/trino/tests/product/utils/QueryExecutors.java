@@ -92,7 +92,8 @@ public final class QueryExecutors
 
     public static QueryExecutor onSpark()
     {
-        return new QueryExecutor() {
+        return new QueryExecutor()
+        {
             private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "spark");
 
             @Override
@@ -126,16 +127,9 @@ public final class QueryExecutors
 
         RetryPolicy<QueryResult> databricksRetryPolicy = RetryPolicy.<QueryResult>builder()
                 // Retry on 503 may lead to unexpected test results: https://github.com/trinodb/trino/pull/14392#issuecomment-1264041917
-                .handleIf(throwable -> {
-                    String stackTrace = Throwables.getStackTraceAsString(throwable);
-                    // Don't retry if the error occurred during statement close — the statement already executed successfully
-                    if (stackTrace.contains("closeStatement") || stackTrace.contains("CloseOperation")) {
-                        return false;
-                    }
-                    return stackTrace.contains("HTTP Response code: 502") || stackTrace.contains("The current cluster state is Pending") || stackTrace.contains("The current cluster state is Terminated");
-                })
+                .handleIf(QueryExecutors::isDatabricksTransientFailure)
                 .withDelay(Duration.of(30, ChronoUnit.SECONDS))
-                .withMaxRetries(40)
+                .withMaxRetries(60)
                 .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
                 .build();
 
@@ -163,6 +157,20 @@ public final class QueryExecutors
                 delegate.close();
             }
         };
+    }
+
+    static boolean isDatabricksTransientFailure(Throwable throwable)
+    {
+        String stackTrace = Throwables.getStackTraceAsString(throwable);
+        // Don't retry if the error occurred during statement close — the statement already executed successfully
+        if (stackTrace.contains("closeStatement") || stackTrace.contains("CloseOperation")) {
+            return false;
+        }
+        return stackTrace.contains("HTTP Response code: 502") ||
+                stackTrace.contains("The current cluster state is Pending") ||
+                stackTrace.contains("The current cluster state is Terminated") ||
+                stackTrace.contains("The cluster is temporarily unavailable") ||
+                stackTrace.contains("AWSCatalogMetastoreClient.isCompatibleWith");
     }
 
     public static QueryExecutor onHudi()

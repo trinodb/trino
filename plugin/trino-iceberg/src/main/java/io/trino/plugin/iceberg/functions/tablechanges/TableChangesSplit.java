@@ -35,7 +35,8 @@ public record TableChangesSplit(
         IcebergFileFormat fileFormat,
         String partitionSpecJson,
         String partitionDataJson,
-        SplitWeight splitWeight) implements ConnectorSplit
+        SplitWeight splitWeight)
+        implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
 

@@ -237,7 +237,8 @@ class TestResultRowsDecoder
 
     private static SegmentLoader loaderFromStream(InputStream stream)
     {
-        return new SegmentLoader() {
+        return new SegmentLoader()
+        {
             @Override
             public InputStream load(SpooledSegment segment)
             {

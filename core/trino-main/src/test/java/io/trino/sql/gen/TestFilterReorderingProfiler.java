@@ -81,6 +81,19 @@ final class TestFilterReorderingProfiler
     }
 
     @Test
+    void testUnmeasuredFilterStaysInPlace()
+    {
+        // AND short-circuits when activePositions becomes empty, so a later
+        // sub-filter may never have addFilterMetrics called. Such a filter must
+        // not be promoted to the front purely because its score is 0.
+        FilterReorderingProfiler profiler = new FilterReorderingProfiler(2, true);
+        profiler.addFilterMetrics(0, 1_000_000, 8192);
+
+        profiler.reorderFilters(8192);
+        assertThat(profiler.getFilterOrder()).containsExactly(0, 1);
+    }
+
+    @Test
     void testMinSampleSize()
     {
         FilterReorderingProfiler profiler = new FilterReorderingProfiler(3, true);

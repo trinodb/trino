@@ -19,9 +19,11 @@ import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 
+import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
@@ -67,12 +69,17 @@ public final class TestingRedshiftServer
 
     public static boolean isExceptionRecoverable(Throwable exception)
     {
-        return exception != null && (
-                exception.getMessage().matches(".* concurrent transaction.*")
-                        || exception.getMessage().matches(".*deadlock detected.*")
-                        || exception.getMessage().matches(".*could not open relation with OID.*")
-                        || exception.getMessage().matches(".*The connection attempt failed.*")
-                        || getCausalChain(exception).stream()
-                        .anyMatch(e -> e instanceof SocketTimeoutException));
+        if (exception == null) {
+            return false;
+        }
+
+        String message = nullToEmpty(exception.getMessage());
+        return message.matches(".* concurrent transaction.*")
+                || message.matches(".*deadlock detected.*")
+                || message.matches(".*could not open relation with OID.*")
+                || message.matches(".*The connection attempt failed.*")
+                || message.matches(".*Connection to .* refused.*")
+                || getCausalChain(exception).stream()
+                .anyMatch(e -> e instanceof ConnectException || e instanceof SocketTimeoutException);
     }
 }

@@ -162,7 +162,9 @@ public final class Statistics
     private static List<String> getPartitionValues(ComputedStatistics statistics, List<String> partitionColumns, List<Type> partitionColumnTypes)
     {
         checkArgument(statistics.getGroupingColumns().equals(partitionColumns),
-                "Unexpected grouping. Partition columns: %s. Grouping columns: %s", partitionColumns, statistics.getGroupingColumns());
+                "Unexpected grouping. Partition columns: %s. Grouping columns: %s",
+                partitionColumns,
+                statistics.getGroupingColumns());
         Page partitionColumnsPage = new Page(1, statistics.getGroupingValues().toArray(new Block[] {}));
         return createPartitionValues(partitionColumnTypes, partitionColumnsPage, 0);
     }

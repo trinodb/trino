@@ -167,7 +167,7 @@ class ColumnStatisticsValidation
     /**
      * @param valuesCount Count of values for a column field, including nulls, empty and defined values.
      * @param nonLeafValuesCount Count of non-leaf values for a column field, this is nulls count for primitives
-     * and count of values below the max definition level for nested types
+     *         and count of values below the max definition level for nested types
      */
     record ColumnStatistics(long valuesCount, long nonLeafValuesCount)
     {
