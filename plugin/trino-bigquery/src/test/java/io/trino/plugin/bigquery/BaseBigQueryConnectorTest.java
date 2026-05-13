@@ -384,6 +384,11 @@ public abstract class BaseBigQueryConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
+    @Disabled // Type mapping is tested by BaseBigQueryTypeMapping. Disable this test to avoid the API rate limit.
+    @Override
+    public void testDataMappingSmokeTest() {}
+
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
