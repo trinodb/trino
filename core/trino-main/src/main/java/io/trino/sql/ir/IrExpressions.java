@@ -89,6 +89,56 @@ public final class IrExpressions
         return expression instanceof Constant constant && constant.value() == null;
     }
 
+    public static boolean mayBeNull(PlannerContext plannerContext, Expression expression)
+    {
+        return switch (expression) {
+            // These expressions never return null
+            case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
+
+            // These expressions may return null based on their operands
+            case Between e -> mayBeNull(plannerContext, e.value()) || mayBeNull(plannerContext, e.min()) || mayBeNull(plannerContext, e.max());
+            case Call e -> mayBeNull(plannerContext, e.function(), e.arguments());
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult())) ||
+                    mayBeNull(plannerContext, e.defaultValue());
+            case Cast e -> mayBeNull(plannerContext, e);
+            case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, operand));
+            case Comparison e -> e.operator() != Comparison.Operator.IDENTICAL && (mayBeNull(plannerContext, e.left()) || mayBeNull(plannerContext, e.right()));
+            case In e -> mayBeNull(plannerContext, e.value()) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, value));
+            case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, term));
+            case Switch e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult())) ||
+                    mayBeNull(plannerContext, e.defaultValue());
+
+            // These expressions may return null based on their own semantics
+            case Constant e -> e.value() == null;
+            case FieldReference _, NullIf _, Reference _ -> true;
+        };
+    }
+
+    private static boolean mayBeNull(PlannerContext plannerContext, Cast cast)
+    {
+        if (cast.expression().type().equals(cast.type())) {
+            return mayBeNull(plannerContext, cast.expression());
+        }
+
+        ResolvedFunction coercion = plannerContext.getMetadata().getCoercion(cast.expression().type(), cast.type());
+        return mayBeNull(plannerContext, coercion, ImmutableList.of(cast.expression()));
+    }
+
+    private static boolean mayBeNull(PlannerContext plannerContext, ResolvedFunction function, List<Expression> arguments)
+    {
+        if (function.functionNullability().isReturnNullable()) {
+            return true;
+        }
+
+        for (int i = 0; i < arguments.size(); i++) {
+            if (!function.functionNullability().isArgumentNullable(i) && mayBeNull(plannerContext, arguments.get(i))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)
     {
         return switch (expression) {
