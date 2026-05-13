@@ -84,16 +84,13 @@ public class HiveHadoop
     {
         super.start();
         log.info("Hive container started with addresses for metastore: %s", getHiveMetastoreEndpoint());
+        assertEventually(new Duration(2, MINUTES), new Duration(1, SECONDS), () -> runOnHive("SELECT 1"));
+        log.info("Hive server is available");
     }
 
     public String runOnHive(String query)
     {
         return executeInContainerFailOnError("beeline", "-u", "jdbc:hive2://localhost:10000/default", "-n", "hive", "-e", query);
-    }
-
-    public void waitForHiveServer()
-    {
-        assertEventually(new Duration(2, MINUTES), new Duration(1, SECONDS), () -> runOnHive("SELECT 1"));
     }
 
     public String runOnMetastore(String query)
