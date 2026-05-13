@@ -53,6 +53,12 @@ final class TestElasticsearchComplexTypePredicatePushDown
         return ElasticsearchQueryRunner.builder(elasticsearch).build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     void testRowTypeOnlyNullsRowGroupPruning()
             throws IOException

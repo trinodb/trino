@@ -111,6 +111,12 @@ public abstract class BaseElasticsearchConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     /**
      * This method overrides the default values used for the data provider
      * of the test {@link AbstractTestQueries#testLargeIn()} by taking

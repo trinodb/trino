@@ -4352,19 +4352,26 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validTargetSchemaName = baseSchemaName + "z".repeat(maxLength - baseSchemaName.length());
-        assertUpdate("ALTER SCHEMA " + quoted(sourceSchemaName) + " RENAME TO " + quoted(validTargetSchemaName));
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
-        assertUpdate("DROP SCHEMA " + quoted(validTargetSchemaName));
+        try {
+            assertUpdate(createSchemaSql(sourceSchemaName));
+            assertUpdate("ALTER SCHEMA " + quoted(sourceSchemaName) + " RENAME TO " + quoted(validTargetSchemaName));
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(validTargetSchemaName);
+            assertUpdate("DROP SCHEMA " + quoted(validTargetSchemaName));
 
             if (maxSchemaNameLength().isEmpty()) {
                 return;
             }
 
-        assertUpdate(createSchemaSql(sourceSchemaName));
-        String invalidTargetSchemaName = validTargetSchemaName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + quoted(sourceSchemaName) + " RENAME TO " + quoted(invalidTargetSchemaName)))
-                .satisfies(this::verifySchemaNameLengthFailurePermissible);
-        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+            assertUpdate(createSchemaSql(sourceSchemaName));
+            String invalidTargetSchemaName = validTargetSchemaName + "z";
+            assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA " + quoted(sourceSchemaName) + " RENAME TO " + quoted(invalidTargetSchemaName)))
+                    .satisfies(this::verifySchemaNameLengthFailurePermissible);
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(invalidTargetSchemaName);
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + quoted(sourceSchemaName));
+            assertUpdate("DROP SCHEMA IF EXISTS " + quoted(validTargetSchemaName));
+        }
     }
 
     protected OptionalInt maxSchemaNameLength()

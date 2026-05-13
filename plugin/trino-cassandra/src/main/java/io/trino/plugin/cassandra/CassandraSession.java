@@ -301,7 +301,7 @@ public class CassandraSession
                     throw new TrinoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
-                                    caseInsensitiveSchemaName,
+                                    caseSensitiveSchemaName,
                                     result.getName(),
                                     keyspace.getName()));
                 }
@@ -353,8 +353,8 @@ public class CassandraSession
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName,
-                                lowercaseNameToColumnMap.get(lowercaseName).getName(),
+                                columnName,
+                                columnNames.get(columnName).getName(),
                                 column.getName()));
             }
             columnNames.put(columnName, column);

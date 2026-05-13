@@ -56,7 +56,6 @@ import java.util.stream.Collectors;
 import static io.trino.plugin.redis.RedisSplit.toRedisDataType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -91,7 +90,7 @@ public class RedisMetadata
     @Override
     public String canonicalize(String value)
     {
-        return value.toLowerCase(ENGLISH);
+        return value;
     }
 
     @Override
