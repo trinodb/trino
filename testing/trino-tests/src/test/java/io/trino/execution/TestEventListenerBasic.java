@@ -1542,14 +1542,14 @@ public class TestEventListenerBasic
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "82",
+                                "74",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
                                 ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 90., 0., 0.)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "143",
+                                        "131",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",
@@ -1559,7 +1559,7 @@ public class TestEventListenerBasic
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10., 90., 0., 0., 0.)),
                                         ImmutableList.of(new JsonRenderedNode(
-                                                "114",
+                                                "102",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
                                                 ImmutableList.of(new Symbol(DOUBLE, "symbol_1")),
@@ -1567,7 +1567,7 @@ public class TestEventListenerBasic
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
                 "1", new JsonRenderedNode(
-                        "113",
+                        "101",
                         "LimitPartial",
                         ImmutableMap.of(
                                 "count", "10",
