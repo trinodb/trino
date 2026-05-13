@@ -98,7 +98,7 @@ public class TestJoin
         // The issue happens because ReorderJoins evaluates candidates for equality inference
         // based on one form of the join criteria (i.e., CAST(...) = CASE ... END)) and then
         // attempts to make reformulate the join criteria based on another form of the expression
-        // with the terms flipped (i.e., CASE ... END = CAST(...)). Because NullabilityAnalyzer.mayReturnNullOnNonNullInput
+        // with the terms flipped (i.e., CASE ... END = CAST(...)). Because IrExpressions.mayReturnNullOnNonNullInput
         // could return an inconsistent result for both forms, the expression ended being dropped
         // from the join clause.
         assertThat(assertions.query(

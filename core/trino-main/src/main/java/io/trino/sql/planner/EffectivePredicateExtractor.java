@@ -576,11 +576,11 @@ public class EffectivePredicateExtractor
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = new EqualityInference(expression);
+            EqualityInference equalityInference = new EqualityInference(plannerContext, expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
-            EqualityInference.nonInferrableConjuncts(expression).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(plannerContext, expression).forEach(conjunct -> {
                 if (DeterminismEvaluator.isDeterministic(conjunct)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
