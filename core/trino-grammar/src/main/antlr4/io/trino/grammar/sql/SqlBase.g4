@@ -839,9 +839,13 @@ mergeCase
         UPDATE SET targets+=identifier EQ values+=expression
           (',' targets+=identifier EQ values+=expression)*                  #mergeUpdate
     | WHEN MATCHED (AND condition=expression)? THEN DELETE                  #mergeDelete
-    | WHEN NOT MATCHED (AND condition=expression)? THEN
+    | WHEN NOT MATCHED (BY TARGET)? (AND condition=expression)? THEN
         INSERT ('(' targets+=identifier (',' targets+=identifier)* ')')?
         VALUES '(' values+=expression (',' values+=expression)* ')'         #mergeInsert
+    | WHEN NOT MATCHED BY SOURCE (AND condition=expression)? THEN
+        UPDATE SET targets+=identifier EQ values+=expression
+          (',' targets+=identifier EQ values+=expression)*                  #mergeUpdateBySource
+    | WHEN NOT MATCHED BY SOURCE (AND condition=expression)? THEN DELETE    #mergeDeleteBySource
     ;
 
 over
@@ -1088,8 +1092,8 @@ nonReserved
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
-    | SHOW | SIMPLE | SOME | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | SHOW | SIMPLE | SOME | SOURCE | STALE | START | STATS | SUBSET | SUBSTRING | SYMMETRIC | SYSTEM
+    | TABLES | TABLESAMPLE | TARGET | TEXT | TEXT_STRING | TIES | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNCONDITIONAL | UNIQUE | UNKNOWN | UNMATCHED | UNTIL | UPDATE | USE | USER | UTF16 | UTF32 | UTF8
     | VALIDATE | VALUE | VERBOSE | VERSION | VIEW
     | WHILE | WINDOW | WITHIN | WITHOUT | WORK | WRAPPER | WRITE
@@ -1348,6 +1352,7 @@ SETS: 'SETS';
 SHOW: 'SHOW';
 SIMPLE: 'SIMPLE';
 SOME: 'SOME';
+SOURCE: 'SOURCE';
 STALE: 'STALE';
 START: 'START';
 STATS: 'STATS';
@@ -1358,6 +1363,7 @@ SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
+TARGET: 'TARGET';
 TEXT: 'TEXT';
 TEXT_STRING: 'STRING';
 THEN: 'THEN';
