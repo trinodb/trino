@@ -499,19 +499,13 @@ public class PlanOptimizers
                         .withName("SimplifyExpressionsBeforeUnalias"),
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
-                        "RemoveIdentityProjections",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new IterativeOptimizer(
                         "MergeSetOperations",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
                                 new MergeUnion(),
                                 new MergeIntersect(),
                                 new MergeExcept(),
