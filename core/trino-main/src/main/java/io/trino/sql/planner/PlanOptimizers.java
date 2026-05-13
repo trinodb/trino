@@ -701,12 +701,19 @@ public class PlanOptimizers
                                 // It also is run before MultipleDistinctAggregationToMarkDistinct to take precedence f enabled
                                 new ImplementFilteredAggregations(), // DistinctAggregationToGroupBy will add filters if fired
                                 new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator, metadata))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
-                inlineProjections
-                        .withName("InlineProjectionsAfterDistinctAggregations"),
-                simplifyOptimizer // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
-                        .withName("SimplifyExpressionsAfterDistinctAggregations"),
-                pushProjectionIntoTableScanOptimizer
-                        .withName("PushProjectionIntoTableScanAfterDistinctRewrite"),
+                new IterativeOptimizer(
+                        "Phase3",
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new InlineProjections())
+                                .add(new RemoveRedundantIdentityProjections())
+                                .addAll(simplifyOptimizerRules)
+                                .addAll(projectionPushdownRules)
+                                .add(new PushProjectionIntoTableScan(plannerContext, scalarStatsCalculator))
+                                .build()),
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
                 // pushdown into the connectors. We invoke PredicatePushdown and PushPredicateIntoTableScan after this
                 // to leverage predicate pushdown on projected columns.
