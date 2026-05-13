@@ -791,7 +791,7 @@ public class PlanOptimizers
                 // to leverage predicate pushdown on projected columns.
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)),
                 new IterativeOptimizer(
-                        "SimplifyAfterProjectionPushdown",
+                        "Phase5",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -799,16 +799,9 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, false))
+                                .addAll(columnPruningRules)
+                                .add(new RemoveRedundantIdentityProjections())
                                 .build()),
-                columnPruningOptimizer
-                        .withName("PruneOutputsBeforeJoinReordering"),
-                new IterativeOptimizer(
-                        "CleanupBeforeJoinReordering",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
