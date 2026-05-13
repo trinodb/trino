@@ -59,6 +59,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DataType;
@@ -1973,6 +1974,7 @@ public class Analysis
         private final Optional<PartitioningHandle> updateLayout;
         private final Scope targetTableScope;
         private final Scope joinScope;
+        private final JoinType requiredJoinType;
 
         public MergeAnalysis(
                 Table targetTable,
@@ -1989,7 +1991,8 @@ public class Analysis
                 Optional<TableLayout> insertLayout,
                 Optional<PartitioningHandle> updateLayout,
                 Scope targetTableScope,
-                Scope joinScope)
+                Scope joinScope,
+                JoinType requiredJoinType)
         {
             this.targetTable = requireNonNull(targetTable, "targetTable is null");
             this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
@@ -2006,6 +2009,7 @@ public class Analysis
             this.insertPartitioningArgumentIndexes = requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null");
             this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
             this.joinScope = requireNonNull(joinScope, "joinScope is null");
+            this.requiredJoinType = requireNonNull(requiredJoinType, "requiredJoinType is null");
         }
 
         public Table getTargetTable()
@@ -2081,6 +2085,11 @@ public class Analysis
         public Scope getTargetTableScope()
         {
             return targetTableScope;
+        }
+
+        public JoinType getRequiredJoinType()
+        {
+            return requiredJoinType;
         }
     }
 

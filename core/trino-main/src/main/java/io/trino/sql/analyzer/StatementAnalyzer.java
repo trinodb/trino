@@ -126,6 +126,7 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -197,6 +198,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -428,6 +430,8 @@ import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
 import static io.trino.sql.tree.Join.Type.RIGHT;
+import static io.trino.sql.tree.MergeCaseKind.NOT_MATCHED_BY_SOURCE;
+import static io.trino.sql.tree.MergeCaseKind.NOT_MATCHED_BY_TARGET;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
@@ -906,7 +910,8 @@ class StatementAnalyzer
             analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, Optional.of(handle), tableName, node.getTable().getBranch().map(Identifier::getValue), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
+            // DELETE has no source relation; RIGHT matches the conventional join type used by the MERGE planner
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of(), JoinType.RIGHT);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3742,7 +3747,8 @@ class StatementAnalyzer
             ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnsBuilder = ImmutableMultimap.builder();
             // Update only have one update case number which default is 0
             updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
+            // UPDATE has no source relation; RIGHT matches the conventional join type used by the MERGE planner
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build(), JoinType.RIGHT);
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3850,6 +3856,35 @@ class StatementAnalyzer
             }
             analysis.recordSubqueries(merge, predicateAnalysis);
 
+            // Defense-in-depth: grammar already prevents this, but verify at the semantic level too
+            for (MergeCase mergeCase : merge.getMergeCases()) {
+                if (mergeCase instanceof MergeInsert && mergeCase.getMergeCaseKind() == NOT_MATCHED_BY_SOURCE) {
+                    throw semanticException(
+                            NOT_SUPPORTED,
+                            mergeCase,
+                            "INSERT action is not supported in WHEN NOT MATCHED BY SOURCE clause");
+                }
+            }
+
+            // Derive the join type required to evaluate all WHEN clauses:
+            //   Only MATCHED                              → RIGHT OUTER (preserves existing behavior)
+            //   BY TARGET only, or MATCHED + BY TARGET    → RIGHT OUTER
+            //   BY SOURCE only, or MATCHED + BY SOURCE    → LEFT OUTER
+            //   BY TARGET + BY SOURCE (any combination)  → FULL OUTER
+            Set<MergeCaseKind> presentKinds = merge.getMergeCases().stream()
+                    .map(MergeCase::getMergeCaseKind)
+                    .collect(toImmutableSet());
+            JoinType requiredJoinType;
+            if (presentKinds.contains(NOT_MATCHED_BY_TARGET) && presentKinds.contains(NOT_MATCHED_BY_SOURCE)) {
+                requiredJoinType = JoinType.FULL;
+            }
+            else if (presentKinds.contains(NOT_MATCHED_BY_SOURCE)) {
+                requiredJoinType = JoinType.LEFT;
+            }
+            else {
+                requiredJoinType = JoinType.RIGHT;
+            }
+
             for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
                 MergeCase operation = merge.getMergeCases().get(caseCounter);
                 List<String> caseColumnNames = lowercaseIdentifierList(operation.getSetColumns());
@@ -3875,6 +3910,9 @@ class StatementAnalyzer
                 if (operation.getExpression().isPresent()) {
                     Expression predicate = operation.getExpression().get();
                     analysis.recordSubqueries(merge, analyzeExpression(predicate, joinScope));
+                    if (operation.getMergeCaseKind() == NOT_MATCHED_BY_SOURCE) {
+                        validateNoSourceColumnReferences(predicate, targetTableScope);
+                    }
                     Type predicateType = analysis.getType(predicate);
 
                     if (!predicateType.equals(BOOLEAN)) {
@@ -3892,6 +3930,9 @@ class StatementAnalyzer
                     String columnName = caseColumnNames.get(index);
                     Expression expression = setExpressions.get(index);
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, joinScope);
+                    if (operation.getMergeCaseKind() == NOT_MATCHED_BY_SOURCE) {
+                        validateNoSourceColumnReferences(expression, targetTableScope);
+                    }
                     analysis.recordSubqueries(merge, expressionAnalysis);
                     Type targetType = requireNonNull(dataColumnTypes.get(columnName));
                     setColumnTypesBuilder.add(targetType);
@@ -3941,7 +3982,7 @@ class StatementAnalyzer
                 }
             }
 
-            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build());
+            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build(), requiredJoinType);
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }
@@ -3953,7 +3994,8 @@ class StatementAnalyzer
                 Scope tableScope,
                 Scope joinScope,
                 List<List<ColumnHandle>> mergeCaseColumns,
-                Multimap<Integer, ColumnHandle> updateCaseColumns)
+                Multimap<Integer, ColumnHandle> updateCaseColumns,
+                JoinType requiredJoinType)
         {
             Optional<PartitioningHandle> updateLayout = metadata.getUpdateLayout(session, handle);
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
@@ -4044,7 +4086,8 @@ class StatementAnalyzer
                     insertLayout,
                     updateLayout,
                     tableScope,
-                    joinScope));
+                    joinScope,
+                    requiredJoinType));
         }
 
         private static Table getMergeTargetTable(Relation relation)
@@ -4074,6 +4117,36 @@ class StatementAnalyzer
                                 .collect(toImmutableList()));
             }
             return mergeCaseColumnsListsBuilder.build();
+        }
+
+        /**
+         * Validates that an expression in a WHEN NOT MATCHED BY SOURCE clause does not
+         * reference any column from the source relation. Source columns are NULL for
+         * BY SOURCE rows, so referencing them is a semantic error.
+         *
+         * <p>{@code analysis.getColumnReferenceFields()} returns all column references in the
+         * entire statement; {@code preOrder(expression)} constrains the walk to the sub-tree of
+         * the expression being validated, so only column references within that expression are
+         * checked. The join scope lays out fields as [target fields | source fields], so any
+         * {@code relationFieldIndex >= targetFieldCount} identifies a source column.
+         */
+        private void validateNoSourceColumnReferences(Expression expression, Scope targetTableScope)
+        {
+            int targetFieldCount = targetTableScope.getRelationType().getAllFieldCount();
+            Map<NodeRef<Expression>, ResolvedField> columnRefs = analysis.getColumnReferenceFields();
+            preOrder(expression)
+                    .filter(Expression.class::isInstance)
+                    .map(Expression.class::cast)
+                    .filter(e -> columnRefs.containsKey(NodeRef.of(e)))
+                    .forEach(e -> {
+                        ResolvedField resolvedField = columnRefs.get(NodeRef.of(e));
+                        if (resolvedField.getRelationFieldIndex() >= targetFieldCount) {
+                            throw semanticException(
+                                    INVALID_COLUMN_REFERENCE,
+                                    e,
+                                    "Columns from the source relation cannot be referenced in a WHEN NOT MATCHED BY SOURCE clause");
+                        }
+                    });
         }
 
         private List<String> lowercaseIdentifierList(Collection<Identifier> identifiers)
