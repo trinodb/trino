@@ -116,7 +116,7 @@ public class IrExpressionOptimizer
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),
                 new FlattenCoalesce(),
-                new RemoveRedundantCoalesceArguments(),
+                new RemoveRedundantCoalesceArguments(context),
                 new EvaluateLogical(),
                 new FlattenLogical(),
                 new RemoveRedundantLogicalTerms(),

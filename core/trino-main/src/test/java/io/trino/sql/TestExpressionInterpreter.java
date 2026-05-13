@@ -741,7 +741,7 @@ public class TestExpressionInterpreter
                 new Constant(INTEGER, 6L));
         assertOptimizedMatches(
                 new Coalesce(new Call(RANDOM, ImmutableList.of()), new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)),
-                new Coalesce(new Call(RANDOM, ImmutableList.of()), new Call(RANDOM, ImmutableList.of()), new Constant(DOUBLE, 5.0)));
+                new Call(RANDOM, ImmutableList.of()));
 
         assertOptimizedEquals(
                 new Coalesce(new Constant(UNKNOWN, null), new Coalesce(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
