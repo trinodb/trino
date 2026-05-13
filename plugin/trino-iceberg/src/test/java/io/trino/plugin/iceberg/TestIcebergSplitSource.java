@@ -132,7 +132,8 @@ public class TestIcebergSplitSource
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
 
         return queryRunner;
     }

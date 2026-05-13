@@ -255,7 +255,8 @@ public final class IcebergTestUtils
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
     }
 
     public static Map<String, Long> getMetadataFileAndUpdatedMillis(TrinoFileSystem trinoFileSystem, String tableLocation)

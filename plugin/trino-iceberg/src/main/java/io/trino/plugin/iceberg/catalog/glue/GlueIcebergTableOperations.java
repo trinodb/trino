@@ -162,12 +162,19 @@ public class GlueIcebergTableOperations
     }
 
     @Override
-    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    protected void commitMaterializedView(TableMetadata base, TableMetadata metadata)
     {
         commitTableUpdate(
                 getTable(database, tableNameFrom(tableName), false),
                 metadata,
                 (table, newMetadataLocation) -> {
+                    if (materializedViewCommitData.isPresent()) {
+                        table = table.toBuilder()
+                                .viewOriginalText(materializedViewCommitData.get().viewOriginalText())
+                                .parameters(materializedViewCommitData.get().parameters())
+                                .build();
+                    }
+
                     Map<String, String> parameters = new HashMap<>(table.parameters());
                     parameters.put(METADATA_LOCATION_PROP, newMetadataLocation);
                     parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
