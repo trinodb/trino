@@ -63,6 +63,17 @@ public final class TestingSqlServer
                     event.getLastException().getMessage()))
             .build();
 
+    private static final RetryPolicy<Void> READINESS_RETRY_POLICY = RetryPolicy.<Void>builder()
+            .withBackoff(1, 5, ChronoUnit.SECONDS)
+            .withMaxRetries(20)
+            .handleIf(throwable -> getCausalChain(throwable).stream()
+                    .anyMatch(SQLException.class::isInstance))
+            .onRetry(event -> log.warn(
+                    "SQL Server readiness check failed on attempt %s, will retry. Exception: %s",
+                    event.getAttemptCount(),
+                    event.getLastException().getMessage()))
+            .build();
+
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
     public static final String DEFAULT_VERSION = "2019-CU28-ubuntu-20.04";
     public static final String LATEST_VERSION = "2025-CU3-ubuntu-24.04";
@@ -144,6 +155,7 @@ public final class TestingSqlServer
         try {
             Closeable cleanup = startOrReuse(container);
             try {
+                waitUntilReady(container);
                 setUpDatabase(sqlExecutorForContainer(container), databaseName, databaseSetUp);
             }
             catch (Exception e) {
@@ -168,6 +180,17 @@ public final class TestingSqlServer
 
         String message = nullToEmpty(throwable.getMessage());
         return message.contains("Container exited with code") || message.contains("Can't get Docker image");
+    }
+
+    private static void waitUntilReady(MSSQLServerContainer container)
+    {
+        Failsafe.with(READINESS_RETRY_POLICY, Timeout.of(Duration.ofMinutes(2)))
+                .run(() -> {
+                    try (Connection connection = container.createConnection("");
+                            Statement statement = connection.createStatement()) {
+                        statement.execute("SELECT 1");
+                    }
+                });
     }
 
     private static void setUpDatabase(SqlExecutor executor, String databaseName, BiConsumer<SqlExecutor, String> databaseSetUp)
