@@ -746,7 +746,7 @@ public class PlanOptimizers
                                 new ReplaceJoinOverConstantWithProject(),
                                 new ReplaceWindowWithRowNumber())),
                 new IterativeOptimizer(
-                        "MergeWindows",
+                        "MergeWindowsAndPatternRecognition",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
@@ -754,24 +754,14 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
+                                .add(new InlineProjections())
+                                .addAll(columnPruningRules)
                                 .addAll(GatherAndMergeWindows.rules())
                                 .addAll(MergePatternRecognitionNodes.rules())
                                 .add(new PushPredicateThroughProjectIntoRowNumber(plannerContext))
                                 .add(new PushPredicateThroughProjectIntoWindow(plannerContext))
+                                .add(new PushDownProjectionsFromPatternRecognition())
                                 .build()),
-                inlineProjections
-                        .withName("InlineProjectionsAfterWindowMerging"),
-                columnPruningOptimizer // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
-                        .withName("PruneOutputsAfterWindowMerging"),
-                new IterativeOptimizer(
-                        "PushPatternRecognitionProjections",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(
-                                new RemoveRedundantIdentityProjections(),
-                                new PushDownProjectionsFromPatternRecognition())),
                 new MetadataQueryOptimizer(plannerContext),
                 new IterativeOptimizer(
                         "EliminateCrossJoins",
