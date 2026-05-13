@@ -667,6 +667,8 @@ public class PlanOptimizers
                 .add(new PushLimitIntoTableScan(metadata))
                 .add(new PushPredicateIntoTableScan(plannerContext, false))
                 .add(new PushSampleIntoTableScan(metadata))
+                // Disjoint with PushSampleIntoTableScan (matches BERNOULLI, while PushSampleIntoTableScan matches SYSTEM).
+                .add(new ImplementBernoulliSampleAsFilter(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext))
                 .add(new PushTopNIntoTableScan(metadata))
@@ -698,17 +700,6 @@ public class PlanOptimizers
                         .build());
 
         builder.add(
-                new IterativeOptimizer(
-                        "ImplementBernoulliSample",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
-                        // it to table scan node
-                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
-                columnPruningOptimizer
-                        .withName("PruneOutputsAfterSamplePushdown"),
                 new IterativeOptimizer(
                         "OptimizeDistinctAggregations",
                         plannerContext,
