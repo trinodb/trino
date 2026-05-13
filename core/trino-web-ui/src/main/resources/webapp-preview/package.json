@@ -33,7 +33,7 @@
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "sass": "^1.99.0",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
