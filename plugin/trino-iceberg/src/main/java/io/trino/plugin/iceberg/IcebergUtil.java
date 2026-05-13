@@ -803,11 +803,6 @@ public final class IcebergUtil
      * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
      * {@code null} partition values are represented with {@link Optional#empty}.
      */
-    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
-    {
-        return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
-    }
-
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
@@ -1335,6 +1330,13 @@ public final class IcebergUtil
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, Table table)
     {
         return readerForManifest(manifest, table.io(), table.specs());
+    }
+
+    public static PartitionSpec getFileScanPartitionSpec(FileScanTask fileScanTask, Map<Integer, PartitionSpec> specs)
+    {
+        int specId = fileScanTask.file().specId();
+        PartitionSpec spec = specs.get(specId);
+        return requireNonNull(spec, "Table specs doesn't contain specId: " + specId);
     }
 
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)

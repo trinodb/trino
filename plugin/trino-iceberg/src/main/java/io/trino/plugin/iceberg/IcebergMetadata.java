@@ -344,6 +344,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getCompressionPropertyName;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
@@ -936,11 +937,13 @@ public class IcebergMetadata
                         .filter(toIcebergExpression(enforcedPredicate))
                         .planWith(icebergPlanningExecutor);
 
+                Map<Integer, PartitionSpec> specsById = icebergTable.specs();
                 try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
                     Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec> partitions = new HashMap<>();
                     for (FileScanTask fileScanTask : fileScanTasks) {
-                        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
-                        partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, fileScanTask.spec());
+                        PartitionSpec spec = getFileScanPartitionSpec(fileScanTask, specsById);
+                        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, fileScanTask.file().partition());
+                        partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, spec);
                     }
                     return partitions;
                 }
