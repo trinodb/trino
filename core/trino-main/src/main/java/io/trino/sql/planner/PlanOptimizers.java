@@ -411,16 +411,6 @@ public class PlanOptimizers
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .build()),
                 new IterativeOptimizer(
-                        "CanonicalizeRowPattern",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                .addAll(new CanonicalizeExpressions(plannerContext).rules())
-                                .add(new OptimizeRowPattern())
-                                .build()),
-                new IterativeOptimizer(
                         "InitialPlanCleanup",
                         plannerContext,
                         ruleStats,
@@ -432,6 +422,7 @@ public class PlanOptimizers
                                 .addAll(simplifyOptimizerRules)
                                 .addAll(new UnwrapRowSubscript(plannerContext).rules())
                                 .addAll(new PushCastIntoRow().rules())
+                                .add(new OptimizeRowPattern())
                                 .addAll(ImmutableSet.of(
                                         new ImplementTableFunctionSource(metadata),
                                         new UnwrapSingleColumnRowInApply(),
