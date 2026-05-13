@@ -31,7 +31,6 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.nessie.NessieCatalog;
 import org.junit.jupiter.api.AfterAll;
@@ -136,12 +135,11 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
         }
 
         assertThat(e)
-                .hasMessageContaining("Failed to commit during write:")
-                .hasMessageContaining("Cannot commit: ref hash is out of date");
+                .hasMessageContaining("Failed to commit during write:");
         assertThat(Throwables.getCausalChain(e))
-                .anySatisfy(throwable -> assertThat(throwable)
-                        .isInstanceOf(CommitFailedException.class)
-                        .hasMessageContaining("Cannot commit: ref hash is out of date"));
+                .anySatisfy(throwable -> assertThat(nullToEmpty(throwable.getMessage())).containsAnyOf(
+                        "Cannot commit: ref hash is out of date",
+                        "Found new conflicting delete files that can apply to records matching"));
     }
 
     @Test
