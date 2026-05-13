@@ -537,24 +537,18 @@ public class PlanOptimizers
                                 new ImplementIntersectAll(metadata),
                                 new ImplementExceptAll(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                columnPruningOptimizer
-                        .withName("PruneOutputsAfterSetOperationRewrite"),
-                inlineProjections
-                        .withName("InlineProjectionsAfterSetRewrite"),
                 new IterativeOptimizer(
-                        "PruneAfterSetFlattening",
+                        "Phase2",
                         plannerContext,
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        columnPruningRules),
-                new IterativeOptimizer(
-                        "RewriteExistsApply",
-                        plannerContext,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(plannerContext))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(columnPruningRules)
+                                .add(new InlineProjections())
+                                .add(new RemoveRedundantIdentityProjections())
+                                .add(new TransformExistsApplyToCorrelatedJoin(plannerContext))
+                                .build()),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
                 new IterativeOptimizer(
                         "DecorrelateSubqueries",
