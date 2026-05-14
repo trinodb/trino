@@ -9838,11 +9838,16 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreateTableWithDataLocationButObjectStoreLayoutDisabled()
+    public void testCreateTableWithDataLocationWithoutObjectStoreLayout()
     {
-        assertQueryFails(
-                "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
-                "Data location can only be set when object store layout is enabled");
+        String tableName = "test_data_location_no_object_store" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val", 1);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        String filePath = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\"");
+        assertThat(filePath).startsWith("local:///data-location/xyz/");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

@@ -229,9 +229,11 @@ public class TestIcebergV2
             assertThat(loadTable(table.getName()).properties())
                     .doesNotContainKey("write.data.path");
 
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
-                    "Data location can only be set when object store layout is enabled");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("data_location = 'local:///data-location'");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.data.path", "local:///data-location");
 
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true, data_location = 'local:///data-location'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))

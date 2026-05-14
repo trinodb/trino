@@ -2576,12 +2576,6 @@ public class IcebergMetadata
         if (properties.containsKey(DATA_LOCATION_PROPERTY)) {
             String dataLocation = (String) properties.get(DATA_LOCATION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The data_location property cannot be empty"));
-            boolean objectStoreEnabled = (boolean) properties.getOrDefault(
-                    OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
-                    Optional.of(Boolean.parseBoolean(icebergTable.properties().get(OBJECT_STORE_ENABLED)))).orElseThrow();
-            if (!objectStoreEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
-            }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 

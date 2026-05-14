@@ -986,12 +986,7 @@ public final class IcebergUtil
             propertiesBuilder.put(OBJECT_STORE_ENABLED, "true");
         }
         Optional<String> dataLocation = IcebergTableProperties.getDataLocation(tableMetadata.getProperties());
-        dataLocation.ifPresent(location -> {
-            if (!objectStoreLayoutEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
-            }
-            propertiesBuilder.put(WRITE_DATA_LOCATION, location);
-        });
+        dataLocation.ifPresent(location -> propertiesBuilder.put(WRITE_DATA_LOCATION, location));
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
