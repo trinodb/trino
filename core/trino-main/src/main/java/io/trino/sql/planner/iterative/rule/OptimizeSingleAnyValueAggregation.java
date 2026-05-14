@@ -24,7 +24,6 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 
@@ -36,6 +35,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 
 /**
@@ -48,11 +48,11 @@ public class OptimizeSingleAnyValueAggregation
 {
     private static final CatalogSchemaFunctionName ANY_VALUE_NAME = builtinFunctionName("any_value");
 
-    private static final Capture<PlanNode> SOURCE = newCapture();
+    private static final Capture<ProjectNode> SOURCE = newCapture();
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(OptimizeSingleAnyValueAggregation::isSupportedAggregation)
-            .with(source().capturedAs(SOURCE));
+            .with(source().matching(project().capturedAs(SOURCE)));
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -65,10 +65,10 @@ public class OptimizeSingleAnyValueAggregation
     {
         Aggregation aggregation = getOnlyElement(node.getAggregations().values());
         Symbol value = Symbol.from(getOnlyElement(aggregation.getArguments()));
-        PlanNode source = captures.get(SOURCE);
+        ProjectNode source = captures.get(SOURCE);
 
         // TODO: support any non-null input when we support nullability in the planner
-        if (!isRowConstructor(value, source)) {
+        if (!(source.getAssignments().get(value) instanceof Row)) {
             return Result.empty();
         }
 
@@ -88,12 +88,6 @@ public class OptimizeSingleAnyValueAggregation
                 .build();
 
         return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), rowNumberNode, assignments));
-    }
-
-    private static boolean isRowConstructor(Symbol value, PlanNode source)
-    {
-        return source instanceof ProjectNode projectNode &&
-                projectNode.getAssignments().get(value) instanceof Row;
     }
 
     private static boolean isSupportedAggregation(AggregationNode node)
