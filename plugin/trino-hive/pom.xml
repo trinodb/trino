@@ -657,7 +657,7 @@
         </profile>
 
         <profile>
-            <id>aws-tests</id>
+            <id>cloud-tests</id>
             <build>
                 <plugins>
                     <plugin>
