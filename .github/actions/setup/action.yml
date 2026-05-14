@@ -111,6 +111,9 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+      - name: Prefer Google Maven Central for Maven wrapper
+        shell: bash
+        run: echo "MVNW_REPOURL=https://maven-central.storage-download.googleapis.com/maven2" >> "${GITHUB_ENV}"
       - name: Cache and Restore Maven wrapper
         id: cache-maven-wrapper
         if: ${{ format('{0}', inputs.cache) == 'true' }}
@@ -118,9 +121,9 @@ runs:
         with:
           # Note: must be same set of paths as for cache:restore mode
           path: ~/.m2/wrapper/dists
-          key: ${{ runner.os }}-maven-wrapper-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
           restore-keys: |
-            ${{ runner.os }}-maven-wrapper-
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
       - name: Restore Maven wrapper
         id: cache_restore-maven-wrapper
         if: ${{ format('{0}', inputs.cache) == 'restore' }}
@@ -128,9 +131,9 @@ runs:
         with:
           # Note: must be same set of paths as for cache:true mode
           path: ~/.m2/wrapper/dists
-          key: ${{ runner.os }}-maven-wrapper-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
           restore-keys: |
-            ${{ runner.os }}-maven-wrapper-
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
       - name: Verify Maven wrapper
         if: ${{ inputs.java-version != '' }}
         shell: bash
