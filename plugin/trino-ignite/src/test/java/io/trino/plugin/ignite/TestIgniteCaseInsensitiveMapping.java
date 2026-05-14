@@ -62,7 +62,7 @@ public class TestIgniteCaseInsensitiveMapping
     @Override
     protected String quoted(String name)
     {
-        String identifierQuote = "`";
+        String identifierQuote = "\"";
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
         return identifierQuote + name + identifierQuote;
     }
@@ -73,8 +73,8 @@ public class TestIgniteCaseInsensitiveMapping
             throws Exception
     {
         try (AutoCloseable ignore1 = withSchema("Public");
-                AutoCloseable ignore2 = withTable("public", "lower_case_name", "(c varchar(5), id int primary key)");
-                AutoCloseable ignore3 = withTable("PUbLic", "Mixed_Case_Name", "(c varchar(5), id int primary key)");
+                AutoCloseable ignore2 = withTable("PUBLIC", "lower_case_name", "(c varchar(5), id int primary key)");
+                AutoCloseable ignore3 = withTable("PUBLIC", "Mixed_Case_Name", "(c varchar(5), id int primary key)");
                 AutoCloseable ignore4 = withTable("PUBLIC", "UPPER_CASE_NAME", "(c varchar(5), id int primary key)")) {
             assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("public");
             assertQuery("SHOW SCHEMAS LIKE 'publ%'", "VALUES 'public'");
@@ -100,13 +100,13 @@ public class TestIgniteCaseInsensitiveMapping
     {
         try (AutoCloseable ignore1 = withSchema("PuBLic");
                 AutoCloseable ignore2 = withTable(
-                        "public",
+                        "PUBLIC",
                         "NonLowerCaseTable",
                         "(" +
                                 quoted("lower_case_name") + " varchar(1) primary key, " +
                                 quoted("Mixed_Case_Name") + " varchar(1), " +
                                 quoted("UPPER_CASE_NAME") + " varchar(1))")) {
-            onRemoteDatabase().execute("INSERT INTO " + (quoted("PubLic") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
+            onRemoteDatabase().execute("INSERT INTO " + (quoted("PUBLIC") + "." + quoted("NonLowerCaseTable")) + " SELECT 'a', 'b', 'c'");
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
@@ -152,7 +152,7 @@ public class TestIgniteCaseInsensitiveMapping
                 String otherSchemaName = nameVariants[j];
                 try (AutoCloseable ignore1 = withSchema(schemaName);
                         AutoCloseable ignore2 = withSchema(otherSchemaName);
-                        AutoCloseable ignore3 = withTable(schemaName, "some_table_name", "(c varchar(5) primary key, ignore int)")) {
+                        AutoCloseable ignore3 = withTable("PUBLIC", "some_table_name", "(c varchar(5) primary key, ignore int)")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("public"::equals)).hasSize(1);
                 }
             }
@@ -169,8 +169,8 @@ public class TestIgniteCaseInsensitiveMapping
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableSet()))
                 .hasSize(1);
-        try (AutoCloseable ignore = withTable("public", nameVariants[0], "(a varchar(1), b int primary key)");
-                AutoCloseable ignore1 = withTable("public", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
+        try (AutoCloseable ignore = withTable("PUBLIC", nameVariants[0], "(a varchar(1), b int primary key)");
+                AutoCloseable ignore1 = withTable("PUBLIC", "some_table", "(d varchar(5), ignore varchar(1) primary key)")) {
             List<MaterializedRow> rows = computeActual("SHOW COLUMNS FROM some_table").getMaterializedRows();
             assertThat(rows != null && rows.size() == 2).isTrue();
             assertThat(rows.get(0).getField(0)).isEqualTo("d");

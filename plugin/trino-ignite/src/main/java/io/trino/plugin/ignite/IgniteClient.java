@@ -22,6 +22,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -30,6 +31,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -163,7 +165,7 @@ public class IgniteClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -198,6 +200,12 @@ public class IgniteClient
     public Collection<String> listSchemas(Connection connection)
     {
         return ImmutableSet.of(IGNITE_SCHEMA);
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return new JdbcRemoteIdentifiers(this, connection, true);
     }
 
     @Override
@@ -380,13 +388,16 @@ public class IgniteClient
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builderWithExpectedSize(expectedSize);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(expectedSize);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            columns.add(getColumnDefinitionSql(session, columnMetadata, columnMetadata.getName()));
-            columnNamesBuilder.add(columnMetadata.getName());
+            String remoteColumnName = columnMetadata.getName().toUpperCase(ENGLISH);
+            columns.add(getColumnDefinitionSql(session, columnMetadata, remoteColumnName));
+            columnNamesBuilder.add(remoteColumnName);
             columnTypes.add(columnMetadata.getType());
         }
 
         List<String> columnNames = columnNamesBuilder.build();
-        List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties()).stream()
+                .map(key -> key.toUpperCase(ENGLISH))
+                .collect(toImmutableList());
 
         for (String primaryKey : primaryKeys) {
             if (!columnNames.contains(primaryKey)) {
@@ -395,12 +406,13 @@ public class IgniteClient
             }
         }
 
-        String sql = buildCreateSql(schemaTableName, columns.build(), primaryKeys);
+        String remoteTableName = schemaTableName.getTableName().toUpperCase(ENGLISH);
+        String sql = buildCreateSql(remoteTableName, columns.build(), primaryKeys);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             execute(session, connection, sql);
             IgniteOutputTableHandle destinationTableHandle = new IgniteOutputTableHandle(
-                    new RemoteTableName(Optional.empty(), Optional.of(schemaTableName.getSchemaName()), schemaTableName.getTableName()),
+                    new RemoteTableName(Optional.empty(), Optional.of(IGNITE_SCHEMA), remoteTableName),
                     columnNames,
                     columnTypes.build(),
                     Optional.empty(),
@@ -413,7 +425,7 @@ public class IgniteClient
         }
     }
 
-    private String buildCreateSql(SchemaTableName schemaTableName, List<String> columns, List<String> primaryKeys)
+    private String buildCreateSql(String remoteTableName, List<String> columns, List<String> primaryKeys)
     {
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
         columnDefinitions.addAll(columns);
@@ -425,8 +437,8 @@ public class IgniteClient
         }
         columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
 
-        String remoteTableName = quoted(null, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        return format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
+        String qualifiedTableName = quoted(null, IGNITE_SCHEMA, remoteTableName);
+        return format("CREATE TABLE %s (%s) ", qualifiedTableName, join(", ", columnDefinitions.build()));
     }
 
     @Override

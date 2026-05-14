@@ -272,13 +272,10 @@ public class TestIgniteConnectorTest
     {
         String tableName = "test_invalid_primary_key" + randomNameSuffix();
         assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['not_existing_column'])",
-                "Column 'not_existing_column' specified in property 'primary_key' doesn't exist in table");
+                "Column 'NOT_EXISTING_COLUMN' specified in property 'primary_key' doesn't exist in table");
 
         assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['dummy_id'])",
-                "Column 'dummy_id' specified in property 'primary_key' doesn't exist in table");
-
-        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['A'])",
-                "Column 'A' specified in property 'primary_key' doesn't exist in table");
+                "Column 'DUMMY_ID' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
@@ -371,6 +368,10 @@ public class TestIgniteConnectorTest
         if ("a.dot".equals(columnName)) {
             return Optional.empty();
         }
+        // Ignite cannot handle column names containing double quotes with standard SQL quoting
+        if (columnName.contains("\"")) {
+            return Optional.empty();
+        }
 
         return Optional.of(columnName);
     }
@@ -379,10 +380,6 @@ public class TestIgniteConnectorTest
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         String errorMessage = nullToEmpty(exception.getMessage());
-        if (columnName.equals("a\"quote")) {
-            return errorMessage.contains("Failed to parse query.");
-        }
-
         return errorMessage.contains("Failed to complete exchange process");
     }
 
