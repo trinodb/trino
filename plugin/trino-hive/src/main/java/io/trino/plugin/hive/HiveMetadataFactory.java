@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -80,6 +82,7 @@ public class HiveMetadataFactory
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
+    private final Map<String, String> schemaPrefixRedirectRules;
 
     @Inject
     public HiveMetadataFactory(
@@ -138,7 +141,8 @@ public class HiveMetadataFactory
                 hiveConfig.isPartitionProjectionEnabled(),
                 allowTableRename,
                 hiveConfig.getTimestampPrecision(),
-                hiveConfig.getMetadataParallelism());
+                hiveConfig.getMetadataParallelism(),
+                hiveConfig.getSchemaPrefixRedirectRules());
     }
 
     public HiveMetadataFactory(
@@ -176,7 +180,8 @@ public class HiveMetadataFactory
             boolean partitionProjectionEnabled,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
-            int metadataParallelism)
+            int metadataParallelism,
+            Map<String, String> schemaPrefixRedirectRules)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -219,6 +224,7 @@ public class HiveMetadataFactory
         this.partitionProjectionEnabled = partitionProjectionEnabled;
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
+        this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
         if (metadataParallelism == 1) {
             this.metadataFetchingExecutor = directExecutor();
         }
@@ -274,6 +280,7 @@ public class HiveMetadataFactory
                 allowTableRename,
                 maxPartitionDropsPerQuery,
                 hiveViewsTimestampPrecision,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                schemaPrefixRedirectRules);
     }
 }

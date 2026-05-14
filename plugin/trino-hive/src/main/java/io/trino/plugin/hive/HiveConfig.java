@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -35,11 +36,13 @@ import org.joda.time.DateTimeZone;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -165,6 +168,7 @@ public class HiveConfig
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
     private Optional<String> hudiCatalogName = Optional.empty();
+    private Map<String, String> schemaPrefixRedirectRules = ImmutableMap.of();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
@@ -1234,6 +1238,26 @@ public class HiveConfig
     public HiveConfig setHudiCatalogName(String hudiCatalogName)
     {
         this.hudiCatalogName = Optional.ofNullable(hudiCatalogName);
+        return this;
+    }
+
+    public Map<String, String> getSchemaPrefixRedirectRules()
+    {
+        return schemaPrefixRedirectRules;
+    }
+
+    @Config("hive.schema-prefix-redirect-rules")
+    @ConfigDescription("Comma-separated list of schema-prefix=catalog-name pairs; schemas matching a prefix are redirected to the given catalog (e.g. 'analytics_=iceberg,reporting_=delta')")
+    public HiveConfig setSchemaPrefixRedirectRules(List<String> rules)
+    {
+        this.schemaPrefixRedirectRules = rules.stream()
+                .map(rule -> rule.split("=", 2))
+                .peek(parts -> {
+                    if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
+                        throw new IllegalArgumentException("Invalid schema-prefix-redirect-rules entry, expected 'prefix=catalog': " + String.join("=", parts));
+                    }
+                })
+                .collect(toImmutableMap(parts -> parts[0], parts -> parts[1]));
         return this;
     }
 
