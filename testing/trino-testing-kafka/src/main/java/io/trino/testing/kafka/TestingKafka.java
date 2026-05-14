@@ -24,6 +24,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.kafka.ConfluentKafkaContainer;
@@ -157,21 +158,7 @@ public final class TestingKafka
 
     private void createTopic(int partitions, int replication, String topic)
     {
-        try {
-            List<String> command = new ArrayList<>();
-            command.add("kafka-topics");
-            command.add("--partitions");
-            command.add(Integer.toString(partitions));
-            command.add("--replication-factor");
-            command.add(Integer.toString(replication));
-            command.add("--topic");
-            command.add(topic);
-
-            kafka.execInContainer(command.toArray(new String[0]));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        createTopicWithConfig(partitions, replication, topic, false);
     }
 
     public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
@@ -180,6 +167,7 @@ public final class TestingKafka
             List<String> command = new ArrayList<>();
             command.add("kafka-topics");
             command.add("--create");
+            command.add("--if-not-exists");
             command.add("--topic");
             command.add(topic);
             command.add("--partitions");
@@ -193,11 +181,40 @@ public final class TestingKafka
                 command.add("message.timestamp.type=LogAppendTime");
             }
 
-            kafka.execInContainer(command.toArray(new String[0]));
+            executeKafkaTopicsCommand(topic, command);
+
+            executeKafkaTopicsCommand(topic, List.of(
+                    "kafka-topics",
+                    "--describe",
+                    "--topic",
+                    topic,
+                    "--bootstrap-server",
+                    "localhost:9093"));
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void executeKafkaTopicsCommand(String topic, List<String> command)
+    {
+        Failsafe.with(
+                        RetryPolicy.builder()
+                                .onRetry(event -> log.warn(event.getLastException(), "Retrying Kafka topic setup for %s", topic))
+                                .withMaxAttempts(10)
+                                .withBackoff(100, 10_000, MILLIS)
+                                .build())
+                .get(() -> {
+                    Container.ExecResult result = kafka.execInContainer(command.toArray(new String[0]));
+                    checkState(
+                            result.getExitCode() == 0,
+                            "Failed to execute Kafka topic command %s: exitCode=%s, stdout=%s, stderr=%s",
+                            command,
+                            result.getExitCode(),
+                            result.getStdout(),
+                            result.getStderr());
+                    return result;
+                });
     }
 
     public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream)

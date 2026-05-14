@@ -72,7 +72,7 @@ public final class KafkaQueryRunner
 
     public static Builder builder(TestingKafka testingKafka)
     {
-        return new Builder(TPCH_SCHEMA, false)
+        return new Builder(testingKafka, TPCH_SCHEMA, false)
                 .addConnectorProperties(Map.of(
                         "kafka.nodes", testingKafka.getConnectString(),
                         "kafka.messages-per-split", "1000",
@@ -81,7 +81,7 @@ public final class KafkaQueryRunner
 
     public static Builder builderForConfluentSchemaRegistry(TestingKafka testingKafka)
     {
-        return new Builder("default", true)
+        return new Builder(testingKafka, "default", true)
                 .addConnectorProperties(Map.of(
                         "kafka.nodes", testingKafka.getConnectString(),
                         "kafka.messages-per-split", "1000",
@@ -94,16 +94,18 @@ public final class KafkaQueryRunner
             extends DistributedQueryRunner.Builder<Builder>
     {
         private final Map<String, String> connectorProperties = new HashMap<>();
+        private final TestingKafka testingKafka;
         private List<TpchTable<?>> tables = ImmutableList.of();
         private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
         private final boolean schemaRegistryEnabled;
 
-        private Builder(String schemaName, boolean schemaRegistryEnabled)
+        private Builder(TestingKafka testingKafka, String schemaName, boolean schemaRegistryEnabled)
         {
             super(testSessionBuilder()
                     .setCatalog("kafka")
                     .setSchema(schemaName)
                     .build());
+            this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
             this.schemaRegistryEnabled = schemaRegistryEnabled;
         }
 
@@ -143,9 +145,10 @@ public final class KafkaQueryRunner
                     extensions = () -> _ -> {};
                 }
                 else {
+                    Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables);
                     ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                             .putAll(extraTopicDescription)
-                            .putAll(createTpchTopicDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables));
+                            .putAll(tpchTopicDescriptions);
 
                     List<SchemaTableName> tableNames = new ArrayList<>();
                     tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
@@ -157,6 +160,11 @@ public final class KafkaQueryRunner
                     for (SchemaTableName tableName : tableNames) {
                         topicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
                     }
+                    Map<SchemaTableName, KafkaTopicDescription> topicDescriptionMap = topicDescriptions.buildOrThrow();
+                    tpchTopicDescriptions.values().stream()
+                            .map(KafkaTopicDescription::topicName)
+                            .distinct()
+                            .forEach(testingKafka::createTopic);
 
                     extensions = () -> new AbstractConfigurationAwareModule()
                     {
@@ -164,7 +172,7 @@ public final class KafkaQueryRunner
                         protected void setup(Binder binder)
                         {
                             if (buildConfigObject(KafkaConfig.class).getTableDescriptionSupplier().equalsIgnoreCase(TEST)) {
-                                binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()));
+                                binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptionMap));
                             }
                             binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
                             install(new DecoderModule());
