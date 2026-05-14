@@ -22,10 +22,12 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
+import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -45,6 +47,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -62,9 +65,11 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -674,7 +679,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CassandraCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, getQueryRunner(), session);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -730,5 +735,35 @@ public class TestCassandraTypeMapping
     private static BiFunction<LocalDateTime, ZoneId, String> timestampExpectedLiteralFactory()
     {
         return (expectedLiteral, zone) -> format("AT_TIMEZONE(TIMESTAMP '%s', 'UTC')", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS VV").format(expectedLiteral.atZone(zone)));
+    }
+
+    private static class CassandraCreateAsSelectDataSetup
+            extends CreateAsSelectDataSetup
+    {
+        private final QueryRunner queryRunner;
+        private final Session session;
+
+        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session)
+        {
+            super(sqlExecutor, tableNamePrefix);
+            this.queryRunner = queryRunner;
+            this.session = session;
+        }
+
+        @Override
+        public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
+        {
+            TestTable relation = super.setupTemporaryRelation(inputs);
+            try {
+                assertEventually(() -> assertThat(
+                        queryRunner.execute(session, "SELECT * FROM " + relation.getName()).getRowCount())
+                        .isEqualTo(1));
+            }
+            catch (Throwable t) {
+                closeAllSuppress(t, relation);
+                throw t;
+            }
+            return relation;
+        }
     }
 }
