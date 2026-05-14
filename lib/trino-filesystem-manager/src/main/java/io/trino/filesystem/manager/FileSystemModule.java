@@ -30,6 +30,7 @@ import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.filesystem.cache.CacheSplitAffinityProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
@@ -128,10 +129,21 @@ public class FileSystemModule
         newOptionalBinder(binder, MemoryFileSystemCache.class);
 
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(isCoordinator));
+            install(new AlluxioFileSystemCacheModule());
         }
         if (coordinatorFileCaching) {
             install(new MemoryFileSystemCacheModule(isCoordinator));
+        }
+
+        // Bind the consistent-hash split affinity provider whenever a cache is active on the
+        // coordinator, regardless of which cache implementation is installed. Without this,
+        // splits would be scheduled round-robin and identical byte ranges would land on
+        // different workers, breaking cross-query locality of the per-worker cache.
+        if (isCoordinator && (config.isCacheEnabled() || coordinatorFileCaching)) {
+            newOptionalBinder(binder, SplitAffinityProvider.class)
+                    .setBinding()
+                    .to(CacheSplitAffinityProvider.class)
+                    .in(Scopes.SINGLETON);
         }
     }
 

@@ -31,6 +31,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
@@ -92,6 +97,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -103,4 +114,18 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredDependency>io.airlift:bootstrap</ignoredDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
