@@ -266,6 +266,7 @@
                             <excludes>
                                 <exclude>**/TestGoogleSheets.java</exclude>
                                 <exclude>**/TestGoogleSheetsWithoutMetadataSheetId.java</exclude>
+                                <exclude>**/TestGoogleSheetsInsert.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -284,6 +285,7 @@
                             <includes>
                                 <include>**/TestGoogleSheets.java</include>
                                 <include>**/TestGoogleSheetsWithoutMetadataSheetId.java</include>
+                                <include>**/TestGoogleSheetsInsert.java</include>
                             </includes>
                         </configuration>
                     </plugin>
