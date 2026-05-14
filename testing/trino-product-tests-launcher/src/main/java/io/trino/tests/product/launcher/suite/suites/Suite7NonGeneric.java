@@ -38,7 +38,6 @@ import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.FAULT_TOLERANT;
 import static io.trino.tests.product.TestGroups.GROUP_BY;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
-import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
 import static io.trino.tests.product.TestGroups.JOIN;
@@ -79,7 +78,7 @@ public class Suite7NonGeneric
                         .withGroups(CONFIGURED_FEATURES, HIVE_SPARK_NO_STATS_FALLBACK)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class)
-                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION, HIVE_KERBEROS)
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvTwoMixedHives.class)
                         .withGroups(CONFIGURED_FEATURES, TWO_HIVES)
