@@ -827,24 +827,17 @@ public class PlanOptimizers
                 new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(plannerContext, true, false)));
 
         builder.add(new IterativeOptimizer(
-                "PushTopN",
-                plannerContext,
-                ruleStats,
-                statsCalculator,
-                costCalculator,
-                ImmutableSet.of(
-                        new CreatePartialTopN(),
-                        new PushTopNThroughProject(),
-                        new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion(),
-                        new PushTopNIntoTableScan(metadata))));
-        builder.add(new IterativeOptimizer(
-                "ExtractSpatialJoins",
+                "Phase6",
                 plannerContext,
                 ruleStats,
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        .add(new CreatePartialTopN())
+                        .add(new PushTopNThroughProject())
+                        .add(new PushTopNThroughOuterJoin())
+                        .add(new PushTopNThroughUnion())
+                        .add(new PushTopNIntoTableScan(metadata))
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager).rules())
                         .add(new InlineProjections())
