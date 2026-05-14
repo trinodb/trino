@@ -160,28 +160,157 @@ public class TestCassandraTypeMapping
     }
 
     @Test
-    public void testBoolean()
+    public void testCassandraScalarTypes()
     {
-        SqlDataTypeTest.create()
-                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
-                .addRoundTrip("boolean", "true", BOOLEAN)
-                .addRoundTrip("boolean", "false", BOOLEAN)
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
+        cassandraScalarTypesTest()
+                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_scalar_types"));
     }
 
     @Test
-    public void testTinyint()
+    public void testTrinoScalarTypes()
     {
-        SqlDataTypeTest.create()
+        trinoScalarTypesTest()
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_scalar_types"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_scalar_types"));
+    }
+
+    private SqlDataTypeTest cassandraScalarTypesTest()
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("boolean", "true", BOOLEAN)
+                .addRoundTrip("boolean", "false", BOOLEAN)
                 .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'") // min value in Cassandra
                 .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
                 .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in Cassandra
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"));
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in Cassandra
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Cassandra
+                .addRoundTrip("int", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("int", "-2147483648", INTEGER, "-2147483648") // min value in Cassandra
+                .addRoundTrip("int", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("int", "2147483647", INTEGER, "2147483647") // max value in Cassandra
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Cassandra
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Cassandra
+                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("float", "12.5", REAL, "REAL '12.5'")
+                .addRoundTrip("float", "NaN", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("float", "-Infinity", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("float", "Infinity", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
+                .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
+                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
+                .addRoundTrip("decimal", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("decimal", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
+                .addRoundTrip("decimal", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
+                .addRoundTrip("decimal", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
+                .addRoundTrip("ascii", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("ascii", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("ascii", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("ascii", "'text_c'", VARCHAR, "CAST('text_c' AS varchar)")
+                .addRoundTrip("text", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("text", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("text", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("text", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("text", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("text", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("text", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("varchar", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("inet", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
+                .addRoundTrip("inet", "'0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
+                .addRoundTrip("inet", "'116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
+                .addRoundTrip("inet", "'255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
+                .addRoundTrip("inet", "'::'", IPADDRESS, "CAST('::' AS ipaddress)")
+                .addRoundTrip("inet", "'2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
+                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("varint", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("varint", "12345678910", VARCHAR, "CAST('12345678910' AS varchar)")
+                .addRoundTrip("varint", "2147483648", VARCHAR, "CAST('2147483648' AS varchar)") // Integer.MAX_VALUE + 1
+                .addRoundTrip("varint", "-2147483649", VARCHAR, "CAST('-2147483649' AS varchar)") // Integer.MIN_VALUE - 1
+                .addRoundTrip("varint", "9223372036854775808", VARCHAR, "CAST('9223372036854775808' AS varchar)") // Long.MAX_VALUE + 1
+                .addRoundTrip("varint", "-9223372036854775809", VARCHAR, "CAST('-9223372036854775809' AS varchar)") // Long.MIN_VALUE - 1
+                .addRoundTrip("blob", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("blob", "varcharAsBlob('')", VARBINARY, "X''")
+                .addRoundTrip("blob", "varcharAsBlob('hello')", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("blob", "varcharAsBlob('Piękna łąka w 東京都')", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("blob", "varcharAsBlob('Bag full of 💰')", VARBINARY, "to_utf8('Bag full of 💰')")
+                // Binary literals must be prefixed with 0[xX]
+                // https://docs.datastax.com/en/cql-oss/3.x/cql/cql_reference/blob_r.html
+                .addRoundTrip("blob", "0x0001020304050607080DF9367AA7000000", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("blob", "0x000000000000", VARBINARY, "X'000000000000'")
+                .addRoundTrip("timeuuid", "NULL", UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("timeuuid", "50554d6e-29bb-11e5-b345-feff819cdc9f", UUID, "CAST('50554d6e-29bb-11e5-b345-feff819cdc9f' AS UUID)")
+                .addRoundTrip("uuid", "NULL", UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("uuid", "114514ea-0601-1981-1142-e9b55b0abd6d", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)");
+    }
+
+    private SqlDataTypeTest trinoScalarTypesTest()
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .addRoundTrip("boolean", "true", BOOLEAN)
+                .addRoundTrip("boolean", "false", BOOLEAN)
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'")
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'")
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'")
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'")
+                .addRoundTrip("int", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("int", "-2147483648", INTEGER, "-2147483648")
+                .addRoundTrip("int", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("int", "2147483647", INTEGER, "2147483647")
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808")
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("real", "12.5", REAL, "REAL '12.5'")
+                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
+                .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
+                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
+                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("varchar", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("ipaddress", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '::'", IPADDRESS, "CAST('::' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress '2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
+                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
+                .addRoundTrip("uuid", "NULL", UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("uuid", "UUID '114514ea-0601-1981-1142-e9b55b0abd6d'", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)");
     }
 
     @Test
@@ -201,19 +330,6 @@ public class TestCassandraTypeMapping
     }
 
     @Test
-    public void testSmallint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .addRoundTrip("smallint", "-32768", SMALLINT, "SMALLINT '-32768'") // min value in Cassandra
-                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
-                .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Cassandra
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_smallint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
-    }
-
-    @Test
     public void testUnsupportedSmallint()
     {
         try (TestCassandraTable table = testTable(
@@ -227,19 +343,6 @@ public class TestCassandraTypeMapping
                     "INSERT INTO " + table.getTableName() + " (id, data) VALUES (2, 32768)", // max + 1
                     "Unable to make short from '32768'");
         }
-    }
-
-    @Test
-    public void testInt()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("int", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .addRoundTrip("int", "-2147483648", INTEGER, "-2147483648") // min value in Cassandra
-                .addRoundTrip("int", "1234567890", INTEGER, "1234567890")
-                .addRoundTrip("int", "2147483647", INTEGER, "2147483647") // max value in Cassandra
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_int"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
     }
 
     @Test
@@ -259,19 +362,6 @@ public class TestCassandraTypeMapping
     }
 
     @Test
-    public void testBigint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Cassandra
-                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
-                .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Cassandra
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_bigint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
-    }
-
-    @Test
     public void testUnsupportedBigint()
     {
         try (TestCassandraTable table = testTable(
@@ -288,218 +378,78 @@ public class TestCassandraTypeMapping
     }
 
     @Test
-    public void testReal()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
-                .addRoundTrip("float", "12.5", REAL, "REAL '12.5'")
-                .addRoundTrip("float", "NaN", REAL, "CAST(nan() AS REAL)")
-                .addRoundTrip("float", "-Infinity", REAL, "CAST(-infinity() AS REAL)")
-                .addRoundTrip("float", "Infinity", REAL, "CAST(+infinity() AS REAL)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_real"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
-                .addRoundTrip("real", "12.5", REAL, "REAL '12.5'")
-                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS REAL)")
-                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS REAL)")
-                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS REAL)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_real"));
-    }
-
-    @Test
-    public void testDouble()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
-                .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
-                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_double"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_double"));
-    }
-
-    @Test
-    public void testDecimal()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("decimal", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
-                .addRoundTrip("decimal", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
-                .addRoundTrip("decimal", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
-                .addRoundTrip("decimal", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_decimal"));
-    }
-
-    @Test
-    public void testCassandraAscii()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("ascii", "NULL", VARCHAR, "CAST(NULL AS varchar)")
-                .addRoundTrip("ascii", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
-                .addRoundTrip("ascii", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
-                .addRoundTrip("ascii", "'text_c'", VARCHAR, "CAST('text_c' AS varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_ascii"));
-    }
-
-    @Test
-    public void testCassandraText()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("text", "NULL", VARCHAR, "CAST(NULL AS varchar)")
-                .addRoundTrip("text", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
-                .addRoundTrip("text", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
-                .addRoundTrip("text", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("text", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("text", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
-                .addRoundTrip("text", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_text"));
-    }
-
-    @Test
-    public void testVarchar()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS varchar)")
-                .addRoundTrip("varchar", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
-                .addRoundTrip("varchar", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
-                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
-                .addRoundTrip("varchar", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
-                .addRoundTrip("varchar", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_varchar"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
-    }
-
-    @Test
-    public void testCassandraList()
+    public void testCassandraNestedTypes()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("list<int>", "NULL", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("list<int>", "[]", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("list<int>", "[17,4,2]", VARCHAR, "CAST('[17,4,2]' as varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_list"));
-    }
-
-    @Test
-    public void testCassandraSet()
-    {
-        SqlDataTypeTest.create()
                 .addRoundTrip("set<text>", "NULL", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("set<text>", "{}", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("set<text>", "{'Trino'}", VARCHAR, "CAST('[\"Trino\"]' as varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_set"));
-    }
-
-    @Test
-    public void testCassandraMap()
-    {
-        SqlDataTypeTest.create()
                 .addRoundTrip("map<text, text>", "NULL", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("map<text, text>", "{}", VARCHAR, "CAST(NULL as varchar)")
                 .addRoundTrip("map<text, text>", "{'connector':'cassandra'}", VARCHAR, "CAST('{\"connector\":\"cassandra\"}' as varchar)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_map"));
+                .addRoundTrip("tuple<int, text>", "NULL", anonymousRow(INTEGER, VARCHAR), "CAST(NULL AS ROW(INTEGER, VARCHAR))")
+                .addRoundTrip("tuple<int, text>", "(3, 'hours')", anonymousRow(INTEGER, VARCHAR), "CAST(ROW(3, 'hours') AS ROW(INTEGER, VARCHAR))")
+                .addRoundTrip("tuple<list<text>>", "(['Cassandra'])", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
+                .addRoundTrip("tuple<map<text, text>>", "({'connector':'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('{\"connector\":\"Cassandra\"}') AS ROW(VARCHAR))")
+                .addRoundTrip("tuple<set<text>>", "({'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
+                .addRoundTrip("tuple<tuple<int, text>>", "((3, 'hours'))", anonymousRow(anonymousRow(INTEGER, VARCHAR)), "CAST(ROW(ROW(3, 'hours')) AS ROW(ROW(INTEGER, VARCHAR)))")
+                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_nested_types"));
     }
 
     @Test
-    public void testCassandraInet()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("inet", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
-                .addRoundTrip("inet", "'0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
-                .addRoundTrip("inet", "'116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
-                .addRoundTrip("inet", "'255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
-                .addRoundTrip("inet", "'::'", IPADDRESS, "CAST('::' AS ipaddress)")
-                .addRoundTrip("inet", "'2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
-                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
-                .addRoundTrip("inet", "'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_inet"));
-    }
-
-    @Test
-    public void testIpAddress()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("ipaddress", "NULL", IPADDRESS, "CAST(NULL AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress '0.0.0.0'", IPADDRESS, "CAST('0.0.0.0' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress '116.253.40.133'", IPADDRESS, "CAST('116.253.40.133' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress '255.255.255.255'", IPADDRESS, "CAST('255.255.255.255' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress '::'", IPADDRESS, "CAST('::' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress '2001:44c8:129:2632:33:0:252:2'", IPADDRESS, "CAST('2001:44c8:129:2632:33:0:252:2' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
-                .addRoundTrip("ipaddress", "ipaddress 'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255'", IPADDRESS, "CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff' AS ipaddress)")
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_ipaddress"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_ipaddress"));
-    }
-
-    @Test
-    public void testCassandraVarint()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("varint", "NULL", VARCHAR, "CAST(NULL AS varchar)")
-                .addRoundTrip("varint", "12345678910", VARCHAR, "CAST('12345678910' AS varchar)")
-                .addRoundTrip("varint", "2147483648", VARCHAR, "CAST('2147483648' AS varchar)") // Integer.MAX_VALUE + 1
-                .addRoundTrip("varint", "-2147483649", VARCHAR, "CAST('-2147483649' AS varchar)") // Integer.MIN_VALUE - 1
-                .addRoundTrip("varint", "9223372036854775808", VARCHAR, "CAST('9223372036854775808' AS varchar)") // Long.MAX_VALUE + 1
-                .addRoundTrip("varint", "-9223372036854775809", VARCHAR, "CAST('-9223372036854775809' AS varchar)") // Long.MIN_VALUE - 1
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_varint"));
-    }
-
-    @Test
-    public void testCassandraBlob()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("blob", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
-                .addRoundTrip("blob", "varcharAsBlob('')", VARBINARY, "X''")
-                .addRoundTrip("blob", "varcharAsBlob('hello')", VARBINARY, "to_utf8('hello')")
-                .addRoundTrip("blob", "varcharAsBlob('Piękna łąka w 東京都')", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
-                .addRoundTrip("blob", "varcharAsBlob('Bag full of 💰')", VARBINARY, "to_utf8('Bag full of 💰')")
-                // Binary literals must be prefixed with 0[xX]
-                // https://docs.datastax.com/en/cql-oss/3.x/cql/cql_reference/blob_r.html
-                .addRoundTrip("blob", "0x0001020304050607080DF9367AA7000000", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
-                .addRoundTrip("blob", "0x000000000000", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_blob"));
-    }
-
-    @Test
-    public void testTrinoVarbinary()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
-                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
-                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
-                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
-                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
-                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
-                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
-    }
-
-    @Test
-    public void testDate()
+    public void testCassandraTemporalTypes()
     {
         for (ZoneId sessionZone : timezones()) {
             Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                     .build();
 
-            dateTest(Function.identity())
-                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_date"));
-
-            dateTest(inputLiteral -> format("DATE %s", inputLiteral))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+            cassandraTemporalTypesTest()
+                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_temporal_types"));
         }
     }
 
-    private SqlDataTypeTest dateTest(Function<String, String> inputLiteralFactory)
+    @Test
+    public void testTrinoTemporalTypes()
     {
-        return SqlDataTypeTest.create()
+        for (ZoneId sessionZone : timezones()) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .build();
+
+            trinoTemporalTypesTest()
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_temporal_types"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_temporal_types"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_temporal_types"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_temporal_types"));
+        }
+    }
+
+    private SqlDataTypeTest cassandraTemporalTypesTest()
+    {
+        SqlDataTypeTest tests = SqlDataTypeTest.create();
+        addDateRoundTrips(tests, Function.identity());
+        addTimeRoundTrips(tests, "time", cassandraTimeInputLiteralFactory());
+        addTimestampRoundTrips(tests, "timestamp", cassandraTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
+                .addRoundTrip("timestamp", "-1", TIMESTAMP_TZ_MILLIS, "AT_TIMEZONE(TIMESTAMP '1969-12-31 23:59:59.999 UTC', 'UTC')"); // negative timestamp
+        return tests;
+    }
+
+    private SqlDataTypeTest trinoTemporalTypesTest()
+    {
+        SqlDataTypeTest tests = SqlDataTypeTest.create();
+        addDateRoundTrips(tests, inputLiteral -> format("DATE %s", inputLiteral));
+        addTimeRoundTrips(tests, "time(9)", trinoTimeInputLiteralFactory());
+        addTimestampRoundTrips(tests, "timestamp with time zone", trinoTimestampInputLiteralFactory(), timestampExpectedLiteralFactory());
+        return tests;
+    }
+
+    private static SqlDataTypeTest addDateRoundTrips(SqlDataTypeTest tests, Function<String, String> inputLiteralFactory)
+    {
+        return tests
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .addRoundTrip("date", inputLiteralFactory.apply("'-5877641-06-23'"), DATE, "DATE '-5877641-06-23'") // min value in Cassandra and Trino
                 .addRoundTrip("date", inputLiteralFactory.apply("'0001-01-01'"), DATE, "DATE '0001-01-01'")
@@ -516,28 +466,9 @@ public class TestCassandraTypeMapping
                 .addRoundTrip("date", inputLiteralFactory.apply("'5881580-07-11'"), DATE, "DATE '5881580-07-11'"); // max value in Cassandra and Trino
     }
 
-    @Test
-    public void testTime()
+    private static SqlDataTypeTest addTimeRoundTrips(SqlDataTypeTest tests, String inputType, Function<String, String> inputLiteralFactory)
     {
-        for (ZoneId sessionZone : timezones()) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            timeTypeTest("time(9)", trinoTimeInputLiteralFactory())
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
-
-            timeTypeTest("time", cassandraTimeInputLiteralFactory())
-                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_time"));
-        }
-    }
-
-    private static SqlDataTypeTest timeTypeTest(String inputType, Function<String, String> inputLiteralFactory)
-    {
-        return SqlDataTypeTest.create()
+        return tests
                 .addRoundTrip(inputType, inputLiteralFactory.apply("'09:12:34'"), createTimeType(9), "TIME '09:12:34.000000000'")
                 .addRoundTrip(inputType, inputLiteralFactory.apply("'10:12:34.000000000'"), createTimeType(9), "TIME '10:12:34.000000000'")
                 .addRoundTrip(inputType, inputLiteralFactory.apply("'15:12:34.567000000'"), createTimeType(9), "TIME '15:12:34.567000000'")
@@ -549,40 +480,9 @@ public class TestCassandraTypeMapping
                 .addRoundTrip(inputType, inputLiteralFactory.apply("NULL"), createTimeType(9), "CAST(NULL AS TIME(9))");
     }
 
-    @Test
-    public void testCassandraTimestamp()
+    private SqlDataTypeTest addTimestampRoundTrips(SqlDataTypeTest tests, String inputType, BiFunction<LocalDateTime, ZoneId, String> inputLiteralFactory, BiFunction<LocalDateTime, ZoneId, String> expectedLiteralFactory)
     {
-        for (ZoneId sessionZone : timezones()) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            timestampTest("timestamp", cassandraTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
-                    .addRoundTrip("timestamp", "-1", TIMESTAMP_TZ_MILLIS, "AT_TIMEZONE(TIMESTAMP '1969-12-31 23:59:59.999 UTC', 'UTC')") // negative timestamp
-                    .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_cassandra_timestamp"));
-        }
-    }
-
-    @Test
-    public void testTrinoTimestampWithTimeZone()
-    {
-        for (ZoneId sessionZone : timezones()) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .build();
-
-            timestampTest("timestamp with time zone", trinoTimestampInputLiteralFactory(), timestampExpectedLiteralFactory())
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_trino_timestamp_with_time_zone"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect("test_trino_timestamp_with_time_zone"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_trino_timestamp_with_time_zone"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert("test_trino_timestamp_with_time_zone"));
-        }
-    }
-
-    private SqlDataTypeTest timestampTest(String inputType, BiFunction<LocalDateTime, ZoneId, String> inputLiteralFactory, BiFunction<LocalDateTime, ZoneId, String> expectedLiteralFactory)
-    {
-        SqlDataTypeTest tests = SqlDataTypeTest.create()
-                .addRoundTrip(inputType, "NULL", TIMESTAMP_TZ_MILLIS, "CAST(NULL AS TIMESTAMP WITH TIME ZONE)");
+        tests.addRoundTrip(inputType, "NULL", TIMESTAMP_TZ_MILLIS, "CAST(NULL AS TIMESTAMP WITH TIME ZONE)");
 
         for (ZoneId zoneId : ImmutableList.of(UTC, kathmandu, fixedOffsetEast, fixedOffsetWest)) {
             tests.addRoundTrip(inputType, inputLiteralFactory.apply(beforeJulianGregorianSwitch, zoneId), TIMESTAMP_TZ_MILLIS, expectedLiteralFactory.apply(beforeJulianGregorianSwitch, zoneId))
@@ -611,43 +511,6 @@ public class TestCassandraTypeMapping
                 vilnius,
                 kathmandu,
                 TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
-    }
-
-    @Test
-    public void testCassandraTimeUuid()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("timeuuid", "NULL", UUID, "CAST(NULL AS UUID)")
-                .addRoundTrip("timeuuid", "50554d6e-29bb-11e5-b345-feff819cdc9f", UUID, "CAST('50554d6e-29bb-11e5-b345-feff819cdc9f' AS UUID)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_timeuuid"));
-    }
-
-    @Test
-    public void testUuid()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("uuid", "NULL", UUID, "CAST(NULL AS UUID)")
-                .addRoundTrip("uuid", "114514ea-0601-1981-1142-e9b55b0abd6d", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_uuid"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("uuid", "NULL", UUID, "CAST(NULL AS UUID)")
-                .addRoundTrip("uuid", "UUID '114514ea-0601-1981-1142-e9b55b0abd6d'", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_uuid"))
-                .execute(getQueryRunner(), trinoCreateAndInsert("test_uuid"));
-    }
-
-    @Test
-    public void testCassandraTuple()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tuple<int, text>", "NULL", anonymousRow(INTEGER, VARCHAR), "CAST(NULL AS ROW(INTEGER, VARCHAR))")
-                .addRoundTrip("tuple<int, text>", "(3, 'hours')", anonymousRow(INTEGER, VARCHAR), "CAST(ROW(3, 'hours') AS ROW(INTEGER, VARCHAR))")
-                .addRoundTrip("tuple<list<text>>", "(['Cassandra'])", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
-                .addRoundTrip("tuple<map<text, text>>", "({'connector':'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('{\"connector\":\"Cassandra\"}') AS ROW(VARCHAR))")
-                .addRoundTrip("tuple<set<text>>", "({'Cassandra'})", anonymousRow(VARCHAR), "CAST(ROW('[\"Cassandra\"]') AS ROW(VARCHAR))")
-                .addRoundTrip("tuple<tuple<int, text>>", "((3, 'hours'))", anonymousRow(anonymousRow(INTEGER, VARCHAR)), "CAST(ROW(ROW(3, 'hours')) AS ROW(ROW(INTEGER, VARCHAR)))")
-                .execute(getQueryRunner(), cassandraCreateAndInsert("tpch.test_tuple"));
     }
 
     @Test
