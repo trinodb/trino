@@ -28,7 +28,6 @@ import java.util.Map;
 import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
-import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,7 +44,7 @@ final class TestFakerQueries
     @Override
     protected String canonicalize(String value)
     {
-        return value.toLowerCase(ENGLISH);
+        return value;
     }
 
     @Test

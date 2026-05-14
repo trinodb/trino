@@ -22,11 +22,13 @@ public interface Canonicalizer
 {
     Canonicalizer IDENTITY_CANONICALIZER = new Canonicalizer()
     {
+        @Override
         public String canonicalize(String value)
         {
             return value;
         }
 
+        @Override
         public String name()
         {
             return "IDENTITY";
@@ -35,11 +37,13 @@ public interface Canonicalizer
 
     Canonicalizer LOWERCASE_CANONICALIZER = new Canonicalizer()
     {
+        @Override
         public String canonicalize(String value)
         {
             return value.toLowerCase(ENGLISH);
         }
 
+        @Override
         public String name()
         {
             return "LOWERCASE";
@@ -48,11 +52,13 @@ public interface Canonicalizer
 
     Canonicalizer UPPERCASE_CANONICALIZER = new Canonicalizer()
     {
+        @Override
         public String canonicalize(String value)
         {
             return value.toUpperCase(ENGLISH);
         }
 
+        @Override
         public String name()
         {
             return "UPPERCASE";

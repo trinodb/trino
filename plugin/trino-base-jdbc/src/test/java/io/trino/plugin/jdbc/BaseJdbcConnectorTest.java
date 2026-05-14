@@ -2264,7 +2264,7 @@ public abstract class BaseJdbcConnectorTest
         boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithPlan.queryId()) == 1000;
         assertDynamicFiltering(
                 "SELECT * FROM (SELECT \"custkey\", count(*) count FROM \"orders\" GROUP BY \"custkey\") a JOIN \"orders\" b " +
-                        "ON a.count = b.\"custkey\" AND b.\"totalprice\" < 1000",
+                        "ON a.%s = b.\"custkey\" AND b.\"totalprice\" < 1000".formatted(canonicalize("count")),
                 PARTITIONED,
                 isAggregationPushedDown);
     }

@@ -102,6 +102,11 @@ public class Scope
 
     public int canonicalizerKind()
     {
+        return canonicalizerKind(canonicalizer);
+    }
+
+    private int canonicalizerKind(Optional<Function<Identifier, String>> canonicalizer)
+    {
         if (canonicalizer.isPresent()) {
             String value = canonicalizer.get().apply(new Identifier("Xy", false));
             return switch (value) {
@@ -316,7 +321,7 @@ public class Scope
     public ResolvedField resolveField(Expression expression, Identifier identifier)
     {
         if (requireDelimiter && !identifier.isDelimited()) {
-            throw(requireDelimiterException(expression, QualifiedName.of(identifier)));
+            throw requireDelimiterException(expression, QualifiedName.of(identifier));
         }
         QualifiedName name = QualifiedName.of(this::canonicalize, identifier);
         return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
@@ -327,7 +332,7 @@ public class Scope
         QualifiedName name = asQualifiedName(this::canonicalize, expression);
         if (name != null) {
             if (requireDelimiter && !name.isDelimited()) {
-                throw(requireDelimiterException(expression, name));
+                throw requireDelimiterException(expression, name);
             }
             return tryResolveField(expression, name);
         }
@@ -337,7 +342,7 @@ public class Scope
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
     {
         if (requireDelimiter && !name.isDelimited()) {
-            throw(requireDelimiterException(node, name));
+            throw requireDelimiterException(node, name);
         }
         // FIXME: we must canonicalize all QualifiedName coming from ExpressionAnalyzer
         return resolveField(node, QualifiedName.of(this::canonicalize, name), true);
@@ -428,6 +433,7 @@ public class Scope
     {
         return toStringHelper(this)
                 .addValue(relationId)
+                .addValue(canonicalizerType())
                 .toString();
     }
 

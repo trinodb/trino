@@ -2542,12 +2542,14 @@ public class ExpressionAnalyzer
 
         private Type analyzeSubquery(SubqueryExpression node, Context context)
         {
+            System.out.println("ExpressionAnalyzer.analyzeSubquery() 1 scope canonicalizer: " + context.getScope().canonicalizerType());
             if (context.isInLambda()) {
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
             }
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
                     .withParent(context.getScope())
+                    .withCanonicalizer(context.getScope().getCanonicalizer())
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 

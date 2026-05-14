@@ -29,9 +29,11 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Resolver;
 
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
@@ -159,5 +161,15 @@ public class PlannerContext
     public Optional<Resolver> getResolver(Session session)
     {
         return resolverManager.getResolver(session, metadata::getResolver);
+    }
+
+    public void setCanonicalizer(Session session, Optional<Function<Identifier, String>> canonicalizer)
+    {
+        resolverManager.setCanonicalizer(session, canonicalizer);
+    }
+
+    public Optional<Function<Identifier, String>> getCanonicalizer(Session session)
+    {
+        return resolverManager.getCanonicalizer(session);
     }
 }
