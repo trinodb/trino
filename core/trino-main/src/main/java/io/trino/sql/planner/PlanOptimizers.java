@@ -993,9 +993,6 @@ public class PlanOptimizers
         builder.add(inlineProjections
                 .withName("InlineProjectionsAfterDynamicFilterCleanup"));
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(columnPruningOptimizer
-                .withName("PruneOutputsAfterFinalUnalias"));
-
         builder.add(new IterativeOptimizer(
                 "PushRemoteExchangeThroughAssignUniqueId",
                 plannerContext,
@@ -1003,6 +1000,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        .addAll(columnPruningRules)
                         .add(new RemoveRedundantIdentityProjections())
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
                         .add(new InlineProjections())
