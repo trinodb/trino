@@ -451,25 +451,16 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: array\\(integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: map\\(integer, integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
-    }
-
-    @Test
-    public void testInsertIntoUnsupportedVarbinaryPartitionType()
-    {
-        // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
-        // Update TestDeltaLakeBasic.testPartitionValuesParsedCheckpoint() when fixing this issue
-        try (TestTable table = newTrinoTable(
-                "test_varbinary_partition",
-                "(x int, part varbinary) WITH (partitioned_by = ARRAY['part'])")) {
-            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (1, X'01')", "Unsupported type for partition: varbinary");
-        }
+                "Unsupported partition column type: row\\(\"field\" integer\\)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part VARBINARY) WITH (partitioned_by = ARRAY['part'])",
+                "Unsupported partition column type: varbinary");
     }
 
     @Test
@@ -478,13 +469,16 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_ctas_unsupported_partition_types_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, array[1] part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: array\\(integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, map() part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: map\\(unknown, unknown\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, row(1) part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: row\\(integer\\)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, X'01' part",
+                "Unsupported partition column type: varbinary");
     }
 
     @Test

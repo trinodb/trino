@@ -288,13 +288,13 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         try {
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: array");
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: map");
             assertThatThrownBy(() -> onTrino().executeQuery("" +
                     "CREATE TABLE delta.default." + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'], location = '" + tableLocation + "')"))
-                    .hasMessageContaining("Using array, map or row type on partitioned columns is unsupported");
+                    .hasMessageContaining("Unsupported partition column type: row");
 
             assertThatThrownBy(() -> onDelta().executeQuery(
                     "CREATE TABLE default." + tableName + "(a INT, part ARRAY<INT>) USING DELTA PARTITIONED BY (part) LOCATION '" + tableLocation + "'"))
