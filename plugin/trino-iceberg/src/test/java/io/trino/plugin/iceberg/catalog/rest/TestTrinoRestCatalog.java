@@ -29,6 +29,10 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.junit.jupiter.api.Test;
@@ -36,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -93,6 +98,16 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
+        return createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false, false);
+    }
+
+    private static TrinoRestCatalog createTrinoRestCatalog(
+            boolean useUniqueTableLocations,
+            RESTSessionCatalog restSessionCatalog,
+            boolean nestedNamespaceEnabled,
+            boolean caseInsensitiveNameMatching)
+    {
+        String catalogName = "iceberg_rest";
         return new TrinoRestCatalog(
                 new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 restSessionCatalog,
@@ -100,11 +115,11 @@ public class TestTrinoRestCatalog
                 Security.NONE,
                 NONE,
                 ImmutableMap.of(),
-                false,
+                nestedNamespaceEnabled,
                 "test",
                 TESTING_TYPE_MANAGER,
                 useUniqueTableLocations,
-                false,
+                caseInsensitiveNameMatching,
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
                 EvictableCacheBuilder.newBuilder().expireAfterWrite(1000, MILLISECONDS).shareNothingWhenDisabled().build(),
                 true);
@@ -183,6 +198,79 @@ public class TestTrinoRestCatalog
                 .cause()
                 .as("should fail as the prefix dev is not implemented for the current endpoint")
                 .hasMessageContaining("Malformed request: No route for request: POST v1/dev/namespaces");
+    }
+
+    @Test
+    public void testNestedListNamespacesIgnoresNamespaceDeletedDuringRecursiveListing()
+    {
+        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), true, false);
+
+        assertThat(catalog.listNamespaces(SESSION))
+                .containsExactly("ExIsTiNg", "ExIsTiNg.child");
+    }
+
+    @Test
+    public void testCaseInsensitiveNamespaceLookupIgnoresNamespaceDeletedDuringRecursiveListing()
+    {
+        TrinoCatalog catalog = createTrinoRestCatalog(false, new NamespaceDeletedDuringRecursiveListingCatalog(), false, true);
+
+        assertThat(catalog.namespaceExists(SESSION, "existing")).isTrue();
+    }
+
+    @Test
+    public void testNestedListNamespacesPropagatesRecursiveRestFailures()
+    {
+        RESTSessionCatalog restSessionCatalog = new RESTSessionCatalog()
+        {
+            @Override
+            public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+            {
+                if (namespace.isEmpty()) {
+                    return List.of(Namespace.of("failing"));
+                }
+                throw new RESTException("catalog failure");
+            }
+        };
+        TrinoCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, true, false);
+
+        assertThatThrownBy(() -> catalog.listNamespaces(SESSION))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Failed to list namespaces")
+                .cause()
+                .isInstanceOf(RESTException.class)
+                .hasMessage("catalog failure");
+    }
+
+    private static class NamespaceDeletedDuringRecursiveListingCatalog
+            extends RESTSessionCatalog
+    {
+        private static final Namespace EXISTING_NAMESPACE = Namespace.of("ExIsTiNg");
+        private static final Namespace EXISTING_CHILD_NAMESPACE = Namespace.of("ExIsTiNg", "child");
+        private static final Namespace DELETED_NAMESPACE = Namespace.of("deleted");
+
+        @Override
+        public List<Namespace> listNamespaces(SessionContext context, Namespace namespace)
+        {
+            if (namespace.isEmpty()) {
+                return List.of(EXISTING_NAMESPACE, DELETED_NAMESPACE);
+            }
+            if (namespace.equals(EXISTING_NAMESPACE)) {
+                return List.of(EXISTING_CHILD_NAMESPACE);
+            }
+            if (namespace.equals(EXISTING_CHILD_NAMESPACE)) {
+                return List.of();
+            }
+            if (namespace.equals(DELETED_NAMESPACE)) {
+                throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
+            }
+            throw new AssertionError("Unexpected namespace: " + namespace);
+        }
+
+        @Override
+        public boolean namespaceExists(SessionContext context, Namespace namespace)
+        {
+            return namespace.equals(EXISTING_NAMESPACE);
+        }
     }
 
     @Override
