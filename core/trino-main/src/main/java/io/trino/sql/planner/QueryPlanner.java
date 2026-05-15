@@ -62,6 +62,7 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -91,6 +92,7 @@ import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeCaseKind;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
@@ -795,8 +797,24 @@ class QueryPlanner
                 source.getFieldMappings(),
                 outerContext);
 
+        // Project a "source_present" marker onto the source side (symmetric to "present" on the target).
+        // After a LEFT or FULL OUTER join, this becomes NULL for target-only rows (NOT MATCHED BY SOURCE).
+        Assignments.Builder sourcePresentProjections = Assignments.builder();
+        sourcePresentProjections.putIdentities(sourcePlanWithUniqueId.getRoot().getOutputSymbols());
+        Symbol sourcePresentColumn = symbolAllocator.newSymbol("source_present", BOOLEAN);
+        sourcePresentProjections.put(sourcePresentColumn, TRUE);
+        RelationPlan sourcePlanWithPresentColumn = new RelationPlan(
+                new ProjectNode(idAllocator.getNextId(), sourcePlanWithUniqueId.getRoot(), sourcePresentProjections.build()),
+                source.getScope(),
+                sourcePlanWithUniqueId.getFieldMappings(),
+                outerContext);
+
+        // The join type is derived by the analyzer from the set of WHEN clause kinds present.
+        // RIGHT for MATCHED/BY TARGET only (backward compat); LEFT for BY SOURCE only;
+        // FULL for both BY TARGET and BY SOURCE.
+        Join.Type joinType = toAstJoinType(mergeAnalysis.getRequiredJoinType());
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
+                .planJoin(merge.getPredicate(), joinType, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithPresentColumn, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
@@ -870,10 +888,19 @@ class QueryPlanner
             // Add the merge case number, needed by MarkDistinct
             rowBuilder.add(new Constant(INTEGER, (long) caseNumber));
 
-            Expression condition = presentColumn.toSymbolReference();
-            if (mergeCase instanceof MergeInsert) {
-                condition = new IsNull(presentColumn.toSymbolReference());
-            }
+            // Condition selects rows belonging to this clause's category:
+            //   MATCHED            – both target and source rows are present
+            //   NOT_MATCHED_BY_TARGET – only source row present (target IS NULL)
+            //   NOT_MATCHED_BY_SOURCE – only target row present (source IS NULL)
+            Expression condition = switch (mergeCase.getMergeCaseKind()) {
+                case MergeCaseKind.MATCHED -> and(
+                        not(metadata, new IsNull(presentColumn.toSymbolReference())),
+                        not(metadata, new IsNull(sourcePresentColumn.toSymbolReference())));
+                // target absent; source is always present when target is absent
+                case MergeCaseKind.NOT_MATCHED_BY_TARGET -> new IsNull(presentColumn.toSymbolReference());
+                // source absent; target is always present when source is absent
+                case MergeCaseKind.NOT_MATCHED_BY_SOURCE -> new IsNull(sourcePresentColumn.toSymbolReference());
+            };
 
             if (casePredicate.isPresent()) {
                 condition = and(
@@ -888,8 +915,9 @@ class QueryPlanner
                 assignments.putIdentity(targetUniqueIdSymbol);
                 assignments.putIdentity(sourceUniqueIdSymbol);
                 assignments.putIdentity(presentColumn);
+                assignments.putIdentity(sourcePresentColumn);
                 assignments.putIdentity(rowIdSymbol);
-                assignments.putIdentities(sourcePlanWithUniqueId.getFieldMappings());
+                assignments.putIdentities(sourcePlanWithPresentColumn.getFieldMappings());
                 subPlan = subPlan.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
@@ -920,10 +948,11 @@ class QueryPlanner
             projectionAssignmentsBuilder.putIdentity(symbol);
         }
 
-        // Assigns a unique id to each joined row
-        // The target table unique_id for matches, and the source table unique_id for non-matches
-        // Avoid the scenario where unique_id values become null after right join due to unmatched rows.
-        // It can improve performance and parallelism when handling non-matches in a mark distinct operation.
+        // Assigns a unique id to each joined row.
+        // For MATCHED rows: target unique_id is used.
+        // For NOT MATCHED BY TARGET rows: target unique_id is NULL (outer join), source unique_id is used.
+        // For NOT MATCHED BY SOURCE rows: source unique_id is NULL (outer join), target unique_id is used.
+        // Coalesce ensures a non-null value for all three categories, which improves MarkDistinct performance.
         Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
         Expression uniqueIdExpression = new Coalesce(targetUniqueIdSymbol.toSymbolReference(), sourceUniqueIdSymbol.toSymbolReference());
 
@@ -1066,6 +1095,20 @@ class QueryPlanner
             return DELETE_OPERATION_NUMBER;
         }
         throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    /**
+     * Maps the analyzer-supplied {@link JoinType} (planner-plan enum) to the
+     * AST {@link Join.Type} that {@link RelationPlanner#planJoin} expects.
+     */
+    private static Join.Type toAstJoinType(JoinType joinType)
+    {
+        return switch (joinType) {
+            case INNER -> Join.Type.INNER;
+            case LEFT -> Join.Type.LEFT;
+            case RIGHT -> Join.Type.RIGHT;
+            case FULL -> Join.Type.FULL;
+        };
     }
 
     public static Optional<PartitioningScheme> createMergePartitioningScheme(
