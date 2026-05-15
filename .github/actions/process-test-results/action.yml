@@ -19,6 +19,7 @@ runs:
   - name: Upload test results
     uses: actions/upload-artifact@v7
     if: format('{0}', inputs.has-failed-tests) == 'true'
+    continue-on-error: true
     with:
       name: results ${{ inputs.artifact-name }}
       if-no-files-found: 'ignore'
@@ -30,8 +31,7 @@ runs:
       retention-days: 5
   - name: Upload test report
     uses: actions/upload-artifact@v7
-    # Always upload the test report for the upload-test-results.yml workflow,
-    # but only the single XML file to keep the artifact small
+    continue-on-error: true
     with:
       # Name prefix is checked in the `Upload test results` workflow
       name: test report ${{ inputs.artifact-name }}
@@ -43,6 +43,7 @@ runs:
   - name: Upload heap dump
     uses: actions/upload-artifact@v7
     if: format('{0}', inputs.upload-heap-dump) == 'true'
+    continue-on-error: true
     with:
       name: heap dump ${{ inputs.artifact-name }}
       if-no-files-found: 'ignore'
