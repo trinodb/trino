@@ -22,34 +22,46 @@ import io.trino.spi.type.TypeSignature;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Stream.concat;
 
 public class Signature
 {
+    public record Argument(@JsonProperty("type") TypeSignature type, @JsonProperty("name") Optional<String> name)
+    {
+        public static Argument of(TypeSignature type)
+        {
+            return new Argument(type, Optional.empty());
+        }
+
+        public static Argument of(TypeSignature type, String name)
+        {
+            return new Argument(type, Optional.of(name));
+        }
+    }
+
     private final List<TypeVariableConstraint> typeVariableConstraints;
     private final List<LongVariableConstraint> longVariableConstraints;
     private final TypeSignature returnType;
-    private final List<TypeSignature> argumentTypes;
+    private final List<Argument> arguments;
     private final boolean variableArity;
 
     private Signature(
             List<TypeVariableConstraint> typeVariableConstraints,
             List<LongVariableConstraint> longVariableConstraints,
             TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
+            List<Argument> arguments,
             boolean variableArity)
     {
-        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
-        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
-
         this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
         this.longVariableConstraints = List.copyOf(longVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.arguments = List.copyOf(arguments);
         this.variableArity = variableArity;
     }
 
@@ -60,9 +72,16 @@ public class Signature
     }
 
     @JsonProperty
+    public List<Argument> getArguments()
+    {
+        return arguments;
+    }
+
     public List<TypeSignature> getArgumentTypes()
     {
-        return argumentTypes;
+        return arguments.stream()
+                .map(Argument::type)
+                .collect(toUnmodifiableList());
     }
 
     @JsonProperty
@@ -94,7 +113,7 @@ public class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return Objects.hash(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
     }
 
     @Override
@@ -109,7 +128,7 @@ public class Signature
         return Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&
-                Objects.equals(this.argumentTypes, other.argumentTypes) &&
+                Objects.equals(this.arguments, other.arguments) &&
                 this.variableArity == other.variableArity;
     }
 
@@ -122,7 +141,7 @@ public class Signature
                 .collect(Collectors.toList());
 
         return (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
-                argumentTypes.stream().map(Objects::toString).collect(joining(",", "(", ")")) +
+                arguments.stream().map(Argument::type).map(Objects::toString).collect(joining(",", "(", ")")) +
                 ":" + returnType;
     }
 
@@ -131,12 +150,25 @@ public class Signature
         return new Builder();
     }
 
+    public static Builder builder(Signature base)
+    {
+        Builder builder = new Builder()
+                .typeVariableConstraints(base.typeVariableConstraints)
+                .longVariableConstraints(base.longVariableConstraints)
+                .returnType(base.returnType)
+                .arguments(base.arguments);
+        if (base.variableArity) {
+            builder.variableArity();
+        }
+        return builder;
+    }
+
     public static final class Builder
     {
         private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
         private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
         private TypeSignature returnType;
-        private final List<TypeSignature> argumentTypes = new ArrayList<>();
+        private final List<Argument> arguments = new ArrayList<>();
         private boolean variableArity;
 
         private Builder() {}
@@ -222,6 +254,12 @@ public class Signature
             return this;
         }
 
+        public Builder longVariableConstraints(List<LongVariableConstraint> longVariableConstraints)
+        {
+            this.longVariableConstraints.addAll(longVariableConstraints);
+            return this;
+        }
+
         public Builder argumentType(Type type)
         {
             return argumentType(type.getTypeSignature());
@@ -229,13 +267,33 @@ public class Signature
 
         public Builder argumentType(TypeSignature type)
         {
-            argumentTypes.add(requireNonNull(type, "type is null"));
+            arguments.add(Argument.of(type));
             return this;
+        }
+
+        public Builder argumentType(TypeSignature type, String name)
+        {
+            arguments.add(Argument.of(type, name));
+            return this;
+        }
+
+        public Builder argumentType(Type type, String name)
+        {
+            return argumentType(type.getTypeSignature(), name);
         }
 
         public Builder argumentTypes(List<TypeSignature> argumentTypes)
         {
-            this.argumentTypes.addAll(requireNonNull(argumentTypes, "argumentTypes is null"));
+            for (TypeSignature argumentType : argumentTypes) {
+                argumentType(argumentType);
+            }
+            return this;
+        }
+
+        public Builder arguments(List<Argument> arguments)
+        {
+            this.arguments.clear();
+            this.arguments.addAll(arguments);
             return this;
         }
 
@@ -247,7 +305,7 @@ public class Signature
 
         public Signature build()
         {
-            return new Signature(typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+            return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
         }
     }
 
@@ -258,9 +316,9 @@ public class Signature
             @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
             @JsonProperty("returnType") TypeSignature returnType,
-            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
+            @JsonProperty("arguments") List<Argument> arguments,
             @JsonProperty("variableArity") boolean variableArity)
     {
-        return new Signature(typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return new Signature(typeVariableConstraints, longVariableConstraints, returnType, arguments, variableArity);
     }
 }

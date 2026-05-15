@@ -88,6 +88,33 @@ to avoid unexpected results.
   native container type when using `@SqlNullable`. The method must be annotated with
   `@SqlNullable` if it can return `NULL` when the arguments are non-null.
 
+- `@Name`:
+
+  The `@Name` annotation declares the SQL-visible parameter name for an
+  argument. With a declared name the function is invocable using the
+  named-argument form `f(name => value)` in addition to the positional form.
+  Functions without `@Name` annotations on their parameters can only be called
+  positionally. For example:
+
+  ```java
+  @ScalarFunction("clamp")
+  @SqlType(StandardTypes.BIGINT)
+  public static long clamp(
+          @Name("value") @SqlType(StandardTypes.BIGINT) long value,
+          @Name("lo") @SqlType(StandardTypes.BIGINT) long lo,
+          @Name("hi") @SqlType(StandardTypes.BIGINT) long hi)
+  {
+      return Math.max(lo, Math.min(hi, value));
+  }
+  ```
+
+  After registration the function is callable both ways:
+
+  ```sql
+  SELECT clamp(7, 0, 5);
+  SELECT clamp(value => 7, hi => 5, lo => 0);
+  ```
+
 ## Parametric scalar functions
 
 Scalar functions that have type parameters have some additional complexity.

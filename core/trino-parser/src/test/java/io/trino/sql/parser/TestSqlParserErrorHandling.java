@@ -92,16 +92,16 @@ public class TestSqlParserErrorHandling
                         "line 1:12: mismatched input '!'. Expecting: '*', <identifier>"),
                 Arguments.of(
                         "select foo(,1)",
-                        "line 1:12: mismatched input ','. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>"),
+                        "line 1:12: mismatched input ','. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>, <identifier>"),
                 Arguments.of(
                         "select foo ( ,1)",
-                        "line 1:14: mismatched input ','. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>"),
+                        "line 1:14: mismatched input ','. Expecting: ')', '*', 'ALL', 'DISTINCT', 'ORDER', <expression>, <identifier>"),
                 Arguments.of(
                         "select foo(DISTINCT)",
-                        "line 1:20: mismatched input ')'. Expecting: <expression>"),
+                        "line 1:20: mismatched input ')'. Expecting: <expression>, <identifier>"),
                 Arguments.of(
                         "select foo(DISTINCT ,1)",
-                        "line 1:21: mismatched input ','. Expecting: <expression>"),
+                        "line 1:21: mismatched input ','. Expecting: <expression>, <identifier>"),
                 Arguments.of(
                         "CREATE )",
                         "line 1:8: mismatched input ')'. Expecting: 'BRANCH', 'CATALOG', 'FUNCTION', 'MATERIALIZED', 'OR', 'ROLE', 'SCHEMA', 'TABLE', 'VIEW'"),
@@ -219,7 +219,7 @@ public class TestSqlParserErrorHandling
                         "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "SELECT count(DISTINCT *) FROM (VALUES 1)",
-                        "line 1:23: mismatched input '*'. Expecting: <expression>"));
+                        "line 1:23: mismatched input '*'. Expecting: <expression>, <identifier>"));
     }
 
     @Test

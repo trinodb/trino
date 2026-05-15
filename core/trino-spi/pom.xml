@@ -327,6 +327,25 @@
                                     <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
                                     <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
+                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
+                                    <justification>Replace parallel argumentTypes list with structural Signature.Argument list to carry parameter names</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.type.TypeSignature&gt;===, boolean)</old>
+                                    <new>parameter io.trino.spi.function.Signature io.trino.spi.function.Signature::fromJson(java.util.List&lt;io.trino.spi.function.TypeVariableConstraint&gt;, java.util.List&lt;io.trino.spi.function.LongVariableConstraint&gt;, io.trino.spi.type.TypeSignature, ===java.util.List&lt;io.trino.spi.function.Signature.Argument&gt;===, boolean)</new>
+                                    <justification>JsonProperty value renamed from argumentTypes to arguments</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.function.Signature::getArgumentTypes()</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <justification>getArgumentTypes() is now a derived view; JsonProperty moved to getArguments()</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

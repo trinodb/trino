@@ -35,13 +35,16 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static java.lang.String.format;
 import static java.time.Duration.ofHours;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +92,47 @@ public class InternalFunctionBundle
 
         this.functions = functions.stream()
                 .collect(toImmutableMap(function -> function.getFunctionMetadata().getFunctionId(), Function.identity()));
+
+        validateNamedArgumentPositions(functions);
     }
+
+    /// Per (name, arity), every overload that declares a named parameter must place
+    /// it at the same slot. The runtime binder relies on a representative overload's
+    /// positions when reordering named arguments; without agreement, the binding
+    /// would be ambiguous, so this is rejected at registration rather than runtime.
+    private static void validateNamedArgumentPositions(List<? extends SqlFunction> functions)
+    {
+        Map<NameArity, Map<String, Integer>> declaredPositions = new HashMap<>();
+        for (SqlFunction function : functions) {
+            FunctionMetadata metadata = function.getFunctionMetadata();
+            Signature signature = metadata.getSignature();
+            if (signature.isVariableArity()) {
+                continue;
+            }
+            List<Signature.Argument> arguments = signature.getArguments();
+            for (String name : metadata.getNames()) {
+                Map<String, Integer> positions = declaredPositions.computeIfAbsent(new NameArity(name, arguments.size()), _ -> new HashMap<>());
+                for (int i = 0; i < arguments.size(); i++) {
+                    Optional<String> parameterName = arguments.get(i).name();
+                    if (parameterName.isEmpty()) {
+                        continue;
+                    }
+                    Integer existing = positions.putIfAbsent(parameterName.get(), i);
+                    if (existing != null && existing != i) {
+                        throw new IllegalArgumentException(format(
+                                "Overloads of %s at arity %s declare parameter %s at different positions: %s vs %s",
+                                name,
+                                arguments.size(),
+                                parameterName.get(),
+                                existing,
+                                i));
+                    }
+                }
+            }
+        }
+    }
+
+    private record NameArity(String name, int arity) {}
 
     @Override
     public Collection<FunctionMetadata> getFunctions()
