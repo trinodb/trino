@@ -789,7 +789,7 @@ jobs:
         id: tests-google-sheets
         env:
           SHEETS_CREDENTIALS_KEY: ${{ secrets.SHEETS_CREDENTIALS_KEY }}
-        if: matrix.modules == 'trino-google-sheets' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SHEETS_CREDENTIALS_KEY != '')
+        if: contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SHEETS_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-google-sheets -Pcloud-tests \
             -Dtesting.gsheets.credentials-key="${SHEETS_CREDENTIALS_KEY}"
