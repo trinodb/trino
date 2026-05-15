@@ -58,6 +58,10 @@ public final class BigQueryUtil
                     // https://docs.cloud.google.com/bigquery/docs/reference/datatransfer/rest/v1/Code
                     statusRuntimeException.getStatus().getCode() == Status.Code.UNAVAILABLE;
         }
+        // Handle HTTP-level retryable errors (e.g. 503 Service Unavailable) from BigQuery REST API
+        if (t instanceof BigQueryException bigQueryException) {
+            return bigQueryException.isRetryable();
+        }
         return false;
     }
 
