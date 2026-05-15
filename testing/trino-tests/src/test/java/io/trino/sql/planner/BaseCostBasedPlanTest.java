@@ -315,7 +315,6 @@ public abstract class BaseCostBasedPlanTest
                     partitioning.getHandle(),
                     partitioning.getArguments().stream()
                             .map(BaseCostBasedPlanTest::argumentBindingToString)
-                            .sorted() // Currently, order of hash columns is not deterministic
                             .collect(joining(", ", "[", "]")));
 
             return visitPlan(node, indent + 1);
@@ -329,7 +328,6 @@ public abstract class BaseCostBasedPlanTest
                     node.getStep().name().toLowerCase(ENGLISH),
                     node.getGroupingKeys().stream()
                             .map(Symbol::name)
-                            .sorted()
                             .collect(joining(", ")));
 
             return visitPlan(node, indent + 1);
@@ -341,7 +339,6 @@ public abstract class BaseCostBasedPlanTest
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
             String inputs = filters.getDynamicConjuncts().stream()
                     .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
-                    .sorted()
                     .collect(joining(", "));
 
             if (!inputs.isEmpty()) {

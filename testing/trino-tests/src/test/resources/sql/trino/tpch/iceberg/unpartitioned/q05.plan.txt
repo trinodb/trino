@@ -6,10 +6,10 @@ remote exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [name_21])
                         partial aggregation over (name_21)
                             join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, [nationkey, suppkey])
+                                remote exchange (REPARTITION, HASH, [suppkey, nationkey])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [orderkey_5])
-                                            dynamic filter (orderkey_5::EQUAL, suppkey::EQUAL)
+                                            dynamic filter (suppkey::EQUAL, orderkey_5::EQUAL)
                                                 scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [orderkey])
@@ -31,5 +31,5 @@ remote exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     scan region
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [nationkey_13, suppkey_10])
+                                    remote exchange (REPARTITION, HASH, [suppkey_10, nationkey_13])
                                         scan supplier
