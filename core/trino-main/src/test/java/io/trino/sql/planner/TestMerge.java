@@ -34,10 +34,13 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +65,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -133,7 +138,7 @@ public class TestMerge
                                                                         "field", expression(new Reference(BIGINT, "field")),
                                                                         "merge_row", expression(new Case(
                                                                                 ImmutableList.of(
-                                                                                        new WhenClause(new Reference(BOOLEAN, "present"), new Row(ImmutableList.of(new Reference(INTEGER, "column1"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 3L), new Constant(INTEGER, 0L)), ROW_TYPE)),
+                                                                                        new WhenClause(new Logical(Logical.Operator.AND, ImmutableList.of(new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "source_present")))))), new Row(ImmutableList.of(new Reference(INTEGER, "column1"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 3L), new Constant(INTEGER, 0L)), ROW_TYPE)),
                                                                                         new WhenClause(new IsNull(new Reference(BOOLEAN, "present")), new Row(ImmutableList.of(new Reference(INTEGER, "column1_0"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 1L), new Constant(INTEGER, 1L)), ROW_TYPE))),
                                                                                 new Constant(ROW_TYPE, null))),
                                                                         "target_unique_id", expression(new Reference(BIGINT, "target_unique_id")),
@@ -155,9 +160,11 @@ public class TestMerge
                                                                                                                 "field", columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals("merge_row_id"))))))
                                                                         .right(
                                                                                 anyTree(
-                                                                                        assignUniqueId(
-                                                                                                "source_unique_id",
-                                                                                                tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2")))))))))))));
+                                                                                        project(ImmutableMap.of(
+                                                                                                        "source_present", expression(new Constant(BOOLEAN, true))),
+                                                                                                assignUniqueId(
+                                                                                                        "source_unique_id",
+                                                                                                        tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2"))))))))))))));
     }
 
     @Test
@@ -286,6 +293,85 @@ public class TestMerge
                     NOOP,
                     createPlanOptimizersStatsCollector());
             return null;
+        });
+    }
+
+    @Test
+    public void testMergeMatchedAndBySourceUsesLeftJoin()
+    {
+        // MATCHED + BY SOURCE only → LEFT join (target preserved; source may be absent)
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED THEN UPDATE SET column2 = b.column2 " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE")
+                .getType())
+                .isEqualTo(LEFT);
+    }
+
+    @Test
+    public void testMergeBySourceOnlyUsesLeftJoin()
+    {
+        // BY SOURCE only (no MATCHED, no BY TARGET) → LEFT join
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE")
+                .getType())
+                .isEqualTo(LEFT);
+    }
+
+    @Test
+    public void testMergeAllThreeClauseKindsUsesFullJoin()
+    {
+        // MATCHED + BY TARGET + BY SOURCE → FULL OUTER join
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED THEN UPDATE SET column2 = b.column2 " +
+                        "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2) " +
+                        "WHEN NOT MATCHED BY SOURCE THEN DELETE")
+                .getType())
+                .isEqualTo(FULL);
+    }
+
+    @Test
+    public void testMergeMultipleBySourceClausesAccepted()
+    {
+        // Two BY SOURCE clauses with different predicates — valid; first matching clause wins
+        getPlanTester().inTransaction(session -> {
+            getPlanTester().createPlan(
+                    session,
+                    "MERGE INTO test_table_merge_target a " +
+                            "USING test_table_merge_source b " +
+                            "ON a.column1 = b.column1 " +
+                            "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE " +
+                            "WHEN NOT MATCHED BY SOURCE THEN UPDATE SET column2 = 0",
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return null;
+        });
+    }
+
+    private JoinNode findMergeJoin(String sql)
+    {
+        return getPlanTester().inTransaction(session -> {
+            Plan plan = getPlanTester().createPlan(
+                    session,
+                    sql,
+                    getPlanTester().getPlanOptimizers(true),
+                    LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
+            return (JoinNode) PlanNodeSearcher.searchFrom(plan.getRoot())
+                    .where(JoinNode.class::isInstance)
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("No join node found in plan for: " + sql));
         });
     }
 }
