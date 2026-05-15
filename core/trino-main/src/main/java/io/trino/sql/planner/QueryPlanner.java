@@ -80,6 +80,7 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FrameBound;
@@ -502,6 +503,17 @@ class QueryPlanner
             }
         }
         return result.build();
+    }
+
+    /// Argument values in resolved-signature order. For positional calls the binding is
+    /// the identity; for named calls it reorders so values land at their declared positions.
+    private List<io.trino.sql.tree.Expression> argumentsInSignatureOrder(FunctionCall function)
+    {
+        List<CallArgument> arguments = function.getArguments();
+        return analysis.getArgumentBinding(function).stream()
+                .map(arguments::get)
+                .map(CallArgument::getValue)
+                .collect(toImmutableList());
     }
 
     public PlanNode plan(Delete node)
@@ -1152,6 +1164,7 @@ class QueryPlanner
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
+                .map(CallArgument::getValue)
                 .filter(expression -> !(expression instanceof LambdaExpression)) // lambda expression is generated at execution time
                 .forEach(inputBuilder::add);
 
@@ -1293,7 +1306,7 @@ class QueryPlanner
             //   What can happen currently is that if the argument requires a coercion, the argument will take a different input that the ORDER BY clause, which is undefined behavior
             Aggregation aggregation = new Aggregation(
                     analysis.getResolvedFunction(function).get(),
-                    function.getArguments().stream()
+                    argumentsInSignatureOrder(function).stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
                                     return subPlan.rewrite(argument);
@@ -1487,7 +1500,7 @@ class QueryPlanner
             }
 
             for (FunctionCall windowFunction : functionCalls) {
-                inputsBuilder.addAll(windowFunction.getArguments().stream()
+                inputsBuilder.addAll(windowFunction.argumentValues().stream()
                         .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
                         .collect(Collectors.toList()));
                 inputsBuilder.addAll(getSortItemsFromOrderBy(windowFunction.getOrderBy()).stream()
@@ -1806,7 +1819,7 @@ class QueryPlanner
 
             WindowNode.Function function = new WindowNode.Function(
                     analysis.getResolvedFunction(windowFunction).get(),
-                    windowFunction.getArguments().stream()
+                    argumentsInSignatureOrder(windowFunction).stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
                                     return subPlan.rewrite(argument);
@@ -1888,7 +1901,7 @@ class QueryPlanner
 
             WindowNode.Function function = new WindowNode.Function(
                     analysis.getResolvedFunction(windowFunction).get(),
-                    windowFunction.getArguments().stream()
+                    argumentsInSignatureOrder(windowFunction).stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
                                     return subPlan.rewrite(argument);

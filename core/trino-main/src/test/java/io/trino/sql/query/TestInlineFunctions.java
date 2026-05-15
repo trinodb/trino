@@ -277,6 +277,93 @@ public class TestInlineFunctions
     }
 
     @Test
+    public void testNamedArguments()
+    {
+        // SQL UDFs declare their parameter names, so callers can use the named-argument form.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN CASE
+                        WHEN value < lo THEN lo
+                        WHEN value > hi THEN hi
+                        ELSE value
+                    END
+                SELECT clamp(value => 7, lo => 0, hi => 5)
+                """))
+                .matches("VALUES BIGINT '5'");
+
+        // Order of named arguments at the call site does not matter.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN CASE
+                        WHEN value < lo THEN lo
+                        WHEN value > hi THEN hi
+                        ELSE value
+                    END
+                SELECT clamp(hi => 5, lo => 0, value => -3)
+                """))
+                .matches("VALUES BIGINT '0'");
+
+        // Mixed positional then named.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN CASE
+                        WHEN value < lo THEN lo
+                        WHEN value > hi THEN hi
+                        ELSE value
+                    END
+                SELECT clamp(7, hi => 5, lo => 0)
+                """))
+                .matches("VALUES BIGINT '5'");
+
+        // A name that the function does not declare is rejected with a precise diagnostic.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN value
+                SELECT clamp(value => 1, lo => 0, top => 5)
+                """))
+                .failure()
+                .hasMessageContaining("No argument named top for function clamp");
+
+        // A named argument that refers to a position already supplied positionally is
+        // an explicit error, not a silent re-binding. Here `value` is parameter 0,
+        // which the positional `1` already fills.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN value
+                SELECT clamp(1, value => 2, lo => 3)
+                """))
+                .failure()
+                .hasMessageContaining("Named argument value for function clamp refers to parameter position 0, which is already supplied positionally");
+
+        // Wrong arity surfaces "No argument named X" pointing at the truly unknown
+        // name rather than masking it behind a candidate-not-found error.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN value
+                SELECT clamp(1, value => 2, lo => 3, high => 4)
+                """))
+                .failure()
+                .hasMessageContaining("No argument named high for function clamp");
+
+        // All names valid but arity wrong AND positional+named conflict — the conflict is
+        // reported even though no candidate's arity matches the call.
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION clamp(value bigint, lo bigint, hi bigint) RETURNS bigint
+                    RETURN value
+                SELECT clamp(1, value => 2, lo => 3, hi => 4)
+                """))
+                .failure()
+                .hasMessageContaining("Named argument value for function clamp refers to parameter position 0, which is already supplied positionally");
+    }
+
+    @Test
     public void testInlineSqlFunctions()
     {
         assertThat(assertions.query(

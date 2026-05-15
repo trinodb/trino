@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -71,5 +72,14 @@ public final class CustomFunctions
     {
         Slice message = rowType.getFields().getFirst().getType().getSlice(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
         return Slices.utf8Slice(message.toStringUtf8() + " " + session.getUser());
+    }
+
+    @ScalarFunction("named_subtract")
+    @SqlType(StandardTypes.BIGINT)
+    public static long namedSubtract(
+            @Name("left") @SqlType(StandardTypes.BIGINT) long left,
+            @Name("right") @SqlType(StandardTypes.BIGINT) long right)
+    {
+        return left - right;
     }
 }

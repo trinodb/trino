@@ -37,6 +37,7 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.IsNull;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -551,6 +552,7 @@ public class ParametricScalarImplementation
                 // Skip injected parameters
                 if (parameterType == ConnectorSession.class) {
                     checkCondition(!hasConnectorSession, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has more than 1 ConnectorSession in the parameter list", method);
+                    checkArgument(!parameter.isAnnotationPresent(Name.class), "Method [%s] has @Name on a non-@SqlType parameter", method);
                     hasConnectorSession = true;
                     parameterIndex++;
                     continue;
@@ -559,6 +561,7 @@ public class ParametricScalarImplementation
                 Optional<Annotation> implementationDependency = getImplementationDependencyAnnotation(parameter);
                 if (implementationDependency.isPresent()) {
                     checkCondition(!encounteredNonDependencyAnnotation, FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] has parameters annotated with Dependency annotations that appears after other parameters", method);
+                    checkArgument(!parameter.isAnnotationPresent(Name.class), "Method [%s] has @Name on a non-@SqlType parameter", method);
 
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
@@ -578,7 +581,17 @@ public class ParametricScalarImplementation
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
                     TypeSignature typeSignature = parseTypeSignature(type.value(), literalParameters);
-                    signatureBuilder.argumentType(typeSignature);
+                    // @Name is not @Repeatable, so the compiler guarantees at most one.
+                    Optional<Name> nameAnnotation = Stream.of(annotations)
+                            .filter(Name.class::isInstance)
+                            .map(Name.class::cast)
+                            .findFirst();
+                    if (nameAnnotation.isPresent()) {
+                        signatureBuilder.argumentType(typeSignature, nameAnnotation.get().value());
+                    }
+                    else {
+                        signatureBuilder.argumentType(typeSignature);
+                    }
 
                     if (typeSignature.getBase().equals(FunctionType.NAME)) {
                         // function type

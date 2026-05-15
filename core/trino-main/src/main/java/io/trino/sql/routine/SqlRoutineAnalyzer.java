@@ -32,7 +32,6 @@ import io.trino.sql.analyzer.QueryType;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.CaseStatement;
@@ -113,10 +112,9 @@ public class SqlRoutineAnalyzer
                 .returnType(toTypeSignature(function.getReturnsClause().getReturnType()));
 
         validateArguments(function);
-        function.getParameters().stream()
-                .map(ParameterDeclaration::getType)
-                .map(TypeSignatureTranslator::toTypeSignature)
-                .forEach(signatureBuilder::argumentType);
+        for (ParameterDeclaration parameter : function.getParameters()) {
+            signatureBuilder.argumentType(toTypeSignature(parameter.getType()), parameter.getName().orElseThrow().getValue());
+        }
         Signature signature = signatureBuilder.build();
 
         FunctionMetadata.Builder builder = FunctionMetadata.scalarBuilder(functionName)

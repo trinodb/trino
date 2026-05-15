@@ -13,17 +13,19 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.Signature.Argument;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -34,16 +36,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSignature
 {
+    private static final JsonCodec<Signature> CODEC = new JsonCodecFactory(
+            new JsonMapperProvider()
+                    .withJsonDeserializers(ImmutableMap.of(
+                            Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
+                            TypeSignature.class, new TypeSignatureDeserializer()))
+                    .get())
+            .prettyPrint()
+            .jsonCodec(Signature.class);
+
     @Test
     public void testSerializationRoundTrip()
     {
-        JsonMapper jsonMapper = new JsonMapperProvider()
-                .withJsonDeserializers(ImmutableMap.of(
-                        Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
-                        TypeSignature.class, new TypeSignatureDeserializer()))
-                .get();
-        JsonCodec<Signature> codec = new JsonCodecFactory(jsonMapper).prettyPrint().jsonCodec(Signature.class);
-
         Signature expected = Signature.builder()
                 .returnType(BIGINT)
                 .argumentType(BOOLEAN)
@@ -51,10 +55,45 @@ public class TestSignature
                 .argumentType(VARCHAR)
                 .build();
 
-        String json = codec.toJson(expected);
-        Signature actual = codec.fromJson(json);
+        String json = CODEC.toJson(expected);
+        Signature actual = CODEC.fromJson(json);
 
-        assertThat(actual.getReturnType()).isEqualTo(expected.getReturnType());
-        assertThat(actual.getArgumentTypes()).isEqualTo(expected.getArgumentTypes());
+        assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getArguments()).allSatisfy(argument -> assertThat(argument.name()).isEmpty());
+    }
+
+    @Test
+    public void testArgumentNamesRoundTrip()
+    {
+        Signature expected = Signature.builder()
+                .returnType(VARCHAR.getTypeSignature())
+                .argumentType(VARCHAR.getTypeSignature(), "string")
+                .argumentType(BIGINT.getTypeSignature(), "from")
+                .argumentType(BIGINT.getTypeSignature())
+                .build();
+
+        assertThat(expected.getArguments())
+                .extracting(Argument::name)
+                .containsExactly(Optional.of("string"), Optional.of("from"), Optional.empty());
+
+        Signature actual = CODEC.fromJson(CODEC.toJson(expected));
+        assertThat(actual).isEqualTo(expected);
+        assertThat(actual.getArguments())
+                .extracting(Argument::name)
+                .containsExactly(Optional.of("string"), Optional.of("from"), Optional.empty());
+    }
+
+    @Test
+    public void testEqualityIncludesArgumentNames()
+    {
+        Signature withName = Signature.builder()
+                .returnType(BIGINT)
+                .argumentType(BIGINT.getTypeSignature(), "x")
+                .build();
+        Signature withoutName = Signature.builder()
+                .returnType(BIGINT)
+                .argumentType(BIGINT)
+                .build();
+        assertThat(withName).isNotEqualTo(withoutName);
     }
 }
