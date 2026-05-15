@@ -36,7 +36,9 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.RESTUtil;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -62,6 +64,8 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -101,6 +105,24 @@ public class TrinoIcebergRestCatalogFactory
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
+        if (caseInsensitiveNameMatching && restConfig.isCaseInsensitiveNameMatchingNamespaceCacheEnabled()) {
+            this.namespaceTableListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size())
+                    .shareNothingWhenDisabled()
+                    .build());
+            this.namespaceViewListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size())
+                    .shareNothingWhenDisabled()
+                    .build());
+        }
+        else {
+            this.namespaceTableListingCache = Optional.empty();
+            this.namespaceViewListingCache = Optional.empty();
+        }
     }
 
     @Override
@@ -135,7 +157,7 @@ public class TrinoIcebergRestCatalogFactory
                 catalogName,
                 security,
                 sessionType,
-                credentials,
+                                credentials,
                 nestedNamespaceEnabled,
                 trinoVersion,
                 typeManager,
@@ -143,6 +165,8 @@ public class TrinoIcebergRestCatalogFactory
                 caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
                 remoteTableMappingCache,
+                namespaceTableListingCache,
+                namespaceViewListingCache,
                 viewEndpointsEnabled);
     }
 }

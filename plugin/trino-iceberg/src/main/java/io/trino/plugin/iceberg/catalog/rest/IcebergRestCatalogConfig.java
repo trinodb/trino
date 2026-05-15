@@ -19,6 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.apache.iceberg.CatalogProperties;
 
@@ -66,6 +67,8 @@ public class IcebergRestCatalogConfig
     private boolean caseInsensitiveNameMatching;
     private Map<String, String> httpHeaders = ImmutableMap.of();
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private boolean caseInsensitiveNameMatchingNamespaceCacheEnabled = true;
+    private long caseInsensitiveNameMatchingNamespaceCacheMaxSize = 10_000;
 
     @NotNull
     public URI getBaseUri()
@@ -263,6 +266,33 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatchingNamespaceCacheEnabled()
+    {
+        return caseInsensitiveNameMatchingNamespaceCacheEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.namespace-cache.enabled")
+    @ConfigDescription("Cache the full list of tables/views per namespace to avoid repeated listings during case insensitive resolution")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingNamespaceCacheEnabled(boolean caseInsensitiveNameMatchingNamespaceCacheEnabled)
+    {
+        this.caseInsensitiveNameMatchingNamespaceCacheEnabled = caseInsensitiveNameMatchingNamespaceCacheEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public long getCaseInsensitiveNameMatchingNamespaceCacheMaxSize()
+    {
+        return caseInsensitiveNameMatchingNamespaceCacheMaxSize;
+    }
+
+    @Config("iceberg.rest-catalog.case-insensitive-name-matching.namespace-cache.max-size")
+    @ConfigDescription("Maximum total number of table or view identifiers retained across namespaces in the case insensitive listing cache")
+    public IcebergRestCatalogConfig setCaseInsensitiveNameMatchingNamespaceCacheMaxSize(long caseInsensitiveNameMatchingNamespaceCacheMaxSize)
+    {
+        this.caseInsensitiveNameMatchingNamespaceCacheMaxSize = caseInsensitiveNameMatchingNamespaceCacheMaxSize;
         return this;
     }
 }
