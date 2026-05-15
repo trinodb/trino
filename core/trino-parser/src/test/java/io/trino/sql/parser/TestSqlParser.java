@@ -232,6 +232,7 @@ import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
+import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
@@ -371,6 +372,54 @@ public class TestSqlParser
 
         // Parametric receiver types are not allowed in the grammar.
         assertInvalidExpression("varchar(5)::parse('42')", "mismatched input '::'.*");
+    }
+
+    @Test
+    public void testNamedFunctionArguments()
+    {
+        assertThat(expression("substr(string => 'hello', \"from\" => 2)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "substr", false))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 8), Optional.of(new Identifier(location(1, 8), "string", false)), new StringLiteral(location(1, 18), "hello")),
+                                new CallArgument(location(1, 27), Optional.of(new Identifier(location(1, 27), "from", true)), new LongLiteral(location(1, 37), "2")))));
+
+        // Mixed positional + named: positional must come first.
+        assertThat(expression("f(1, 2, x => 3)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "f", false))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new CallArgument(location(1, 3), Optional.empty(), new LongLiteral(location(1, 3), "1")),
+                                new CallArgument(location(1, 6), Optional.empty(), new LongLiteral(location(1, 6), "2")),
+                                new CallArgument(location(1, 9), Optional.of(new Identifier(location(1, 9), "x", false)), new LongLiteral(location(1, 14), "3")))));
+
+        // The operator-style names handled in AstBuilder don't accept named arguments.
+        assertInvalidExpression("if(cond => true, 1, 2)", "Named arguments are not supported for 'if' function");
+        assertInvalidExpression("coalesce(a => 1, 2)", "Named arguments are not supported for 'coalesce' function");
+        assertInvalidExpression("nullif(a => 1, b => 2)", "Named arguments are not supported for 'nullif' function");
+        assertInvalidExpression("try(a => 1)", "Named arguments are not supported for 'try' function");
+        assertInvalidExpression("format(fmt => '%s', x => 1)", "Named arguments are not supported for 'format' function");
+
+        // The `f(label.*)` grammar form is rewritten to a single synthetic argument before
+        // arity-sensitive operator branches run, so `try(t.*)` parses with arity 1.
+        assertThat(expression("try(t.*)"))
+                .isEqualTo(new TryExpression(
+                        location(1, 1),
+                        new DereferenceExpression(location(1, 5), new Identifier(location(1, 5), "t", false))));
     }
 
     @Test

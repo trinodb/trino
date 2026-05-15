@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class FunctionCall
         extends Expression
@@ -32,7 +32,7 @@ public class FunctionCall
     private final boolean distinct;
     private final Optional<NullTreatment> nullTreatment;
     private final Optional<ProcessingMode> processingMode;
-    private final List<Expression> arguments;
+    private final List<CallArgument> arguments;
 
     @Deprecated
     public FunctionCall(QualifiedName name, List<Expression> arguments)
@@ -45,6 +45,7 @@ public class FunctionCall
         this(Optional.of(location), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);
     }
 
+    @Deprecated
     public FunctionCall(
             Optional<NodeLocation> location,
             QualifiedName name,
@@ -56,15 +57,24 @@ public class FunctionCall
             Optional<ProcessingMode> processingMode,
             List<Expression> arguments)
     {
-        super(location);
-        requireNonNull(name, "name is null");
-        requireNonNull(window, "window is null");
+        this(location.orElse(null), name, window, filter, orderBy, distinct, nullTreatment, processingMode, arguments.stream()
+                .map(expression -> new CallArgument(expression.getLocation().orElse(null), Optional.empty(), expression))
+                .collect(toImmutableList()));
+    }
+
+    public FunctionCall(
+            NodeLocation location,
+            QualifiedName name,
+            Optional<Window> window,
+            Optional<Expression> filter,
+            Optional<OrderBy> orderBy,
+            boolean distinct,
+            Optional<NullTreatment> nullTreatment,
+            Optional<ProcessingMode> processingMode,
+            List<CallArgument> arguments)
+    {
+        super(Optional.ofNullable(location));
         window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: %s", node.getClass().getSimpleName()));
-        requireNonNull(filter, "filter is null");
-        requireNonNull(orderBy, "orderBy is null");
-        requireNonNull(nullTreatment, "nullTreatment is null");
-        requireNonNull(processingMode, "processingMode is null");
-        requireNonNull(arguments, "arguments is null");
 
         this.name = name;
         this.window = window;
@@ -73,7 +83,7 @@ public class FunctionCall
         this.distinct = distinct;
         this.nullTreatment = nullTreatment;
         this.processingMode = processingMode;
-        this.arguments = arguments;
+        this.arguments = ImmutableList.copyOf(arguments);
     }
 
     public QualifiedName getName()
@@ -106,9 +116,21 @@ public class FunctionCall
         return processingMode;
     }
 
-    public List<Expression> getArguments()
+    public List<CallArgument> getArguments()
     {
         return arguments;
+    }
+
+    public boolean hasNamedArguments()
+    {
+        return arguments.stream().anyMatch(argument -> argument.getName().isPresent());
+    }
+
+    public List<Expression> argumentValues()
+    {
+        return arguments.stream()
+                .map(CallArgument::getValue)
+                .collect(toImmutableList());
     }
 
     public Optional<Expression> getFilter()
