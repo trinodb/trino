@@ -936,7 +936,7 @@ public class AddExchanges
 
         private <T> Function<T, Optional<T>> createTranslator(SetMultimap<T, T> inputToOutput)
         {
-            return input -> inputToOutput.get(input).stream().findAny();
+            return input -> inputToOutput.get(input).stream().findFirst();
         }
 
         private <T> Function<T, T> createDirectTranslator(SetMultimap<T, T> inputToOutput)
