@@ -15,14 +15,17 @@ package io.trino.sql.analyzer;
 
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.type.Type;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 public class Field
 {
+    private final Optional<Function<Identifier, String>> canonicalizer;
     private final Optional<QualifiedObjectName> originTable;
     private final Optional<String> originBranch;
     private final Optional<String> originColumnName;
@@ -59,16 +62,23 @@ public class Field
                 .build();
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn)
+    {
+        return newUnqualified(name, type, Optional.empty(), originTable, originBranch, originColumn, false);
+    }
+
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<Function<Identifier, String>> canonicalizer, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(originTable, "originTable is null");
         requireNonNull(originBranch, "originBranch is null");
 
         return builder()
                 .name(name)
                 .type(type)
+                .canonicalizer(canonicalizer)
                 .originTable(originTable)
                 .originBranch(originBranch)
                 .originColumnName(originColumn)
@@ -76,11 +86,12 @@ public class Field
                 .build();
     }
 
-    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<Function<Identifier, String>> canonicalizer, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumn, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(originTable, "originTable is null");
         requireNonNull(originBranch, "originBranch is null");
 
@@ -89,6 +100,7 @@ public class Field
                 .name(name)
                 .type(type)
                 .hidden(hidden)
+                .canonicalizer(canonicalizer)
                 .originTable(originTable)
                 .originBranch(originBranch)
                 .originColumnName(originColumn)
@@ -96,11 +108,12 @@ public class Field
                 .build();
     }
 
-    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumnName, boolean aliased)
+    private Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<Function<Identifier, String>> canonicalizer, Optional<QualifiedObjectName> originTable, Optional<String> originBranch, Optional<String> originColumnName, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(originTable, "originTable is null");
         requireNonNull(originBranch, "originBranch is null");
         requireNonNull(originColumnName, "originColumnName is null");
@@ -109,15 +122,41 @@ public class Field
         this.name = name;
         this.type = type;
         this.hidden = hidden;
+        this.canonicalizer = canonicalizer;
         this.originTable = originTable;
         this.originBranch = originBranch;
         this.originColumnName = originColumnName;
         this.aliased = aliased;
     }
 
+    public String canonicalizerType()
+    {
+        // FIXME: Here for debugging purpose
+        if (canonicalizer.isPresent()) {
+            return canonicalizerType(canonicalizer.get());
+        }
+        return "No canonicalizer";
+    }
+
+    public String canonicalizerType(Function<Identifier, String> canonicalizer)
+    {
+        String value = canonicalizer.apply(new Identifier("Xy", false));
+        return switch (value) {
+            case "Xy" -> "Identity";
+            case "xy" -> "LowerCase";
+            case "XY" -> "UpperCase";
+            default -> "Unknow";
+        };
+    }
+
     public Builder rebuild()
     {
         return new Builder(this);
+    }
+
+    public Optional<Function<Identifier, String>> getCanonicalizer()
+    {
+        return canonicalizer;
     }
 
     public Optional<QualifiedObjectName> getOriginTable()
@@ -162,7 +201,25 @@ public class Field
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
-        return prefix.isEmpty() || relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix.get());
+        return prefix.isEmpty() || matchesPrefix(prefix.get());
+    }
+
+    public boolean matchesPrefix(QualifiedName prefix)
+    {
+        // FIXME: We need to canonicalize QualifiedName before attempting any resolution.
+        return matchesSuffix(canonicalizeQualifiedName(prefix));
+    }
+
+    private QualifiedName canonicalizeQualifiedName(QualifiedName name)
+    {
+        // FIXME: We canonicalize the QualifiedName only if a canonicalizer exists, otherwise,
+        //        we will lose the canonicalization of the QualifiedName that has already been performed.
+        return canonicalizer.map(function -> QualifiedName.of(function, name)).orElse(name);
+    }
+
+    private boolean matchesSuffix(QualifiedName prefix)
+    {
+        return relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix);
     }
 
     /*
@@ -193,9 +250,17 @@ public class Field
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        // FIXME: If we want to be able to differentiate between fields that only differ in their case,
-        //        then we must resolve the fields taking case and resolver into account?
-        return matchesPrefix(name.getPrefix()) && name.matchesSuffix(this.name.get());
+
+        String canonicalizerType = canonicalizerType();
+        System.out.println("Field.canResolve() 1 name: " + name + " - canonicalizer type: " + canonicalizerType);
+        if (canonicalizerType.equals("No canonicalizer")) {
+            System.out.println("Field.canResolve() 2 field name: " + this.name.orElse("No field name"));
+        }
+        // FIXME: We need to canonicalize QualifiedName before attempting any resolution.
+        name = canonicalizeQualifiedName(name);
+        System.out.println("Field.canResolve() 3 name: " + name);
+        return (name.getPrefix().isEmpty() || matchesSuffix(name.getPrefix().get()))
+                && name.matchesSuffix(this.name.get());
     }
 
     @Override
@@ -220,6 +285,7 @@ public class Field
         private Optional<String> name = Optional.empty();
         private Type type;
         private boolean hidden;
+        private Optional<Function<Identifier, String>> canonicalizer = Optional.empty();
         private Optional<QualifiedObjectName> originTable = Optional.empty();
         private Optional<String> originBranch = Optional.empty();
         private Optional<String> originColumnName = Optional.empty();
@@ -233,6 +299,7 @@ public class Field
             this.name = field.name;
             this.type = field.type;
             this.hidden = field.hidden;
+            this.canonicalizer = field.canonicalizer;
             this.originTable = field.originTable;
             this.originBranch = field.originBranch;
             this.originColumnName = field.originColumnName;
@@ -263,6 +330,12 @@ public class Field
             return this;
         }
 
+        public Builder canonicalizer(Optional<Function<Identifier, String>> canonicalizer)
+        {
+            this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
+            return this;
+        }
+
         public Builder originTable(Optional<QualifiedObjectName> originTable)
         {
             this.originTable = requireNonNull(originTable, "originTable is null");
@@ -290,7 +363,7 @@ public class Field
         public Field build()
         {
             requireNonNull(type, "type is null");
-            return new Field(relationAlias, name, type, hidden, originTable, originBranch, originColumnName, aliased);
+            return new Field(relationAlias, name, type, hidden, canonicalizer, originTable, originBranch, originColumnName, aliased);
         }
     }
 }

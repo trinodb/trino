@@ -817,7 +817,7 @@ public class ExpressionAnalyzer
             }
 
             System.out.println("ExpressionAnalyzer.visitDereferenceExpression() canonicalizer type: " + context.getScope().canonicalizerType());
-            Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
+            Optional<Function<Identifier, String>> canonicalizer = context.getScope().getCanonicalizer();
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
             // If this Dereference looks like column reference, try match it to column first.
@@ -853,6 +853,7 @@ public class ExpressionAnalyzer
                 }
 
                 Scope scope = context.getScope();
+                System.out.println("ExpressionAnalyser.visitDereferenceExpression() qualifiedName: " + qualifiedName);
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
@@ -2113,10 +2114,16 @@ public class ExpressionAnalyzer
             return label(Identifier::getValue, identifier);
         }
 
+        private String label(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
+        {
+            return label(canonicalizer.orElse(Identifier::getValue), identifier);
+        }
+
         private String label(Function<Identifier, String> canonicalizer, Identifier identifier)
         {
             return canonicalizer.apply(identifier);
         }
+
 
         private void analyzePatternAggregation(FunctionCall node, ResolvedFunction function)
         {
@@ -2449,7 +2456,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
+                Optional<Function<Identifier, String>> canonicalizer = context.getScope().getCanonicalizer();
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);

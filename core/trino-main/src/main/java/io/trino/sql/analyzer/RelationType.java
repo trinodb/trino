@@ -29,7 +29,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -138,25 +137,6 @@ public class RelationType
                 .collect(toImmutableList());
     }
 
-    public List<Field> resolveJoinedFields(List<Function<Identifier, String>> canonicalizers, Expression expression)
-    {
-        int index = 0;
-        int half = (allFields.size() / 2) - 1;
-        ImmutableList.Builder<Field> builder = ImmutableList.builder();
-        Function<Identifier, String> canonicalizer = canonicalizers.getFirst();
-        for (Field field : allFields) {
-            QualifiedName name = asQualifiedName(canonicalizer, expression);
-            if (name != null && field.canResolve(name)) {
-                builder.add(field);
-            }
-            if (index == half) {
-                canonicalizer = canonicalizers.getLast();
-            }
-            index++;
-        }
-        return builder.build();
-    }
-
     public boolean canResolve(QualifiedName name)
     {
         return !resolveFields(name).isEmpty();
@@ -199,6 +179,7 @@ public class RelationType
                         columnAlias,
                         field.getType(),
                         field.isHidden(),
+                        field.getCanonicalizer(),
                         field.getOriginTable(),
                         field.getOriginBranch(),
                         field.getOriginColumnName(),
@@ -213,6 +194,7 @@ public class RelationType
                         columnAlias,
                         field.getType(),
                         false,
+                        field.getCanonicalizer(),
                         field.getOriginTable(),
                         field.getOriginBranch(),
                         field.getOriginColumnName(),

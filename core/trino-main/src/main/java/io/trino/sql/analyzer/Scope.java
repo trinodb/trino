@@ -38,7 +38,6 @@ import static io.trino.sql.analyzer.Scope.BasisType.FIELD;
 import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
-import static io.trino.sql.analyzer.SemanticExceptions.requireDelimiterException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
@@ -47,7 +46,6 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final Optional<Function<Identifier, String>> canonicalizer;
-    private final boolean requireDelimiter;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
@@ -66,7 +64,6 @@ public class Scope
     private Scope(
             Optional<Scope> parent,
             Optional<Function<Identifier, String>> canonicalizer,
-            boolean requireDelimiter,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -75,7 +72,6 @@ public class Scope
 
         this.parent = requireNonNull(parent, "parent is null");
         this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
-        this.requireDelimiter = requireDelimiter;
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
@@ -132,12 +128,12 @@ public class Scope
 
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, Optional.empty(), requireDelimiter, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(parent, Optional.empty(), queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope withCanonicalizer(Optional<Scope> parent, Optional<Function<Identifier, String>> canonicalizer)
     {
-        return new Scope(parent, canonicalizer, requireDelimiter, false, relationId, relation, namedQueries);
+        return new Scope(parent, canonicalizer, false, relationId, relation, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -201,7 +197,8 @@ public class Scope
 
     public boolean requireDelimiter()
     {
-        return requireDelimiter;
+        return relation.getAllFields().stream().anyMatch(field -> field.getCanonicalizer().isEmpty())
+                && relation.getAllFields().stream().anyMatch(field -> field.getCanonicalizer().isPresent());
     }
 
     public String canonicalize(Identifier identifier)
@@ -284,13 +281,13 @@ public class Scope
         if (length <= 3) {
             scopeForTableReference = findLocally(scope -> scope.getRelationType()
                     .getAllFields().stream()
-                    .anyMatch(field -> field.matchesPrefix(Optional.of(identifierChain))));
+                    .anyMatch(field -> field.matchesPrefix(identifierChain)));
         }
 
         if (length >= 2) {
             scopeForFieldReference = findLocally(scope -> scope.getRelationType()
                     .getAllFields().stream()
-                    .anyMatch(field -> field.matchesPrefix(Optional.of(QualifiedName.of(identifierChain.getParts().get(0))))
+                    .anyMatch(field -> field.matchesPrefix(QualifiedName.of(identifierChain.getParts().get(0)))
                             && field.getName().isPresent()
                             && field.getName().get().equals(identifierChain.getParts().get(1))
                             && field.getType() instanceof RowType));
@@ -320,20 +317,14 @@ public class Scope
 
     public ResolvedField resolveField(Expression expression, Identifier identifier)
     {
-        if (requireDelimiter && !identifier.isDelimited()) {
-            throw requireDelimiterException(expression, QualifiedName.of(identifier));
-        }
-        QualifiedName name = QualifiedName.of(this::canonicalize, identifier);
+        QualifiedName name = QualifiedName.of(identifier);
         return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
     {
-        QualifiedName name = asQualifiedName(this::canonicalize, expression);
+        QualifiedName name = asQualifiedName(expression);
         if (name != null) {
-            if (requireDelimiter && !name.isDelimited()) {
-                throw requireDelimiterException(expression, name);
-            }
             return tryResolveField(expression, name);
         }
         return Optional.empty();
@@ -341,11 +332,7 @@ public class Scope
 
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
     {
-        if (requireDelimiter && !name.isDelimited()) {
-            throw requireDelimiterException(node, name);
-        }
-        // FIXME: we must canonicalize all QualifiedName coming from ExpressionAnalyzer
-        return resolveField(node, QualifiedName.of(this::canonicalize, name), true);
+        return resolveField(node, name, true);
     }
 
     private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, boolean local)
@@ -441,7 +428,6 @@ public class Scope
     {
         private Optional<Scope> parent = Optional.empty();
         private Optional<Function<Identifier, String>> canonicalizer = Optional.empty();
-        private boolean requireDelimiter;
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -451,7 +437,6 @@ public class Scope
         {
             parent = other.parent;
             canonicalizer = other.canonicalizer;
-            requireDelimiter = other.requireDelimiter;
             queryBoundary = other.queryBoundary;
             relationId = other.relationId;
             relation = other.relation;
@@ -470,12 +455,6 @@ public class Scope
         {
             checkArgument(this.canonicalizer.isEmpty(), "canonicalizer is already set");
             this.canonicalizer = canonicalizer;
-            return this;
-        }
-
-        public Builder withRequiredDelimiter(boolean requireDelimiter)
-        {
-            this.requireDelimiter = requireDelimiter;
             return this;
         }
 
@@ -515,7 +494,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, canonicalizer, requireDelimiter, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, canonicalizer, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

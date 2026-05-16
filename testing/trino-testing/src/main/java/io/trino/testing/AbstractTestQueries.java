@@ -352,64 +352,73 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithSubquery()
     {
-        // FIXME: JOIN with subquery inherits from the canonicalizer of the subquery
         String unDelimitedJoinQuery = """
+                SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
+                JOIN orders b \
+                ON a.count = b.custkey AND b.totalprice < 1000 \
+                """;
+        String requiredDelimiterJoinQuery = """
                 SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
                 JOIN "orders" b \
                 ON a.count = b."custkey" AND b."totalprice" < 1000 \
                 """;
         String resultQuery = "SELECT * FROM (SELECT custkey, count(*) count FROM tpch.tiny.orders GROUP BY custkey) a JOIN tpch.tiny.orders b ON a.count = b.custkey AND b.totalprice < 1000";
-        assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
+        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
                 .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        if (canonicalize("x").equals("x")) {
+            assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
+                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        }
+        else {
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
+                    .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
+        }
     }
 
     @Test
     public void testJoinRequiredDelimiterWithSubquery()
-
-{
+    {
         String unDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
+                        SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
                         JOIN tpch.tiny.orders b \
-                        ON a.count = b."custkey" AND b."totalprice" < 1000 \
+                        ON a.count = b.custkey AND b.totalprice < 1000 \
                         """;
         String fullDelimitedJoinQuery = """
                         SELECT * FROM (SELECT "custkey", count(*) "count" FROM "orders" GROUP BY "custkey") "a" \
                         JOIN tpch.tiny.orders "b" \
                         ON "a"."count" = "b"."custkey" AND "b"."totalprice" < 1000 \
                         """;
+        String requiredDelimiterJoinQuery = """
+                        SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
+                        JOIN tpch.tiny.orders b \
+                        ON %s.%s = b.custkey AND b.totalprice < 1000 \
+                        """.formatted(canonicalize("a"), canonicalize("count"));
         String leftDelimitedJoinQuery = """
                         SELECT * FROM (SELECT "custkey", count(*) "count" FROM "orders" GROUP BY "custkey") "a" \
                         JOIN tpch.tiny.orders b \
                         ON "a"."count" = b."custkey" AND b."totalprice" < 1000 \
                         """;
         String rightDelimitedJoinQuery = """
-                        SELECT * FROM (SELECT "custkey", count(*) "count" FROM "orders" GROUP BY "custkey") a \
+                        SELECT * FROM (SELECT "custkey", count(*) count FROM "orders" GROUP BY "custkey") a \
                         JOIN tpch.tiny.orders "b" \
-                        ON a."count" = "b"."custkey" AND "b"."totalprice" < 1000 \
+                        ON a.count = "b"."custkey" AND "b"."totalprice" < 1000 \
                         """;
         String resultQuery = "SELECT * FROM (SELECT custkey, count(*) count FROM tpch.tiny.orders GROUP BY custkey) a JOIN tpch.tiny.orders b ON a.count = b.custkey AND b.totalprice < 1000";
+        assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         if (canonicalize("x").equals("x")) {
-            // FIXME: If the connectors use the same canonicalizer, everything works as before delimited identifier support.
-            //        Connector with IDENTITY canonicalizer match any other canonicalizer
             assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
                     .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         }
         else {
-            // FIXME: This is the right way to use JOIN with subquery on connectors with different canonicalizer, IDENTITY canonicalizer excluded.
-            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
             assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-                    .hasMessage("line 1:112: Column 'a.count' require delimiter");
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), leftDelimitedJoinQuery))
-                    .hasMessage("line 1:130: Column 'b.custkey' require delimiter");
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), rightDelimitedJoinQuery))
-                    .hasMessage("line 1:116: Column 'a.count' require delimiter");
+                    .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
         }
     }
 
@@ -420,6 +429,9 @@ public abstract class AbstractTestQueries
         String fullDelimitedJoinQuery = """
                         SELECT "n"."name", "r"."name" FROM "nation" "n" LEFT JOIN tpch.tiny.region r ON "n"."regionkey" = "r"."regionkey" ORDER BY "n"."name" LIMIT 1\
                         """;
+        String requiredDelimiterJoinQuery = """
+                        SELECT n."name", r."name" FROM "nation" n LEFT JOIN tpch.tiny.region r ON n."regionkey" = r."regionkey" ORDER BY n."name" LIMIT 1\
+                        """;
         String leftDelimitedJoinQuery = """
                         SELECT "n"."name", r."name" FROM "nation" "n" LEFT JOIN tpch.tiny.region r ON "n"."regionkey" = r."regionkey" ORDER BY "n"."name" LIMIT 1\
                         """;
@@ -427,28 +439,21 @@ public abstract class AbstractTestQueries
                         SELECT n."name", "r"."name" FROM "nation" n LEFT JOIN tpch.tiny.region r ON n."regionkey" = "r"."regionkey" ORDER BY n."name" LIMIT 1\
                         """;
         String resultQuery = "SELECT n.name, r.name FROM tpch.tiny.nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
+        assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), requiredDelimiterJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
+        assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
+                .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         if (canonicalize("x").equals("x")) {
-            // FIXME: If the connectors use the same canonicalizer, everything works as before delimited identifier support.
-            //        Connector with IDENTITY canonicalizer match any other canonicalizer
             assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), leftDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
-            assertThat(getQueryRunner().execute(getSession(), rightDelimitedJoinQuery).getMaterializedRows())
                     .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         }
         else {
-            // FIXME: This is the right way to use JOIN on connectors with different canonicalizer, IDENTITY canonicalizer excluded.
-            assertThat(getQueryRunner().execute(getSession(), fullDelimitedJoinQuery).getMaterializedRows())
-                    .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
             assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
                     .hasMessage("line 1:28: Table '%s.%s.NATION' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), leftDelimitedJoinQuery))
-                    .hasMessage("line 1:97: Column 'r.regionkey' require delimiter");
-            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), rightDelimitedJoinQuery))
-                    .hasMessage("line 1:77: Column 'n.regionkey' require delimiter");
         }
     }
 

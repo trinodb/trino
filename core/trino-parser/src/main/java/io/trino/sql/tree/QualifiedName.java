@@ -36,11 +36,25 @@ public class QualifiedName
     private final String name;
     private final String suffix;
 
-    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName qualifiedName)
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, QualifiedName name)
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
-        requireNonNull(qualifiedName, "qualifiedName is null");
-        return new QualifiedName(canonicalizer, qualifiedName.originalParts, qualifiedName.originalParts.size() > 2);
+        requireNonNull(name, "name is null");
+        return of(canonicalizer.orElse(Identifier::getValue), name);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(name, "name is null");
+        return new QualifiedName(canonicalizer, name.originalParts, name.originalParts.size() > 2);
+    }
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifier, "identifier is null");
+        return of(canonicalizer.orElse(Identifier::getValue), identifier);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)
@@ -48,6 +62,13 @@ public class QualifiedName
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifier, "identifier is null");
         return new QualifiedName(canonicalizer, ImmutableList.of(identifier), false);
+    }
+
+    public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, List<Identifier> identifiers)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(identifiers, "identifiers is null");
+        return of(canonicalizer.orElse(Identifier::getValue), identifiers);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, List<Identifier> identifiers)
@@ -157,8 +178,7 @@ public class QualifiedName
     public boolean matchesSuffix(String name)
     {
         // FIXME: If we want to be able to differentiate between fields that only differ in their case,
-        //        then we must resolve the fields taking case and resolver into account?
-        //return resolver.isPresent() ? suffix.equalsIgnoreCase(name) : suffix.equals(name);
+        //        then we must resolve the fields taking case into account?
         return suffix.equals(name);
     }
 
