@@ -3140,7 +3140,7 @@ class StatementAnalyzer
             System.out.println("StatementAnalyzer.visitAliasedRelation() 2 relationScope canonicalizer: " + relationScope.lastCanonicalizerType());
             // FIXME: If the relationScope does not contain a canonicalizer, we use the last outerScope canonicalizer from StatementAnalyzer::visitQuery.
             if (relationScope.getCanonicalizer().isEmpty()) {
-                relationScope = createScope(Optional.of(relationScope), plannerContext.getCanonicalizer(session));
+                relationScope = createScope(relationScope, plannerContext.getCanonicalizer(session));
             }
             System.out.println("StatementAnalyzer.visitAliasedRelation() 3 relationScope canonicalizer: " + relationScope.lastCanonicalizerType());
             analysis.setRelationName(relation, QualifiedName.of(relationScope::canonicalize, relation.getAlias()));
@@ -3367,7 +3367,7 @@ class StatementAnalyzer
             // FIXME: In the absence of a FROM clause, then the canonicalizer of the caller is used.
             Scope sourceScope;
             if (fromScope.getCanonicalizer().isEmpty()) {
-                sourceScope = createScope(Optional.of(fromScope), scope.flatMap(Scope::getCanonicalizer));
+                sourceScope = createScope(fromScope, scope.flatMap(Scope::getCanonicalizer));
             }
             else {
                 sourceScope = fromScope;
@@ -6399,10 +6399,14 @@ class StatementAnalyzer
             return createScope(scope, Optional.of(canonicalizer));
         }
 
+        private Scope createScope(Scope scope, Optional<Function<Identifier, String>> canonicalizer)
+        {
+            return scope.withCanonicalizer(canonicalizer);
+        }
+
         private Scope createScope(Optional<Scope> scope, Optional<Function<Identifier, String>> canonicalizer)
         {
-            return scope.map(s -> s.withCanonicalizer(scope, canonicalizer))
-                    .orElse(Scope.builder().withCanonicalizer(canonicalizer).build());
+            return scopeBuilder(scope, canonicalizer).build();
         }
 
         private Scope.Builder scopeBuilder(Optional<Scope> parentScope)

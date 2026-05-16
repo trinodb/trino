@@ -131,9 +131,14 @@ public class Scope
         return new Scope(parent, Optional.empty(), queryBoundary, relationId, relationType, namedQueries);
     }
 
-    public Scope withCanonicalizer(Optional<Scope> parent, Optional<Function<Identifier, String>> canonicalizer)
+    public Scope withCanonicalizer(Function<Identifier, String> canonicalizer)
     {
-        return new Scope(parent, canonicalizer, false, relationId, relation, namedQueries);
+        return withCanonicalizer(Optional.of(canonicalizer));
+    }
+
+    public Scope withCanonicalizer(Optional<Function<Identifier, String>> canonicalizer)
+    {
+        return new Scope(parent, canonicalizer, queryBoundary, relationId, relation, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
