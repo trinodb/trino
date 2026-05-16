@@ -270,6 +270,9 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(FieldReference expression, Session session, Map<String, Object> bindings)
     {
         SqlRow row = (SqlRow) evaluate(expression.base(), session, bindings);
+        if (row == null) {
+            return null;
+        }
         return readNativeValue(expression.type(), row.getRawFieldBlock(expression.field()), row.getRawIndex());
     }
 
