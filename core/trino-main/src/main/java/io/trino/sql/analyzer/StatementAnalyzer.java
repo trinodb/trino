@@ -5833,11 +5833,12 @@ class StatementAnalyzer
             // analyze WITH clause
             With with = node.getWith().get();
             // FIXME: the WITH clause will use the UPPERCASE_CANONICALIZER
-            Resolver resolver = plannerContext.getResolver(UPPERCASE_CANONICALIZER);
-            Scope.Builder withScopeBuilder = scopeBuilder(scope, Optional.of(resolver::canonicalize));
+            Scope.Builder withScopeBuilder = scopeBuilder(scope, scope.flatMap(Scope::getCanonicalizer));
 
+            Function<Identifier, String> canonicalizer = scope.<Function<Identifier, String>>map(value -> value::canonicalize)
+                    .orElseGet(() -> Identifier::getValue);
             for (WithQuery withQuery : with.getQueries()) {
-                String name = resolver.canonicalize(withQuery.getName());
+                String name = canonicalizer.apply(withQuery.getName());
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw semanticException(DUPLICATE_NAMED_QUERY, withQuery, "WITH query name '%s' specified more than once", name);
                 }
@@ -5868,7 +5869,7 @@ class StatementAnalyzer
 
                     // check if all or none of the columns are explicitly alias
                     if (withQuery.getColumnNames().isPresent()) {
-                        validateColumnAliases(withQuery.getColumnNames().get(), analysis.getOutputDescriptor(query).getVisibleFieldCount());
+                        validateColumnAliases(withQuery.getColumnNames().get(), analysis.getOutputDescriptor(query).getVisibleFieldCount(), canonicalizer);
                     }
 
                     withScopeBuilder.withNamedQuery(name, withQuery);

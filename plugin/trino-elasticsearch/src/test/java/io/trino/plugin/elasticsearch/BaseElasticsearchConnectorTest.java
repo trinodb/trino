@@ -201,16 +201,16 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE \"orders\"").getOnlyValue())
                 .isEqualTo("""
-                        CREATE TABLE %s."tpch"."orders" (
-                           "clerk" varchar,
-                           "comment" varchar,
-                           "custkey" bigint,
-                           "orderdate" timestamp(3),
-                           "orderkey" bigint,
-                           "orderpriority" varchar,
-                           "orderstatus" varchar,
-                           "shippriority" bigint,
-                           "totalprice" real
+                        CREATE TABLE %s.tpch."orders" (
+                           clerk varchar,
+                           comment varchar,
+                           custkey bigint,
+                           orderdate timestamp(3),
+                           orderkey bigint,
+                           orderpriority varchar,
+                           orderstatus varchar,
+                           shippriority bigint,
+                           totalprice real
                         )""".formatted(catalogName));
     }
 
@@ -1923,7 +1923,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("AGE", 32)
                 .buildOrThrow());
 
-        assertThat(query("SELECT name, age FROM \"mixed_case\""))
+        assertThat(query("SELECT Name, AGE FROM mixed_case"))
                 .matches("VALUES (VARCHAR 'john', BIGINT '32')");
 
         assertThat(query("SELECT \"Name\", \"AGE\" FROM \"mixed_case\" WHERE \"Name\" = 'john'"))
@@ -2637,7 +2637,7 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM \"information_schema\".\"columns\" WHERE \"table_name\" = '%s'", name));
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
-        assertQueryFails("SELECT * FROM \"" + name + "\"", ".*Table '" + catalogName + ".\"tpch\".\"" + name + "\"' does not exist");
+        assertQueryFails("SELECT * FROM \"" + name + "\"", ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
     protected String indexEndpoint(String index, String docId)
