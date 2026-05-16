@@ -2106,7 +2106,11 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
+        // FIXME: Native query dont propagate canonicalizer?
+        assertThat(query(format("SELECT %s FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.\"region\" WHERE \"regionkey\" = 0'))", canonicalize("region_name"), getSession().getSchema().orElseThrow())))
+                .skippingTypesCheck()
+                .matches("VALUES 'AFRICA'");
+        assertThat(query(format("SELECT \"region_name\" FROM TABLE(system.query(query => 'SELECT \"name\" AS \"region_name\" FROM %s.\"region\" WHERE \"regionkey\" = 0'))", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
                 .matches("VALUES 'AFRICA'");
     }
