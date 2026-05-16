@@ -30,13 +30,19 @@ export class ClientApi {
         return queryString
     }
 
-    fetchData = async <T, P = undefined>(url: string, method: 'GET' | 'POST', params?: P): Promise<ApiResponse<T>> => {
+    fetchData = async <T, P = undefined>(
+        url: string,
+        method: 'GET' | 'POST' | 'PUT',
+        params?: P
+    ): Promise<ApiResponse<T>> => {
         try {
             let response: AxiosResponse<T>
             if (method === 'GET') {
                 response = await this.axiosInstance.get(url)
             } else if (method === 'POST') {
                 response = await this.axiosInstance.post(url, params)
+            } else if (method === 'PUT') {
+                response = await this.axiosInstance.put(url, params)
             } else {
                 throw new Error(`Unsupported HTTP method: ${method}`)
             }
@@ -63,6 +69,10 @@ export class ClientApi {
 
     post = async <T>(url: string, body: Record<string, string> = {}): Promise<ApiResponse<T>> => {
         return this.fetchData(url, 'POST', body)
+    }
+
+    put = async <T>(url: string, body: string | Record<string, string> = {}): Promise<ApiResponse<T>> => {
+        return this.fetchData(url, 'PUT', body)
     }
 }
 

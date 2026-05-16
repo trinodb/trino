@@ -3,4 +3,39 @@
         <name>fs.default.name</name>
         <value>hdfs://hadoop-master:9000</value>
     </property>
+
+    <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+    </property>
+
+    <property>
+        <name>dfs.client.block.write.retries</name>
+        <value>6</value>
+    </property>
+
+    <property>
+        <name>dfs.client.block.write.locateFollowingBlock.retries</name>
+        <value>6</value>
+    </property>
+
+    <property>
+        <name>dfs.client.block.write.locateFollowingBlock.initial.delay.ms</name>
+        <value>400</value>
+    </property>
+
+    <property>
+        <name>dfs.client.block.write.replace-datanode-on-failure.policy</name>
+        <value>NEVER</value>
+    </property>
+
+    <property>
+        <name>dfs.client.block.write.replace-datanode-on-failure.best-effort</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>dfs.namenode.avoid.write.stale.datanode</name>
+        <value>false</value>
+    </property>
 </configuration>

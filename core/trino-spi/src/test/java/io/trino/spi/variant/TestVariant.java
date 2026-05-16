@@ -17,7 +17,9 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.iceberg.variants.PhysicalType;
 import org.apache.iceberg.variants.ValueArray;
+import org.apache.iceberg.variants.VariantArray;
 import org.apache.iceberg.variants.VariantMetadata;
 import org.apache.iceberg.variants.VariantObject;
 import org.apache.iceberg.variants.VariantValue;
@@ -45,14 +47,22 @@ import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.spi.variant.Header.arrayFieldOffsetSize;
+import static io.trino.spi.variant.Header.arrayIsLarge;
+import static io.trino.spi.variant.Header.metadataHeader;
+import static io.trino.spi.variant.Header.objectFieldIdSize;
+import static io.trino.spi.variant.Header.objectFieldOffsetSize;
+import static io.trino.spi.variant.Header.objectIsLarge;
 import static io.trino.spi.variant.Metadata.EMPTY_METADATA;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_DECIMAL16_SIZE;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_DECIMAL4_SIZE;
 import static io.trino.spi.variant.VariantEncoder.ENCODED_DECIMAL8_SIZE;
+import static io.trino.spi.variant.VariantEncoder.encodeArrayHeading;
 import static io.trino.spi.variant.VariantEncoder.encodeDecimal16;
 import static io.trino.spi.variant.VariantEncoder.encodeDecimal4;
 import static io.trino.spi.variant.VariantEncoder.encodeDecimal8;
 import static io.trino.spi.variant.VariantEncoder.encodeObject;
+import static io.trino.spi.variant.VariantEncoder.encodeObjectHeading;
 import static io.trino.spi.variant.VariantEncoder.encodedArraySize;
 import static io.trino.spi.variant.VariantEncoder.encodedObjectSize;
 import static io.trino.spi.variant.VariantUtils.checkArgument;
@@ -65,6 +75,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestVariant
 {
+    private static final VariantMetadata ICEBERG_EMPTY_METADATA = Variants.metadata(EMPTY_METADATA.toSlice().toByteBuffer().order(ByteOrder.LITTLE_ENDIAN));
+
     @Test
     void testNullVariant()
     {
@@ -841,31 +853,135 @@ class TestVariant
     }
 
     @Test
+    void testObjectFieldIdSizes()
+    {
+        assertObjectFieldIdSize(1, 0xFF);
+        assertObjectFieldIdSize(2, 0x123);
+        assertObjectFieldIdSize(3, 0x12345);
+        // The field size here is large enough to ensure we have
+        // 4 distinct bytes in the encoding (0x00_01_23_45).
+        assertObjectFieldIdSize(4, 0x12345);
+    }
+
+    @Test
     void testObjectOffsetSizes()
     {
-        // Build a single large dictionary once that is shared across all tests
-        TestingMetadata testingMetadata = TestingMetadata.of(IntStream.range(0, 0xFFFFFF + 1)
-                .mapToObj("%08d"::formatted)
-                .map(Slices::utf8Slice)
-                .peek(fieldName -> assertThat(fieldName.length()).isEqualTo(8))
-                .toList());
+        assertObjectOffsetSize(1, 1);
+        assertObjectOffsetSize(2, 0x123);
+        assertObjectOffsetSize(3, 0x12345);
+        // The payload size here is large enough to ensure we have
+        // 4 distinct bytes in the encoding (0x00_01_23_45).
+        assertObjectOffsetSize(4, 0x12345);
+    }
 
-        int expectedFieldIdSize = 1;
-        // it is not possible to run the larger tests in CI due to memory constraints
-        for (int fieldCount : List.of(0xFF, 0xFFFF /*, 0xFFFFFF, 0xFFFFFF + 1*/)) {
-            List<ObjectField> fields = new ArrayList<>();
-            List<VariantValue> icebergValues = new ArrayList<>();
+    @Test
+    void testArrayOffsetSizesWithExplicitLayouts()
+    {
+        assertArrayOffsetSize(1, 1);
+        assertArrayOffsetSize(2, 0x123);
+        assertArrayOffsetSize(3, 0x12345);
+        // The payload size here is large enough to ensure we have
+        // 4 distinct bytes in the encoding (0x00_01_23_45).
+        assertArrayOffsetSize(4, 0x12345);
+    }
 
-            for (int i = 0; i < fieldCount; i++) {
-                fields.add(new ObjectField(i, Variant.ofLong(i)));
-                icebergValues.add(Variants.of((long) i));
-            }
-            assertThat(VariantUtils.getOffsetSize(fieldCount)).isEqualTo(expectedFieldIdSize);
+    @Test
+    void testObjectLargeFlagWithExplicitLayout()
+    {
+        String fieldName = "field";
+        TestingMetadata testingMetadata = TestingMetadata.of(List.of(utf8Slice(fieldName)));
+        Slice data = encodeObjectWithLayout(true, 1, 1, List.of(new ObjectField(0, Variant.ofInt(123))));
 
-            assertObjectEncoding(testingMetadata.metadata(), fields, testingMetadata.icebergMetadata(), icebergValues);
+        assertThat(objectIsLarge(data.getByte(0))).isTrue();
+        assertThat(Variant.from(testingMetadata.metadata(), data).getObjectField(utf8Slice(fieldName)))
+                .hasValueSatisfying(value -> assertThat(value.getInt()).isEqualTo(123));
 
-            expectedFieldIdSize++;
-        }
+        VariantObject icebergObject = VariantValue.from(testingMetadata.icebergMetadata(), data.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN)).asObject();
+        assertThat(icebergObject.numFields()).isEqualTo(1);
+        assertThat(icebergObject.get(fieldName)).isEqualTo(Variants.of(123));
+    }
+
+    @Test
+    void testArrayLargeFlagWithExplicitLayout()
+    {
+        Slice data = encodeArrayWithLayout(true, 1, List.of(Variant.ofInt(123)));
+
+        assertThat(arrayIsLarge(data.getByte(0))).isTrue();
+        Variant variant = Variant.from(EMPTY_METADATA, data);
+        assertThat(variant.getArrayLength()).isEqualTo(1);
+        assertThat(variant.getArrayElement(0).getInt()).isEqualTo(123);
+
+        VariantArray icebergArray = VariantValue.from(ICEBERG_EMPTY_METADATA, data.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN)).asArray();
+        assertThat(icebergArray.numElements()).isEqualTo(1);
+        assertThat(icebergArray.get(0)).isEqualTo(Variants.of(123));
+    }
+
+    private static void assertObjectFieldIdSize(int fieldIdSize, int fieldId)
+    {
+        String fieldName = "field";
+        TestingMetadata testingMetadata = sparseMetadataWithFieldId(fieldId, fieldName);
+        Slice data = encodeObjectWithLayout(false, fieldIdSize, 1, List.of(new ObjectField(fieldId, Variant.ofInt(123))));
+
+        assertThat(objectFieldIdSize(data.getByte(0))).isEqualTo(fieldIdSize);
+        assertThat(objectFieldOffsetSize(data.getByte(0))).isEqualTo(1);
+
+        Variant variant = Variant.from(testingMetadata.metadata(), data);
+        assertThat(variant.getObjectField(fieldId))
+                .hasValueSatisfying(value -> assertThat(value.getInt()).isEqualTo(123));
+        assertThat(variant.getObjectField(utf8Slice(fieldName)))
+                .hasValueSatisfying(value -> assertThat(value.getInt()).isEqualTo(123));
+
+        VariantObject icebergObject = VariantValue.from(testingMetadata.icebergMetadata(), data.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN)).asObject();
+        assertThat(icebergObject.numFields()).isEqualTo(1);
+        assertThat(ImmutableList.copyOf(icebergObject.fieldNames())).isEqualTo(List.of(fieldName));
+        assertThat(icebergObject.get(fieldName)).isEqualTo(Variants.of(123));
+    }
+
+    private static void assertObjectOffsetSize(int offsetSize, int payloadSize)
+    {
+        TestingMetadata testingMetadata = TestingMetadata.of(List.of(utf8Slice("large"), utf8Slice("tail")));
+        Variant large = Variant.ofBinary(Slices.allocate(payloadSize));
+        Slice data = encodeObjectWithLayout(false, 1, offsetSize, List.of(
+                new ObjectField(0, large),
+                new ObjectField(1, Variant.ofInt(7))));
+
+        assertThat(objectFieldIdSize(data.getByte(0))).isEqualTo(1);
+        assertThat(objectFieldOffsetSize(data.getByte(0))).isEqualTo(offsetSize);
+
+        Variant variant = Variant.from(testingMetadata.metadata(), data);
+        assertThat(variant.getObjectField(utf8Slice("large")))
+                .hasValueSatisfying(value -> assertThat(value.getBinary().length()).isEqualTo(payloadSize));
+        assertThat(variant.getObjectField(utf8Slice("tail")))
+                .hasValueSatisfying(value -> assertThat(value.getInt()).isEqualTo(7));
+
+        VariantObject icebergObject = VariantValue.from(testingMetadata.icebergMetadata(), data.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN)).asObject();
+        assertThat(icebergObject.numFields()).isEqualTo(2);
+        assertThat(ImmutableList.copyOf(icebergObject.fieldNames())).isEqualTo(List.of("large", "tail"));
+        VariantValue icebergLarge = icebergObject.get("large");
+        assertThat(icebergLarge.type()).isEqualTo(PhysicalType.BINARY);
+        assertThat(((ByteBuffer) icebergLarge.asPrimitive().get()).remaining()).isEqualTo(payloadSize);
+        assertThat(icebergObject.get("tail")).isEqualTo(Variants.of(7));
+    }
+
+    private static void assertArrayOffsetSize(int offsetSize, int payloadSize)
+    {
+        Variant large = Variant.ofBinary(Slices.allocate(payloadSize));
+        Slice data = encodeArrayWithLayout(false, offsetSize, List.of(large, Variant.ofInt(7)));
+
+        assertThat(arrayFieldOffsetSize(data.getByte(0))).isEqualTo(offsetSize);
+        assertThat(arrayIsLarge(data.getByte(0))).isFalse();
+
+        Variant variant = Variant.from(EMPTY_METADATA, data);
+        assertThat(variant.getArrayLength()).isEqualTo(2);
+        assertThat(variant.getArrayElement(0).getBinary().length()).isEqualTo(payloadSize);
+        assertThat(variant.getArrayElement(1).getInt()).isEqualTo(7);
+
+        VariantArray icebergArray = VariantValue.from(ICEBERG_EMPTY_METADATA, data.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN)).asArray();
+        assertThat(icebergArray.numElements()).isEqualTo(2);
+        VariantValue icebergLarge = icebergArray.get(0);
+        assertThat(icebergLarge.type()).isEqualTo(PhysicalType.BINARY);
+        assertThat(((ByteBuffer) icebergLarge.asPrimitive().get()).remaining()).isEqualTo(payloadSize);
+        assertThat(icebergArray.get(1)).isEqualTo(Variants.of(7));
     }
 
     private static void assertObjectEncoding(Metadata metadata, List<ObjectField> fields, VariantMetadata variantMetadata, List<VariantValue> icebergValues)
@@ -971,6 +1087,118 @@ class TestVariant
             TestingMetadata result = new TestingMetadata(metadata, icebergMetadata);
             return result;
         }
+    }
+
+    // Builds metadata with a large dictionary size so high field IDs are valid without allocating
+    // millions of field names. This is not legal metadata because skipped IDs have zero-length
+    // field names, but both readers can decode the one populated field used by these tests.
+    private static TestingMetadata sparseMetadataWithFieldId(int fieldId, String fieldName)
+    {
+        checkArgument(fieldId >= 0, "field id is negative");
+        Slice fieldNameSlice = utf8Slice(fieldName);
+        checkArgument(fieldNameSlice.length() > 0, "empty field names are not allowed");
+
+        int dictionarySize = fieldId + 1;
+        int dictionaryLength = fieldNameSlice.length();
+
+        int offsetSize = Math.max(getOffsetSize(dictionarySize), getOffsetSize(dictionaryLength));
+        int dictionaryStart = toIntExact(1L + offsetSize + (long) (dictionarySize + 1) * offsetSize);
+        Slice metadata = Slices.allocate(dictionaryStart + dictionaryLength);
+
+        int position = 0;
+        metadata.setByte(position, metadataHeader(false, offsetSize));
+        position++;
+        writeOffset(metadata, position, dictionarySize, offsetSize);
+        position += offsetSize;
+
+        int dictionaryOffset = 0;
+        for (int id = 0; id < dictionarySize; id++) {
+            writeOffset(metadata, position, dictionaryOffset, offsetSize);
+            position += offsetSize;
+
+            if (id == fieldId) {
+                metadata.setBytes(dictionaryStart + dictionaryOffset, fieldNameSlice);
+                dictionaryOffset += fieldNameSlice.length();
+            }
+        }
+        writeOffset(metadata, position, dictionaryOffset, offsetSize);
+
+        Metadata trinoMetadata = Metadata.from(metadata);
+        VariantMetadata icebergMetadata = Variants.metadata(metadata.toByteBuffer().order(ByteOrder.LITTLE_ENDIAN));
+        return new TestingMetadata(trinoMetadata, icebergMetadata);
+    }
+
+    private static Slice encodeObjectWithLayout(boolean isLarge, int fieldIdSize, int offsetSize, List<ObjectField> fields)
+    {
+        checkArgument(isLarge || fields.size() <= 0xFF, "small object layout cannot encode more than 255 fields");
+
+        int totalLength = fields.stream()
+                .mapToInt(field -> field.variantValue().length())
+                .sum();
+        checkArgument(totalLength <= maxValueForSize(offsetSize), "object values do not fit in offset size");
+        for (ObjectField field : fields) {
+            checkArgument(field.fieldId() <= maxValueForSize(fieldIdSize), "field id does not fit in field id size");
+        }
+
+        Slice data = Slices.allocate(encodedObjectSize(fields.size(), totalLength, isLarge, fieldIdSize, offsetSize));
+        int position = encodeObjectHeading(
+                fields.size(),
+                index -> fields.get(index).fieldId(),
+                index -> fields.get(index).variantValue().length(),
+                data,
+                0,
+                isLarge,
+                fieldIdSize,
+                offsetSize,
+                totalLength);
+
+        for (ObjectField field : fields) {
+            data.setBytes(position, field.variantValue());
+            position += field.variantValue().length();
+        }
+
+        verify(position == data.length(), "written size does not match expected size");
+        return data;
+    }
+
+    private static Slice encodeArrayWithLayout(boolean isLarge, int offsetSize, List<Variant> elements)
+    {
+        checkArgument(isLarge || elements.size() <= 0xFF, "small array layout cannot encode more than 255 elements");
+
+        int totalLength = elements.stream()
+                .map(Variant::data)
+                .mapToInt(Slice::length)
+                .sum();
+        checkArgument(totalLength <= maxValueForSize(offsetSize), "array values do not fit in offset size");
+
+        Slice data = Slices.allocate(encodedArraySize(elements.size(), totalLength, isLarge, offsetSize));
+        int position = encodeArrayHeading(
+                elements.size(),
+                index -> elements.get(index).data().length(),
+                data,
+                0,
+                isLarge,
+                offsetSize,
+                totalLength);
+
+        for (Variant element : elements) {
+            data.setBytes(position, element.data());
+            position += element.data().length();
+        }
+
+        verify(position == data.length(), "written size does not match expected size");
+        return data;
+    }
+
+    private static int maxValueForSize(int size)
+    {
+        return switch (size) {
+            case 1 -> 0xFF;
+            case 2 -> 0xFFFF;
+            case 3 -> 0xFFFFFF;
+            case 4 -> Integer.MAX_VALUE;
+            default -> throw new IllegalArgumentException("Unsupported offset size: " + size);
+        };
     }
 
     private interface VariantFactory<T>

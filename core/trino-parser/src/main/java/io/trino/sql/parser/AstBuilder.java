@@ -185,6 +185,7 @@ import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -284,6 +285,7 @@ import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -3159,6 +3161,26 @@ class AstBuilder
                 nulls,
                 mode,
                 arguments);
+    }
+
+    @Override
+    public Node visitStaticMethodCall(SqlBaseParser.StaticMethodCallContext context)
+    {
+        return new StaticMethodCall(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Identifier) visit(context.identifier()),
+                visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMethodCall(SqlBaseParser.MethodCallContext context)
+    {
+        return new MethodCall(
+                getLocation(context),
+                (Expression) visit(context.primaryExpression()),
+                (Identifier) visit(context.identifier()),
+                visit(context.expression(), Expression.class));
     }
 
     @Override

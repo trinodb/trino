@@ -203,9 +203,17 @@ final class S3InputStream
             long skip = nextReadPosition - streamPosition;
             if (skip <= max(getAvailable(), MAX_SKIP_BYTES)) {
                 // already buffered or seek is small enough
-                if (doSkip(skip) == skip) {
-                    streamPosition = nextReadPosition;
-                    return;
+                try {
+                    if (in.skip(skip) == skip) {
+                        streamPosition = nextReadPosition;
+                        return;
+                    }
+                }
+                catch (IOException _) {
+                    // reopen the stream below at the requested position
+                }
+                catch (AbortedException e) {
+                    throw new InterruptedIOException();
                 }
             }
         }
@@ -221,11 +229,6 @@ final class S3InputStream
                 rangeRequest = request.toBuilder().range(range).build();
             }
             in = client.getObject(rangeRequest);
-            // a workaround for https://github.com/aws/aws-sdk-java-v2/issues/3538
-            if (in.response().contentLength() != null && in.response().contentLength() == 0) {
-                in.close();
-                in = new ResponseInputStream<>(in.response(), nullInputStream());
-            }
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
@@ -268,17 +271,6 @@ final class S3InputStream
     {
         try {
             return in.available();
-        }
-        catch (AbortedException e) {
-            throw new InterruptedIOException();
-        }
-    }
-
-    private long doSkip(long n)
-            throws IOException
-    {
-        try {
-            return in.skip(n);
         }
         catch (AbortedException e) {
             throw new InterruptedIOException();

@@ -247,8 +247,7 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoPreservesTableFeature()
     {
         String tableName = "test_trino_preserves_table_feature_" + randomNameSuffix();

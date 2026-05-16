@@ -41,6 +41,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
@@ -50,6 +52,7 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -94,6 +97,12 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
+    private static final RetryPolicy<Object> GET_DESTINATION_TABLE_RETRY_POLICY = RetryPolicy.builder()
+            .withMaxRetries(3)
+            .withBackoff(100, 2000, ChronoUnit.MILLIS)
+            .onRetry(event -> log.debug("Getting destination table failed, retrying: %s", event.getLastException()))
+            .handleIf(BigQueryUtil::isRetryable)
+            .build();
 
     // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -551,7 +560,8 @@ public class BigQueryClient
 
         JobConfiguration jobConfiguration;
         try {
-            jobConfiguration = bigQuery.create(jobInfo).getConfiguration();
+            jobConfiguration = Failsafe.with(GET_DESTINATION_TABLE_RETRY_POLICY)
+                    .get(() -> bigQuery.create(jobInfo).getConfiguration());
         }
         catch (BigQueryException e) {
             throw new TrinoException(

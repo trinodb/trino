@@ -31,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
@@ -175,15 +177,17 @@ public class PartitionsTable
     private Map<StructLikeWrapperWithFieldIdToIndex, IcebergStatistics> getStatisticsByPartition(TableScan tableScan)
     {
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+            Map<Integer, PartitionSpec> specsById = icebergTable.specs();
             Map<StructLikeWrapperWithFieldIdToIndex, IcebergStatistics.Builder> partitions = new HashMap<>();
             for (FileScanTask fileScanTask : fileScanTasks) {
                 DataFile dataFile = fileScanTask.file();
-                StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
+                PartitionSpec spec = getFileScanPartitionSpec(fileScanTask, specsById);
+                StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, dataFile.partition());
 
                 partitions.computeIfAbsent(
                                 structLikeWrapperWithFieldIdToIndex,
                                 _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
-                        .acceptDataFile(dataFile, fileScanTask.spec());
+                        .acceptDataFile(dataFile, spec);
             }
 
             return partitions.entrySet().stream()

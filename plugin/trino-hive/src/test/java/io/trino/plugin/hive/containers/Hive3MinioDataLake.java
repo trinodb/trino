@@ -51,7 +51,6 @@ public class Hive3MinioDataLake
     {
         super.start();
         hiveHadoop.start();
-        hiveHadoop.waitForHiveServer();
         state = STARTED;
     }
 

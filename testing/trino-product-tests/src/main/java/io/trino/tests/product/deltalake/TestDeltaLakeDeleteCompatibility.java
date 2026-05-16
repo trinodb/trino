@@ -88,8 +88,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeleteCompatibility()
     {
         String tableName = "test_delete_compatibility_" + randomNameSuffix();
@@ -207,8 +206,7 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     public void testDeletionVectors(String mode)
     {
         String tableName = "test_deletion_vectors_" + randomNameSuffix();

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -123,6 +124,14 @@ public class PartitionData
             }
         }
         return new PartitionData(values);
+    }
+
+    public static PartitionData fromJson(String partitionDataAsJson, PartitionSpec partitionSpec)
+    {
+        Type[] types = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(partitionSpec.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        return fromJson(partitionDataAsJson, types);
     }
 
     public static PartitionData fromJson(String partitionDataAsJson, Type[] types)

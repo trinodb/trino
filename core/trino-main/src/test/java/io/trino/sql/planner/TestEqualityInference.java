@@ -53,6 +53,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEqualityInference
@@ -67,6 +68,7 @@ public class TestEqualityInference
     public void testDoesNotInferRedundantStraddlingPredicates()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals(add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 1L)), new Constant(BIGINT, 0L)),
                 equals(new Reference(BIGINT, "a2"), add(new Reference(BIGINT, "a1"), new Constant(BIGINT, 2L))),
@@ -89,6 +91,7 @@ public class TestEqualityInference
     public void testTransitivity()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals("d1", "c1"),
@@ -115,7 +118,7 @@ public class TestEqualityInference
     @Test
     public void testTriviallyRewritable()
     {
-        Expression expression = new EqualityInference()
+        Expression expression = new EqualityInference(PLANNER_CONTEXT)
                 .rewrite(someExpression("a1", "a2"), symbols("a1", "a2"));
 
         assertThat(expression).isEqualTo(someExpression("a1", "a2"));
@@ -125,6 +128,7 @@ public class TestEqualityInference
     public void testUnrewritable()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals("a2", "b2"));
 
@@ -136,6 +140,7 @@ public class TestEqualityInference
     public void testParseEqualityExpression()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals("a1", "c1"),
                 equals("c1", "a1"));
@@ -148,6 +153,7 @@ public class TestEqualityInference
     public void testExtractInferrableEqualities()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
@@ -161,6 +167,7 @@ public class TestEqualityInference
     public void testEqualityPartitionGeneration()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals(new Reference(BIGINT, "a1"), new Reference(BIGINT, "b1")),
                 equals(add("a1", "a1"), multiply(new Reference(BIGINT, "a1"), new Constant(BIGINT, 2L))),
                 equals(new Reference(BIGINT, "b1"), new Reference(BIGINT, "c1")),
@@ -180,21 +187,21 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertThat(equalityPartition.getScopeEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1")))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
         assertThat(equalityPartition.getScopeComplementEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1"))))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertThat(equalityPartition.getScopeStraddlingEqualities()).isNotEmpty();
         assertThat(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1")))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = new EqualityInference(
+        EqualityInference newInference = new EqualityInference(PLANNER_CONTEXT,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
                         .addAll(equalityPartition.getScopeComplementEqualities())
@@ -212,6 +219,7 @@ public class TestEqualityInference
     public void testMultipleEqualitySetsPredicateGeneration()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals("c1", "d1"),
@@ -225,21 +233,21 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertThat(equalityPartition.getScopeEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b")))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
         assertThat(equalityPartition.getScopeComplementEqualities()).isNotEmpty();
         assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b"))))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertThat(equalityPartition.getScopeStraddlingEqualities()).isNotEmpty();
         assertThat(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b")))).isTrue();
-        assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate)).isTrue();
+        assertThat(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> EqualityInference.isInferenceCandidate(PLANNER_CONTEXT, expression))).isTrue();
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = new EqualityInference(
+        EqualityInference newInference = new EqualityInference(PLANNER_CONTEXT,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
                         .addAll(equalityPartition.getScopeComplementEqualities())
@@ -257,6 +265,7 @@ public class TestEqualityInference
     public void testSubExpressionRewrites()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals(new Reference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
                 equals(new Reference(BIGINT, "a2"), multiply(new Reference(BIGINT, "b"), add("b", "c"))), // a2 = b * (b + c)
                 equals(new Reference(BIGINT, "a3"), multiply(new Reference(BIGINT, "a1"), add("b", "c")))); // a3 = a1 * (b + c)
@@ -275,6 +284,7 @@ public class TestEqualityInference
     public void testConstantEqualities()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals(new Reference(BIGINT, "c1"), new Constant(BIGINT, 1L)));
@@ -295,6 +305,7 @@ public class TestEqualityInference
     public void testEqualityGeneration()
     {
         EqualityInference inference = new EqualityInference(
+                PLANNER_CONTEXT,
                 equals(new Reference(BIGINT, "a1"), add("b", "c")), // a1 = b + c
                 equals(new Reference(BIGINT, "e1"), add("b", "d")), // e1 = b + d
                 equals("c", "d"));
@@ -319,6 +330,7 @@ public class TestEqualityInference
 
         for (Expression candidate : candidates) {
             EqualityInference inference = new EqualityInference(
+                    PLANNER_CONTEXT,
                     equals(new Reference(BIGINT, "b"), new Reference(BIGINT, "x")),
                     equals(new Reference(candidate.type(), "a"), candidate));
 

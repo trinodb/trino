@@ -15,6 +15,7 @@ package io.trino.plugin.redshift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcCastPushdownTest;
 import io.trino.plugin.jdbc.CastDataTypeTestTable;
@@ -28,7 +29,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.Arrays.asList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestRedshiftCastPushdown
@@ -53,7 +56,7 @@ final class TestRedshiftCastPushdown
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     @Override
@@ -136,6 +139,7 @@ final class TestRedshiftCastPushdown
                 .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '10:01:17.100000+05:30'", null))
                 .addColumn("c_super", "super", asList(1, 2, null))
                 .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "left_table_"));
+        assertTableLoaded(left.getName(), 3);
 
         // 2nd row value is different in right than left
         right = closeAfterClass(CastDataTypeTestTable.create(3)
@@ -209,6 +213,17 @@ final class TestRedshiftCastPushdown
                 .addColumn("c_timetz", "timetz", asList("TIME '00:13:42.000000+05:30'", "TIME '11:01:17.100000+05:30'", null))
                 .addColumn("c_super", "super", asList(1, 22, null))
                 .execute(onRemoteDatabase(), TEST_SCHEMA + "." + "right_table_"));
+        assertTableLoaded(right.getName(), 3);
+    }
+
+    private void assertTableLoaded(String tableName, long rowCount)
+    {
+        assertEventually(
+                new Duration(30, SECONDS),
+                new Duration(1, SECONDS),
+                () -> assertThat(computeScalar("SELECT count(*) FROM " + tableName))
+                        .describedAs("row count for " + tableName)
+                        .isEqualTo(rowCount));
     }
 
     @Override

@@ -59,7 +59,8 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeWithRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeWithRedshiftWithRetry;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -422,7 +423,7 @@ public class TestRedshiftConnectorTest
 
     private static void gatherStats(String tableName)
     {
-        executeInRedshift(handle -> {
+        executeInRedshiftWithRetry(handle -> {
             handle.execute("ANALYZE VERBOSE " + TEST_SCHEMA + "." + tableName);
             for (int i = 0; i < 5; i++) {
                 long actualCount = handle.createQuery("SELECT count(*) FROM " + TEST_SCHEMA + "." + tableName)
@@ -575,8 +576,8 @@ public class TestRedshiftConnectorTest
             assertThat(query("SELECT count(name) FROM " + nation + " WHERE name = 'ARGENTINA'")).isFullyPushedDown();
         }
         finally {
-            executeInRedshift("DROP TABLE IF EXISTS " + nation);
-            executeInRedshift("DROP TABLE IF EXISTS " + customer);
+            executeInRedshiftWithRetry("DROP TABLE IF EXISTS " + nation);
+            executeInRedshiftWithRetry("DROP TABLE IF EXISTS " + customer);
         }
     }
 
@@ -637,7 +638,7 @@ public class TestRedshiftConnectorTest
             // NOTE: Redshift doesn't support setting diststyle AUTO in CTAS statements
             executeInRedshift("CREATE TABLE " + destTableName + " AS SELECT * FROM " + sourceTableName);
             // Redshift doesn't allow ALTER DISTSTYLE if original and new style are same, so we need to check current diststyle of table
-            boolean isDistStyleAuto = executeWithRedshift(handle -> {
+            boolean isDistStyleAuto = executeWithRedshiftWithRetry(handle -> {
                 Optional<Long> currentDistStyle = handle.createQuery("" +
                                 "SELECT releffectivediststyle " +
                                 "FROM pg_class_info AS a LEFT JOIN pg_namespace AS b ON a.relnamespace = b.oid " +

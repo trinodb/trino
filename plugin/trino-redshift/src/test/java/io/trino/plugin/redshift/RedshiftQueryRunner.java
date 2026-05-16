@@ -38,7 +38,6 @@ import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
 import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
@@ -140,7 +139,7 @@ public final class RedshiftQueryRunner
     private static void createUserIfNotExists(String user, String password)
     {
         try {
-            executeInRedshift("CREATE USER " + user + " PASSWORD " + "'" + password + "'");
+            executeInRedshiftWithRetry("CREATE USER " + user + " PASSWORD " + "'" + password + "'");
         }
         catch (Exception e) {
             // if user already exists, swallow the exception

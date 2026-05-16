@@ -169,6 +169,7 @@ public class ReorderJoins
         private final Session session;
         private final StatsProvider statsProvider;
         private final CostProvider costProvider;
+        private final PlannerContext plannerContext;
         // Using Ordering to facilitate rule determinism
         private final Ordering<JoinEnumerationResult> resultComparator;
         private final PlanNodeIdAllocator idAllocator;
@@ -186,6 +187,7 @@ public class ReorderJoins
             this.session = requireNonNull(context.getSession(), "session is null");
             this.statsProvider = requireNonNull(context.getStatsProvider(), "statsProvider is null");
             this.costProvider = requireNonNull(context.getCostProvider(), "costProvider is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
             this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
             this.lookup = requireNonNull(context.getLookup(), "lookup is null");
@@ -193,7 +195,7 @@ public class ReorderJoins
             ImmutableList.Builder<Expression> residuals = ImmutableList.builder();
             List<Expression> inferenceCandidates = new ArrayList<>();
             for (Expression conjunct : extractConjuncts(filter)) {
-                if (isInferenceCandidate(conjunct) && !mayFail(plannerContext, conjunct)) {
+                if (isInferenceCandidate(plannerContext, conjunct) && !mayFail(plannerContext, conjunct)) {
                     inferenceCandidates.add(conjunct);
                 }
                 else {
@@ -202,7 +204,7 @@ public class ReorderJoins
             }
 
             this.residuals = residuals.build();
-            this.allFilterInference = new EqualityInference(inferenceCandidates);
+            this.allFilterInference = new EqualityInference(plannerContext, inferenceCandidates);
         }
 
         public JoinEnumerationResult choose(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
@@ -388,7 +390,7 @@ public class ReorderJoins
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
-            EqualityInference joinInference = new EqualityInference(joinEqualities);
+            EqualityInference joinInference = new EqualityInference(plannerContext, joinEqualities);
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();

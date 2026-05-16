@@ -185,7 +185,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>424</dep.airlift.version>
+        <dep.airlift.version>425</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -205,7 +205,7 @@
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
         <dep.okio.version>3.17.0</dep.okio.version>
         <dep.netty.version>4.2.13.Final</dep.netty.version>
-        <dep.parquet.version>1.17.0</dep.parquet.version>
+        <dep.parquet.version>1.17.1</dep.parquet.version>
         <dep.protobuf.version>4.34.1</dep.protobuf.version>
         <dep.swagger.version>2.2.49</dep.swagger.version>
         <dep.takari.version>2.3.3</dep.takari.version>
@@ -314,7 +314,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.44.0</version>
+                <version>2.44.4</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -531,7 +531,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.37</version>
+                <version>11.37.1</version>
             </dependency>
 
             <dependency>
@@ -1662,7 +1662,7 @@
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
-                <version>4.1.0</version>
+                <version>4.2.0</version>
             </dependency>
 
             <dependency>
@@ -2190,7 +2190,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>4.0.0</version>
+                <version>4.1.0</version>
             </dependency>
 
             <dependency>

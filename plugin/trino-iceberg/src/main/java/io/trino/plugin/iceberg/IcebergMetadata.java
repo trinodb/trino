@@ -344,6 +344,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getCompressionPropertyName;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
@@ -781,7 +782,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
         PartitionSpec partitionSpec = icebergTable.spec();
-        if (partitionSpec.fields().isEmpty()) {
+        if (partitionSpec.isUnpartitioned()) {
             return Optional.empty();
         }
 
@@ -942,11 +943,13 @@ public class IcebergMetadata
                         .filter(toIcebergExpression(enforcedPredicate))
                         .planWith(icebergPlanningExecutor);
 
+                Map<Integer, PartitionSpec> specsById = icebergTable.specs();
                 try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
                     Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec> partitions = new HashMap<>();
                     for (FileScanTask fileScanTask : fileScanTasks) {
-                        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
-                        partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, fileScanTask.spec());
+                        PartitionSpec spec = getFileScanPartitionSpec(fileScanTask, specsById);
+                        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, fileScanTask.file().partition());
+                        partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, spec);
                     }
                     return partitions;
                 }
@@ -1649,16 +1652,12 @@ public class IcebergMetadata
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         Table icebergTable = transaction.table();
-        Schema schema = icebergTable.schema();
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        schema.findType(field.sourceId())))
-                .toArray(Type[]::new);
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
@@ -1666,10 +1665,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (!icebergTable.spec().fields().isEmpty()) {
+            if (partitionSpec.isPartitioned()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
             }
 
             appendFiles.appendFile(builder.build());
@@ -2107,15 +2106,11 @@ public class IcebergMetadata
                 .map(commitTaskCodec::fromJson)
                 .collect(toImmutableList());
 
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        icebergTable.schema().findType(field.sourceId())))
-                .toArray(Type[]::new);
-
         Set<DataFile> newFiles = new HashSet<>();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(optimizeHandle.fileFormat().toIceberg())
@@ -2123,10 +2118,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (!icebergTable.spec().fields().isEmpty()) {
+            if (partitionSpec.isPartitioned()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
             }
 
             newFiles.add(builder.build());
@@ -2579,12 +2574,6 @@ public class IcebergMetadata
         if (properties.containsKey(DATA_LOCATION_PROPERTY)) {
             String dataLocation = (String) properties.get(DATA_LOCATION_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The data_location property cannot be empty"));
-            boolean objectStoreEnabled = (boolean) properties.getOrDefault(
-                    OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
-                    Optional.of(Boolean.parseBoolean(icebergTable.properties().get(OBJECT_STORE_ENABLED)))).orElseThrow();
-            if (!objectStoreEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
-            }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 
@@ -3318,10 +3307,6 @@ public class IcebergMetadata
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
         for (CommitTaskData task : dataTasks) {
             PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
-            Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                    .toArray(Type[]::new);
-
             DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFormat(task.fileFormat().toIceberg())
@@ -3330,10 +3315,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (!icebergTable.spec().fields().isEmpty()) {
+            if (partitionSpec.isPartitioned()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
             }
             rowDelta.addRows(builder.build());
         }
@@ -3362,7 +3347,12 @@ public class IcebergMetadata
                         .withFileSizeInBytes(task.fileSizeInBytes())
                         .withMetrics(task.metrics().metrics());
                 task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
-                toPartitionData(partitionSpec, schema, task.partitionDataJson()).ifPresent(deleteBuilder::withPartition);
+                if (partitionSpec.isPartitioned()) {
+                    deleteBuilder.withPartition(PartitionData.fromJson(
+                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
+                            partitionSpec));
+                }
+
                 rowDelta.addDeletes(deleteBuilder.build());
             }
             commitUpdateAndTransaction(rowDelta, session, transaction, "write");
@@ -3373,13 +3363,18 @@ public class IcebergMetadata
         List<DeletionVectorInfo> deletionVectorInfos = deleteTasks.stream()
                 .map(task -> {
                     PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
+                    Optional<PartitionData> partitionData = partitionSpec.isPartitioned()
+                            ? Optional.of(PartitionData.fromJson(
+                            task.partitionDataJson().orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
+                            partitionSpec))
+                            : Optional.empty();
                     return new DeletionVectorInfo(
                             task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")),
                             task.serializedDeletionVector()
                                     .map(Slices::wrappedBuffer)
                                     .orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing serializedDeletionVector")),
                             partitionSpec,
-                            toPartitionData(partitionSpec, schema, task.partitionDataJson()));
+                            partitionData);
                 })
                 .toList();
 
@@ -3388,25 +3383,10 @@ public class IcebergMetadata
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
     }
 
-    private static Optional<PartitionData> toPartitionData(PartitionSpec partitionSpec, Schema schema, Optional<String> partitionDataJson)
-    {
-        if (partitionSpec.fields().isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(PartitionData.fromJson(
-                partitionDataJson.orElseThrow(() -> new VerifyException("No partition data for partitioned table")),
-                partitionSpec.fields().stream()
-                        .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                        .toArray(Type[]::new)));
-    }
-
     static TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks, TypeManager typeManager)
     {
         Set<IcebergColumnHandle> partitionColumns = new HashSet<>(getProjectedColumns(icebergTable.schema(), typeManager, identityPartitionColumnsInAllSpecs(icebergTable)));
         PartitionSpec partitionSpec = icebergTable.spec();
-        Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
-                .toArray(Type[]::new);
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         Map<IcebergColumnHandle, List<Domain>> domainsFromTasks = new HashMap<>();
         for (CommitTaskData commitTask : commitTasks) {
@@ -3417,7 +3397,7 @@ public class IcebergMetadata
                 return TupleDomain.all();
             }
 
-            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionColumnTypes);
+            PartitionData partitionData = PartitionData.fromJson(commitTask.partitionDataJson().get(), partitionSpec);
             Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
             Map<ColumnHandle, NullableValue> partitionValues = getPartitionValues(partitionColumns, partitionKeys);
 
@@ -3965,15 +3945,11 @@ public class IcebergMetadata
                 .map(commitTaskCodec::fromJson)
                 .collect(toImmutableList());
 
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        icebergTable.schema().findType(field.sourceId())))
-                .toArray(Type[]::new);
-
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
         Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+        PartitionSpec partitionSpec = icebergTable.spec();
         for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
                     .withFormat(table.fileFormat().toIceberg())
@@ -3981,10 +3957,10 @@ public class IcebergMetadata
                     .withSortOrder(sortOrders.get(task.sortOrderId()));
             task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (!icebergTable.spec().fields().isEmpty()) {
+            if (partitionSpec.isPartitioned()) {
                 String partitionDataJson = task.partitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
             }
 
             appendFiles.appendFile(builder.build());

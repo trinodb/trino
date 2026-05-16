@@ -77,6 +77,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -94,6 +95,7 @@ import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -503,6 +505,18 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitStaticMethodCall(StaticMethodCall node, Void context)
+        {
+            return formatName(node.getType()) + "::" + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
+        }
+
+        @Override
+        protected String visitMethodCall(MethodCall node, Void context)
+        {
+            return "(" + formatExpression(node.getReceiver()) + ")." + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
         }
 
         @Override

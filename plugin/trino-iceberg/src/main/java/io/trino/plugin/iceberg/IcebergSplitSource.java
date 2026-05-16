@@ -108,6 +108,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -406,14 +407,15 @@ public class IcebergSplitSource
         // Assess if the partition that wholeFileTask belongs to should be included for OPTIMIZE
         // If file was partitioned under an old spec, OPTIMIZE may be able to merge it with another file under new partitioning spec
         // We don't know which partition of new spec this file belongs to, so we include all files in OPTIMIZE
-        if (currentSpecId != wholeFileTask.spec().specId()) {
+        PartitionSpec spec = getFileScanPartitionSpec(wholeFileTask, specsById);
+        if (currentSpecId != spec.specId()) {
             Stream<FileScanTaskWithDomain> allQueuedTasks = scannedFilesByPartition.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get);
             scannedFilesByPartition = null;
             return Stream.concat(allQueuedTasks, Stream.of(fileScanTaskWithDomain)).collect(toImmutableList());
         }
-        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(wholeFileTask);
+        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, wholeFileTask.file().partition());
         Optional<FileScanTaskWithDomain> alreadyQueuedFileTask = scannedFilesByPartition.get(structLikeWrapperWithFieldIdToIndex);
         if (alreadyQueuedFileTask != null) {
             // Optional.empty() is a marker for partitions where we've seen enough files to avoid skipping them from OPTIMIZE
@@ -442,8 +444,9 @@ public class IcebergSplitSource
             return true;
         }
 
+        PartitionSpec partitionSpec = getFileScanPartitionSpec(fileScanTask, specsById);
         if (!partitionDomain.isAll()) {
-            String partition = fileScanTask.spec().partitionToPath(fileScanTask.partition());
+            String partition = partitionSpec.partitionToPath(fileScanTask.partition());
             if (!partitionDomain.includesNullableValue(utf8Slice(partition))) {
                 return true;
             }
@@ -461,7 +464,7 @@ public class IcebergSplitSource
         }
 
         Schema fileSchema = fileScanTask.schema();
-        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(fileScanTask);
+        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(fileScanTask.partition(), partitionSpec);
 
         Set<IcebergColumnHandle> identityPartitionColumns = partitionKeys.keySet().stream()
                 .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
@@ -486,7 +489,7 @@ public class IcebergSplitSource
 
     private boolean noDataColumnsProjected(FileScanTask fileScanTask)
     {
-        return fileScanTask.spec().fields().stream()
+        return getFileScanPartitionSpec(fileScanTask, specsById).fields().stream()
                 .filter(partitionField -> partitionField.transform().isIdentity())
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet())
@@ -727,6 +730,7 @@ public class IcebergSplitSource
     private IcebergSplit toIcebergSplit(FileScanTaskWithDomain taskWithDomain)
     {
         FileScanTask task = taskWithDomain.fileScanTask();
+        PartitionSpec partitionSpec = getFileScanPartitionSpec(task, specsById);
 
         Optional<String> affinityKey = splitAffinityProvider.getKey(task.file().location(), task.start(), task.length());
         return new IcebergSplit(
@@ -736,8 +740,8 @@ public class IcebergSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
-                task.spec().specId(),
-                getPartitionBlockValues(task, typeManager),
+                partitionSpec.specId(),
+                getPartitionBlockValues(task, partitionSpec, typeManager),
                 task.deletes().stream()
                         .peek(file -> verifyDeletionVectorReferencesDataFile(task, file))
                         .map(DeleteFile::fromIceberg)
@@ -749,9 +753,8 @@ public class IcebergSplitSource
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
     }
 
-    private static List<Block> getPartitionBlockValues(FileScanTask task, TypeManager typeManager)
+    private static List<Block> getPartitionBlockValues(FileScanTask task, PartitionSpec spec, TypeManager typeManager)
     {
-        PartitionSpec spec = task.spec();
         StructLike partition = task.file().partition();
         List<PartitionField> fields = spec.fields();
 

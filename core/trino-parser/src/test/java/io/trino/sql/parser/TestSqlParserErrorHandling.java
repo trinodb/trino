@@ -125,7 +125,7 @@ public class TestSqlParserErrorHandling
                         "line 1:23: mismatched input 'select'. Expecting: ')', 'BETWEEN', 'CURRENT', 'GROUPS', 'MEASURES', 'ORDER', 'PARTITION', 'RANGE', 'ROWS', 'UNBOUNDED', <expression>"),
                 Arguments.of(
                         "SELECT X() OVER (ROWS UNBOUNDED) FROM T",
-                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', 'AND', 'AT', 'FOLLOWING', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
+                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', '::', 'AND', 'AT', 'FOLLOWING', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
                         "line 1:49: mismatched input '<EOF>'. Expecting: <expression>"),
@@ -213,10 +213,10 @@ public class TestSqlParserErrorHandling
                         "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of(
                         "SELECT (DATE '2022-10-10', DOUBLE 12.0)",
-                        "line 1:35: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
+                        "line 1:35: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'OR', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "VALUES(DATE 2)",
-                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
+                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', '::', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
                 Arguments.of(
                         "SELECT count(DISTINCT *) FROM (VALUES 1)",
                         "line 1:23: mismatched input '*'. Expecting: <expression>"));

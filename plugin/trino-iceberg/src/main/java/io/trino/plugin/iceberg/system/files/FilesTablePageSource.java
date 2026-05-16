@@ -321,7 +321,7 @@ public final class FilesTablePageSource
     {
         if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
             PartitionSpec partitionSpec = idToPartitionSpecMapping.get(contentFile.specId());
-            StructLikeWrapperWithFieldIdToIndex partitionStruct = createStructLikeWrapper(partitionSpec.partitionType(), contentFile.partition());
+            StructLikeWrapperWithFieldIdToIndex partitionStruct = createStructLikeWrapper(partitionSpec, contentFile.partition());
             List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
             List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
                     .map(type -> type.typeId().javaClass())

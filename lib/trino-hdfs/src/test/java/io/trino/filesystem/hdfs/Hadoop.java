@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.log.Logger;
+import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.testing.containers.BaseTestContainer;
 import io.trino.testing.containers.PrintingLogConsumer;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
@@ -38,6 +39,16 @@ public class Hadoop
     private static final String IMAGE = "ghcr.io/trinodb/testing/hdp3.1-hive:" + getDockerImagesVersion();
 
     private static final int HDFS_PORT = 9000;
+
+    public static final ConfigurationInitializer SINGLE_DATANODE_CONFIGURATION_INITIALIZER = config -> {
+        config.setInt("dfs.replication", 1);
+        config.setInt("dfs.client.block.write.retries", 6);
+        config.setInt("dfs.client.block.write.locateFollowingBlock.retries", 6);
+        config.setInt("dfs.client.block.write.locateFollowingBlock.initial.delay.ms", 400);
+        config.set("dfs.client.block.write.replace-datanode-on-failure.policy", "NEVER");
+        config.setBoolean("dfs.client.block.write.replace-datanode-on-failure.best-effort", true);
+        config.setBoolean("dfs.namenode.avoid.write.stale.datanode", false);
+    };
 
     public Hadoop()
     {
@@ -88,6 +99,19 @@ public class Hadoop
         printDiagnostic("container disk usage", "df", "-h");
         printDiagnostic("container inode usage", "df", "-i");
         printDiagnostic("HDFS report", "hdfs", "dfsadmin", "-report");
+        printDiagnostic("HDFS single DataNode configuration", "bash", "-c",
+                """
+                for key in \\
+                    dfs.replication \\
+                    dfs.client.block.write.retries \\
+                    dfs.client.block.write.locateFollowingBlock.retries \\
+                    dfs.client.block.write.locateFollowingBlock.initial.delay.ms \\
+                    dfs.client.block.write.replace-datanode-on-failure.policy \\
+                    dfs.client.block.write.replace-datanode-on-failure.best-effort \\
+                    dfs.namenode.avoid.write.stale.datanode; do
+                    echo "${key}=$(hdfs getconf -confKey "${key}" 2>&1 || true)"
+                done
+                """);
         printDiagnostic("HDFS disk usage", "hadoop", "fs", "-df", "-h", "/");
         printDiagnostic("HDFS directory usage", "hadoop", "fs", "-du", "-h", "/");
         printDiagnostic("HDFS fsck", "hdfs", "fsck", "/", "-files", "-blocks", "-locations");

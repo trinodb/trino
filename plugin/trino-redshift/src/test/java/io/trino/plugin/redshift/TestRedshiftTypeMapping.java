@@ -42,7 +42,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -983,13 +983,13 @@ public class TestRedshiftTypeMapping
         TestView(String namePrefix, String definition)
         {
             name = requireNonNull(namePrefix) + "_" + randomNameSuffix();
-            executeInRedshift(format("CREATE VIEW %s.%s AS %s", TEST_SCHEMA, name, definition));
+            executeInRedshiftWithRetry(format("CREATE OR REPLACE VIEW %s.%s AS %s", TEST_SCHEMA, name, definition));
         }
 
         @Override
         public void close()
         {
-            executeInRedshift(format("DROP VIEW IF EXISTS %s.%s", TEST_SCHEMA, name));
+            executeInRedshiftWithRetry(format("DROP VIEW IF EXISTS %s.%s", TEST_SCHEMA, name));
         }
     }
 }

@@ -225,6 +225,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
@@ -718,6 +719,16 @@ public class Analysis
     public void addResolvedFunction(Node node, ResolvedFunction function, String authorization)
     {
         resolvedFunctions.put(NodeRef.of(node), new RoutineEntry(function, authorization));
+    }
+
+    public void addMethodCallReceiver(FunctionCall node, Identifier receiver)
+    {
+        methodCallReceivers.put(NodeRef.of(node), receiver);
+    }
+
+    public Optional<Identifier> getMethodCallReceiver(FunctionCall node)
+    {
+        return Optional.ofNullable(methodCallReceivers.get(NodeRef.of(node)));
     }
 
     public Set<NodeRef<Expression>> getColumnReferences()
