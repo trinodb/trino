@@ -68,7 +68,7 @@ public class SheetsMetadata
     @Override
     public String canonicalize(String value)
     {
-        return value.toLowerCase(ENGLISH);
+        return value;
     }
 
     @Override

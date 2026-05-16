@@ -41,7 +41,7 @@ public class TestGoogleSheetsWithoutMetadataSheetId
     @Override
     protected String canonicalize(String value)
     {
-        return value.toLowerCase(ENGLISH);
+        return value;
     }
 
     @Test

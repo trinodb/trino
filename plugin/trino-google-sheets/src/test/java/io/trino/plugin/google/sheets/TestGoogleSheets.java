@@ -22,10 +22,6 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 import java.util.List;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
-import static io.trino.testing.assertions.Assert.assertEventually;
-import static java.lang.Math.toIntExact;
-import static java.util.Locale.ENGLISH;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -44,6 +40,12 @@ public class TestGoogleSheets
                 .addConnectorProperty("gsheets.connection-timeout", "1m")
                 .addConnectorProperty("gsheets.read-timeout", "1m")
                 .build();
+    }
+
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
     }
 
     @Test

@@ -1036,9 +1036,10 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            // FIXME We need to inject the current canonicalizer in outerQueryScope
+            // FIXME: If the SELECT query is without FROM clause we use the targetTable canonicalizer
             System.out.println("StatementAnalyzer.visitCreateTableAsSelect() 2 analyse queryScope");
-            Scope queryScope = analyze(node.getQuery(), scope, false);
+            Scope innerScope = createScope(scope, resolver::canonicalize);
+            Scope queryScope = analyze(Optional.of(innerScope), node.getQuery(), scope, false);
             System.out.println("StatementAnalyzer.visitCreateTableAsSelect() 3 queryScope canonicalizer: " + queryScope.canonicalizerType());
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
@@ -3362,8 +3363,15 @@ class StatementAnalyzer
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             //       to pass down to analyzeFrom
 
-            Scope sourceScope = analyzeFrom(node, scope);
-            System.out.println("StatementAnalyzer.visitQuerySpecification() 2 sourceScope: " + sourceScope.canonicalizerType());
+            Scope fromScope = analyzeFrom(node, scope);
+            // FIXME: In the absence of a FROM clause, then the canonicalizer of the caller is used.
+            Scope sourceScope;
+            if (fromScope.getCanonicalizer().isEmpty()) {
+                sourceScope = createScope(Optional.of(fromScope), scope.flatMap(Scope::getCanonicalizer));
+            }
+            else {
+                sourceScope = fromScope;
+            }
 
             analyzeWindowDefinitions(node, sourceScope);
             resolveFunctionCallAndMeasureWindows(node);
@@ -5818,7 +5826,8 @@ class StatementAnalyzer
         private Scope analyzeWith(Query node, Optional<Scope> scope)
         {
             if (node.getWith().isEmpty()) {
-                return createScope(scope);
+                // FIXME: without WITH we need to propagate the canonicalizer
+                return createScope(scope, scope.flatMap(Scope::getCanonicalizer));
             }
 
             // analyze WITH clause
