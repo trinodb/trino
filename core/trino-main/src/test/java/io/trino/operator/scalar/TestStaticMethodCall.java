@@ -95,6 +95,30 @@ public class TestStaticMethodCall
         return 3L;
     }
 
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.ARRAY)
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayToken()
+    {
+        return 10L;
+    }
+
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.ROW)
+    @SqlType(StandardTypes.BIGINT)
+    public static long rowToken()
+    {
+        return 20L;
+    }
+
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.MAP)
+    @SqlType(StandardTypes.BIGINT)
+    public static long mapToken()
+    {
+        return 30L;
+    }
+
     @Test
     public void testBasic()
     {
@@ -143,6 +167,16 @@ public class TestStaticMethodCall
         assertThat(assertions.expression("array::array_method()")).matches("BIGINT '1'");
         assertThat(assertions.expression("row::row_method()")).matches("BIGINT '2'");
         assertThat(assertions.expression("map::map_method()")).matches("BIGINT '3'");
+    }
+
+    @Test
+    public void testSameMethodNameOnDifferentReceivers()
+    {
+        // Three identically-signed static methods registered on distinct receiver
+        // types must coexist in the same function bundle and dispatch by receiver.
+        assertThat(assertions.expression("array::token()")).matches("BIGINT '10'");
+        assertThat(assertions.expression("row::token()")).matches("BIGINT '20'");
+        assertThat(assertions.expression("map::token()")).matches("BIGINT '30'");
     }
 
     @Test
