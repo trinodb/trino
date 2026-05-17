@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import org.apache.parquet.column.statistics.Statistics;
@@ -117,6 +118,28 @@ public class TestDeltaLakeParquetStatisticsUtils
 
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26"));
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE))).isEqualTo(ImmutableMap.of(columnName, "2020-09-17"));
+    }
+
+    @Test
+    public void testDecimalJsonValueAsString()
+    {
+        // Decimal statistics encoded as JSON strings (standard Trino format)
+        DecimalType shortDecimal = DecimalType.createDecimalType(10, 2);
+        assertThat(jsonValueToTrinoValue(shortDecimal, "36.17")).isNotNull();
+        assertThat(jsonValueToTrinoValue(shortDecimal, "-100.50")).isNotNull();
+
+        DecimalType longDecimal = DecimalType.createDecimalType(38, 10);
+        assertThat(jsonValueToTrinoValue(longDecimal, "12345678901234567890.1234567890")).isNotNull();
+    }
+
+    @Test
+    public void testDecimalJsonValueAsNumber()
+    {
+        // Decimal statistics encoded as JSON numbers (Spark format) — must not throw ClassCastException
+        DecimalType shortDecimal = DecimalType.createDecimalType(10, 2);
+        assertThat(jsonValueToTrinoValue(shortDecimal, 36.17)).isNotNull();
+        assertThat(jsonValueToTrinoValue(shortDecimal, -100.50)).isNotNull();
+        assertThat(jsonValueToTrinoValue(shortDecimal, 36.17d)).isNotNull();
     }
 
     @Test
