@@ -133,7 +133,10 @@ public final class DateTimeUtils
 
     public static String printDate(int days)
     {
-        return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
+        int year = EpochDayUtil.extractYear(days);
+        int month = EpochDayUtil.extractMonth(days);
+        int day = EpochDayUtil.extractDay(days);
+        return format("%04d-%02d-%02d", year, month, day);
     }
 
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
