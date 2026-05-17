@@ -671,7 +671,8 @@ public class AddExchanges
                         true,
                         session,
                         plannerContext,
-                        statsProvider);
+                        statsProvider,
+                        symbolAllocator);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }

@@ -19,11 +19,14 @@ import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Lambda;
 import io.trino.spi.expression.Variable;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -42,30 +45,40 @@ public final class ApplyProjectionUtil
     {
         requireNonNull(expression, "expression is null");
         ImmutableList.Builder<ConnectorExpression> supportedSubExpressions = ImmutableList.builder();
-        fillSupportedProjectedColumns(expression, supportedSubExpressions, expressionPredicate);
+        fillSupportedProjectedColumns(expression, supportedSubExpressions, expressionPredicate, Set.of());
         return supportedSubExpressions.build();
     }
 
-    private static void fillSupportedProjectedColumns(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> supportedSubExpressions, Predicate<ConnectorExpression> expressionPredicate)
+    private static void fillSupportedProjectedColumns(
+            ConnectorExpression expression,
+            ImmutableList.Builder<ConnectorExpression> supportedSubExpressions,
+            Predicate<ConnectorExpression> expressionPredicate,
+            Set<String> localVariables)
     {
-        if (isPushdownSupported(expression, expressionPredicate)) {
+        if (isPushdownSupported(expression, expressionPredicate, localVariables)) {
             supportedSubExpressions.add(expression);
+            return;
+        }
+
+        if (expression instanceof Lambda lambda) {
+            Set<String> lambdaLocalVariables = localLambdaVariables(localVariables, lambda);
+            fillSupportedProjectedColumns(lambda.getBody(), supportedSubExpressions, expressionPredicate, lambdaLocalVariables);
             return;
         }
 
         // If the whole expression is not supported, look for a partially supported projection
         for (ConnectorExpression child : expression.getChildren()) {
-            fillSupportedProjectedColumns(child, supportedSubExpressions, expressionPredicate);
+            fillSupportedProjectedColumns(child, supportedSubExpressions, expressionPredicate, localVariables);
         }
     }
 
     @VisibleForTesting
-    static boolean isPushdownSupported(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate)
+    static boolean isPushdownSupported(ConnectorExpression expression, Predicate<ConnectorExpression> expressionPredicate, Set<String> localVariables)
     {
         return expressionPredicate.test(expression)
-                && (expression instanceof Variable ||
+                && ((expression instanceof Variable variable && !localVariables.contains(variable.getName())) ||
                 (expression instanceof FieldDereference fieldDereference
-                        && isPushdownSupported(fieldDereference.getTarget(), expressionPredicate)));
+                        && isPushdownSupported(fieldDereference.getTarget(), expressionPredicate, localVariables)));
     }
 
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)
@@ -96,7 +109,15 @@ public final class ApplyProjectionUtil
      */
     public static ConnectorExpression replaceWithNewVariables(ConnectorExpression expression, Map<ConnectorExpression, Variable> expressionToVariableMappings)
     {
+        return replaceWithNewVariables(expression, expressionToVariableMappings, Set.of());
+    }
+
+    private static ConnectorExpression replaceWithNewVariables(ConnectorExpression expression, Map<ConnectorExpression, Variable> expressionToVariableMappings, Set<String> localVariables)
+    {
         if (expressionToVariableMappings.containsKey(expression)) {
+            if (isLocalProjection(expression, localVariables)) {
+                return expression;
+            }
             return expressionToVariableMappings.get(expression);
         }
 
@@ -105,8 +126,14 @@ public final class ApplyProjectionUtil
         }
 
         if (expression instanceof FieldDereference fieldDereference) {
-            ConnectorExpression newTarget = replaceWithNewVariables(fieldDereference.getTarget(), expressionToVariableMappings);
+            ConnectorExpression newTarget = replaceWithNewVariables(fieldDereference.getTarget(), expressionToVariableMappings, localVariables);
             return new FieldDereference(expression.getType(), newTarget, fieldDereference.getField());
+        }
+
+        if (expression instanceof Lambda lambda) {
+            Set<String> lambdaLocalVariables = localLambdaVariables(localVariables, lambda);
+            ConnectorExpression newBody = replaceWithNewVariables(lambda.getBody(), expressionToVariableMappings, lambdaLocalVariables);
+            return new Lambda(lambda.getType(), lambda.getArguments(), newBody);
         }
 
         if (expression instanceof Call call) {
@@ -114,13 +141,31 @@ public final class ApplyProjectionUtil
                     call.getType(),
                     call.getFunctionName(),
                     call.getArguments().stream()
-                            .map(argument -> replaceWithNewVariables(argument, expressionToVariableMappings))
+                            .map(argument -> replaceWithNewVariables(argument, expressionToVariableMappings, localVariables))
                             .collect(toImmutableList()));
         }
 
         // We cannot skip processing for unsupported expression shapes. This may lead to variables being left in ProjectionApplicationResult
         // which are no longer bound.
         throw new UnsupportedOperationException("Unsupported expression: " + expression);
+    }
+
+    private static boolean isLocalProjection(ConnectorExpression expression, Set<String> localVariables)
+    {
+        return switch (expression) {
+            case Variable variable -> localVariables.contains(variable.getName());
+            case FieldDereference field -> isLocalProjection(field.getTarget(), localVariables);
+            default -> false;
+        };
+    }
+
+    private static Set<String> localLambdaVariables(Set<String> localVariables, Lambda lambda)
+    {
+        Set<String> lambdaLocalVariables = new HashSet<>(localVariables);
+        lambda.getArguments().stream()
+                .map(Variable::getName)
+                .forEach(lambdaLocalVariables::add);
+        return lambdaLocalVariables;
     }
 
     public static class ProjectedColumnRepresentation
