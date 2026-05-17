@@ -286,6 +286,11 @@
                                     <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean, java.util.Optional&lt;io.trino.spi.type.TypeSignature&gt;, boolean)</new>
                                     <justification>Add receiverType and instanceMethod to support SQL:2023 method invocation</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
+                                    <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -71,6 +71,30 @@ public class TestStaticMethodCall
         }
     }
 
+    @ScalarFunction("array_method")
+    @StaticMethod(StandardTypes.ARRAY)
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayMethod()
+    {
+        return 1L;
+    }
+
+    @ScalarFunction("row_method")
+    @StaticMethod(StandardTypes.ROW)
+    @SqlType(StandardTypes.BIGINT)
+    public static long rowMethod()
+    {
+        return 2L;
+    }
+
+    @ScalarFunction("map_method")
+    @StaticMethod(StandardTypes.MAP)
+    @SqlType(StandardTypes.BIGINT)
+    public static long mapMethod()
+    {
+        return 3L;
+    }
+
     @Test
     public void testBasic()
     {
@@ -109,6 +133,16 @@ public class TestStaticMethodCall
         // The plain `parse('42')` form must NOT resolve to bigint::parse.
         assertTrinoExceptionThrownBy(() -> assertions.expression("parse('42')").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
+    }
+
+    @Test
+    public void testParametricBaseReceiver()
+    {
+        // Parametric base types (array, row, map) that have no default instantiation
+        // must still resolve as static method receivers — only the base name matters.
+        assertThat(assertions.expression("array::array_method()")).matches("BIGINT '1'");
+        assertThat(assertions.expression("row::row_method()")).matches("BIGINT '2'");
+        assertThat(assertions.expression("map::map_method()")).matches("BIGINT '3'");
     }
 
     @Test

@@ -1596,17 +1596,10 @@ public class ExpressionAnalyzer
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
         {
             QualifiedName receiver = node.getType();
-            if (receiver.getParts().size() != 1) {
+            if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
             TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
-            Type receiverType;
-            try {
-                receiverType = plannerContext.getTypeManager().getType(receiverSignature);
-            }
-            catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
-            }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
@@ -1614,7 +1607,7 @@ public class ExpressionAnalyzer
             try {
                 function = functionResolver.resolveStaticMethod(
                         session,
-                        receiverType.getTypeSignature(),
+                        receiverSignature,
                         QualifiedName.of(node.getMethod().getValue()),
                         argumentTypes,
                         accessControl);

@@ -54,6 +54,12 @@ public final class InternalTypeManager
     }
 
     @Override
+    public boolean isTypeRegistered(String name)
+    {
+        return typeRegistry.isTypeRegistered(name);
+    }
+
+    @Override
     public TypeOperators getTypeOperators()
     {
         return typeRegistry.getTypeOperators();
