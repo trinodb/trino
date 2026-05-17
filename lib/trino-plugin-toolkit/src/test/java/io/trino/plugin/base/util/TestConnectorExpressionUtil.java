@@ -16,15 +16,20 @@ package io.trino.plugin.base.util;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Lambda;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractDisjuncts;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractVariables;
 import static io.trino.plugin.base.expression.ConnectorExpressions.or;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.Constant.TRUE;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +39,7 @@ public class TestConnectorExpressionUtil
     private static final ConnectorExpression A = new Variable("a", BOOLEAN);
     private static final ConnectorExpression B = new Variable("b", BOOLEAN);
     private static final ConnectorExpression C = new Variable("c", BOOLEAN);
+    private static final Type BOOLEAN_TO_BOOLEAN = new FunctionType(List.of(BOOLEAN), BOOLEAN);
 
     @Test
     public void testExtractDisjunctsSingleExpression()
@@ -120,5 +126,18 @@ public class TestConnectorExpressionUtil
         Call call = (Call) result;
         assertThat(call.getFunctionName()).isEqualTo(OR_FUNCTION_NAME);
         assertThat(call.getArguments()).containsExactly(A, B, C);
+    }
+
+    @Test
+    public void testExtractVariablesIgnoresLambdaArguments()
+    {
+        Variable outer = new Variable("outer", BOOLEAN);
+        Variable lambdaArgument = new Variable("x", BOOLEAN);
+        ConnectorExpression expression = new Lambda(
+                BOOLEAN_TO_BOOLEAN,
+                ImmutableList.of(lambdaArgument),
+                new Call(BOOLEAN, AND_FUNCTION_NAME, ImmutableList.of(lambdaArgument, outer)));
+
+        assertThat(extractVariables(expression)).containsExactly(outer);
     }
 }

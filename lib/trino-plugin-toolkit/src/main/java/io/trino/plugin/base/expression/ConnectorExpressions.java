@@ -14,19 +14,18 @@
 package io.trino.plugin.base.expression;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.graph.SuccessorsFunction;
-import com.google.common.graph.Traverser;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Lambda;
 import io.trino.spi.expression.Variable;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.Constant.TRUE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -40,10 +39,29 @@ public final class ConnectorExpressions
 
     public static List<Variable> extractVariables(ConnectorExpression expression)
     {
-        return preOrder(expression)
-                .filter(Variable.class::isInstance)
-                .map(Variable.class::cast)
-                .collect(toImmutableList());
+        ImmutableList.Builder<Variable> variables = ImmutableList.builder();
+        extractVariables(requireNonNull(expression, "expression is null"), new HashSet<>(), variables);
+        return variables.build();
+    }
+
+    private static void extractVariables(ConnectorExpression expression, Set<String> localVariables, ImmutableList.Builder<Variable> variables)
+    {
+        switch (expression) {
+            case Variable variable -> {
+                if (!localVariables.contains(variable.getName())) {
+                    variables.add(variable);
+                }
+            }
+            case Lambda lambda -> {
+                Set<String> lambdaVariables = new HashSet<>(localVariables);
+                lambda.getArguments().stream()
+                        .map(Variable::getName)
+                        .forEach(lambdaVariables::add);
+                extractVariables(lambda.getBody(), lambdaVariables, variables);
+            }
+            default -> expression.getChildren().forEach(child ->
+                    extractVariables(child, localVariables, variables));
+        }
     }
 
     public static List<ConnectorExpression> extractConjuncts(ConnectorExpression expression)
@@ -132,12 +150,5 @@ public final class ConnectorExpressions
             return FALSE;
         }
         return getOnlyElement(expressions);
-    }
-
-    private static Stream<ConnectorExpression> preOrder(ConnectorExpression expression)
-    {
-        return stream(
-                Traverser.forTree((SuccessorsFunction<ConnectorExpression>) ConnectorExpression::getChildren)
-                        .depthFirstPreOrder(requireNonNull(expression, "expression is null")));
     }
 }
