@@ -41,6 +41,7 @@ import java.util.Optional;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -204,6 +205,36 @@ public class TestIgniteClient
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");
         assertThat(converted.parameters()).isEmpty();
+    }
+
+    @Test
+    public void testDecimalNegativeScaleTypeMapping()
+    {
+        // Positive scale: decimal(5, 2) maps to decimal(5, 2)
+        assertDecimalMapping(5, 2, createDecimalType(5, 2));
+
+        // Zero scale: decimal(5, 0) maps to decimal(5, 0)
+        assertDecimalMapping(5, 0, createDecimalType(5, 0));
+
+        // Negative scale: decimal(p, -s) maps to decimal(p+s, 0) to preserve all significant digits.
+        // e.g. decimal(5, -1) represents values like 123450, mapped to decimal(6, 0)
+        assertDecimalMapping(5, -1, createDecimalType(6, 0));
+        assertDecimalMapping(5, -3, createDecimalType(8, 0));
+        assertDecimalMapping(9, -7, createDecimalType(16, 0));
+    }
+
+    private static void assertDecimalMapping(int columnSize, int decimalDigits, io.trino.spi.type.Type expectedType)
+    {
+        JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                Types.DECIMAL,
+                Optional.of("decimal"),
+                Optional.of(columnSize),
+                Optional.of(decimalDigits),
+                Optional.empty(),
+                Optional.empty());
+        Optional<ColumnMapping> mapping = JDBC_CLIENT.toColumnMapping(SESSION, null, typeHandle);
+        assertThat(mapping).isPresent();
+        assertThat(mapping.get().getType()).isEqualTo(expectedType);
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression)

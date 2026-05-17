@@ -236,7 +236,9 @@ public class IgniteClient
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     yield Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
-                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                // Ignite may expose negative scale for some column types via JDBC metadata.
+                // Map decimal(p, -s) to decimal(p+s, 0) to preserve all significant digits.
+                precision = precision + max(-decimalDigits, 0);
                 if (precision > Decimals.MAX_PRECISION) {
                     yield Optional.empty();
                 }
