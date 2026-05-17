@@ -30,9 +30,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import static com.google.common.math.DoubleMath.roundToLong;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -75,7 +73,7 @@ public class ClusterStatsResource
 
         long totalInputRows = dispatchManager.getStats().getConsumedInputRows().getTotalCount();
         long totalInputBytes = dispatchManager.getStats().getConsumedInputBytes().getTotalCount();
-        long totalCpuTimeSecs = dispatchManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
+        double totalCpuTimeSecs = dispatchManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
 
         for (BasicQueryInfo query : dispatchManager.getQueries()) {
             if (query.getState() == QueryState.QUEUED) {
@@ -93,7 +91,7 @@ public class ClusterStatsResource
             if (!query.getState().isDone()) {
                 totalInputBytes += query.getQueryStats().getPhysicalInputDataSize().toBytes() + query.getQueryStats().getInternalNetworkInputDataSize().toBytes();
                 totalInputRows += query.getQueryStats().getProcessedInputPositions();
-                totalCpuTimeSecs += roundToLong(query.getQueryStats().getTotalCpuTime().getValue(SECONDS), HALF_UP);
+                totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
@@ -130,7 +128,7 @@ public class ClusterStatsResource
 
         private final long totalInputRows;
         private final long totalInputBytes;
-        private final long totalCpuTimeSecs;
+        private final double totalCpuTimeSecs;
 
         @JsonCreator
         public ClusterStats(
@@ -144,7 +142,7 @@ public class ClusterStatsResource
                 @JsonProperty("reservedMemory") double reservedMemory,
                 @JsonProperty("totalInputRows") long totalInputRows,
                 @JsonProperty("totalInputBytes") long totalInputBytes,
-                @JsonProperty("totalCpuTimeSecs") long totalCpuTimeSecs)
+                @JsonProperty("totalCpuTimeSecs") double totalCpuTimeSecs)
         {
             this.runningQueries = runningQueries;
             this.blockedQueries = blockedQueries;
@@ -220,7 +218,7 @@ public class ClusterStatsResource
         }
 
         @JsonProperty
-        public long getTotalCpuTimeSecs()
+        public double getTotalCpuTimeSecs()
         {
             return totalCpuTimeSecs;
         }
