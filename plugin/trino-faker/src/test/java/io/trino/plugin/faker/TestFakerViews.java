@@ -148,7 +148,7 @@ final class TestFakerViews
         // system.jdbc.tables without filter
         assertThat(query(
                 """
-                SELECT table_schem, table_name, table_type
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE" \
                 FROM system.jdbc.tables
                 """))
                 .skippingTypesCheck()
@@ -157,9 +157,9 @@ final class TestFakerViews
         // system.jdbc.tables with table prefix filter
         assertQuery(
                 """
-                SELECT table_schem, table_name, table_type
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE" \
                 FROM system.jdbc.tables
-                WHERE table_cat = '%s' AND table_schem = '%s' AND table_name IN ('%s', '%s')
+                WHERE "TABLE_CAT" = '%s' AND "TABLE_SCHEM" = '%s' AND "TABLE_NAME" IN ('%s', '%s')
                 """.formatted(catalogName, schemaName, testView, testViewRenamed),
                 "VALUES ('%1$s', '%2$s', 'VIEW'), ('%1$s', '%3$s', 'VIEW')".formatted(schemaName, testView, testViewRenamed));
 
@@ -219,7 +219,7 @@ final class TestFakerViews
         // system.jdbc.columns without filter
         assertThat(query(
                 """
-                SELECT table_schem, table_name, column_name
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME" \
                 FROM system.jdbc.columns
                 """))
                 .skippingTypesCheck()
@@ -233,9 +233,9 @@ final class TestFakerViews
         // system.jdbc.columns with schema filter
         assertThat(query(
                 """
-                SELECT table_schem, table_name, column_name
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME" \
                 FROM system.jdbc.columns
-                WHERE table_schem LIKE '%%%s%%'
+                WHERE "TABLE_SCHEM" LIKE '%%%s%%'
                 """.formatted(schemaName)))
                 .skippingTypesCheck()
                 .containsAll(
@@ -248,9 +248,9 @@ final class TestFakerViews
         // system.jdbc.columns with table filter
         assertThat(query(
                 """
-                SELECT table_schem, table_name, column_name
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME" \
                 FROM system.jdbc.columns
-                WHERE table_name LIKE '%%%s%%' OR table_name LIKE '%%%s%%'
+                WHERE "TABLE_NAME" LIKE '%%%s%%' OR "TABLE_NAME" LIKE '%%%s%%'
                 """.formatted(testView, testViewRenamed)))
                 .skippingTypesCheck()
                 .containsAll(

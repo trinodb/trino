@@ -3088,8 +3088,8 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-            assertQueryFails("SELECT x FROM " + tableName, ".* Column '%s' cannot be resolved".formatted(canonicalize("x")));
-            assertQueryFails("SELECT y FROM " + tableName, ".* Column '%s' cannot be resolved".formatted(canonicalize("y")));
+            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
+            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
 
             assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
         }
@@ -5758,8 +5758,9 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
 
+        // FIXME: Alias table t(a, b) must use the targetTable connector canonicalizer (for now it's the Identity canonicalizer)
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
-            assertUpdate("UPDATE " + table.getName() + " SET b = 100 WHERE a = 1 AND b = 10", 1);
+            assertUpdate("UPDATE %s SET \"b\" = 100 WHERE \"a\" = 1 AND \"b\" = 10".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
