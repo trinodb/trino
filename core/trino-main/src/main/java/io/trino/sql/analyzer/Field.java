@@ -250,15 +250,8 @@ public class Field
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-
-        String canonicalizerType = canonicalizerType();
-        System.out.println("Field.canResolve() 1 name: " + name + " - canonicalizer type: " + canonicalizerType);
-        if (canonicalizerType.equals("No canonicalizer")) {
-            System.out.println("Field.canResolve() 2 field name: " + this.name.orElse("No field name"));
-        }
         // FIXME: We need to canonicalize QualifiedName before attempting any resolution.
         name = canonicalizeQualifiedName(name);
-        System.out.println("Field.canResolve() 3 name: " + name);
         return (name.getPrefix().isEmpty() || matchesSuffix(name.getPrefix().get()))
                 && name.matchesSuffix(this.name.get());
     }

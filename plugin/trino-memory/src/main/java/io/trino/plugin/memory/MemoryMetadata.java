@@ -217,7 +217,6 @@ public class MemoryMetadata
         }
 
         Long id = tableIds.get(schemaTableName);
-        System.out.println("MemoryMetadata.getTableHandle() 1 schemaTableName: " + schemaTableName + " - id: " + id);
         if (id == null) {
             return null;
         }
@@ -357,11 +356,9 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            System.out.println("MemoryMetadata.beginCreateTable() 1 column: " + column.getName());
             MemoryColumnHandle handle = new MemoryColumnHandle(i, column.getName(), column.getType());
             columns.add(new ColumnInfo(handle, column.getDefaultValue(), column.isNullable(), column.getComment()));
         }
-        System.out.println("MemoryMetadata.beginCreateTable() 2 schemaTableName: " + tableMetadata.getTable() + " - id: " + tableId + " - columns: ");
 
         tableIds.put(tableMetadata.getTable(), tableId);
         tables.put(tableId, new TableInfo(
