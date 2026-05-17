@@ -395,7 +395,7 @@ public class FunctionMetadata
         {
             FunctionId functionId = this.functionId;
             if (functionId == null) {
-                functionId = FunctionId.toFunctionId(canonicalName, signature);
+                functionId = FunctionId.toFunctionId(canonicalName, signature, receiverType);
             }
             if (argumentNullability == null) {
                 argumentNullability = Collections.nCopies(signature.getArgumentTypes().size(), kind == WINDOW);
