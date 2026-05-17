@@ -76,6 +76,10 @@ public class PluginManager
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
+            // JTS is used as the Java stack type for Trino's Geometry type, so it must be
+            // shared across all plugin classloaders to prevent ClassCastException when the
+            // geospatial and JDBC plugins exchange Geometry values.
+            .add("org.locationtech.jts.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
