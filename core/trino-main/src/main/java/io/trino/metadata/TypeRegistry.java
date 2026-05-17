@@ -236,6 +236,12 @@ public final class TypeRegistry
         return instantiatedType;
     }
 
+    public boolean isTypeRegistered(String name)
+    {
+        String key = name.toLowerCase(Locale.ENGLISH);
+        return types.containsKey(new TypeSignature(key)) || parametricTypes.containsKey(key);
+    }
+
     public Collection<Type> getTypes()
     {
         return ImmutableList.copyOf(types.values());
@@ -456,6 +462,12 @@ public final class TypeRegistry
         public Type getType(TypeId id)
         {
             return typeRegistry.getType(id);
+        }
+
+        @Override
+        public boolean isTypeRegistered(String name)
+        {
+            return typeRegistry.isTypeRegistered(name);
         }
 
         @Override
