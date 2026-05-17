@@ -2824,7 +2824,9 @@ public class DeltaLakeMetadata
         catch (RuntimeException e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
-                cleanupFailedWrite(session, handle.toCredentialsHandle(), allFiles);
+                cleanupFailedWrite(session, handle.toCredentialsHandle(), allFiles.stream()
+                        .filter(dataFile -> dataFile.deletionVector().isEmpty())
+                        .collect(toImmutableList()));
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
