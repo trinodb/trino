@@ -40,6 +40,7 @@ import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
@@ -356,6 +357,86 @@ public class TestMerge
                     createPlanOptimizersStatsCollector());
             return null;
         });
+    }
+
+    @Test
+    public void testBySourcePredicatesPushedDownToTargetScan()
+    {
+        // All clauses are BY SOURCE with predicates → disjunction pushed as pre-join FilterNode.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isPresent();
+    }
+
+    @Test
+    public void testBySourcePredicatesPushedDownMultipleClauses()
+    {
+        // Multiple BY SOURCE clauses, all with predicates — disjunction of both pushed.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > 10 THEN DELETE " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 <= 10 THEN UPDATE SET column2 = 0");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isPresent();
+    }
+
+    @Test
+    public void testBySourcePredicatesNotPushedWhenUnconditionalClause()
+    {
+        // One BY SOURCE clause has no predicate (catch-all) → no pushdown.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE " +
+                        "WHEN NOT MATCHED BY SOURCE THEN UPDATE SET column2 = 0");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isEmpty();
+    }
+
+    @Test
+    public void testBySourcePredicatesNotPushedWhenMatchedClausePresent()
+    {
+        // MATCHED clause present → pre-filtering target rows would suppress MATCHED actions.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED THEN UPDATE SET column2 = b.column2 " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isEmpty();
+    }
+
+    @Test
+    public void testBySourcePredicatesNotPushedWhenByTargetClausePresent()
+    {
+        // BY TARGET clause present → pre-filtering target rows would promote source rows
+        // to spurious BY TARGET (INSERT) rows.
+        JoinNode join = findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2) " +
+                        "WHEN NOT MATCHED BY SOURCE AND a.column2 > 0 THEN DELETE");
+        assertThat(PlanNodeSearcher.searchFrom(join.getLeft())
+                .where(FilterNode.class::isInstance)
+                .findFirst())
+                .isEmpty();
     }
 
     private JoinNode findMergeJoin(String sql)

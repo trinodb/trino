@@ -147,6 +147,70 @@ public class TestMergeNotMatchedBySource
                 .matches("SELECT BIGINT '6'");
     }
 
+    // ---- predicate pushdown correctness ----
+
+    @Test
+    public void testBySourcePredicatePushdownSingleClause()
+    {
+        // All clauses are BY SOURCE with a predicate → pushdown applies.
+        // Rows 3 (value=30) and 5 (value=50) satisfy value > 20 → DELETE.
+        // Row 1 (value=10) does not satisfy value > 20 → no action.
+        // Rows 2 and 4 match source → no BY SOURCE action (no MATCHED clause → pass-through).
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.default.target t
+                USING (VALUES 2, 4) s(k) ON t.key = s.k
+                WHEN NOT MATCHED BY SOURCE AND t.value > 20 THEN DELETE
+                """))
+                .matches("SELECT BIGINT '2'");
+    }
+
+    @Test
+    public void testBySourcePredicatePushdownMultipleClauses()
+    {
+        // All BY SOURCE clauses carry predicates → pushdown fires on their disjunction.
+        // Keys 1, 3, 5 have no source match.  First clause (value > 30): key 5 (50) → DELETE.
+        // Second clause (value <= 30): keys 1 (10) and 3 (30) → UPDATE.  Total = 3.
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.default.target t
+                USING (VALUES 2, 4) s(k) ON t.key = s.k
+                WHEN NOT MATCHED BY SOURCE AND t.value > 30 THEN DELETE
+                WHEN NOT MATCHED BY SOURCE AND t.value <= 30 THEN UPDATE SET value = 0
+                """))
+                .matches("SELECT BIGINT '3'");
+    }
+
+    @Test
+    public void testBySourceNoPushdownWhenUnconditionalClause()
+    {
+        // Second BY SOURCE clause is unconditional → no pushdown, result still correct.
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.default.target t
+                USING (VALUES 2, 4) s(k) ON t.key = s.k
+                WHEN NOT MATCHED BY SOURCE AND t.value > 20 THEN DELETE
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET value = 0
+                """))
+                .matches("SELECT BIGINT '3'");
+    }
+
+    @Test
+    public void testBySourceNoPushdownWhenMatchedClausePresent()
+    {
+        // MATCHED clause present → no pushdown.  All matched and unmatched rows handled correctly.
+        // Keys 2 and 4 match source → 2 UPDATEs.  Keys 1 (10), 3 (30), 5 (50) have no source.
+        // BY SOURCE fires for all three (value > 0 always true) → 3 DELETEs.  Total = 5.
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.default.target t
+                USING (VALUES 2, 4) s(k) ON t.key = s.k
+                WHEN MATCHED THEN UPDATE SET value = t.value * 2
+                WHEN NOT MATCHED BY SOURCE AND t.value > 0 THEN DELETE
+                """))
+                .matches("SELECT BIGINT '5'");
+    }
+
     @Test
     public void testMultipleBySourceClausesWithPredicates()
     {
