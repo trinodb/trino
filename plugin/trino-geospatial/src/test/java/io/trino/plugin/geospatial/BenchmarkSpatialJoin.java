@@ -100,10 +100,11 @@ public class BenchmarkSpatialJoin
         {
             // Generate random points within the approximate bounding box of the US polygon:
             //  POLYGON ((-124 27, -65 27, -65 49, -124 49, -124 27))
+            // FIXME: CROSS JOIN UNNEST must propagate outer canonicalizer?
             queryRunner.execute(format("CREATE TABLE memory.DEFAULT.\"points\" AS " +
-                    "SELECT 'p' || cast(elem AS VARCHAR) as \"name\", xMin + (xMax - xMin) * random() as \"longitude\", yMin + (yMax - yMin) * random() as \"latitude\" " +
+                    "SELECT 'p' || cast(\"elem\" AS VARCHAR) as \"name\", xMin + (xMax - xMin) * random() as \"longitude\", yMin + (yMax - yMin) * random() as \"latitude\" " +
                     "FROM (SELECT -124 AS xMin, -65 AS xMax, 27 AS yMin, 49 AS yMax) " +
-                    "CROSS JOIN UNNEST(sequence(1, %s)) AS t(elem)", pointCount));
+                    "CROSS JOIN UNNEST(sequence(1, %s)) AS t(\"elem\")", pointCount));
         }
 
         @TearDown(Level.Invocation)

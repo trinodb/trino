@@ -1732,11 +1732,12 @@ class StatementAnalyzer
             ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.builder();
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            Scope unnestScope = createScope(scope, scope.flatMap(Scope::getCanonicalizer));
             for (Expression expression : node.getExpressions()) {
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "UNNEST");
                 List<Field> expressionOutputs = new ArrayList<>();
 
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, unnestScope);
                 analysis.recordSubqueries(node, expressionAnalysis);
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType arrayType) {
@@ -1772,7 +1773,7 @@ class StatementAnalyzer
 
             analysis.setUnnest(node, new UnnestAnalysis(mappings.buildOrThrow(), ordinalityField));
 
-            return createAndAssignScope(node, scope, outputFields.build());
+            return createAndAssignScope(node, scope, unnestScope.getCanonicalizer(), outputFields.build());
         }
 
         @Override

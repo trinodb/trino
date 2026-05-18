@@ -8880,7 +8880,7 @@ public abstract class BaseHiveConnectorTest
 
     private void assertNationNTimes(String tableName, int times)
     {
-        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM nation"));
+        String verifyQuery = join(" UNION ALL ", nCopies(times, "SELECT * FROM \"nation\""));
         assertQuery("SELECT nationkey, name, regionkey, comment FROM " + tableName, verifyQuery);
     }
 
