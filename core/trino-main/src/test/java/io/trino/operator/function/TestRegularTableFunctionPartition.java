@@ -15,6 +15,7 @@ package io.trino.operator.function;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPagesBuilder;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
@@ -69,7 +70,8 @@ public class TestRegularTableFunctionPartition
                 1,   // passThroughSourcesCount
                 ImmutableList.of(ImmutableList.of(1)),   // requiredChannels: channel 1
                 Optional.empty(),                         // single source → no marker channels
-                ImmutableList.of(new PassThroughColumnSpecification(false, 0, 0)));
+                ImmutableList.of(new PassThroughColumnSpecification(false, 0, 0)),
+                AggregatedMemoryContext.newSimpleAggregatedMemoryContext());
         // pass-through spec: non-partitioning, input channel 0 (VARCHAR), index at output channel 0
 
         List<Page> outputPages = new ArrayList<>();
