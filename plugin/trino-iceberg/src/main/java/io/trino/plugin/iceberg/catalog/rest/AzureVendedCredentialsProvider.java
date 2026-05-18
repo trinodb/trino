@@ -63,7 +63,9 @@ final class AzureVendedCredentialsProvider
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_PREFIX)) {
                 String host = entry.getKey().substring(ADLS_SAS_TOKEN_PREFIX.length());
                 String account = host.contains(".") ? host.substring(0, host.indexOf('.')) : host;
-                sasTokensBuilder.put(account, entry.getValue());
+                if (!account.isEmpty() && !entry.getValue().isEmpty()) {
+                    sasTokensBuilder.put(account, entry.getValue());
+                }
             }
             if (entry.getKey().startsWith(ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX)) {
                 Instant expiresAt = Instant.ofEpochMilli(Long.parseLong(entry.getValue()));
