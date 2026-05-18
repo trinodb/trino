@@ -865,10 +865,10 @@ public class ExpressionAnalyzer
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
-                if (scope.requireDelimiter() && !qualifiedName.isDelimited()) {
-                    throw requireDelimiterException(node, qualifiedName);
-                }
                 if (!scope.isColumnReference(qualifiedName)) {
+                    if (scope.requireDelimiter() && !qualifiedName.isDelimited()) {
+                        throw requireDelimiterException(node, qualifiedName);
+                    }
                     throw missingAttributeException(node, qualifiedName);
                 }
             }

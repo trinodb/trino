@@ -547,8 +547,13 @@ class StatementAnalyzer
 
     private Scope analyzeForUpdate(Relation relation, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
+        return analyzeForUpdate(Optional.empty(), relation, outerQueryScope, updateKind);
+    }
+
+    private Scope analyzeForUpdate(Optional<Scope> scope, Relation relation, Optional<Scope> outerQueryScope, UpdateKind updateKind)
+    {
         return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind), true)
-                .process(relation, Optional.empty());
+                .process(relation, scope);
     }
 
     private enum UpdateKind
@@ -3332,9 +3337,10 @@ class StatementAnalyzer
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            // FIXME: visitQuery receive the outer canonicalizer
+            // FIXME: StatementAnalyzer::visitQuery receive the inner scope canonicalizer to use without FROM clause
             Scope queryScope = analyzer.analyze(createInnerScope(scope), node.getQuery(), scope.orElseThrow());
-            return createAndAssignScope(node, scope, queryScope.getRelationType(), scope.flatMap(Scope::getCanonicalizer));
+            // FIXME: queryScope canonicalizer will be propagated
+            return createAndAssignScope(node, scope, queryScope.getRelationType(), queryScope.getCanonicalizer());
         }
 
         @Override
@@ -3918,10 +3924,10 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
             }
-            Scope mergeScope = createScope(scope);
-            Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
+            Scope mergeScope = createScope(scope, resolver::canonicalize);
+            Scope targetTableScope = analyzer.analyzeForUpdate(createInnerScope(mergeScope), relation, Optional.of(mergeScope), UpdateKind.MERGE);
             // FIXME: We inject canonicalizer to use it if sourceTable is not a real connector Table
-            Scope sourceTableScope = process(merge.getSource(), createScope(scope, resolver::canonicalize));
+            Scope sourceTableScope = process(merge.getSource(), mergeScope);
             boolean requireDelimiter = targetTableScope.incompatibleCanonicalizer(sourceTableScope);
             RelationType joinRelation = targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType());
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), joinRelation, requireDelimiter ? Optional.empty() : targetTableScope.getCanonicalizer());
@@ -6364,6 +6370,11 @@ class StatementAnalyzer
         private Scope createScope(Scope scope, Optional<Function<Identifier, String>> canonicalizer)
         {
             return scope.withCanonicalizer(canonicalizer);
+        }
+
+        private Optional<Scope> createInnerScope(Scope scope)
+        {
+            return createInnerScope(Optional.of(scope));
         }
 
         private Optional<Scope> createInnerScope(Optional<Scope> scope)
