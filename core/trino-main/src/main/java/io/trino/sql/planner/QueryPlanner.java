@@ -160,6 +160,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.LogicalPlanner.noTruncationCast;
@@ -785,6 +786,26 @@ class QueryPlanner
                 planWithUniqueId.getFieldMappings(),
                 outerContext);
 
+        // Block 4: push BY SOURCE predicates onto the target scan.
+        // When every MERGE clause is BY SOURCE and every such clause carries an AND predicate,
+        // the disjunction (P1 OR P2 OR ... OR Pn) is a safe pre-join filter on the target side:
+        // any target row that satisfies none of the predicates has no BY SOURCE action, and
+        // — because there are no MATCHED or BY TARGET clauses — it cannot be involved in any
+        // other action either.  Filtering it out before the join avoids a full target-table scan
+        // (analogous to the Spark regression tracked as SPARK-49933).
+        //
+        // Safety argument for the LEFT OUTER join produced by BY SOURCE-only MERGE:
+        //   * Excluded target rows fail all Pi → no BY SOURCE action.
+        //   * There are no MATCHED clauses → no missed UPDATE/DELETE on matched pairs.
+        //   * There are no BY TARGET clauses → source rows that would have matched an excluded
+        //     target row are simply discarded by the LEFT join rather than triggering an INSERT.
+        //
+        // The optimization is deliberately withheld when MATCHED or BY TARGET clauses are
+        // present: in those cases, filtering target rows pre-join can suppress MATCHED actions
+        // or promote source rows to spurious BY TARGET rows.
+        planWithPresentColumn = applyBySourcePredicatePushdown(
+                merge.getMergeCases(), planWithPresentColumn, mergeAnalysis);
+
         RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(merge.getSource());
 
@@ -1094,6 +1115,72 @@ class QueryPlanner
             return DELETE_OPERATION_NUMBER;
         }
         throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    /**
+     * Applies a pre-join filter on the target side when it is safe to do so.
+     *
+     * <p>Safe condition: every MERGE clause is {@code NOT MATCHED BY SOURCE} and carries
+     * an explicit {@code AND} predicate.  With only BY SOURCE clauses the join is LEFT OUTER,
+     * so source rows that would have matched a filtered-out target row are silently discarded
+     * by the join rather than triggering any action.
+     *
+     * <p>Returns the original plan unchanged when MATCHED or BY TARGET clauses are present,
+     * or when any BY SOURCE clause is unconditional.
+     */
+    private RelationPlan applyBySourcePredicatePushdown(
+            List<MergeCase> mergeCases,
+            RelationPlan targetPlan,
+            MergeAnalysis mergeAnalysis)
+    {
+        boolean allBySource = mergeCases.stream()
+                .allMatch(c -> c.getMergeCaseKind() == MergeCaseKind.NOT_MATCHED_BY_SOURCE);
+        if (!allBySource) {
+            return targetPlan;
+        }
+
+        boolean allHavePredicates = mergeCases.stream()
+                .allMatch(c -> c.getExpression().isPresent());
+        if (!allHavePredicates) {
+            return targetPlan;
+        }
+
+        // BY SOURCE predicates are analyzed in the join scope (target + source fields), but the
+        // target plan only carries target-side symbols.  Build a TranslationMap that covers the
+        // full join scope so field references resolve correctly.  The analyzer guarantees BY SOURCE
+        // predicates reference only target columns, so source-side positions are never accessed;
+        // they are filled with BOOLEAN placeholder symbols that exist only to satisfy the
+        // TranslationMap field-count invariant.
+        List<Symbol> targetFieldMappings = targetPlan.getFieldMappings();
+        int sourcePlaceholderCount = mergeAnalysis.getJoinScope().getRelationType().getAllFieldCount()
+                - mergeAnalysis.getTargetTableScope().getRelationType().getAllFieldCount();
+
+        ImmutableList.Builder<Symbol> joinScopeSymbols = ImmutableList.builder();
+        joinScopeSymbols.addAll(targetFieldMappings);
+        for (int i = 0; i < sourcePlaceholderCount; i++) {
+            joinScopeSymbols.add(symbolAllocator.newSymbol("_bySourcePlaceholder", BOOLEAN));
+        }
+
+        TranslationMap translationMap = new TranslationMap(
+                outerContext,
+                mergeAnalysis.getJoinScope(),
+                analysis,
+                lambdaDeclarationToSymbolMap,
+                joinScopeSymbols.build(),
+                ImmutableMap.of(),
+                session,
+                plannerContext);
+        PlanBuilder targetPlanBuilder = new PlanBuilder(translationMap, targetPlan.getRoot());
+
+        List<Expression> translatedPredicates = mergeCases.stream()
+                .map(c -> targetPlanBuilder.rewrite(c.getExpression().orElseThrow()))
+                .collect(toImmutableList());
+
+        return new RelationPlan(
+                new FilterNode(idAllocator.getNextId(), targetPlan.getRoot(), or(translatedPredicates)),
+                mergeAnalysis.getTargetTableScope(),
+                targetPlan.getFieldMappings(),
+                outerContext);
     }
 
     /**
