@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
@@ -80,6 +82,8 @@ public class RegularTableFunctionPartition
     // maximum number of output rows per page, derived from average pass-through bytes per row in PagesIndex
     private final int maxRowsPerOutputPage;
 
+    private final LocalMemoryContext memoryContext;
+
     public RegularTableFunctionPartition(
             PagesIndex pagesIndex,
             int partitionStart,
@@ -89,7 +93,8 @@ public class RegularTableFunctionPartition
             int passThroughSourcesCount,
             List<List<Integer>> requiredChannels,
             Optional<Map<Integer, Integer>> markerChannels,
-            List<PassThroughColumnSpecification> passThroughSpecifications)
+            List<PassThroughColumnSpecification> passThroughSpecifications,
+            AggregatedMemoryContext memoryContext)
     {
         checkArgument(pagesIndex.getPositionCount() != 0, "PagesIndex is empty for regular table function partition");
         this.pagesIndex = pagesIndex;
@@ -116,6 +121,7 @@ public class RegularTableFunctionPartition
             passThroughProviders[i] = createColumnProvider(passThroughSpecifications.get(i));
         }
         this.maxRowsPerOutputPage = computeMaxRowsPerOutputPage(passThroughSpecifications);
+        this.memoryContext = memoryContext.newLocalMemoryContext(RegularTableFunctionPartition.class.getSimpleName());
     }
 
     private int computeMaxRowsPerOutputPage(List<PassThroughColumnSpecification> passThroughSpecifications)
@@ -158,6 +164,7 @@ public class RegularTableFunctionPartition
                 TableFunctionProcessorState state = tableFunction.process(inputPages);
                 boolean functionGotNoData = inputPages == null;
                 if (state == FINISHED) {
+                    memoryContext.close();
                     return WorkProcessor.ProcessState.finished();
                 }
                 if (state instanceof Blocked blocked) {
@@ -170,6 +177,7 @@ public class RegularTableFunctionPartition
                 if (processed.getResult() != null) {
                     pendingPage = processed.getResult();
                     pendingOffset = 0;
+                    memoryContext.setBytes(pendingPage.getRetainedSizeInBytes());
                     return WorkProcessor.ProcessState.ofResult(nextChunk());
                 }
                 if (functionGotNoData) {
@@ -185,6 +193,7 @@ public class RegularTableFunctionPartition
                 pendingOffset += chunkSize;
                 if (pendingOffset >= pendingPage.getPositionCount()) {
                     pendingPage = null;
+                    memoryContext.setBytes(0);
                 }
                 return chunk;
             }
