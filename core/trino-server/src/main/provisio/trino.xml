@@ -97,6 +97,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/geospatial-example">
+        <artifact id="${project.groupId}:trino-geospatial-example:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/hive">
         <artifact id="${project.groupId}:trino-hive:zip:${project.version}">
             <unpack />

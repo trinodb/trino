@@ -78,6 +78,7 @@
         <module>plugin/trino-faker</module>
         <module>plugin/trino-functions-python</module>
         <module>plugin/trino-geospatial</module>
+        <module>plugin/trino-geospatial-example</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
         <module>plugin/trino-http-event-listener</module>
@@ -1091,6 +1092,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-geospatial-example</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
