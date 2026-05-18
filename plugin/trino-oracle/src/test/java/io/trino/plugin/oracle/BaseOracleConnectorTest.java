@@ -142,7 +142,8 @@ public abstract class BaseOracleConnectorTest
             String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
             assertThat(query("SELECT y FROM " + tableName))
                     .matches(expectedValues);
-            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+            // FIXME: Should the FROM TABLE clause inherit the canonicalizer from the inner SELECT clause?
+            assertThat(query("SELECT Y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
                     .matches(expectedValues);
         }
     }

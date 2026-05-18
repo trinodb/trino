@@ -42,12 +42,19 @@ public class Field
 
     public static Field newUnqualified(String name, Type type)
     {
+        return newUnqualified(Optional.of(name), type, Optional.empty());
+    }
+
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<Function<Identifier, String>> canonicalizer)
+    {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(canonicalizer, "canonicalizer is null");
 
         return builder()
-                .name(Optional.of(name))
+                .name(name)
                 .type(type)
+                .canonicalizer(canonicalizer)
                 .build();
     }
 
@@ -210,11 +217,16 @@ public class Field
         return matchesSuffix(canonicalizeQualifiedName(prefix));
     }
 
+    public String canonicalize(Identifier identifier)
+    {
+        return canonicalizer.map(function -> function.apply(identifier)).orElse(identifier.getValue());
+    }
+
     private QualifiedName canonicalizeQualifiedName(QualifiedName name)
     {
         // FIXME: We canonicalize the QualifiedName only if a canonicalizer exists, otherwise,
-        //        we will lose the canonicalization of the QualifiedName that has already been performed.
-        return canonicalizer.map(function -> QualifiedName.of(function, name)).orElse(name);
+        //        we will lose the canonicalization of QualifiedName that has already been resolved.
+        return this.canonicalizer.map(function -> QualifiedName.of(function, name)).orElse(name);
     }
 
     private boolean matchesSuffix(QualifiedName prefix)

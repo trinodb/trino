@@ -301,6 +301,7 @@ class RelationPlanner
 
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
+        //plannerContext.setCanonicalizer(session, scope.getCanonicalizer());
 
         RelationPlan plan;
         if (namedQuery != null) {

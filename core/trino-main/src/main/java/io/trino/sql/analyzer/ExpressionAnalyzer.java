@@ -771,8 +771,8 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            //System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-            // FIXME: The context canonicalizer will be used to canonicalize QualifiedName
+            // System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
+            // FIXME: The scope canonicalizer will be used to canonicalize QualifiedName
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
@@ -825,7 +825,6 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
-            System.out.println("ExpressionAnalyzer.visitDereferenceExpression() canonicalizer type: " + context.getScope().canonicalizerType());
             Optional<Function<Identifier, String>> canonicalizer = context.getScope().getCanonicalizer();
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
@@ -862,7 +861,6 @@ public class ExpressionAnalyzer
                 }
 
                 Scope scope = context.getScope();
-                System.out.println("ExpressionAnalyser.visitDereferenceExpression() qualifiedName: " + qualifiedName);
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
@@ -871,7 +869,6 @@ public class ExpressionAnalyzer
                     throw requireDelimiterException(node, qualifiedName);
                 }
                 if (!scope.isColumnReference(qualifiedName)) {
-                    System.out.println("ExpressionAnalyzer.visitDereferenceExpression() is Delimited: " + qualifiedName.isDelimited() + " - requireDelimiter: " + scope.requireDelimiter());
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -2738,7 +2735,6 @@ public class ExpressionAnalyzer
 
         private Type analyzeSubquery(SubqueryExpression node, Context context)
         {
-            System.out.println("ExpressionAnalyzer.analyzeSubquery() 1 scope canonicalizer: " + context.getScope().canonicalizerType());
             if (context.isInLambda()) {
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
             }

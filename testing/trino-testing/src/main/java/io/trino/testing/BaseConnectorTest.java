@@ -5760,7 +5760,7 @@ public abstract class BaseConnectorTest
 
         // FIXME: Alias table t(a, b) must use the targetTable connector canonicalizer (for now it's the Identity canonicalizer)
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
-            assertUpdate("UPDATE %s SET \"b\" = 100 WHERE \"a\" = 1 AND \"b\" = 10".formatted(table.getName()), 1);
+            assertUpdate("UPDATE %s SET b = 100 WHERE a = 1 AND b = 10".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
