@@ -212,6 +212,20 @@ public class TestMergeNotMatchedBySource
     }
 
     @Test
+    public void testBySourceUpdateCorrectRowCount()
+    {
+        // BY SOURCE UPDATE: keys 1, 3, 5 have no matching source row → 3 UPDATEs.
+        // Keys 2 and 4 match but no MATCHED clause → pass-through.  Total = 3.
+        assertThat(assertions.query(
+                """
+                MERGE INTO mock.default.target t
+                USING (VALUES 2, 4) s(k) ON t.key = s.k
+                WHEN NOT MATCHED BY SOURCE THEN UPDATE SET value = 0
+                """))
+                .matches("SELECT BIGINT '3'");
+    }
+
+    @Test
     public void testMultipleBySourceClausesWithPredicates()
     {
         // Source contains keys 2 and 4; keys 1, 3, 5 have no matching source row.
