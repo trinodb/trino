@@ -44,8 +44,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -74,6 +76,9 @@ public class RegularTableFunctionPartition
 
     // number of processed input positions from partition start. all sources have been processed up to this position, except the sources whose partitions ended earlier.
     private int processedPositions;
+
+    // maximum number of output rows per page, derived from average pass-through bytes per row in PagesIndex
+    private final int maxRowsPerOutputPage;
 
     public RegularTableFunctionPartition(
             PagesIndex pagesIndex,
@@ -110,6 +115,27 @@ public class RegularTableFunctionPartition
         for (int i = 0; i < passThroughSpecifications.size(); i++) {
             passThroughProviders[i] = createColumnProvider(passThroughSpecifications.get(i));
         }
+        this.maxRowsPerOutputPage = computeMaxRowsPerOutputPage(passThroughSpecifications);
+    }
+
+    private int computeMaxRowsPerOutputPage(List<PassThroughColumnSpecification> passThroughSpecifications)
+    {
+        long totalPassthroughBytes = 0;
+        for (PassThroughColumnSpecification spec : passThroughSpecifications) {
+            if (!spec.isPartitioningColumn()) {
+                for (Block block : pagesIndex.getChannel(spec.inputChannel())) {
+                    totalPassthroughBytes += block.getSizeInBytes();
+                }
+            }
+        }
+        if (totalPassthroughBytes == 0) {
+            return Integer.MAX_VALUE;
+        }
+        long averageBytesPerRow = totalPassthroughBytes / pagesIndex.getPositionCount();
+        if (averageBytesPerRow == 0) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) max(1, min((long) DEFAULT_MAX_PAGE_SIZE_IN_BYTES / averageBytesPerRow, Integer.MAX_VALUE));
     }
 
     @Override
@@ -118,10 +144,17 @@ public class RegularTableFunctionPartition
         return WorkProcessor.create(new WorkProcessor.Process<>()
         {
             List<Optional<Page>> inputPages = prepareInputPages();
+            // un-materialized table function result pending split; null when no split is in progress
+            Page pendingPage;
+            int pendingOffset;
 
             @Override
             public WorkProcessor.ProcessState<Page> process()
             {
+                if (pendingPage != null) {
+                    return WorkProcessor.ProcessState.ofResult(nextChunk());
+                }
+
                 TableFunctionProcessorState state = tableFunction.process(inputPages);
                 boolean functionGotNoData = inputPages == null;
                 if (state == FINISHED) {
@@ -135,12 +168,25 @@ public class RegularTableFunctionPartition
                     inputPages = prepareInputPages();
                 }
                 if (processed.getResult() != null) {
-                    return WorkProcessor.ProcessState.ofResult(appendPassThroughColumns(processed.getResult()));
+                    pendingPage = processed.getResult();
+                    pendingOffset = 0;
+                    return WorkProcessor.ProcessState.ofResult(nextChunk());
                 }
                 if (functionGotNoData) {
                     throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "When function got no input, it should either produce output or return Blocked state");
                 }
                 return WorkProcessor.ProcessState.blocked(immediateFuture(null));
+            }
+
+            private Page nextChunk()
+            {
+                int chunkSize = min(maxRowsPerOutputPage, pendingPage.getPositionCount() - pendingOffset);
+                Page chunk = appendPassThroughColumns(pendingPage.getRegion(pendingOffset, chunkSize));
+                pendingOffset += chunkSize;
+                if (pendingOffset >= pendingPage.getPositionCount()) {
+                    pendingPage = null;
+                }
+                return chunk;
             }
         });
     }
