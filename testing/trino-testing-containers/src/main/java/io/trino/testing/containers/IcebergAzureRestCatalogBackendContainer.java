@@ -40,8 +40,8 @@ public class IcebergAzureRestCatalogBackendContainer
                         .put("CATALOG_ADLS_AUTH_SHARED__KEY_ACCOUNT_NAME", storageAccount)
                         .put("CATALOG_ADLS_AUTH_SHARED__KEY_ACCOUNT_KEY", storageAccountKey)
                         // SAS token for vending to clients
-                        .put("CATALOG_ADLS_SAS__TOKEN_" + storageAccount, sasToken)
-                        .put("CATALOG_ADLS_SAS__TOKEN__EXPIRES__AT__MS_" + storageAccount, Long.toString(sasTokenExpiresAtMs))
+                        .put("CATALOG_ADLS_SAS__TOKEN_" + storageAccount + "_DFS_CORE_WINDOWS_NET", sasToken)
+                        .put("CATALOG_ADLS_SAS__TOKEN__EXPIRES__AT__MS_" + storageAccount + "_DFS_CORE_WINDOWS_NET", Long.toString(sasTokenExpiresAtMs))
                         // Increase the size of the worker pool to achieve a higher parallelism for storage operations
                         .put("ICEBERG_WORKER_NUM_THREADS", "16")
                         .buildOrThrow(),
