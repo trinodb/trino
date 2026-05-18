@@ -59,9 +59,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -1668,7 +1671,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.enableChangeDataFeed', 'true')," +
                             "('delta.enableDeletionVectors', 'false')," +
                             "('delta.minReaderVersion', '1')," +
-                            "('delta.minWriterVersion', '4')");
+                            "('delta.minWriterVersion', '4')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
 
         // timestamp type requires reader version 3 and writer version 7
@@ -1681,7 +1685,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.minReaderVersion', '3')," +
                             "('delta.minWriterVersion', '7')," +
                             "('delta.feature.timestampNtz', 'supported')," +
-                            "('delta.feature.changeDataFeed', 'supported')");
+                            "('delta.feature.changeDataFeed', 'supported')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
     }
 
@@ -1858,7 +1863,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.columnMapping.mode', 'name')," +
                             "('delta.columnMapping.maxColumnId', '1')," +
                             "('delta.minReaderVersion', '2')," +
-                            "('delta.minWriterVersion', '5')");
+                            "('delta.minWriterVersion', '5')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
 
         // timestamp type requires reader version 3 and writer version 7
@@ -1872,7 +1878,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.minReaderVersion', '3')," +
                             "('delta.minWriterVersion', '7')," +
                             "('delta.feature.columnMapping', 'supported')," +
-                            "('delta.feature.timestampNtz', 'supported')");
+                            "('delta.feature.timestampNtz', 'supported')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
     }
 
@@ -4482,6 +4489,7 @@ public class TestDeltaLakeConnectorTest
                             .put("delta.enableDeletionVectors", "false")
                             .put("delta.minReaderVersion", "1")
                             .put("delta.minWriterVersion", "4")
+                            .put("location", getTableLocation(table.getName()))
                             .buildOrThrow());
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN ts TIMESTAMP");
@@ -4495,6 +4503,7 @@ public class TestDeltaLakeConnectorTest
                             .put("delta.feature.timestampNtz", "supported")
                             .put("delta.minReaderVersion", "3")
                             .put("delta.minWriterVersion", "7")
+                            .put("location", getTableLocation(table.getName()))
                             .buildOrThrow());
         }
     }
@@ -4503,6 +4512,18 @@ public class TestDeltaLakeConnectorTest
     {
         return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     @Test
