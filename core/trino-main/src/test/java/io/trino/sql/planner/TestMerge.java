@@ -298,6 +298,46 @@ public class TestMerge
     }
 
     @Test
+    public void testMergeMatchedOnlyUsesRightJoin()
+    {
+        // MATCHED only — backward-compat: join must stay RIGHT
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED THEN UPDATE SET column2 = b.column2")
+                .getType())
+                .isEqualTo(RIGHT);
+    }
+
+    @Test
+    public void testMergeByTargetOnlyUsesRightJoin()
+    {
+        // BY TARGET only (bare WHEN NOT MATCHED) — backward-compat: join must stay RIGHT
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2)")
+                .getType())
+                .isEqualTo(RIGHT);
+    }
+
+    @Test
+    public void testMergeMatchedAndByTargetUsesRightJoin()
+    {
+        // MATCHED + BY TARGET — classic upsert: join must stay RIGHT
+        assertThat(findMergeJoin(
+                "MERGE INTO test_table_merge_target a " +
+                        "USING test_table_merge_source b " +
+                        "ON a.column1 = b.column1 " +
+                        "WHEN MATCHED THEN UPDATE SET column2 = b.column2 " +
+                        "WHEN NOT MATCHED THEN INSERT (column1, column2) VALUES (b.column1, b.column2)")
+                .getType())
+                .isEqualTo(RIGHT);
+    }
+
+    @Test
     public void testMergeMatchedAndBySourceUsesLeftJoin()
     {
         // MATCHED + BY SOURCE only → LEFT join (target preserved; source may be absent)
