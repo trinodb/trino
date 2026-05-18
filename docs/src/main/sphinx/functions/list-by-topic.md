@@ -439,6 +439,12 @@ For more details, see {doc}`regexp`
 - {func}`regexp_replace`
 - {func}`regexp_split`
 
+## Row
+
+For more details, see {doc}`row`
+
+- {func}`row.fields`
+
 ## Row pattern recognition expressions
 
 - {ref}`classifier <classifier-function>`

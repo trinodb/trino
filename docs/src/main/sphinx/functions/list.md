@@ -363,6 +363,7 @@
 - {func}`reverse`
 - {func}`rgb`
 - {func}`round`
+- {func}`row.fields`
 - {func}`row_number`
 - {func}`rpad`
 - {func}`rtrim`
