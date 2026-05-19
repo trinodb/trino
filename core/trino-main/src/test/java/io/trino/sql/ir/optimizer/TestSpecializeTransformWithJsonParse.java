@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -26,7 +27,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.Test;
 

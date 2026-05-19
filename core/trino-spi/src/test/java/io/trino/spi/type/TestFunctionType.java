@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.type;
+package io.trino.spi.type;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -29,9 +28,10 @@ public class TestFunctionType
     public void testDisplayName()
     {
         Type function = new FunctionType(
-                ImmutableList.of(RowType.from(ImmutableList.of(field("field", DOUBLE)))),
+                List.of(RowType.from(List.of(field("field", DOUBLE)))),
                 BIGINT);
 
         assertThat(function.getDisplayName()).isEqualTo("function(row(\"field\" double),bigint)");
+        assertThat(function).hasToString("function(row(\"field\" double)) -> bigint");
     }
 }

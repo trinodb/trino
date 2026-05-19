@@ -29,6 +29,7 @@ import io.trino.operator.table.json.JsonTablePlanSingle;
 import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.type.FunctionType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
