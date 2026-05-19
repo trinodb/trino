@@ -145,6 +145,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
         return hiveMetadata.schemaExists(session, schemaName);
@@ -1001,12 +1007,6 @@ public class LakehouseMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return forHandle(tableHandle).getInsertWriterScalingOptions(session, tableHandle);
-    }
-
-    @Override
-    public String canonicalize(String value)
-    {
-        return value.toLowerCase(ENGLISH);
     }
 
     private ConnectorMetadata forHandle(ConnectorTableHandle handle)

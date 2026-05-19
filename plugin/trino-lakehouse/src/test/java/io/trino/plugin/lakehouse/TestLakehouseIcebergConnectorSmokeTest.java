@@ -94,10 +94,4 @@ public class TestLakehouseIcebergConnectorSmokeTest
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
                 .failure().hasMessageMatching(".* Table .* does not exist");
     }
-
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toLowerCase(ENGLISH);
-    }
 }
