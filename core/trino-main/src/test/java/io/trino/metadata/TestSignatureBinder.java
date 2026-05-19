@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.type.FunctionType;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 

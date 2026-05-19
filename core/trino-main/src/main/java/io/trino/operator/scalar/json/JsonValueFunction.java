@@ -40,13 +40,13 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;

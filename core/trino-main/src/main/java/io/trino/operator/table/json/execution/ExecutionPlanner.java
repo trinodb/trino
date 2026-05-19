@@ -30,10 +30,10 @@ import io.trino.operator.table.json.JsonTableValueColumn;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 
 import java.util.Map;
 import java.util.Optional;

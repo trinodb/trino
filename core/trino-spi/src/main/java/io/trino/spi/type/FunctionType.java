@@ -11,27 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.type;
+package io.trino.spi.type;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
-public class FunctionType
+public final class FunctionType
         implements Type
 {
     public static final String NAME = "function";
@@ -44,20 +40,20 @@ public class FunctionType
     {
         this.signature = new TypeSignature(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
     private static List<TypeParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        ImmutableList.Builder<TypeParameter> builder = ImmutableList.builder();
+        List<TypeParameter> typeParameters = new ArrayList<>(argumentTypes.size() + 1);
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
                 .map(TypeParameter::typeParameter)
-                .forEach(builder::add);
-        builder.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
-        return builder.build();
+                .forEach(typeParameters::add);
+        typeParameters.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
+        return List.copyOf(typeParameters);
     }
 
     public Type getReturnType()
@@ -73,11 +69,11 @@ public class FunctionType
     @Override
     public List<Type> getTypeParameters()
     {
-        return ImmutableList.<Type>builder().addAll(argumentTypes).add(returnType).build();
+        return Stream.concat(argumentTypes.stream(), Stream.of(returnType)).toList();
     }
 
     @Override
-    public final TypeSignature getTypeSignature()
+    public TypeSignature getTypeSignature()
     {
         return signature;
     }
@@ -85,19 +81,13 @@ public class FunctionType
     @Override
     public String getDisplayName()
     {
-        List<Type> types = ImmutableList.<Type>builder()
-                .addAll(argumentTypes)
-                .add(returnType)
-                .build();
-
-        List<String> names = types.stream()
+        return Stream.concat(argumentTypes.stream(), Stream.of(returnType))
                 .map(Type::getDisplayName)
-                .collect(toImmutableList());
-        return "function(" + Joiner.on(",").join(names) + ")";
+                .collect(joining(",", "function(", ")"));
     }
 
     @Override
-    public final Class<?> getJavaType()
+    public Class<?> getJavaType()
     {
         throw new UnsupportedOperationException(getDisplayName() + " type does not have a Java type");
     }
@@ -250,10 +240,8 @@ public class FunctionType
     @Override
     public String toString()
     {
-        return "(" +
-                argumentTypes.stream()
-                        .map(Type::toString)
-                        .collect(Collectors.joining(", ")) +
-                ") -> " + returnType;
+        return argumentTypes.stream()
+                .map(Type::toString)
+                .collect(joining(", ", "function(", ") -> " + returnType));
     }
 }

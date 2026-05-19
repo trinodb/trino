@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
@@ -23,7 +24,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

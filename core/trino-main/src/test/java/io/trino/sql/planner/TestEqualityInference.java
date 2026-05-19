@@ -22,6 +22,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -36,7 +37,6 @@ import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
-import io.trino.type.FunctionType;
 import io.trino.type.UnknownType;
 import org.junit.jupiter.api.Test;
 
