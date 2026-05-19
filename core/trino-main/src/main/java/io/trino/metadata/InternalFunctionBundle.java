@@ -228,9 +228,21 @@ public class InternalFunctionBundle
             return this;
         }
 
+        public InternalFunctionBundleBuilder scalar(Object instance)
+        {
+            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinition(instance));
+            return this;
+        }
+
         public InternalFunctionBundleBuilder scalars(Class<?> clazz)
         {
             functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+            return this;
+        }
+
+        public InternalFunctionBundleBuilder scalars(Object instance)
+        {
+            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinitions(instance));
             return this;
         }
 
@@ -255,6 +267,29 @@ public class InternalFunctionBundle
             }
 
             scalars(clazz);
+            return this;
+        }
+
+        public InternalFunctionBundleBuilder functions(Object instance)
+        {
+            requireNonNull(instance, "instance is null");
+            if (instance instanceof Class<?> clazz) {
+                return functions(clazz);
+            }
+            if (instance instanceof SqlFunction sqlFunction) {
+                return function(sqlFunction);
+            }
+            Class<?> clazz = instance.getClass();
+            checkArgument(!WindowFunction.class.isAssignableFrom(clazz), "Window functions do not support instance registration: %s", clazz.getName());
+            checkArgument(!clazz.isAnnotationPresent(AggregationFunction.class), "Aggregation functions do not support instance registration: %s", clazz.getName());
+
+            if (clazz.isAnnotationPresent(ScalarFunction.class) ||
+                    clazz.isAnnotationPresent(ScalarOperator.class)) {
+                scalar(instance);
+                return this;
+            }
+
+            scalars(instance);
             return this;
         }
 

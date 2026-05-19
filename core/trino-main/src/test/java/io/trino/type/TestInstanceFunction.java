@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -43,6 +45,19 @@ public class TestInstanceFunction
         }
     }
 
+    @Test
+    public void testProvidedInstanceFunction()
+    {
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertions.addFunctions(InternalFunctionBundle.builder()
+                    .functions(new StatefulFunction("test:"))
+                    .build());
+
+            assertThat(assertions.function("stateful_prefix", "'value'"))
+                    .isEqualTo("test:value");
+        }
+    }
+
     @ScalarFunction("precomputed")
     public static final class PrecomputedFunction
     {
@@ -52,6 +67,23 @@ public class TestInstanceFunction
         public long precomputed()
         {
             return value;
+        }
+    }
+
+    public static final class StatefulFunction
+    {
+        private final String prefix;
+
+        private StatefulFunction(String prefix)
+        {
+            this.prefix = prefix;
+        }
+
+        @ScalarFunction("stateful_prefix")
+        @SqlType(StandardTypes.VARCHAR)
+        public Slice prefix(@SqlType(StandardTypes.VARCHAR) Slice value)
+        {
+            return utf8Slice(prefix + value.toStringUtf8());
         }
     }
 }

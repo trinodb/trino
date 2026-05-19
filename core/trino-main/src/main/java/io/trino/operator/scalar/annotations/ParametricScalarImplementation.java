@@ -94,6 +94,7 @@ import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Objects.requireNonNull;
@@ -478,6 +479,11 @@ public class ParametricScalarImplementation
 
         Parser(Method method, Optional<Constructor<?>> constructor)
         {
+            this(method, constructor, Optional.empty());
+        }
+
+        Parser(Method method, Optional<Constructor<?>> constructor, Optional<Object> instance)
+        {
             Signature.Builder signatureBuilder = Signature.builder();
             boolean nullable = method.getAnnotation(SqlNullable.class) != null;
             checkArgument(nullable || !containsLegacyNullable(method.getAnnotations()), "Method [%s] is annotated with @Nullable but not @SqlNullable", method);
@@ -521,7 +527,7 @@ public class ParametricScalarImplementation
             parseArguments(method, signatureBuilder, dependencies);
 
             List<ImplementationDependency> constructorDependencies = new ArrayList<>();
-            Optional<MethodHandle> constructorMethodHandle = getConstructor(method, constructor, constructorDependencies);
+            Optional<MethodHandle> constructorMethodHandle = getConstructor(method, constructor, instance, constructorDependencies);
 
             this.methodHandle = getMethodHandle(method, dependencies);
 
@@ -669,10 +675,16 @@ public class ParametricScalarImplementation
         }
 
         // Find matching constructor, if this is an instance method, and populate constructorDependencies
-        private Optional<MethodHandle> getConstructor(Method method, Optional<Constructor<?>> optionalConstructor, List<ImplementationDependency> constructorDependencies)
+        private Optional<MethodHandle> getConstructor(Method method, Optional<Constructor<?>> optionalConstructor, Optional<Object> providedInstance, List<ImplementationDependency> constructorDependencies)
         {
             if (isStatic(method.getModifiers())) {
                 return Optional.empty();
+            }
+
+            if (providedInstance.isPresent()) {
+                Object instance = providedInstance.get();
+                checkArgument(method.getDeclaringClass().isInstance(instance), "Method [%s] is an instance method but provided instance is of type [%s]", method, instance.getClass().getName());
+                return Optional.of(constant(Object.class, instance));
             }
 
             checkArgument(optionalConstructor.isPresent(), "Method [%s] is an instance method. It must be in a class annotated with @ScalarFunction or @ScalarOperator, and the class is required to have a public constructor.", method);
