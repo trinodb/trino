@@ -397,6 +397,11 @@ public final class SqlRoutinePlanner
 
     static String variableReferenceName(IrVariable variable)
     {
-        return "$sqlvar_" + variable.field();
+        return variableReferenceName(variable.field());
+    }
+
+    static String variableReferenceName(int field)
+    {
+        return "$sqlvar_" + field;
     }
 }
