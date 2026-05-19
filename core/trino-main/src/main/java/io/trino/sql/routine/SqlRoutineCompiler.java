@@ -100,13 +100,11 @@ import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.preGenerateLambdaExpression;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.sql.routine.SqlRoutinePlanner.variableReferenceName;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public final class SqlRoutineCompiler
 {
@@ -228,15 +226,12 @@ public final class SqlRoutineCompiler
 
         scope.declareVariable(boolean.class, "wasNull");
 
-        Map<IrVariable, Variable> variables = VariableExtractor.extract(routine).stream().distinct()
-                .collect(toImmutableMap(identity(), variable -> getOrDeclareVariable(scope, variable)));
+        Map<Integer, Variable> variables = VariableExtractor.extract(routine).stream()
+                .collect(toImmutableMap(IrVariable::field, variable -> getOrDeclareVariable(scope, variable), (a, _) -> a));
 
         // Build mapping from reference names (used in Expression) to scope variable names (used in bytecode)
-        ImmutableMap.Builder<String, String> referenceNameToScopeNameBuilder = ImmutableMap.builder();
-        for (IrVariable variable : variables.keySet()) {
-            referenceNameToScopeNameBuilder.put(variableReferenceName(variable), name(variable));
-        }
-        Map<String, String> referenceNameToScopeName = referenceNameToScopeNameBuilder.buildOrThrow();
+        Map<String, String> referenceNameToScopeName = variables.keySet().stream()
+                .collect(toImmutableMap(SqlRoutinePlanner::variableReferenceName, SqlRoutineCompiler::name));
 
         BytecodeVisitor visitor = new BytecodeVisitor(classDefinition, cachedInstanceBinder, compiledLambdaMap, variables, referenceNameToScopeName);
         method.getBody().append(visitor.process(routine, scope));
@@ -298,7 +293,7 @@ public final class SqlRoutineCompiler
         private final ClassDefinition classDefinition;
         private final CachedInstanceBinder cachedInstanceBinder;
         private final Map<Lambda, CompiledLambda> compiledLambdaMap;
-        private final Map<IrVariable, Variable> variables;
+        private final Map<Integer, Variable> variables;
         private final Map<String, String> referenceNameToScopeName;
 
         private final Map<IrLabel, LabelNode> continueLabels = new HashMap<>();
@@ -308,7 +303,7 @@ public final class SqlRoutineCompiler
                 ClassDefinition classDefinition,
                 CachedInstanceBinder cachedInstanceBinder,
                 Map<Lambda, CompiledLambda> compiledLambdaMap,
-                Map<IrVariable, Variable> variables,
+                Map<Integer, Variable> variables,
                 Map<String, String> referenceNameToScopeName)
         {
             this.classDefinition = requireNonNull(classDefinition, "classDefinition is null");
@@ -335,7 +330,7 @@ public final class SqlRoutineCompiler
         {
             return new BytecodeBlock()
                     .append(compile(node.value(), scope))
-                    .putVariable(variables.get(node.target()));
+                    .putVariable(variables.get(node.target().field()));
         }
 
         @Override
@@ -345,7 +340,7 @@ public final class SqlRoutineCompiler
 
             for (IrVariable sqlVariable : node.variables()) {
                 block.append(compile(sqlVariable.defaultValue(), scope))
-                        .putVariable(variables.get(sqlVariable));
+                        .putVariable(variables.get(sqlVariable.field()));
             }
 
             LabelNode continueLabel = new LabelNode("continue");

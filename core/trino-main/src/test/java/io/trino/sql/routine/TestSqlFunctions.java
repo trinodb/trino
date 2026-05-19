@@ -338,6 +338,35 @@ class TestSqlFunctions
     }
 
     @Test
+    void testWhileWithIfElseifSettingSameVariable()
+    {
+        // Exercise a routine variable with a Block-valued default (ARRAY[]) so that a JSON
+        // round-trip of the IR produces non-equal IrVariable records for the same field —
+        // SqlRoutineCompiler must dedupe by field number, not by record identity.
+        @Language("SQL") String sql =
+                """
+                FUNCTION test_generate_series(start_value bigint, end_value bigint, step bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE result array(bigint) DEFAULT array[];
+                  DECLARE current bigint DEFAULT start_value;
+                  WHILE current <= end_value DO
+                    IF step > 0 THEN
+                      SET result = concat(result, array[current]);
+                      SET current = current + step;
+                    ELSEIF step < 0 THEN
+                      SET current = current - step;
+                    ELSE
+                      RETURN 0;
+                    END IF;
+                  END WHILE;
+                  RETURN cardinality(result);
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke(1L, 3L, 1L)).isEqualTo(3L));
+    }
+
+    @Test
     void testRepeat()
     {
         @Language("SQL") String sql =
