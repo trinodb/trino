@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
-
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestIcebergRestCatalogSigV4Config
 {
@@ -28,19 +25,47 @@ final class TestIcebergRestCatalogSigV4Config
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergRestCatalogSigV4Config.class)
-                .setSigningName("execute-api"));
+                .setSigningName("execute-api")
+                .setStsWebIdentity(false)
+                .setStsRoleArn(null)
+                .setStsPolicy(null)
+                .setStsDurationSeconds(null));
     }
 
     @Test
-    void testExplicitPropertyMappings()
+    void testPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("iceberg.rest-catalog.signing-name", "glue")
-                .buildOrThrow();
+        IcebergRestCatalogSigV4Config config = new IcebergRestCatalogSigV4Config()
+                .setSigningName("glue")
+                .setStsWebIdentity(true)
+                .setStsRoleArn("arn:aws:iam::123456789012:role/my-role")
+                .setStsDurationSeconds(3600);
 
-        IcebergRestCatalogSigV4Config expected = new IcebergRestCatalogSigV4Config()
-                .setSigningName("glue");
+        assertThat(config.getSigningName()).isEqualTo("glue");
+        assertThat(config.isStsWebIdentity()).isTrue();
+        assertThat(config.getStsRoleArn()).hasValue("arn:aws:iam::123456789012:role/my-role");
+        assertThat(config.getStsPolicy()).isEmpty();
+        assertThat(config.getStsDurationSeconds()).hasValue(3600);
+    }
 
-        assertFullMapping(properties, expected);
+    @Test
+    void testStsPolicyAlternativeToRoleArn()
+    {
+        IcebergRestCatalogSigV4Config config = new IcebergRestCatalogSigV4Config()
+                .setStsPolicy("{\"Version\":\"2012-10-17\",\"Statement\":[]}");
+
+        assertThat(config.getStsPolicy()).hasValue("{\"Version\":\"2012-10-17\",\"Statement\":[]}");
+        assertThat(config.getStsRoleArn()).isEmpty();
+        assertThat(config.isStsRoleArnAndPolicyMutuallyExclusive()).isTrue();
+    }
+
+    @Test
+    void testRoleArnAndPolicyMutuallyExclusive()
+    {
+        IcebergRestCatalogSigV4Config config = new IcebergRestCatalogSigV4Config()
+                .setStsRoleArn("arn:aws:iam::123456789012:role/my-role")
+                .setStsPolicy("{\"Version\":\"2012-10-17\",\"Statement\":[]}");
+
+        assertThat(config.isStsRoleArnAndPolicyMutuallyExclusive()).isFalse();
     }
 }

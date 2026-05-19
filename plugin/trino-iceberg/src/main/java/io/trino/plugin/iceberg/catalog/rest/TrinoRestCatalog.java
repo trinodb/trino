@@ -21,8 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.impl.DefaultJwtBuilder;
-import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -66,7 +64,6 @@ import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
-import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.view.ReplaceViewVersion;
 import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
@@ -74,10 +71,10 @@ import org.apache.iceberg.view.View;
 import org.apache.iceberg.view.ViewBuilder;
 import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +103,10 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
+import static org.apache.iceberg.aws.AwsProperties.REST_ACCESS_KEY_ID;
+import static org.apache.iceberg.aws.AwsProperties.REST_SECRET_ACCESS_KEY;
+import static org.apache.iceberg.aws.AwsProperties.REST_SESSION_TOKEN;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
@@ -123,6 +124,8 @@ public class TrinoRestCatalog
     private final Security security;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
+    private final Optional<OidcStsCredentialExchanger> stsExchanger;
+    private final UserTokenProvider tokenProvider;
     private final boolean nestedNamespaceEnabled;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
@@ -135,13 +138,13 @@ public class TrinoRestCatalog
             .maximumSize(PER_QUERY_CACHE_SIZE)
             .build();
 
-    public TrinoRestCatalog(
-            IcebergFileSystemFactory fileSystemFactory,
+    TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
             CatalogName catalogName,
-            Security security,
             SessionType sessionType,
             Map<String, String> credentials,
+            Optional<OidcStsCredentialExchanger> stsExchanger,
+            UserTokenProvider tokenProvider,
             boolean nestedNamespaceEnabled,
             String trinoVersion,
             TypeManager typeManager,
@@ -151,12 +154,35 @@ public class TrinoRestCatalog
             Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
             boolean viewEndpointsEnabled)
     {
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this(null, restSessionCatalog, catalogName, Security.NONE, sessionType, credentials, stsExchanger, tokenProvider, nestedNamespaceEnabled, trinoVersion, typeManager, useUniqueTableLocation, caseInsensitiveNameMatching, remoteNamespaceMappingCache, remoteTableMappingCache, viewEndpointsEnabled);
+    }
+
+    public TrinoRestCatalog(
+            IcebergFileSystemFactory fileSystemFactory,
+            RESTSessionCatalog restSessionCatalog,
+            CatalogName catalogName,
+            Security security,
+            SessionType sessionType,
+            Map<String, String> credentials,
+            Optional<OidcStsCredentialExchanger> stsExchanger,
+            UserTokenProvider tokenProvider,
+            boolean nestedNamespaceEnabled,
+            String trinoVersion,
+            TypeManager typeManager,
+            boolean useUniqueTableLocation,
+            boolean caseInsensitiveNameMatching,
+            Cache<Namespace, Namespace> remoteNamespaceMappingCache,
+            Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache,
+            boolean viewEndpointsEnabled)
+    {
+        this.fileSystemFactory = fileSystemFactory;
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.security = requireNonNull(security, "security is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
+        this.stsExchanger = requireNonNull(stsExchanger, "stsExchanger is null");
+        this.tokenProvider = requireNonNull(tokenProvider, "tokenProvider is null");
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -887,7 +913,7 @@ public class TrinoRestCatalog
         replaceViewVersion.commit();
     }
 
-    private SessionCatalog.SessionContext convert(ConnectorSession session)
+    SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
             case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
@@ -900,24 +926,24 @@ public class TrinoRestCatalog
                         "trinoCatalog", catalogName.toString(),
                         "trinoVersion", trinoVersion);
 
-                Map<String, Object> claims = ImmutableMap.<String, Object>builder()
-                        .putAll(properties)
-                        .buildOrThrow();
+                ImmutableMap.Builder<String, String> credBuilder = ImmutableMap.builder();
+                Optional<String> catalogToken = tokenProvider.catalogToken(session);
 
-                String subjectJwt = new DefaultJwtBuilder()
-                        .subject(session.getUser())
-                        .issuer(trinoVersion)
-                        .issuedAt(new Date())
-                        .claims(claims)
-                        .json(new JacksonSerializer<>())
-                        .compact();
+                if (stsExchanger.isPresent() && catalogToken.isPresent()) {
+                    AwsSessionCredentials awsCreds = stsExchanger.get().getCredentials(catalogToken.get());
+                    credBuilder
+                            .put(REST_ACCESS_KEY_ID, awsCreds.accessKeyId())
+                            .put(REST_SECRET_ACCESS_KEY, awsCreds.secretAccessKey())
+                            .put(REST_SESSION_TOKEN, awsCreds.sessionToken());
+                }
+                else if (catalogToken.isPresent()) {
+                    credBuilder.put(TOKEN, catalogToken.get());
+                }
+                else {
+                    credBuilder.putAll(session.getIdentity().getExtraCredentials());
+                }
 
-                Map<String, String> credentials = ImmutableMap.<String, String>builder()
-                        .putAll(session.getIdentity().getExtraCredentials())
-                        .put(OAuth2Properties.JWT_TOKEN_TYPE, subjectJwt)
-                        .buildOrThrow();
-
-                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
+                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credBuilder.buildOrThrow(), properties, session.getIdentity());
             }
         };
     }

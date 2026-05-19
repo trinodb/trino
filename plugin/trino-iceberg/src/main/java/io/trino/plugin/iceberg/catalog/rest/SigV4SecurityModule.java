@@ -14,8 +14,13 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.inject.Binder;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.s3.S3FileSystemConfig;
 
+import java.lang.reflect.Constructor;
+
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SigV4SecurityModule
@@ -26,5 +31,21 @@ public class SigV4SecurityModule
     {
         configBinder(binder).bindConfig(IcebergRestCatalogSigV4Config.class);
         binder.bind(SecurityProperties.class).to(SigV4AwsProperties.class);
+        IcebergRestCatalogSigV4Config sigV4Config = buildConfigObject(IcebergRestCatalogSigV4Config.class);
+        if (sigV4Config.isStsWebIdentity()) {
+            // Use toConstructor to avoid the Guice cycle: OptionalBinder internally creates
+            // T → @Actual T, so .to(T.class) would produce T → @Actual T → T.
+            try {
+                Constructor<OidcStsCredentialExchanger> ctor = OidcStsCredentialExchanger.class
+                        .getConstructor(S3FileSystemConfig.class, IcebergRestCatalogSigV4Config.class);
+                newOptionalBinder(binder, OidcStsCredentialExchanger.class)
+                        .setBinding()
+                        .toConstructor(ctor)
+                        .in(Scopes.SINGLETON);
+            }
+            catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
