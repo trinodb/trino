@@ -28,6 +28,8 @@ updates:
     ignore:
       # TODO remove once https://github.com/aws/amazon-redshift-jdbc-driver/issues/148 has been addressed
       - dependency-name: "com.amazon.redshift:redshift-jdbc42"
+      # TODO remove once https://github.com/jline/jline3/issues/1879 has been addressed
+      - dependency-name: "org.jline:jline-*"
   - package-ecosystem: "npm"
     directory: "/core/trino-web-ui/src/main/resources/webapp-preview"
     schedule:
