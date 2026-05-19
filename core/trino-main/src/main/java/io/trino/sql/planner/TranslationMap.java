@@ -59,6 +59,7 @@ import io.trino.sql.ir.WhenClause;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.ArrayWildcardSubscript;
 import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
@@ -292,6 +293,14 @@ public class TranslationMap
             return true;
         }
 
+        // a recipe-bearing expression must not be short-circuited to an existing mapping:
+        // for wildcard targets the recipe is keyed by the same NodeRef as the column
+        // reference, so the column branch below would drop the recipe. Answering false
+        // routes it through translateExpression, where the recipe dispatch runs.
+        if (analysis.getJsonSimplifiedAccessor(expression).isPresent()) {
+            return false;
+        }
+
         if (analysis.isColumnReference(expression)) {
             ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(expression));
             return scope.isLocalScope(field.getScope());
@@ -320,6 +329,12 @@ public class TranslationMap
         if (mapped.isPresent()) {
             result = mapped.get();
         }
+        else if (analysis.getJsonSimplifiedAccessor(expr).isPresent()) {
+            // SQL/JSON simplified-accessor recipes are keyed by NodeRef
+            // against the user's surface expression; dispatch them here so
+            // each per-type translate(X) below doesn't need its own check.
+            result = translateJsonSimplifiedAccessor(analysis.getJsonSimplifiedAccessor(expr).get());
+        }
         else {
             result = switch (expr) {
                 case io.trino.sql.tree.FieldReference expression -> translate(expression);
@@ -346,6 +361,7 @@ public class TranslationMap
                 case LikePredicate expression -> translate(expression);
                 case Trim expression -> translate(expression);
                 case SubscriptExpression expression -> translate(expression);
+                case ArrayWildcardSubscript expression -> translate(expression);
                 case LambdaExpression expression -> translate(expression);
                 case Parameter expression -> translate(expression);
                 case JsonExists expression -> translate(expression);
@@ -759,6 +775,83 @@ public class TranslationMap
         return new FieldReference(translateExpression(expression.getBase()), index);
     }
 
+    private io.trino.sql.ir.Expression translateJsonSimplifiedAccessor(Analysis.JsonSimplifiedAccessor accessor)
+    {
+        return switch (accessor) {
+            case Analysis.JsonSimplifiedAccessor.Query query -> translateJsonSimplifiedAccessorQuery(query);
+            case Analysis.JsonSimplifiedAccessor.Value value -> translateJsonSimplifiedAccessorValue(value);
+        };
+    }
+
+    private io.trino.sql.ir.Expression translateJsonSimplifiedAccessorQuery(Analysis.JsonSimplifiedAccessor.Query accessor)
+    {
+        io.trino.sql.ir.Expression queryCall = new Call(accessor.queryFunction(), ImmutableList.of(
+                simplifiedAccessorInput(accessor),
+                simplifiedAccessorPathExpression(accessor),
+                new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null),
+                new Constant(TINYINT, (long) JsonQuery.ArrayWrapperBehavior.CONDITIONAL.ordinal()),
+                new Constant(TINYINT, (long) JsonQuery.EmptyOrErrorBehavior.NULL.ordinal()),
+                new Constant(TINYINT, (long) JsonQuery.EmptyOrErrorBehavior.NULL.ordinal())));
+
+        Constant errorBehavior = new Constant(TINYINT, (long) JsonQuery.EmptyOrErrorBehavior.NULL.ordinal());
+        Constant omitQuotes = new Constant(BOOLEAN, false);
+        return new Call(accessor.outputFunction(), ImmutableList.of(queryCall, errorBehavior, omitQuotes));
+    }
+
+    private io.trino.sql.ir.Expression translateJsonSimplifiedAccessorValue(Analysis.JsonSimplifiedAccessor.Value accessor)
+    {
+        // JSON_VALUE signature: input, path, params, returnType, emptyBehavior,
+        // emptyDefaultLambda, errorBehavior, errorDefaultLambda. NULL ON EMPTY
+        // and NULL ON ERROR per §6.36 case 3.a; the defaults are no-arg lambdas
+        // that return a typed null of the matching type.
+        Lambda nullDefault = new Lambda(ImmutableList.of(), new Constant(accessor.returnedType(), null));
+        Constant nullBehavior = new Constant(TINYINT, (long) JsonValue.EmptyOrErrorBehavior.NULL.ordinal());
+        return new Call(accessor.valueFunction(), ImmutableList.of(
+                simplifiedAccessorInput(accessor),
+                simplifiedAccessorPathExpression(accessor),
+                new Constant(JSON_NO_PARAMETERS_ROW_TYPE, null),
+                new Constant(accessor.returnedType(), null),
+                nullBehavior,
+                nullDefault,
+                nullBehavior,
+                nullDefault));
+    }
+
+    private io.trino.sql.ir.Expression simplifiedAccessorInput(Analysis.JsonSimplifiedAccessor accessor)
+    {
+        return new Call(
+                accessor.inputFunction(),
+                ImmutableList.of(
+                        new io.trino.sql.ir.Cast(resolveSimplifiedAccessorColumn(accessor.column()), VARCHAR),
+                        new Constant(BOOLEAN, false)));
+    }
+
+    private io.trino.sql.ir.Expression simplifiedAccessorPathExpression(Analysis.JsonSimplifiedAccessor accessor)
+    {
+        IrJsonPath path = new JsonPathTranslator(session, plannerContext)
+                .rewriteToIr(accessor.pathAnalysis(), ImmutableList.of());
+        return new Constant(plannerContext.getTypeManager().getType(new TypeSignature(JsonPath2016Type.NAME)), path);
+    }
+
+    private io.trino.sql.ir.Expression resolveSimplifiedAccessorColumn(ResolvedField field)
+    {
+        // SQL:2023 §6.36 syntax rule 2 only requires VEP's declared type to
+        // be JSON; outer-scope references are valid. Walk the translation-
+        // map chain to find the context owning the field's scope and
+        // resolve directly via its `fieldSymbols`. Going through
+        // `rewrite(columnReference)` would re-trigger the recipe for
+        // wildcard targets, where the recipe is keyed on the same
+        // `NodeRef` as the matched column-reference expression.
+        TranslationMap context = this;
+        while (context != null) {
+            if (context.scope.isLocalScope(field.getScope())) {
+                return context.fieldSymbols[field.getHierarchyFieldIndex()].toSymbolReference();
+            }
+            context = context.outerContext.orElse(null);
+        }
+        throw new IllegalStateException("Simplified accessor field has no matching translation context: " + field);
+    }
+
     private io.trino.sql.ir.Expression translate(Array expression)
     {
         List<io.trino.sql.ir.Expression> values = expression.getValues().stream()
@@ -1044,6 +1137,13 @@ public class TranslationMap
                 ImmutableList.of(
                         new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
                         new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
+    }
+
+    private io.trino.sql.ir.Expression translate(ArrayWildcardSubscript node)
+    {
+        Analysis.JsonSimplifiedAccessor accessor = analysis.getJsonSimplifiedAccessor(node)
+                .orElseThrow(() -> new IllegalStateException(format("ArrayWildcardSubscript has no JSON simplified accessor recipe: %s", node)));
+        return translateJsonSimplifiedAccessor(accessor);
     }
 
     private io.trino.sql.ir.Expression translate(LambdaExpression node)

@@ -32,6 +32,7 @@ import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.ArrayWildcardSubscript;
 import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
@@ -3007,6 +3008,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitArrayWildcardSubscript(SqlBaseParser.ArrayWildcardSubscriptContext context)
+    {
+        return new ArrayWildcardSubscript(getLocation(context), (Expression) visit(context.value));
+    }
+
+    @Override
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context)
     {
         return new SubqueryExpression(getLocation(context), (Query) visit(context.query()));
@@ -3019,6 +3026,19 @@ class AstBuilder
                 getLocation(context),
                 (Expression) visit(context.base),
                 (Identifier) visit(context.fieldName));
+    }
+
+    @Override
+    public Node visitStringLiteralDereference(SqlBaseParser.StringLiteralDereferenceContext context)
+    {
+        // SQL:2023 T863: `<base>.<character string literal>` names a JSON
+        // member whose name is the literal's content. Normalize to a
+        // delimited-identifier dereference so downstream analysis treats it
+        // uniformly with `base."name"` (T861); the case-sensitive,
+        // arbitrary-character member name is preserved verbatim.
+        StringLiteral literal = (StringLiteral) visit(context.stringField);
+        Identifier field = new Identifier(getLocation(context.stringField), literal.getValue(), true);
+        return new DereferenceExpression(getLocation(context), (Expression) visit(context.base), field);
     }
 
     @Override

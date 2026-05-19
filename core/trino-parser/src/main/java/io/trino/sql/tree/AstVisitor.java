@@ -472,6 +472,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitArrayWildcardSubscript(ArrayWildcardSubscript node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLongLiteral(LongLiteral node, C context)
     {
         return visitLiteral(node, context);
