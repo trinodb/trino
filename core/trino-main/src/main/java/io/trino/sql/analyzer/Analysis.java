@@ -186,6 +186,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, ResolvedFunction> jsonInputFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, ResolvedFunction> jsonOutputFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<JsonTable>, JsonTableAnalysis> jsonTableAnalyses = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, JsonSimplifiedAccessor> jsonSimplifiedAccessors = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -1167,6 +1168,62 @@ public class Analysis
     public JsonPathAnalysis getJsonPathAnalysis(Node node)
     {
         return jsonPathAnalyses.get(NodeRef.of(node));
+    }
+
+    public void setJsonSimplifiedAccessor(Expression expression, JsonSimplifiedAccessor recipe)
+    {
+        jsonSimplifiedAccessors.put(NodeRef.of(expression), recipe);
+    }
+
+    public Optional<JsonSimplifiedAccessor> getJsonSimplifiedAccessor(Expression expression)
+    {
+        return Optional.ofNullable(jsonSimplifiedAccessors.get(NodeRef.of(expression)));
+    }
+
+    public sealed interface JsonSimplifiedAccessor
+            permits JsonSimplifiedAccessor.Query, JsonSimplifiedAccessor.Value
+    {
+        ResolvedField column();
+
+        JsonPathAnalysis pathAnalysis();
+
+        ResolvedFunction inputFunction();
+
+        record Query(
+                ResolvedField column,
+                JsonPathAnalysis pathAnalysis,
+                ResolvedFunction inputFunction,
+                ResolvedFunction queryFunction,
+                ResolvedFunction outputFunction)
+                implements JsonSimplifiedAccessor
+        {
+            public Query
+            {
+                requireNonNull(column, "column is null");
+                requireNonNull(pathAnalysis, "pathAnalysis is null");
+                requireNonNull(inputFunction, "inputFunction is null");
+                requireNonNull(queryFunction, "queryFunction is null");
+                requireNonNull(outputFunction, "outputFunction is null");
+            }
+        }
+
+        record Value(
+                ResolvedField column,
+                JsonPathAnalysis pathAnalysis,
+                ResolvedFunction inputFunction,
+                ResolvedFunction valueFunction,
+                Type returnedType)
+                implements JsonSimplifiedAccessor
+        {
+            public Value
+            {
+                requireNonNull(column, "column is null");
+                requireNonNull(pathAnalysis, "pathAnalysis is null");
+                requireNonNull(inputFunction, "inputFunction is null");
+                requireNonNull(valueFunction, "valueFunction is null");
+                requireNonNull(returnedType, "returnedType is null");
+            }
+        }
     }
 
     public void setJsonInputFunctions(Map<NodeRef<Expression>, ResolvedFunction> functions)
