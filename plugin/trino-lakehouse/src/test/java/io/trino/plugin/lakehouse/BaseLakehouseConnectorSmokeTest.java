@@ -27,6 +27,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -75,7 +76,7 @@ public abstract class BaseLakehouseConnectorSmokeTest
     @Override
     protected String canonicalize(String value)
     {
-        return value;
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

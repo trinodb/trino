@@ -25,6 +25,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.containers.MotoContainer.MOTO_ACCESS_KEY;
 import static io.trino.testing.containers.MotoContainer.MOTO_REGION;
 import static io.trino.testing.containers.MotoContainer.MOTO_SECRET_KEY;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -66,7 +67,7 @@ public class TestLakehouseMotoConnectorSmokeTest
     @Override
     protected String canonicalize(String value)
     {
-        return value;
+        return value.toLowerCase(ENGLISH);
     }
 
     @Test

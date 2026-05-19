@@ -4105,12 +4105,12 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
                 .doesNotContain(table);
         assertUpdate("CREATE TABLE \"" + table + "\" (\"Column A\" bigint, \"Column B\" double)");
-        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
 
         assertThat(query("SHOW COLUMNS FROM \"" + table + "\""))
                 .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                        .row(canonicalize("Column A", true), "bigint", "", "")
-                        .row(canonicalize("Column B", true), "double", "", "")
+                        .row("Column A", "bigint", "", "")
+                        .row("Column B", "double", "", "")
                         .build());
 
         String catalog = getSession().getCatalog().orElseThrow();
@@ -4118,9 +4118,9 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW CREATE TABLE \"" + table + "\"").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .asString().matches(getCreateTableMixedCaseDelimited(catalog, schema, table));
-        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isTrue();
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
         assertUpdate("DROP TABLE \"" + table + "\"");
-        assertThat(getQueryRunner().tableExists(getSession(), canonicalize(table, true))).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), table)).isFalse();
     }
 
     protected String getCreateTableMixedCaseDelimited(String catalog, String schema, String table)

@@ -46,6 +46,7 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_PASSWORD;
 import static io.trino.testing.containers.Minio.MINIO_ROOT_USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
@@ -135,7 +136,7 @@ public class TestLakehouseConnectorTest
     @Override
     protected String canonicalize(String value)
     {
-        return value;
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override
@@ -154,6 +155,14 @@ public class TestLakehouseConnectorTest
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA %s WITH (location = 's3://%s/%s')".formatted(schemaName, bucketName, schemaName);
+    }
+
+    @Test
+    @Override
+    public void testCreateTableMixedCaseDelimited()
+    {
+        assertThatThrownBy(super::testCreateTableMixedCaseDelimited)
+                .hasMessageMatching("Failed to create table tpch.Test Create MixedCase Delimited .*: Test Create MixedCase Delimited .* is not a valid object name");
     }
 
     @Override

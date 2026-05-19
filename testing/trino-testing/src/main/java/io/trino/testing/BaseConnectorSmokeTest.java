@@ -674,21 +674,21 @@ public abstract class BaseConnectorSmokeTest
             // comment set
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
+            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("new comment");
 
             // comment updated
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
+            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("updated comment");
 
             // comment set to empty
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
-            assertThat(getTableComment(view.getName())).isEmpty();
+            assertThat(getTableComment(canonicalize(view.getName()))).isEmpty();
 
             // comment deleted
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("a comment");
+            assertThat(getTableComment(canonicalize(view.getName()))).isEqualTo("a comment");
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(view.getName())).isNull();
+            assertThat(getTableComment(canonicalize(view.getName()))).isNull();
         }
     }
 

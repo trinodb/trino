@@ -147,7 +147,7 @@ public class LakehouseMetadata
     @Override
     public String canonicalize(String value)
     {
-        return value;
+        return value.toLowerCase(ENGLISH);
     }
 
     @Override
