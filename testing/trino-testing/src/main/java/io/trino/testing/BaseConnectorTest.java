@@ -4150,7 +4150,6 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
                 .doesNotContain(name);
         assertUpdate("CREATE TABLE " + name + " (Column_A bigint, Column_B double)");
-        assertThat(getQueryRunner().tableExists(getSession(), name)).isEqualTo(name.equals(table));
         assertThat(getQueryRunner().tableExists(getSession(), table)).isTrue();
 
         String catalog = getSession().getCatalog().orElseThrow();

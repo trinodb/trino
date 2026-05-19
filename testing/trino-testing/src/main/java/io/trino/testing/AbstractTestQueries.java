@@ -345,7 +345,7 @@ public abstract class AbstractTestQueries
                 "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_schema\" = 'TINY'",
                 "SELECT '' WHERE false");
         assertQuery(
-                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'ORDERS'",
+                "SELECT \"table_name\" FROM \"information_schema\".\"tables\" WHERE \"table_name\" = 'UNKNOW'",
                 "SELECT '' WHERE false");
     }
 

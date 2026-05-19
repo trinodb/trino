@@ -76,6 +76,12 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected boolean areWriteRetriesSupported()
     {
         return true;

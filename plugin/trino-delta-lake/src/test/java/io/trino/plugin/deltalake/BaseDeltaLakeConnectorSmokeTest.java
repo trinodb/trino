@@ -254,6 +254,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testDropSchemaExternalFiles()
     {

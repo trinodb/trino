@@ -672,6 +672,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases().stream()
