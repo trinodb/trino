@@ -241,7 +241,7 @@ public class DockerContainer
         try {
             ((CompletableFuture<?>) executor.runAsync(copy)).whenComplete((Object _, Throwable throwable) -> {
                 if (throwable == null) {
-                    log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+                    log.debug("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
                 }
                 else {
                     log.warn(throwable, "Could not copy files into %s %s", this, containerPath);

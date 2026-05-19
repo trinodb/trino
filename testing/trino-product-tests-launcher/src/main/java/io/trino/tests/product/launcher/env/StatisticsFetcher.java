@@ -70,7 +70,7 @@ public class StatisticsFetcher
                     .statsCmd(containerId)
                     .exec(callback);
 
-            log.info("Started listening for container %s statistics stream...", containerLogicalName);
+            log.debug("Started listening for container %s statistics stream...", containerLogicalName);
         }
     }
 
@@ -176,7 +176,7 @@ public class StatisticsFetcher
                     stream.close();
                 }
 
-                log.info("Stopped listening for container %s stats", containerLogicalName);
+                log.debug("Stopped listening for container %s stats", containerLogicalName);
             }
         }
     }
