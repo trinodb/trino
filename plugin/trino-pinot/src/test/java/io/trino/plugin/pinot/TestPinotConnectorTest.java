@@ -72,6 +72,12 @@ public class TestPinotConnectorTest
         };
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Override // Override because updated_at_seconds column exists
     protected MaterializedResult getDescribeOrdersResult()
     {

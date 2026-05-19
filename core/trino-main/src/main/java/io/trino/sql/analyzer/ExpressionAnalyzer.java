@@ -710,11 +710,11 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
-            // FIXME: Row fields use now identifier canonicalized value
-            Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
+            // FIXME: Does Row fields need to use now identifier canonicalized value?
+            //        Function<Identifier, String> canonicalizer = context.getScope()::canonicalize;
             List<RowType.Field> fields = node.getFields().stream()
                     .map(field -> new RowType.Field(
-                            field.getName().map(canonicalizer),
+                            field.getName().map(Identifier::getCanonicalValue),
                             process(field.getExpression(), context)))
                     .collect(toImmutableList());
 

@@ -16,6 +16,7 @@ package io.trino.plugin.cassandra;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.Bytes;
@@ -46,6 +47,7 @@ import static io.trino.plugin.cassandra.TestCassandraTable.clusterColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.columnsValue;
 import static io.trino.plugin.cassandra.TestCassandraTable.generalColumn;
 import static io.trino.plugin.cassandra.TestCassandraTable.partitionColumn;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -61,6 +63,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
@@ -1673,6 +1676,37 @@ public class TestCassandraConnectorTest
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(9);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount()).isEqualTo(0);
         }
+    }
+
+    @Test
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // FIXME: Cassandra dont seem to support INTEGER column type?
+        String tableName = "test_ctas" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\" FROM \"nation\"", "This connector does not support creating tables with data");
+            return;
+        }
+
+        // FIXME: CTAS without FROM clause use the target connector canonicalizer
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
+        assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"), canonicalize("ReGionKey"));
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        // FIXME: CTAS with FROM clause on another connector use the connector's resolver (ie: lower case conversion for undelimited identifier with tpch)
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT NaMe FROM tpch.%s.NatIon".formatted(TINY_SCHEMA_NAME),
+                "SELECT count(*) FROM \"nation\"");
+        assertTableColumnNames(canonicalize(tableName), "name");
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\" FROM \"nation\"",
+                "SELECT count(*) FROM \"nation\"");
+        assertTableColumnNames(canonicalize(tableName), "name");
+        assertThat(getTableComment(canonicalize(tableName))).isNull();
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

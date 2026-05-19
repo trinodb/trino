@@ -888,6 +888,12 @@ public class TestPinotConnectorSmokeTest
         }
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     @Override
     public void testShowCreateTable()

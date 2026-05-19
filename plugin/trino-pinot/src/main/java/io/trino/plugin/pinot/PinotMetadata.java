@@ -147,6 +147,12 @@ public class PinotMetadata
     }
 
     @Override
+    public String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(SCHEMA_NAME);

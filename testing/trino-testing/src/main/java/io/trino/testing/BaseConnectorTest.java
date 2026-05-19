@@ -1309,17 +1309,17 @@ public abstract class BaseConnectorTest
                 "VALUES ('" + view.objectName() + "', 'BASE TABLE')");
 
         // system.jdbc.tables without filter
-        assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
+        assertThat(query("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"TABLE_TYPE\" FROM system.jdbc.tables"))
                 .skippingTypesCheck()
                 .containsAll("VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
         // system.jdbc.tables with table prefix filter
         assertQuery(
-                "SELECT table_schem, table_name, table_type " +
-                        "FROM system.jdbc.tables " +
-                        "WHERE table_cat = '" + view.catalogName() + "' AND " +
-                        "table_schem = '" + view.schemaName() + "' AND " +
-                        "table_name = '" + view.objectName() + "'",
+                """
+                SELECT "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE" \
+                FROM system.jdbc.tables \
+                WHERE "TABLE_CAT" = '%s' AND "TABLE_SCHEM" = '%s' AND "TABLE_NAME" = '%s'\
+                """.formatted(view.catalogName(), view.schemaName(), view.objectName()),
                 "VALUES ('" + view.schemaName() + "', '" + view.objectName() + "', 'TABLE')");
 
         // column listing
@@ -1366,7 +1366,7 @@ public abstract class BaseConnectorTest
                 .containsAll("VALUES VARCHAR '" + view.objectName() + "'");
 
         // system.jdbc.columns without filter
-        assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
+        assertThat(query("SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns"))
                 .skippingTypesCheck()
                 .containsAll(
                         "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
@@ -1374,9 +1374,9 @@ public abstract class BaseConnectorTest
 
         // system.jdbc.columns with schema filter
         assertThat(query(
-                "SELECT table_schem, table_name, column_name " +
+                "SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" " +
                         "FROM system.jdbc.columns " +
-                        "WHERE table_schem LIKE '%" + view.schemaName() + "%'"))
+                        "WHERE \"TABLE_SCHEM\" LIKE '%" + view.schemaName() + "%'"))
                 .skippingTypesCheck()
                 .containsAll(
                         "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
@@ -1384,9 +1384,9 @@ public abstract class BaseConnectorTest
 
         // system.jdbc.columns with table filter
         assertThat(query(
-                "SELECT table_schem, table_name, column_name " +
+                "SELECT \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" " +
                         "FROM system.jdbc.columns " +
-                        "WHERE table_name LIKE '%" + view.objectName() + "%'"))
+                        "WHERE \"TABLE_NAME\" LIKE '%" + view.objectName() + "%'"))
                 .skippingTypesCheck()
                 .containsAll(
                         "SELECT * FROM (VALUES ('" + view.schemaName() + "', '" + view.objectName() + "')) " +
@@ -2967,8 +2967,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_ADD_FIELD)) {
-            try (TestTable table = newTrinoTable("test_add_field_", "AS SELECT CAST(row(1) AS row(%s integer)) AS %s"
-                    .formatted(canonicalize("x"), canonicalize("col")))) {
+            try (TestTable table = newTrinoTable("test_add_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " ADD COLUMN col.y integer",
                         "This connector does not support adding fields");
@@ -2978,16 +2977,15 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable(
                 "test_add_field_",
-                "AS SELECT CAST(row(1, row(10)) AS row(%s integer, %s row(%s integer))) AS %s"
-                        .formatted(canonicalize("a"), canonicalize("b"), canonicalize("x"), canonicalize("col")))) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
+                "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
-            assertUpdate("ALTER TABLE %s ADD COLUMN %s integer".formatted(table.getName(), canonicalize("col.c")));
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer), c integer)");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10), NULL) AS row(a integer, b row(x integer), c integer))");
 
             // Add a nested field
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN %s integer".formatted(canonicalize("col.b.y")));
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.b.y integer");
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, NULL), NULL) AS row(a integer, b row(x integer, y integer), c integer))");
 
@@ -3396,8 +3394,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         if (!hasBehavior(SUPPORTS_RENAME_FIELD)) {
-            try (TestTable table = newTrinoTable("test_rename_field_", "AS SELECT CAST(row(1) AS row(%s integer)) AS %s"
-                    .formatted(canonicalize("x"), canonicalize("col")))) {
+            try (TestTable table = newTrinoTable("test_rename_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
                         "ALTER TABLE " + table.getName() + " RENAME COLUMN col.x TO x_renamed",
                         "This connector does not support renaming fields");
@@ -3407,29 +3404,26 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable(
                 "test_add_field_",
-                "AS SELECT CAST(row(1, row(10)) AS row(%s integer, %s row(%s integer))) AS %s"
-                        .formatted(canonicalize("a"), canonicalize("b"), canonicalize("x"), canonicalize("col")))) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
+                "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
-            String aRenamedField = canonicalize("a_renamed");
-            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a TO " + aRenamedField);
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(%s integer, b row(x integer))".formatted(aRenamedField));
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(%s integer, b row(x integer)))".formatted(aRenamedField));
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a TO a_renamed");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x\" integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x integer)))");
 
             // Rename a nested field
-            String xRenamedField = canonicalize("x_renamed");
-            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.b.x TO " + xRenamedField);
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(%s integer, \"b\" row(%s integer))".formatted(aRenamedField, xRenamedField));
-            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(%s integer, b row(%s integer)))".formatted(aRenamedField, xRenamedField));
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.b.x TO x_renamed");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x_renamed\" integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x_renamed integer)))");
 
             // Specify not existing fields with IF EXISTS option
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.a_missing TO a_missing_renamed");
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.b.x_missing TO x_missing_renamed");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(%s integer, b row(%s integer))".formatted(aRenamedField, xRenamedField));
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x_renamed\" integer))");
 
             // Specify existing fields without IF EXISTS option
-            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.1%s$ TO 1%s$".formatted(aRenamedField),
-                    ".* Field '%s' already exists".formatted(aRenamedField));
+            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a_renamed TO a_renamed",
+                    ".* Field 'a_renamed' already exists");
         }
     }
 
@@ -3909,8 +3903,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(%s integer), integer)) AS %s"
-                .formatted(canonicalize("field"), canonicalize("col"));
+        String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(field integer), integer)) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
             try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
                 assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint", ".*does not support.*");
@@ -3919,11 +3912,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field integer), integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(\"field\" integer), integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field bigint), integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(\"field\" bigint), integer)");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(map(array[row(1)], array[2]) AS map(row(field bigint), integer))");
         }
@@ -3934,8 +3927,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_MAP_TYPE) && hasBehavior(SUPPORTS_ROW_TYPE));
 
-        String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(%s integer))) AS %s"
-                .formatted(canonicalize("field"), canonicalize("col"));
+        String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
             try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
                 assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint", ".*does not support.*");
@@ -3944,11 +3936,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(\"field\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field bigint))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(\"field\" bigint))");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field bigint)))");
         }
@@ -4642,7 +4634,7 @@ public abstract class BaseConnectorTest
     {
         String tableName = "test_ctas" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\", \"regionkey\" FROM \"nation\"", "This connector does not support creating tables with data");
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT \"name\" FROM \"nation\"", "This connector does not support creating tables with data");
             return;
         }
 

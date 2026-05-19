@@ -8823,8 +8823,8 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SHOW TABLES LIKE 'test_corrupted_table_location_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
         assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM information_schema.columns " +
                 "WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
-        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM system.jdbc.columns " +
-                "WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA AND table_name LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
+        assertQueryReturnsEmptyResult("SELECT \"COLUMN_NAME\", \"DATA_TYPE\" FROM system.jdbc.columns " +
+                "WHERE \"TABLE_CAT\" = CURRENT_CATALOG AND \"TABLE_SCHEM\" = CURRENT_SCHEMA AND \"TABLE_NAME\" LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
 
         // DROP TABLE should succeed so that users can remove their corrupted table
         assertQuerySucceeds("DROP TABLE " + tableName);
