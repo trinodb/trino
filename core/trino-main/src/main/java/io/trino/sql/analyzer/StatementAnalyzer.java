@@ -40,6 +40,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareView;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableFunctionMetadata;
@@ -2395,11 +2396,12 @@ class StatementAnalyzer
                 return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
             }
 
-            // This could be a reference to a logical view or a table
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+            RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name);
+            Optional<ViewDefinition> optionalView = viewRedirection.viewDefinition();
             if (optionalView.isPresent()) {
-                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
-                return createScopeForView(table, name, scope, optionalView.get());
+                QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
+                return createScopeForView(table, targetViewName, scope, optionalView.get());
             }
 
             // This can only be a table
