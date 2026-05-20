@@ -169,6 +169,7 @@ public class HiveConfig
     private Optional<String> deltaLakeCatalogName = Optional.empty();
     private Optional<String> hudiCatalogName = Optional.empty();
     private Map<String, String> schemaPrefixRedirectRules = ImmutableMap.of();
+    private Optional<String> defaultRedirectCatalog = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
@@ -1258,6 +1259,19 @@ public class HiveConfig
                     }
                 })
                 .collect(toImmutableMap(parts -> parts[0], parts -> parts[1]));
+        return this;
+    }
+
+    public Optional<String> getDefaultRedirectCatalog()
+    {
+        return defaultRedirectCatalog;
+    }
+
+    @Config("hive.default-redirect-catalog")
+    @ConfigDescription("Catalog to redirect to when no schema-prefix rule matches; the schema and table name are kept as-is")
+    public HiveConfig setDefaultRedirectCatalog(String defaultRedirectCatalog)
+    {
+        this.defaultRedirectCatalog = Optional.ofNullable(defaultRedirectCatalog);
         return this;
     }
 

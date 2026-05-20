@@ -124,7 +124,8 @@ public class TestHiveConfig
                 .setProtobufDescriptorsLocation(null)
                 .setProtobufDescriptorsCacheRefreshInterval(new Duration(1, TimeUnit.DAYS))
                 .setProtobufDescriptorsCacheMaxSize(64)
-                .setSchemaPrefixRedirectRules(ImmutableList.of()));
+                .setSchemaPrefixRedirectRules(ImmutableList.of())
+                .setDefaultRedirectCatalog(null));
     }
 
     @Test
@@ -216,6 +217,7 @@ public class TestHiveConfig
                 .put("hive.protobuf.descriptors.cache.max-size", "8")
                 .put("hive.protobuf.descriptors.cache.refresh-interval", "10s")
                 .put("hive.schema-prefix-redirect-rules", "analytics_=iceberg")
+                .put("hive.default-redirect-catalog", "iceberg")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -302,7 +304,8 @@ public class TestHiveConfig
                 .setProtobufDescriptorsLocation(Path.of("/tmp"))
                 .setProtobufDescriptorsCacheMaxSize(8)
                 .setProtobufDescriptorsCacheRefreshInterval(new Duration(10, TimeUnit.SECONDS))
-                .setSchemaPrefixRedirectRules(ImmutableList.of("analytics_=iceberg"));
+                .setSchemaPrefixRedirectRules(ImmutableList.of("analytics_=iceberg"))
+                .setDefaultRedirectCatalog("iceberg");
 
         assertFullMapping(properties, expected);
     }

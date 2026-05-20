@@ -83,6 +83,7 @@ public class HiveMetadataFactory
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
     private final Map<String, String> schemaPrefixRedirectRules;
+    private final Optional<String> defaultRedirectCatalog;
 
     @Inject
     public HiveMetadataFactory(
@@ -142,7 +143,8 @@ public class HiveMetadataFactory
                 allowTableRename,
                 hiveConfig.getTimestampPrecision(),
                 hiveConfig.getMetadataParallelism(),
-                hiveConfig.getSchemaPrefixRedirectRules());
+                hiveConfig.getSchemaPrefixRedirectRules(),
+                hiveConfig.getDefaultRedirectCatalog());
     }
 
     public HiveMetadataFactory(
@@ -181,7 +183,8 @@ public class HiveMetadataFactory
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
             int metadataParallelism,
-            Map<String, String> schemaPrefixRedirectRules)
+            Map<String, String> schemaPrefixRedirectRules,
+            Optional<String> defaultRedirectCatalog)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -225,6 +228,7 @@ public class HiveMetadataFactory
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
+        this.defaultRedirectCatalog = requireNonNull(defaultRedirectCatalog, "defaultRedirectCatalog is null");
         if (metadataParallelism == 1) {
             this.metadataFetchingExecutor = directExecutor();
         }
@@ -281,6 +285,7 @@ public class HiveMetadataFactory
                 maxPartitionDropsPerQuery,
                 hiveViewsTimestampPrecision,
                 metadataFetchingExecutor,
-                schemaPrefixRedirectRules);
+                schemaPrefixRedirectRules,
+                defaultRedirectCatalog);
     }
 }
