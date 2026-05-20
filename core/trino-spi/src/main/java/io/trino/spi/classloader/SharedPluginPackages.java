@@ -11,21 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.geospatialexample;
+package io.trino.spi.classloader;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.spi.Plugin;
-import io.trino.spi.classloader.SharedPluginPackages;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-import java.util.Set;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-@SharedPluginPackages("org.locationtech.jts")
-public class GeospatialExamplePlugin
-        implements Plugin
+@Retention(RUNTIME)
+@Target(TYPE)
+public @interface SharedPluginPackages
 {
-    @Override
-    public Set<Class<?>> getFunctions()
-    {
-        return ImmutableSet.of(ExampleFunction.class);
-    }
+    String[] value();
 }

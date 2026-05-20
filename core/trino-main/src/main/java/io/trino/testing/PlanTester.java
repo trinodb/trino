@@ -504,7 +504,7 @@ public class PlanTester
                 noop(),
                 noopTracer());
         this.pluginManager = new PluginManager(
-                (_, _) -> {},
+                _ -> {},
                 Optional.empty(),
                 catalogFactory,
                 globalFunctionCatalog,

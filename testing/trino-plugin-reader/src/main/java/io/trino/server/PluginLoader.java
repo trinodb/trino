@@ -17,10 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -43,6 +44,7 @@ public class PluginLoader
     public static final String RESOURCE_GROUP_CONFIGURATION_MANAGER = "resourceGroupConfigurationManager:";
     public static final String SESSION_PROPERTY_CONFIGURATION_MANAGER = "sessionPropertyConfigurationManager:";
     public static final String EXCHANGE_MANAGER = "exchangeManager:";
+    private static final SharedPackagesClassLoader SHARED_EXTENSION_CLASS_LOADER = new SharedPackagesClassLoader(PluginLoader.class.getClassLoader());
 
     private PluginLoader() {}
 
@@ -73,13 +75,34 @@ public class PluginLoader
         config.setInstalledPluginsDirs(path);
         ServerPluginsProvider pluginsProvider = new ServerPluginsProvider(config, directExecutor());
         ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
-        pluginsProvider.loadPlugins((_, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);
+        pluginsProvider.loadPlugins((pluginPath, pluginName, urls) -> loadPlugin(pluginPath, pluginName, urls, plugins));
         return plugins.build();
     }
 
-    private static void loadPlugin(Supplier<PluginClassLoader> createClassLoader, ImmutableList.Builder<Plugin> plugins)
+    private static void loadPlugin(
+            String pluginPath,
+            String pluginName,
+            List<URL> urls,
+            ImmutableList.Builder<Plugin> plugins)
     {
-        PluginClassLoader pluginClassLoader = createClassLoader.get();
+        URLClassLoader discoveryClassLoader = new URLClassLoader(urls.toArray(URL[]::new), SHARED_EXTENSION_CLASS_LOADER);
+        ServiceLoader<Plugin> discoveryServiceLoader = ServiceLoader.load(Plugin.class, discoveryClassLoader);
+        List<Plugin> discoveredPlugins = ImmutableList.copyOf(discoveryServiceLoader);
+
+        checkState(!discoveredPlugins.isEmpty(), "No service providers of type %s in classpath %s", Plugin.class.getName(), pluginPath);
+
+        List<String> pluginSharedPackages = PluginManager.getSharedPackages(discoveredPlugins);
+
+        SHARED_EXTENSION_CLASS_LOADER.registerPackages(pluginSharedPackages);
+        SHARED_EXTENSION_CLASS_LOADER.addUrls(urls);
+
+        List<String> effectiveSpiPackages =
+                ImmutableList.<String>builder()
+                        .addAll(PluginManager.SPI_PACKAGES)
+                        .addAll(pluginSharedPackages)
+                        .build();
+
+        PluginClassLoader pluginClassLoader = new PluginClassLoader(pluginName, urls, SHARED_EXTENSION_CLASS_LOADER, effectiveSpiPackages);
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
             loadServicePlugin(pluginClassLoader, plugins);
         }

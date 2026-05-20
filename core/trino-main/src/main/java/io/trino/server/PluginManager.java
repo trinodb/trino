@@ -38,6 +38,7 @@ import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.catalog.CatalogStoreFactory;
+import io.trino.spi.classloader.SharedPluginPackages;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -55,12 +56,13 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
@@ -70,12 +72,20 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
         implements PluginInstaller
 {
-    private static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
+    public static final List<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
+            .build();
+
+    private static final List<String> FORBIDDEN_PACKAGES = ImmutableList.<String>builder()
+            .add("java.")
+            .add("javax.")
+            .add("sun.")
+            .add("io.trino.")
+            .add("jdk.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
@@ -99,6 +109,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
+    private final SharedPackagesClassLoader sharedPackagesClassLoader = new SharedPackagesClassLoader(PluginManager.class.getClassLoader());
 
     @Inject
     public PluginManager(
@@ -148,16 +159,48 @@ public class PluginManager
             return;
         }
 
-        pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
+        pluginsProvider.loadPlugins(this::preloadPlugin);
+        pluginsProvider.loadPlugins(this::loadPlugin);
 
         typeRegistry.verifyTypes();
     }
 
-    private void loadPlugin(String plugin, Supplier<PluginClassLoader> createClassLoader)
+    private void preloadPlugin(
+            String pluginPath,
+            String pluginName,
+            List<URL> urls)
     {
-        log.info("-- Loading plugin %s --", plugin);
+        log.info("-- Preloading plugin %s --", pluginPath);
+        effectiveSpiPackages(pluginPath, urls);
+    }
 
-        PluginClassLoader pluginClassLoader = createClassLoader.get();
+    private List<String> effectiveSpiPackages(String pluginPath, List<URL> urls)
+    {
+        URLClassLoader discoveryClassLoader = new URLClassLoader(urls.toArray(URL[]::new), sharedPackagesClassLoader);
+        ServiceLoader<Plugin> discoveryServiceLoader = ServiceLoader.load(Plugin.class, discoveryClassLoader);
+        List<Plugin> discoveredPlugins = ImmutableList.copyOf(discoveryServiceLoader);
+
+        checkState(!discoveredPlugins.isEmpty(), "%s - No service providers of type %s", pluginPath, Plugin.class.getName());
+
+        List<String> pluginSharedPackages = getSharedPackages(discoveredPlugins);
+        sharedPackagesClassLoader.registerPackages(pluginSharedPackages);
+        sharedPackagesClassLoader.addUrls(urls);
+
+        return ImmutableList.<String>builder()
+                .addAll(SPI_PACKAGES)
+                .addAll(pluginSharedPackages)
+                .build();
+    }
+
+    private void loadPlugin(
+            String pluginPath,
+            String pluginName,
+            List<URL> urls)
+    {
+        log.info("-- Loading plugin %s --", pluginPath);
+        List<String> effectiveSpiPackages = effectiveSpiPackages(pluginPath, urls);
+
+        PluginClassLoader pluginClassLoader = new PluginClassLoader(pluginName, urls, sharedPackagesClassLoader, effectiveSpiPackages);
 
         log.debug("Classpath for plugin:");
         for (URL url : pluginClassLoader.getURLs()) {
@@ -166,10 +209,27 @@ public class PluginManager
 
         handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(plugin, pluginClassLoader);
+            loadPlugin(pluginPath, pluginClassLoader);
         }
 
-        log.info("-- Finished loading plugin %s --", plugin);
+        log.info("-- Finished loading plugin %s --", pluginPath);
+    }
+
+    public static List<String> getSharedPackages(Collection<Plugin> plugins)
+    {
+        ImmutableList.Builder<String> sharedPackages = ImmutableList.builder();
+        for (Plugin plugin : plugins) {
+            SharedPluginPackages annotation = plugin.getClass().getAnnotation(SharedPluginPackages.class);
+
+            if (annotation != null) {
+                for (String spiPackage : annotation.value()) {
+                    sharedPackages.add(spiPackage.endsWith(".") ? spiPackage : spiPackage.concat("."));
+                    log.info("Added shared package %s", spiPackage);
+                    checkState(FORBIDDEN_PACKAGES.stream().noneMatch(spiPackage::startsWith), "Forbidden shared package: %s".formatted(spiPackage));
+                }
+            }
+        }
+        return sharedPackages.build();
     }
 
     private void loadPlugin(String pluginPath, PluginClassLoader pluginClassLoader)
@@ -288,19 +348,32 @@ public class PluginManager
         }
     }
 
-    public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
+    private List<String> discoverSharedPackages(
+            ClassLoader discoveryClassLoader,
+            String pluginClassName)
     {
-        ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
+        try {
+            Class<?> pluginClass = discoveryClassLoader.loadClass(pluginClassName);
+
+            SharedPluginPackages annotation = pluginClass.getAnnotation(SharedPluginPackages.class);
+            if (annotation == null) {
+                return List.of();
+            }
+
+            return List.of(annotation.value());
+        }
+        catch (ClassNotFoundException e) {
+            throw new RuntimeException("Failed loading plugin class: " + pluginClassName, e);
+        }
     }
 
     public interface PluginsProvider
     {
-        void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader);
+        void loadPlugins(Loader loader);
 
         interface Loader
         {
-            void load(String description, Supplier<PluginClassLoader> getClassLoader);
+            void load(String pluginPath, String pluginName, List<URL> urls);
         }
 
         interface ClassLoaderFactory

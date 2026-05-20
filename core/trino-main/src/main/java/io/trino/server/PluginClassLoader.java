@@ -30,36 +30,36 @@ public class PluginClassLoader
         extends URLClassLoader
 {
     private final String pluginName;
-    private final ClassLoader spiClassLoader;
+    private final SharedPackagesClassLoader sharedPackagesClassLoader;
     private final List<String> spiPackages;
     private final List<String> spiResources;
 
     public PluginClassLoader(
             String pluginName,
             List<URL> urls,
-            ClassLoader spiClassLoader,
+            SharedPackagesClassLoader sharedPackagesClassLoader,
             List<String> spiPackages)
     {
         this(pluginName,
                 urls,
-                spiClassLoader,
+                sharedPackagesClassLoader,
                 spiPackages,
                 spiPackages.stream()
                         .map(PluginClassLoader::classNameToResource)
                         .collect(toImmutableList()));
     }
 
-    private PluginClassLoader(
+    PluginClassLoader(
             String pluginName,
             List<URL> urls,
-            ClassLoader spiClassLoader,
+            SharedPackagesClassLoader sharedPackagesClassLoader,
             Iterable<String> spiPackages,
             Iterable<String> spiResources)
     {
         // plugins should not have access to the system (application) class loader
         super(urls.toArray(new URL[0]), getPlatformClassLoader());
         this.pluginName = requireNonNull(pluginName, "pluginName is null");
-        this.spiClassLoader = requireNonNull(spiClassLoader, "spiClassLoader is null");
+        this.sharedPackagesClassLoader = requireNonNull(sharedPackagesClassLoader, "sharedExtensionClassLoader is null");
         this.spiPackages = ImmutableList.copyOf(spiPackages);
         this.spiResources = ImmutableList.copyOf(spiResources);
     }
@@ -67,7 +67,7 @@ public class PluginClassLoader
     public PluginClassLoader withUrl(URL url)
     {
         List<URL> urls = ImmutableList.<URL>builder().add(getURLs()).add(url).build();
-        return new PluginClassLoader(pluginName, urls, spiClassLoader, spiPackages, spiResources);
+        return new PluginClassLoader(pluginName, urls, sharedPackagesClassLoader, spiPackages, spiResources);
     }
 
     public String getId()
@@ -98,9 +98,9 @@ public class PluginClassLoader
             }
 
             // If this is an SPI class, only check SPI class loader
-            if (isSpiClass(name)) {
+            if (isSpiClass(name) || sharedPackagesClassLoader.isSharedClass(name)) {
                 try {
-                    return resolveClass(spiClassLoader.loadClass(name), resolve);
+                    return resolveClass(sharedPackagesClassLoader.loadClass(name), resolve);
                 }
                 catch (ClassNotFoundException e) {
                     if (hasClassLocally(name, resolve)) {
@@ -139,7 +139,7 @@ public class PluginClassLoader
     {
         // If this is an SPI resource, only check SPI class loader
         if (isSpiResource(name)) {
-            return spiClassLoader.getResource(name);
+            return sharedPackagesClassLoader.getResource(name);
         }
 
         // Look for resource locally
@@ -152,7 +152,7 @@ public class PluginClassLoader
     {
         // If this is an SPI resource, use SPI resources
         if (isSpiClass(name)) {
-            return spiClassLoader.getResources(name);
+            return sharedPackagesClassLoader.getResources(name);
         }
 
         // Use local resources

@@ -19,7 +19,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.operator.window.InternalWindowIndex;
+import io.trino.server.PluginClassLoader;
 import io.trino.server.PluginManager;
+import io.trino.server.SharedPackagesClassLoader;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -46,6 +48,7 @@ import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumula
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
+import static io.trino.server.PluginManager.SPI_PACKAGES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.util.Reflection.methodHandle;
@@ -81,7 +84,7 @@ public class TestAccumulatorCompiler
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
 
-        ClassLoader pluginClassLoader = PluginManager.createClassLoader("test", ImmutableList.of());
+        PluginClassLoader pluginClassLoader = new PluginClassLoader("test", ImmutableList.of(), new SharedPackagesClassLoader(PluginManager.class.getClassLoader()), SPI_PACKAGES);
         DynamicClassLoader classLoader = new DynamicClassLoader(pluginClassLoader);
         Class<? extends AccumulatorState> stateInterface = IsolatedClass.isolateClass(
                 classLoader,

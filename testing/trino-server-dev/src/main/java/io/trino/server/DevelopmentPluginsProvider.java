@@ -48,6 +48,8 @@ public class DevelopmentPluginsProvider
     private final ArtifactResolver resolver;
     private final List<String> plugins;
     private final Executor executor;
+    private final SharedPackagesClassLoader sharedPackagesClassLoader = new SharedPackagesClassLoader(
+            DevelopmentPluginsProvider.class.getClassLoader());
 
     @Inject
     public DevelopmentPluginsProvider(DevelopmentLoaderConfig config, @ForStartup Executor executor)
@@ -58,22 +60,22 @@ public class DevelopmentPluginsProvider
     }
 
     @Override
-    public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
+    public void loadPlugins(Loader loader)
     {
         executeUntilFailure(
                 executor,
                 plugins.stream()
-                        .map(plugin -> (Callable<?>) () -> {
-                            loader.load(plugin, () -> buildClassLoader(plugin, createClassLoader));
+                        .map(_ -> (Callable<?>) () -> {
+//                            loader.load(plugin, plugin, () -> buildClassLoader(plugin));
                             return null;
                         })
                         .collect(toImmutableList()));
     }
 
-    private PluginClassLoader buildClassLoader(String plugin, ClassLoaderFactory classLoaderFactory)
+    private PluginClassLoader buildClassLoader(String plugin)
     {
         try {
-            return doBuildClassLoader(plugin, urls -> classLoaderFactory.create(plugin, urls));
+            return doBuildClassLoader(plugin, urls -> new PluginClassLoader(plugin, urls, sharedPackagesClassLoader, List.of()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

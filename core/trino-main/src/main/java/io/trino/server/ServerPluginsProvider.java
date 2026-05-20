@@ -47,7 +47,7 @@ public class ServerPluginsProvider
     }
 
     @Override
-    public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
+    public void loadPlugins(Loader loader)
     {
         executeUntilFailure(
                 executor,
@@ -57,7 +57,7 @@ public class ServerPluginsProvider
                         .map(Path::toAbsolutePath)
                         .map(path -> (Callable<?>) () -> {
                             String name = path.getFileName().toString();
-                            loader.load(name, () -> createClassLoader.create(name, buildClassPath(path)));
+                            loader.load(path.toString(), name, buildClassPath(path));
                             return null;
                         })
                         .collect(toImmutableList()));
