@@ -142,13 +142,13 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefreshTest
             // Intentionally set the expiration time to be in the near future to test credential refresh logic
             sessionTokenExpirationTime.set(Instant.now().plusSeconds(60));
             int refreshCount = servlet.getVendedCredentialsRefreshCount();
-            assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
+            assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM \"region\"");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isGreaterThan(refreshCount);
 
             // Providing a session token that expires only in one hour should not trigger token refresh
             sessionTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
             refreshCount = servlet.getVendedCredentialsRefreshCount();
-            assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
+            assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM \"region\"");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount);
         }
     }

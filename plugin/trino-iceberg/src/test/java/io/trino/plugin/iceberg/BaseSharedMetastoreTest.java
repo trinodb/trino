@@ -106,7 +106,7 @@ public abstract class BaseSharedMetastoreTest
     @Test
     void testHiveSelectTableColumns()
     {
-        assertThat(query("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'region'"))
+        assertThat(query("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = '" + tpchSchema + "' AND \"TABLE_NAME\" = 'region'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('hive', '" + tpchSchema + "', 'region', 'regionkey')," +
@@ -114,7 +114,7 @@ public abstract class BaseSharedMetastoreTest
                         "('hive', '" + tpchSchema + "', 'region', 'comment')");
 
         // Hive does not show any information about tables with unsupported format
-        assertQueryReturnsEmptyResult("SELECT table_cat, table_schem, table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = '" + tpchSchema + "' AND table_name = 'nation'");
+        assertQueryReturnsEmptyResult("SELECT \"TABLE_CAT\", \"TABLE_SCHEM\", \"TABLE_NAME\", \"COLUMN_NAME\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = 'hive' AND \"TABLE_SCHEM\" = '" + tpchSchema + "' AND \"TABLE_NAME\" = 'nation'");
     }
 
     @Test
