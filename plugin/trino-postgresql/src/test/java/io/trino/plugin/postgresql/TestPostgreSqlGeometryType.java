@@ -91,6 +91,39 @@ final class TestPostgreSqlGeometryType
     }
 
     @Test
+    void testPointRead()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_point_read", "(geom point)")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (NULL), (point(1.23, -1))");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES NULL, ST_Point(1.23, -1)");
+        }
+    }
+
+    @Test
+    void testPointWrite()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_point_write", "(geom point)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES NULL, St_Point(12.345, -1.2)", 2);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES NULL, ST_Point(12.345, -1.2)");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE trino_test_point AS SELECT ST_Point(1, 2) AS point",
+                "Unsupported column type: Geometry");
+    }
+
+    @Test
+    void testPointWriteFailure()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_point_write", "(geom point)")) {
+            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (ST_LineString(ARRAY[ST_Point(0,0), ST_Point(1,1)]))",
+                    "Expected Point geometry when writing to PostgreSQL point column, but got LineString.*");
+        }
+    }
+
+    @Test
     void testGeometryNullRead()
     {
         try (TestTable table = new TestTable(postgreSqlServer::execute, "test_geometry_null_read", "(id int, geom geometry)")) {
