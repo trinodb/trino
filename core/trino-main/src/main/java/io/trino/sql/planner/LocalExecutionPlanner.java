@@ -67,7 +67,6 @@ import io.trino.operator.HashSemiJoinOperator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
-import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.MergeProcessorOperator;
@@ -664,14 +663,6 @@ public class LocalExecutionPlanner
                         ImmutableMap.of(),
                         physicalOperation),
                 context);
-
-        // notify operator factories that planning has completed
-        context.getDriverFactories().stream()
-                .map(DriverFactory::getOperatorFactories)
-                .flatMap(List::stream)
-                .filter(LocalPlannerAware.class::isInstance)
-                .map(LocalPlannerAware.class::cast)
-                .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
     }
