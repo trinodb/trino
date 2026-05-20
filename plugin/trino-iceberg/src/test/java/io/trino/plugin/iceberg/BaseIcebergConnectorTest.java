@@ -312,14 +312,15 @@ public abstract class BaseIcebergConnectorTest
                    "Column B" double
                 )
                 WITH (
-                   format = 'PARQUET',
-                   format_version = %4$d,
-                   location = 'local:///iceberg/tpch/%3$s-\\E.*'
+                   format = '%4$s',
+                   format_version = %5$d,
+                   location = '\\E.*/%2$s/%3$s-.*'
                 \\)\
                 """,
                 catalog,
                 canonicalize(schema).equals(schema) ? schema : '"' + schema + '"',
                 table,
+                format.name(),
                 formatVersion);
     }
 
@@ -333,9 +334,9 @@ public abstract class BaseIcebergConnectorTest
                    %5$s double
                 )
                 WITH (
-                   format = 'PARQUET',
-                   format_version = %6$d,
-                   location = 'local:///iceberg/tpch/%3$s-\\E.*'
+                   format = '%6$s',
+                   format_version = %7$d,
+                   location = '\\E.*/%2$s/%3$s-.*'
                 \\)\
                 """,
                 catalog,
@@ -343,6 +344,7 @@ public abstract class BaseIcebergConnectorTest
                 table,
                 canonicalize("Column_A"),
                 canonicalize("Column_B"),
+                format.name(),
                 formatVersion);
     }
 
