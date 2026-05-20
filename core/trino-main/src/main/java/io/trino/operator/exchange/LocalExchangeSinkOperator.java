@@ -69,11 +69,10 @@ public class LocalExchangeSinkOperator
         @Override
         public void noMoreOperators()
         {
-            if (!closed) {
-                closed = true;
-                sinkFactory.close();
-                factoryReferenceCount.release();
-            }
+            checkState(!closed, "Already closed");
+            closed = true;
+            sinkFactory.close();
+            factoryReferenceCount.release();
         }
 
         @Override
