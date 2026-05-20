@@ -223,6 +223,18 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
                                     <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
