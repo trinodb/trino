@@ -163,7 +163,6 @@ public final class JoinTestUtils
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.noMoreOperators();
         sinkOperatorFactory.noMoreOperators();
-        sinkOperatorFactory.localPlannerComplete();
 
         while (!sourceDriver.isFinished()) {
             sourceDriver.processUntilBlocked();
