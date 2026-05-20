@@ -24,6 +24,8 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -175,4 +177,9 @@ public class TestSharedHiveThriftMetastore
                 ")";
         return format(expectedIcebergCreateSchema, catalogName, tpchSchema, bucketName, tpchSchema);
     }
+
+    @Override
+    @Test
+    @Disabled("view names with $ are not supported")
+    public void testRedirectedIcebergViewWithTableSuffix() {}
 }
