@@ -132,6 +132,13 @@ public class IcebergRestCatalogFileSystem
     }
 
     @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        return fileSystem(location).listFilesStartingFrom(location, startingFrom);
+    }
+
+    @Override
     public Optional<Boolean> directoryExists(Location location)
             throws IOException
     {
