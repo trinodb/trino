@@ -22,7 +22,11 @@ import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HeaderNames;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.ResponseHandlerUtils;
 import io.airlift.http.client.StaticBodyGenerator;
+import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
@@ -54,10 +58,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.ResponseHandlerUtils.isJsonUtf8Content;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
 import static org.testcontainers.utility.DockerImageName.parse;
@@ -244,7 +250,36 @@ public class TestingPinotCluster
                     .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
                     .build();
 
-            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)));
+            PinotSuccessResponse response = doWithRetries(() ->
+                    httpClient.execute(
+                            request,
+                            new ResponseHandler<>()
+                            {
+                                @Override
+                                public PinotSuccessResponse handleException(Request request, Exception exception)
+                                        throws RuntimeException
+                                {
+                                    throw ResponseHandlerUtils.propagate(request, exception);
+                                }
+
+                                @Override
+                                public PinotSuccessResponse handle(Request request, Response response)
+                                        throws RuntimeException
+                                {
+                                    byte[] bytes = ResponseHandlerUtils.getResponseBytes(request, response);
+                                    if (response.getStatusCode() < 200 ||
+                                            response.getStatusCode() >= 300 ||
+                                            !isJsonUtf8Content(response)) {
+                                        throw new UnexpectedResponseException(
+                                                "Unexpected non-successful response (code %d) response: %s".formatted(
+                                                        response.getStatusCode(),
+                                                        new String(bytes, UTF_8)),
+                                                request,
+                                                response);
+                                    }
+                                    return PINOT_SUCCESS_RESPONSE_JSON_CODEC.fromJson(bytes);
+                                }
+                            }));
             checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
         }
     }
