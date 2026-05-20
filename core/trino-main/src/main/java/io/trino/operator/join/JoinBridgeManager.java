@@ -17,12 +17,12 @@ package io.trino.operator.join;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.operator.ReferenceCount;
 import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -42,35 +42,31 @@ public class JoinBridgeManager<T extends JoinBridge>
     }
 
     private final List<Type> buildOutputTypes;
-    private final boolean buildOuter;
     private final T joinBridge;
+    private final JoinLifecycle joinLifecycle;
 
-    private final AtomicBoolean initialized = new AtomicBoolean();
-    private JoinLifecycle joinLifecycle;
-
-    private final FreezeOnReadCounter probeFactoryCount = new FreezeOnReadCounter();
+    @GuardedBy("this")
+    private boolean probeFactoriesFrozen;
 
     public JoinBridgeManager(
             boolean buildOuter,
             T joinBridge,
             List<Type> buildOutputTypes)
     {
-        this.buildOuter = buildOuter;
         this.joinBridge = requireNonNull(joinBridge, "joinBridge is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
+        // The probe reference count starts at 1 to act as a bootstrap reference that keeps
+        // the bridge alive while probe operator factories are still being created. The
+        // bootstrap reference is released on the first use of the bridge or any of its
+        // lifecycle methods, at which point no more probe factories may be added.
+        this.joinLifecycle = new JoinLifecycle(joinBridge, 1, buildOuter ? 1 : 0);
     }
 
-    private void initializeIfNecessary()
+    private synchronized void freezeProbeFactoriesIfNecessary()
     {
-        if (!initialized.get()) {
-            synchronized (this) {
-                if (initialized.get()) {
-                    return;
-                }
-                int finalProbeFactoryCount = probeFactoryCount.get();
-                joinLifecycle = new JoinLifecycle(joinBridge, finalProbeFactoryCount, buildOuter ? 1 : 0);
-                initialized.set(true);
-            }
+        if (!probeFactoriesFrozen) {
+            probeFactoriesFrozen = true;
+            joinLifecycle.releaseForProbe();
         }
     }
 
@@ -79,56 +75,57 @@ public class JoinBridgeManager<T extends JoinBridge>
         return buildOutputTypes;
     }
 
-    public void incrementProbeFactoryCount()
+    public synchronized void incrementProbeFactoryCount()
     {
-        probeFactoryCount.increment();
+        checkState(!probeFactoriesFrozen, "Probe factories have been frozen");
+        joinLifecycle.retainForProbe();
     }
 
     public T getJoinBridge()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         return joinBridge;
     }
 
     public void probeOperatorFactoryClosed()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.releaseForProbe();
     }
 
     public void probeOperatorCreated()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.retainForProbe();
     }
 
     public void probeOperatorClosed()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.releaseForProbe();
     }
 
     public void outerOperatorFactoryClosed()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.releaseForOuter();
     }
 
     public void outerOperatorCreated()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.retainForOuter();
     }
 
     public void outerOperatorClosed()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         joinLifecycle.releaseForOuter();
     }
 
     public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture()
     {
-        initializeIfNecessary();
+        freezeProbeFactoriesIfNecessary();
         return transform(joinLifecycle.whenBuildAndProbeFinishes(), _ -> joinBridge.getOuterPositionIterator(), directExecutor());
     }
 
@@ -181,24 +178,6 @@ public class JoinBridgeManager<T extends JoinBridge>
         private void releaseForOuter()
         {
             outerReferenceCount.release();
-        }
-    }
-
-    private static class FreezeOnReadCounter
-    {
-        private int count;
-        private boolean frozen;
-
-        public synchronized void increment()
-        {
-            checkState(!frozen, "Counter has been read");
-            count++;
-        }
-
-        public synchronized int get()
-        {
-            frozen = true;
-            return count;
         }
     }
 }
