@@ -513,6 +513,83 @@ public class TestResourceSecurity
     }
 
     @Test
+    public void testJwtAuthenticatorWithMultiplePrincipalFields()
+            throws Exception
+    {
+        // First configured field wins when both claims are present
+        verifyJwtAuthenticatorWithMultipleFields(
+                "preferred_username,email",
+                ImmutableMap.of("preferred_username", TEST_USER, "email", "wrong-user"),
+                true);
+
+        // Falls back to the next field when the first is absent
+        verifyJwtAuthenticatorWithMultipleFields(
+                "preferred_username,email",
+                ImmutableMap.of("email", TEST_USER),
+                true);
+
+        // Falls back to the next field when the first is present but empty
+        verifyJwtAuthenticatorWithMultipleFields(
+                "preferred_username,email",
+                ImmutableMap.of("preferred_username", "", "email", TEST_USER),
+                true);
+
+        // Order matters: when the second field is configured first, that one wins
+        verifyJwtAuthenticatorWithMultipleFields(
+                "email,preferred_username",
+                ImmutableMap.of("preferred_username", "wrong-user", "email", TEST_USER),
+                true);
+
+        // Authentication is rejected when none of the configured claims are present
+        verifyJwtAuthenticatorWithMultipleFields(
+                "preferred_username,email",
+                ImmutableMap.of("name", TEST_USER),
+                false);
+    }
+
+    private void verifyJwtAuthenticatorWithMultipleFields(String principalFieldProperty, Map<String, String> claims, boolean expectAuthenticated)
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", HMAC_KEY)
+                        .put("http-server.authentication.jwt.principal-field", principalFieldProperty)
+                        .buildOrThrow())
+                .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
+            JwtBuilder tokenBuilder = newJwtBuilder()
+                    .signWith(hmac)
+                    .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
+            claims.forEach(tokenBuilder::claim);
+            String token = tokenBuilder.compact();
+
+            if (expectAuthenticated) {
+                OkHttpClient clientWithJwt = client.newBuilder()
+                        .authenticator((_, response) -> response.request().newBuilder()
+                                .header(AUTHORIZATION, "Bearer " + token)
+                                .build())
+                        .build();
+                assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+            }
+            else {
+                // Use a client without an authenticator so a 401 is observed instead of re-injecting the bearer
+                // on every retry, which would otherwise trip OkHttp's follow-up-request limit.
+                OkHttpClient clientWithoutAuthenticator = this.client.newBuilder().build();
+                assertResponseCode(
+                        clientWithoutAuthenticator,
+                        getAuthorizedUserLocation(httpServerInfo.getHttpsUri()),
+                        SC_UNAUTHORIZED,
+                        Headers.of(AUTHORIZATION, "Bearer " + token));
+            }
+        }
+    }
+
+    @Test
     public void testJwtWithJwkAuthenticator()
             throws Exception
     {

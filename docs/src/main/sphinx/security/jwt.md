@@ -92,9 +92,12 @@ The following configuration properties are available:
     field in order to consider this JWT valid. The `aud` field in the JWT
     identifies the recipients that the JWT is intended for.
 * - `http-server.authentication.jwt.principal-field`
-  - String to identify the field in the JWT that identifies the subject of the
-    JWT. The default value is `sub`. This field is used to create the Trino
-    principal.
+  - Comma-separated list of JWT claim names to read the principal from. The
+    default value is `sub`. The authenticator tries each claim in order and uses
+    the value of the first claim that is present and non-empty as the Trino
+    principal. Configuring multiple values is useful when the coordinator trusts
+    JWTs from issuers that disagree on which claim carries the subject — for
+    example, `preferred_username,email`.
 * - `http-server.authentication.jwt.user-mapping.pattern`
   - A regular expression pattern to [map all user names](/security/user-mapping)
     for this authentication system to the format expected by the Trino server.
