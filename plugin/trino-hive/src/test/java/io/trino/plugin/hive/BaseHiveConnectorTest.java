@@ -2004,7 +2004,7 @@ public abstract class BaseHiveConnectorTest
                 "CREATE TABLE test_create_partitioned_table_as " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
+                "partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]" +
                 ") " +
                 "AS " +
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
@@ -2162,7 +2162,7 @@ public abstract class BaseHiveConnectorTest
     {
         assertThatThrownBy(() -> getQueryRunner().execute("" +
                 "CREATE TABLE test_create_table_as_invalid_column_ordering " +
-                "WITH (partitioned_by = ARRAY['SHIP_PRIORITY', 'ORDER_STATUS']) " +
+                "WITH (partitioned_by = ARRAY['ship_priority', 'order_status']) " +
                 "AS " +
                 "SELECT shippriority AS ship_priority, orderkey AS order_key, orderstatus AS order_status " +
                 "FROM tpch.tiny.orders"))
@@ -3319,17 +3319,18 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_insert_partitioned_table " +
-                "(" +
-                "  ORDER_KEY BIGINT," +
-                "  SHIP_PRIORITY INTEGER," +
-                "  ORDER_STATUS VARCHAR" +
-                ") " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS' ]" +
-                ") ";
+        @Language("SQL") String createTable = """
+                CREATE TABLE test_insert_partitioned_table \
+                (\
+                  order_key BIGINT,\
+                  ship_priority INTEGER,\
+                  order_status VARCHAR\
+                ) \
+                WITH (\
+                format = '%s', \
+                partitioned_by = ARRAY[ 'ship_priority', 'order_status' ]\
+                )\
+                """.formatted(storageFormat);
 
         assertUpdate(session, createTable);
 
@@ -3816,16 +3817,17 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testMetadataDelete()
     {
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_metadata_delete " +
-                "(" +
-                "  ORDER_KEY BIGINT," +
-                "  LINE_NUMBER INTEGER," +
-                "  LINE_STATUS VARCHAR" +
-                ") " +
-                "WITH (" +
-                PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
-                ") ";
+        @Language("SQL") String createTable = """
+                CREATE TABLE test_metadata_delete \
+                (\
+                  ORDER_KEY BIGINT,\
+                  LINE_NUMBER INTEGER,\
+                  LINE_STATUS VARCHAR\
+                ) \
+                WITH (\
+                %s = ARRAY[ '%s', '%s' ]\
+                )\
+                """.formatted(PARTITIONED_BY_PROPERTY, canonicalize("LINE_NUMBER"), canonicalize("LINE_STATUS"));
 
         assertUpdate(createTable);
 

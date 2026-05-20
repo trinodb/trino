@@ -192,6 +192,12 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return "NULL value not allowed for NOT NULL column: " + columnName;
