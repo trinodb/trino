@@ -103,9 +103,10 @@ public class IcebergRestCatalogFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        Map<TrinoFileSystem, List<Location>> groups = locations.stream().collect(groupingBy(loader));
-        for (var entry : groups.entrySet()) {
-            entry.getKey().deleteFiles(entry.getValue());
+        Map<String, List<Location>> byScheme = locations.stream()
+                .collect(groupingBy(location -> location.scheme().orElseThrow()));
+        for (List<Location> group : byScheme.values()) {
+            fileSystem(group.getFirst()).deleteFiles(group);
         }
     }
 
