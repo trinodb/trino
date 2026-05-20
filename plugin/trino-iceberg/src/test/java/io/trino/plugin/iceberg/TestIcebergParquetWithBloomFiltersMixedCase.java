@@ -80,14 +80,12 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
     @Override
     protected CatalogSchemaTableName createParquetTableWithBloomFilter(String columnName, List<Integer> testValues)
     {
-        System.out.println("TestIcebergParquetWithBloomFiltersMixedCase.createParquetTableWithBloomFilter() 1");
         minio.copyResources("iceberg/mixed_case_bloom_filter", BUCKET_NAME, "mixed_case_bloom_filter");
         String tableName = "test_iceberg_write_mixed_case_bloom_filter" + randomNameSuffix();
         assertUpdate(format(
                 "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 tableName,
                 format("s3://%s/mixed_case_bloom_filter", BUCKET_NAME)));
-        System.out.println("TestIcebergParquetWithBloomFiltersMixedCase.createParquetTableWithBloomFilter() 2");
 
         CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
         assertUpdate("INSERT INTO %s SELECT * FROM (VALUES %s) t(\"%s\")".formatted(
@@ -98,7 +96,6 @@ public class TestIcebergParquetWithBloomFiltersMixedCase
 
         checkTableProperties(tableName);
 
-        System.out.println("TestIcebergParquetWithBloomFiltersMixedCase.createParquetTableWithBloomFilter() end");
         return catalogSchemaTableName;
     }
 

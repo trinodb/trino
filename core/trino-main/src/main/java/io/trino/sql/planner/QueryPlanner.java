@@ -605,7 +605,6 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
-        System.out.println("QueryPlanner.plan() table: " + table.getName() + " - context: " + outerContext.map(map -> map.getScope().canonicalizerType()).orElse("No TranslationMap"));
         // FIXME: We need to take UpdateAssignement.Identifier canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {

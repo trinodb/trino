@@ -5803,7 +5803,7 @@ class StatementAnalyzer
             // FIXME: the WITH clause will use the UPPERCASE_CANONICALIZER
             Scope.Builder withScopeBuilder = scopeBuilder(scope, scope.flatMap(Scope::getCanonicalizer));
 
-            Function<Identifier, String> canonicalizer = scope.<Function<Identifier, String>>map(value -> value::canonicalize)
+            Function<Identifier, String> canonicalizer = scope.<Function<Identifier, String>>map(s -> s::canonicalize)
                     .orElseGet(() -> Identifier::getValue);
             for (WithQuery withQuery : with.getQueries()) {
                 String name = canonicalizer.apply(withQuery.getName());
