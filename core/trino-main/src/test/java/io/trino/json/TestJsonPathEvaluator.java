@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
@@ -56,7 +58,10 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -105,6 +110,11 @@ import static io.trino.sql.planner.PathNodes.type;
 import static io.trino.sql.planner.PathNodes.wildcardArrayAccessor;
 import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.DateTimes.parseTime;
+import static io.trino.type.DateTimes.parseTimeWithTimeZone;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -517,6 +527,85 @@ public class TestJsonPathEvaluator
                 path(true, ceiling(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testDatetimeMethod()
+    {
+        // Without a template, the shape of the value determines the resulting type.
+        // text item: DATE shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+
+        // text item: TIME shape
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(3), parseTime("12:34:56.789"))));
+
+        // text item: TIME WITH TIME ZONE shape
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789+05:30"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimeWithTimeZoneType(3), parseTimeWithTimeZone(3, "12:34:56.789 +05:30"))));
+
+        // text item: TIMESTAMP shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
+
+        // text item: TIMESTAMP WITH TIME ZONE shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789 +05:30"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampWithTimeZoneType(3), parseTimestampWithTimeZone(3, "2024-01-02 12:34:56.789 +05:30"))));
+
+        // the precision of the resulting type follows the number of fractional digits in the value
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(0), parseTime("12:34:56"))));
+
+        // multiple inputs -- array is automatically unwrapped in lax mode
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"), TextNode.valueOf("2024-01-03"))),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(sequence(
+                        new TypedValue(DATE, (long) parseDate("2024-01-02")),
+                        new TypedValue(DATE, (long) parseDate("2024-01-03"))));
+
+        // in strict mode the array is not unwrapped, so it is not a text item
+        assertThatThrownBy(() -> evaluate(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("2024-01-02"))),
+                path(false, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: ARRAY");
+
+        // a value that does not match any of the recognized shapes fails as a path evaluation error
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("not a datetime"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseMessage("Invalid TIMESTAMP 'not a datetime'");
+
+        // non-text JsonNode → itemTypeError
+        assertThatThrownBy(() -> evaluate(
+                IntNode.valueOf(0),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+
+        // non-text TypedValue → itemTypeError (not ClassCastException). The analyzer rejects
+        // statically-typed non-text sources, but defense in depth: if a non-text TypedValue
+        // somehow reaches the runtime, surface a clean item-type error.
+        assertThatThrownBy(() -> evaluate(
+                NullNode.instance,
+                path(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: bigint");
     }
 
     @Test
