@@ -4552,6 +4552,28 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testInsertWithNullFormat()
+    {
+        for (HiveStorageFormat storageFormat : ImmutableList.of(HiveStorageFormat.TEXTFILE, HiveStorageFormat.RCTEXT, HiveStorageFormat.SEQUENCEFILE)) {
+            String tableName = "test_insert_with_null_format_" + storageFormat.name().toLowerCase(ENGLISH);
+            assertUpdate(format(
+                    "CREATE TABLE %s (value VARCHAR) WITH (format = '%s', null_format = 'null_value')",
+                    tableName,
+                    storageFormat));
+
+            assertUpdate(
+                    format(
+                            "INSERT INTO %s VALUES ('null_value'), (NULL), ('non-null'), (''), ('\\N')",
+                            tableName),
+                    5);
+
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES NULL, NULL, VARCHAR 'non-null', VARCHAR '', VARCHAR '\\N'");
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testCreateExternalTableWithDataNotAllowed()
             throws IOException
     {
