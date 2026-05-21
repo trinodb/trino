@@ -681,7 +681,17 @@ class PathEvaluationVisitor
                 value = getTextTypedValue(jsonNode)
                         .orElseThrow(() -> itemTypeError("TEXT", jsonNode.getNodeType().name()));
             }
-            outputSequence.add(getDatetime(value));
+            try {
+                outputSequence.add(node.format()
+                        .map(template -> template.parseValue(((Slice) value.getObjectValue()).toStringUtf8()))
+                        .orElseGet(() -> getDatetime(value)));
+            }
+            catch (PathEvaluationException e) {
+                throw e;
+            }
+            catch (RuntimeException e) {
+                throw new PathEvaluationException(e);
+            }
         }
 
         return outputSequence.build();
