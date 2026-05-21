@@ -26,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
@@ -223,11 +224,8 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
-            // TODO
-            throw new IllegalStateException("datetime method is not yet supported. The query should have failed in JsonPathAnalyzer.");
-
-//            IrPathNode base = process(node.getBase());
-//            return new IrDatetimeMethod(base, /*parsed format*/, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            IrPathNode base = process(node.getBase());
+            return new IrDatetimeMethod(base, node.getFormat(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
