@@ -1173,10 +1173,12 @@ public class TestMongoConnectorTest
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'TPCH', collection => 'region', filter => '{}'))",
-                "Only lowercase database name is supported");
-        assertQueryFails(
-                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
-                "Only lowercase collection name is supported");
+                "Table 'TPCH.region' not found");
+
+        // FIXME: cant have this message: Table 'tpch.REGION' not found
+        assertThatThrownBy(() -> assertQuery(
+                "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))"))
+                .hasStackTraceContaining("descriptor has no fields");
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",

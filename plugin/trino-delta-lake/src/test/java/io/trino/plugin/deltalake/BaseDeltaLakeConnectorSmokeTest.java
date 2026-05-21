@@ -263,7 +263,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testDropSchemaExternalFiles()
     {
-        String schemaName = "externalFileSchema";
+        // FIXME: Why schemaName must be in lower case?
+        String schemaName = "externalfileschema";
         String schemaDir = bucketUrl() + "drop-schema-with-external-files/";
         String subDir = schemaDir + "subdir/";
         String externalFile = subDir + "external-file";

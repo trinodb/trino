@@ -81,6 +81,12 @@ public class TestDeltaLakeAnalyze
         }
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testAnalyze()
     {
@@ -1000,11 +1006,11 @@ public class TestDeltaLakeAnalyze
 
         assertUpdate("ANALYZE " + tableName, 3);
         assertQuery(
-                "SHOW STATS FOR " + tableName,
+                "SHOW STATS FOR \"" + tableName + "\"",
                 """
                 VALUES
-                ('c_int', null, 2.0, 0.33333333, null, 2, 11),
-                ('c_str', 2.0, 2.0, 0.33333333, null, null, null),
+                ('c_Int', null, 2.0, 0.33333333, null, 2, 11),
+                ('c_Str', 2.0, 2.0, 0.33333333, null, null, null),
                 (null, null, null, null, 3.0, null, null)
                 """);
 

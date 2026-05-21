@@ -1305,7 +1305,6 @@ public class DeltaLakeMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        System.out.println("DeltaLakeMetadata.createSchema() schema: " + schemaName);
         Optional<String> location = DeltaLakeSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 fileSystemFactory.create(session, locationUri).directoryExists(Location.of(locationUri));
@@ -3015,7 +3014,7 @@ public class DeltaLakeMetadata
             return Optional.empty();
         }
         Map<String, DeltaLakeColumnHandle> columnsByName = optimizeHandle.getTableColumns().stream()
-                .collect(toImmutableMap(column -> column.columnName().toLowerCase(ENGLISH), identity()));
+                .collect(toImmutableMap(column -> column.columnName(), identity()));
         ImmutableList.Builder<DeltaLakeColumnHandle> partitioningColumns = ImmutableList.builder();
         for (String columnName : partitionColumnNames) {
             partitioningColumns.add(columnsByName.get(columnName));

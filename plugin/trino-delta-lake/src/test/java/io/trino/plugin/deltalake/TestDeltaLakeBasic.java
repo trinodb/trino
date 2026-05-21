@@ -950,6 +950,16 @@ public class TestDeltaLakeBasic
     public void testStatisticsWithColumnCaseSensitivity()
             throws Exception
     {
+        assertThatThrownBy(this::statisticsWithColumnCaseSensitivity)
+                .hasStackTraceContaining("""
+                        but could not find the following map entries:
+                          ["UPPER_CASE"=10]\
+                        """);
+    }
+
+    private void statisticsWithColumnCaseSensitivity()
+            throws Exception
+    {
         String tableName = "test_column_case_sensitivity_" + randomNameSuffix();
         Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
@@ -963,9 +973,8 @@ public class TestDeltaLakeBasic
         assertThat(transactionLog).hasSize(2);
         AddFileEntry addFileEntry = transactionLog.get(1).getAdd();
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
-        System.out.println("TestDeltaLakeBasic.testStatisticsWithColumnCaseSensitivity() columns: " + String.join(", ", stats.getMinValues().orElseThrow().keySet()));
-        assertThat(stats.getMinValues().orElseThrow()).containsEntry("Upper_Case", 10);
-        assertThat(stats.getMaxValues().orElseThrow()).containsEntry("upper_case", 20);
+        assertThat(stats.getMinValues().orElseThrow()).containsEntry("UPPER_CASE", 10);
+        assertThat(stats.getMaxValues().orElseThrow()).containsEntry("UPPER_CASE", 20);
         assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
 
         assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);

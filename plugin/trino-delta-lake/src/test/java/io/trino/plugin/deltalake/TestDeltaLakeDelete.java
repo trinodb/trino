@@ -48,6 +48,12 @@ public class TestDeltaLakeDelete
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testTargetedDeleteWhenTableIsPartitionedWithColumnContainingSpecialCharacters()
     {
@@ -96,7 +102,7 @@ public class TestDeltaLakeDelete
         hiveMinioDataLake.copyResources(resourcePath + "/lineitem", tableName);
         getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', 's3://%s/%s')", tableName, bucketName, tableName));
 
-        assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM lineitem");
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT count(*) FROM \"lineitem\"");
         assertUpdate("DELETE FROM " + tableName + " WHERE partkey % 2 = 0", "SELECT count(*) FROM \"lineitem\" WHERE \"partkey\" % 2 = 0");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM \"lineitem\" WHERE \"partkey\" % 2 = 1");
     }
