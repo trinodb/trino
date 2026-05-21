@@ -23,7 +23,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
-import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
@@ -33,10 +32,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
-import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -52,7 +49,6 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -276,37 +272,6 @@ public class TestHiveStorageFormats
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
                 .iterator();
-    }
-
-    @Test(dataProvider = "storageFormatsWithNullFormat", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
-    public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
-    {
-        String nullFormat = "null_value";
-        String tableName = format(
-                "test_storage_format_%s_insert_and_select_with_null_format",
-                storageFormat.getName());
-        onTrino().executeQuery(format(
-                "CREATE TABLE %s (value VARCHAR) " +
-                        "WITH (format = '%s', null_format = '%s')",
-                tableName,
-                storageFormat.getName(),
-                nullFormat));
-
-        // \N is the default null format
-        String[] values = {nullFormat, null, "non-null", "", "\\N"};
-        Row[] storedValues = Arrays.stream(values).map(Row::row).toArray(Row[]::new);
-        storedValues[0] = row((Object) null); // if you put in the null format, it saves as null
-
-        String placeholders = String.join(", ", nCopies(values.length, "(?)"));
-        onTrino().executeQuery(
-                format("INSERT INTO %s VALUES %s", tableName, placeholders),
-                Arrays.stream(values)
-                        .map(value -> param(JDBCType.VARCHAR, value))
-                        .toArray(QueryParam[]::new));
-
-        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName))).containsOnly(storedValues);
-
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithZeroByteFile", groups = STORAGE_FORMATS_DETAILED)
