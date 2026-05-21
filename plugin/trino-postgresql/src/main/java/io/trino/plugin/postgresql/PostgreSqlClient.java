@@ -117,7 +117,6 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.locationtech.jts.geom.Geometry;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 
@@ -159,8 +158,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
-import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -1911,39 +1908,52 @@ public class PostgreSqlClient
     {
         return ColumnMapping.objectMapping(
                 geometryType,
-                ObjectReadFunction.of(Geometry.class, (resultSet, columnIndex) -> {
-                    String hexWkb = resultSet.getString(columnIndex);
-                    byte[] wkb = HexFormat.of().parseHex(hexWkb);
-                    return deserialize(wrappedBuffer(wkb));
-                }),
-                geometryWriteFunction(),
+                new ObjectReadFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public Object readObject(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        String hexWkb = resultSet.getString(columnIndex);
+                        byte[] wkb = HexFormat.of().parseHex(hexWkb);
+                        Slice slice = wrappedBuffer(wkb);
+
+                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                        geometryType.writeSlice(blockBuilder, slice);
+                        return geometryType.getObject(blockBuilder.build(), 0);
+                    }
+                },
+                new ObjectWriteFunction()
+                {
+                    @Override
+                    public Class<?> getJavaType()
+                    {
+                        return geometryType.getJavaType();
+                    }
+
+                    @Override
+                    public String getBindExpression()
+                    {
+                        return "ST_GeomFromEWKB(?)";
+                    }
+
+                    @Override
+                    public void set(PreparedStatement statement, int index, Object value)
+                            throws SQLException
+                    {
+                        BlockBuilder blockBuilder = geometryType.createBlockBuilder(null, 1);
+                        geometryType.writeObject(blockBuilder, value);
+                        Slice slice = geometryType.getSlice(blockBuilder.build(), 0);
+                        statement.setBytes(index, slice.getBytes());
+                    }
+                },
                 DISABLE_PUSHDOWN);
-    }
-
-    private static ObjectWriteFunction geometryWriteFunction()
-    {
-        return new ObjectWriteFunction()
-        {
-            @Override
-            public Class<?> getJavaType()
-            {
-                return Geometry.class;
-            }
-
-            @Override
-            public String getBindExpression()
-            {
-                return "ST_GeomFromEWKB(?)";
-            }
-
-            @Override
-            public void set(PreparedStatement statement, int index, Object value)
-                    throws SQLException
-            {
-                Geometry geometry = (Geometry) value;
-                statement.setBytes(index, serialize(geometry).getBytes());
-            }
-        };
     }
 
     private static class StatisticsDao
