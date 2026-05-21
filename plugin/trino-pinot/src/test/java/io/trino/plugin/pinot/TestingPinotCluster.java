@@ -43,6 +43,7 @@ import org.apache.pinot.spi.utils.retry.RetryPolicies;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -113,7 +114,8 @@ public class TestingPinotCluster
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartController", "-configFileName", controllerConfig)
                 .withNetworkAliases("pinot-controller", "localhost")
-                .withExposedPorts(CONTROLLER_PORT);
+                .withExposedPorts(CONTROLLER_PORT)
+                .waitingFor(Wait.forHttp("/health").forStatusCode(200));
         closer.register(controller::stop);
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
@@ -124,7 +126,8 @@ public class TestingPinotCluster
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
                 .withCommand("StartBroker", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", brokerConfig)
                 .withNetworkAliases("pinot-broker", "localhost")
-                .withExposedPorts(BROKER_PORT);
+                .withExposedPorts(BROKER_PORT)
+                .waitingFor(Wait.forHttp("/health").forStatusCode(200));
         closer.register(broker::stop);
 
         String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
