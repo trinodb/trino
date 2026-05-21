@@ -65,7 +65,7 @@ public class TestJdbcFlushMetadataCacheProcedure
         String renamedColumnQuery = "SELECT \"name\", renamed FROM cached.cached";
         // Should fail as Trino has old metadata cached
         assertThatThrownBy(() -> getQueryRunner().execute(renamedColumnQuery))
-                .hasMessageMatching(".*Column 'renamed' cannot be resolved");
+                .hasMessageMatching(".*Column 'renamed' cannot be resolved, available candidates are: 'nationkey, name, regionkey, comment'");
 
         // Should succeed after flushing Trino JDBC metadata cache
         getQueryRunner().execute("CALL \"system\".\"flush_metadata_cache\"()");

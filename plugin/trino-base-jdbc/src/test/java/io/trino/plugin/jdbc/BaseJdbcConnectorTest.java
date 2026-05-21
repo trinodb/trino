@@ -2124,13 +2124,13 @@ public abstract class BaseJdbcConnectorTest
                         "SELECT \"name\" FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.%s'))",
                         getSession().getSchema().orElseThrow(),
                         "region".equals(canonicalize("region")) ? "region" : "\"region\""),
-                ".* Column 'name' cannot be resolved");
+                ".* Column 'name' cannot be resolved, available candidates are: '%s'".formatted(canonicalize("region_name")));
         assertQueryFails(
                 format(
                         "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT \"name\" AS region_name FROM %s.%s'))",
                         getSession().getSchema().orElseThrow(),
                         "region".equals(canonicalize("region")) ? "region" : "\"region\""),
-                ".* Column 'column_not_found' cannot be resolved");
+                ".* Column 'column_not_found' cannot be resolved, available candidates are: '%s'".formatted(canonicalize("region_name")));
     }
 
     @Test

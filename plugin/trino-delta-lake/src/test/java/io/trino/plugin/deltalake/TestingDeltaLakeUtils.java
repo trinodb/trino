@@ -108,6 +108,7 @@ public final class TestingDeltaLakeUtils
     public static void copyDirectoryContents(Path source, Path destination)
             throws IOException
     {
+        System.out.println("TestingDeltaLakeUtils.copyDirectoryContents() source: " + source.toString());
         try (Stream<Path> stream = Files.walk(source)) {
             stream.forEach(file -> {
                 try {

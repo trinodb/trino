@@ -81,6 +81,7 @@ public class MetadataEntry
         this.partitionColumns = partitionColumns;
         this.canonicalPartitionColumns = partitionColumns.stream()
                 // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
+                .map(value -> value.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         this.configuration = configuration;
         this.createdTime = createdTime;

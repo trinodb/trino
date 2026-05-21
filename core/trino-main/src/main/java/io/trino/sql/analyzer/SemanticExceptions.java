@@ -40,7 +40,7 @@ public final class SemanticExceptions
 
     public static TrinoException missingAttributeException(Expression node, QualifiedName name, List<String> candidates)
     {
-        throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved, possible candidate are: '%s'", name, String.join(", ", candidates));
+        throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved, available candidates are: '%s'", name, String.join(", ", candidates));
     }
 
     public static TrinoException invalidReferenceException(Expression node, QualifiedName name)

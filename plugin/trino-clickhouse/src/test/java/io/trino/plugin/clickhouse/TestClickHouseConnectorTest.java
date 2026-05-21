@@ -243,7 +243,7 @@ public class TestClickHouseConnectorTest
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-        assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
+        assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved, available candidates are: 'x, a'");
 
         assertUpdate("DROP TABLE " + tableName);
 

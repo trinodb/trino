@@ -3086,8 +3086,8 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
-            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
+            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved, available candidates are: '%s'".formatted(canonicalize("a")));
+            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved, available candidates are: '%s'".formatted(canonicalize("a")));
 
             assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
         }

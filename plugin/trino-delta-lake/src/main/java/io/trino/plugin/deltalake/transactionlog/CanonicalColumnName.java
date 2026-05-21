@@ -48,7 +48,7 @@ public class CanonicalColumnName
         }
         CanonicalColumnName that = (CanonicalColumnName) o;
         return hashCode() == that.hashCode() // compare hash codes because they are cached, so this is cheap and efficient
-                && Objects.equals(originalName, that.originalName);
+                && Objects.equals(TransactionLogAccess.canonicalizeColumnName(originalName), TransactionLogAccess.canonicalizeColumnName(that.originalName));
     }
 
     @Override

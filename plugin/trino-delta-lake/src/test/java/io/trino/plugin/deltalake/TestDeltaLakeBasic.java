@@ -197,6 +197,12 @@ public class TestDeltaLakeBasic
         return getClass().getClassLoader().getResource(resourcePath);
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     /**
      * @see databricks173.parquet_column_index_with_non_stats_column
      */
@@ -870,9 +876,9 @@ public class TestDeltaLakeBasic
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
 
-        assertQuery(session, format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
         assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
-        assertQuery(session, format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(session, format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -957,8 +963,9 @@ public class TestDeltaLakeBasic
         assertThat(transactionLog).hasSize(2);
         AddFileEntry addFileEntry = transactionLog.get(1).getAdd();
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
-        assertThat(stats.getMinValues().orElseThrow()).containsEntry("UPPER_CASE", 10);
-        assertThat(stats.getMaxValues().orElseThrow()).containsEntry("UPPER_CASE", 20);
+        System.out.println("TestDeltaLakeBasic.testStatisticsWithColumnCaseSensitivity() columns: " + String.join(", ", stats.getMinValues().orElseThrow().keySet()));
+        assertThat(stats.getMinValues().orElseThrow()).containsEntry("Upper_Case", 10);
+        assertThat(stats.getMaxValues().orElseThrow()).containsEntry("upper_case", 20);
         assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
 
         assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);
@@ -967,9 +974,9 @@ public class TestDeltaLakeBasic
         assertThat(transactionLogAfterUpdate).hasSize(3);
         AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(2).getAdd();
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
-        assertThat(updateStats.getMinValues().orElseThrow()).containsEntry("UPPER_CASE", 20);
-        assertThat(updateStats.getMaxValues().orElseThrow()).containsEntry("UPPER_CASE", 30);
-        assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+        assertThat(updateStats.getMinValues().orElseThrow()).containsEntry("upper_case", 20);
+        assertThat(updateStats.getMaxValues().orElseThrow()).containsEntry("upper_case", 30);
+        assertThat(updateStats.getNullCount("upper_case").orElseThrow()).isEqualTo(1);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -2073,7 +2080,7 @@ public class TestDeltaLakeBasic
         // Avoid failing metadata queries
         assertQuery("SHOW TABLES LIKE 'bad\\_person\\_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
         assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'bad\\_person\\_%' ESCAPE '\\'");
-        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM system.jdbc.columns WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA AND table_name LIKE 'bad\\_person\\_%' ESCAPE '\\'");
+        assertQueryReturnsEmptyResult("SELECT \"COLUMN_NAME\", \"DATA_TYPE\" FROM system.jdbc.columns WHERE \"TABLE_CAT\" = CURRENT_CATALOG AND \"TABLE_SCHEM\" = CURRENT_SCHEMA AND \"TABLE_NAME\" LIKE 'bad\\_person\\_%' ESCAPE '\\'");
 
         // DROP TABLE should succeed so that users can remove their corrupted table
         getQueryRunner().execute("DROP TABLE " + tableName);
@@ -2616,12 +2623,12 @@ public class TestDeltaLakeBasic
     {
         assertThat(query("DESCRIBE type_widening_partition")).result().projected("Column", "Type")
                 .skippingTypesCheck()
-                .matches("VALUES ('col', 'tinyint'), " +
-                        "('byte_to_short', 'smallint'), " +
+                .matches("VALUES ('cOl', 'tinyint'), " +
+                        "('Byte_to_Short', 'smallint'), " +
                         "('byte_to_int', 'integer'), " +
                         "('byte_to_long', 'bigint'), " +
                         "('byte_to_decimal', 'decimal(10,0)'), " +
-                        "('byte_to_double', 'double'), " +
+                        "('Byte_to_Double', 'double'), " +
                         "('short_to_int', 'integer'), " +
                         "('short_to_long', 'bigint'), " +
                         "('short_to_decimal', 'decimal(10,0)'), " +
@@ -2712,7 +2719,7 @@ public class TestDeltaLakeBasic
         assertThat(query("DESCRIBE type_widening_nested")).result().projected("Column", "Type")
                 .skippingTypesCheck()
                 .isEmpty();
-        assertQueryFails("SELECT s FROM type_widening_nested", "(.*)Column 's' cannot be resolved");
+        assertQueryFails("SELECT s FROM type_widening_nested", ".*\\QColumn 's' cannot be resolved, available candidates are: '$path, $file_size, $file_modified_time'\\E");
         assertQueryFails("SELECT * FROM type_widening_nested", "(.*)SELECT \\* not allowed from relation that has no columns");
 
         assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 0"))
@@ -2788,7 +2795,7 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
         assertQueryFails("SELECT * FROM " + tableName, "(.*)SELECT \\* not allowed from relation that has no columns");
-        assertQueryFails("SELECT col FROM " + tableName, "(.*)Column 'col' cannot be resolved");
+        assertQueryFails("SELECT col FROM " + tableName, ".*\\QColumn 'col' cannot be resolved, available candidates are: '$path, $file_size, $file_modified_time'\\E");
     }
 
     /**

@@ -101,6 +101,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionLogAccess
@@ -693,6 +694,11 @@ public class TransactionLogAccess
             result.add(version);
         }
         return result.build();
+    }
+
+    public static String canonicalizeColumnName(String columnName)
+    {
+        return columnName.toLowerCase(ENGLISH);
     }
 
     public static <T> Map<CanonicalColumnName, T> toCanonicalNameKeyedMap(Map<String, T> map, Map<String, CanonicalColumnName> canonicalColumnNames)

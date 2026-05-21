@@ -1172,8 +1172,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('lower_case_string', 10.0, 1.0, 0.5, null, null, null)," +
-                        "('upper_case_string', 10.0, 1.0, 0.5, null, null, null)," +
-                        "('mixed_case_string', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('UPPER_CASE_STRING', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('MiXeD_CaSe_StRiNg', 10.0, 1.0, 0.5, null, null, null)," +
                         "(null, null, null, null, 8.0, null, null)");
     }
 
@@ -1275,8 +1275,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('lower_case_string', 10.0, 1.0, 0.5, null, null, null)," +
-                        "('upper_case_string', 10.0, 1.0, 0.5, null, null, null)," +
-                        "('mixed_case_string', null, 2.0, 0.5, null, null, null)," +
+                        "('UPPER_CASE_STRING', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('MiXeD_CaSe_StRiNg', null, 2.0, 0.5, null, null, null)," +
                         "(null, null, null, null, 8.0, null, null)");
     }
 

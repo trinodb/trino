@@ -207,7 +207,7 @@ public class TestSplitPruning
         String tableName = "uppercase_columns_partitions";
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala > 0", tableName),
+                format("SELECT ALA FROM %s WHERE ALA > 0", tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L, 2L, 3L);
                     assertThat(result.getRowCount()).isEqualTo(5);
@@ -215,7 +215,7 @@ public class TestSplitPruning
                 3);
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala = 1", tableName),
+                format("SELECT ALA FROM %s WHERE ALA = 1", tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L);
                     assertThat(result.getRowCount()).isEqualTo(2);
@@ -223,7 +223,7 @@ public class TestSplitPruning
                 1);
 
         assertResultAndSplitCount(
-                format("SELECT ala FROM %s WHERE ala > 1", tableName),
+                format("SELECT ALA FROM %s WHERE ALA > 1", tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(2L, 3L);
                     assertThat(result.getRowCount()).isEqualTo(3);
@@ -231,7 +231,7 @@ public class TestSplitPruning
                 2);
 
         assertResultAndSplitCount(
-                format("SELECT kota FROM %s WHERE ala = 1", tableName),
+                format("SELECT KOTA FROM %s WHERE ALA = 1", tableName),
                 result -> {
                     assertThat(result.getOnlyColumnAsSet()).containsOnly(1L, 2L);
                     assertThat(result.getRowCount()).isEqualTo(2);
@@ -387,17 +387,17 @@ public class TestSplitPruning
     @Test
     public void testJsonStatisticsPruningUppercaseColumn()
     {
-        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE blah = 2", 1, 1);
-        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE blah = 3", 2, 2);
-        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE blah <= 10", 8, 3);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE BLAH = 2", 1, 1);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE BLAH = 3", 2, 2);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_json_statistics WHERE BLAH <= 10", 8, 3);
     }
 
     @Test
     public void testStructStatisticsPruningUppercaseColumn()
     {
-        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE blah = 2", 1, 1);
-        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE blah = 3", 2, 2);
-        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE blah <= 10", 8, 3);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE BLAH = 2", 1, 1);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE BLAH = 3", 2, 2);
+        testCountQuery("SELECT count(*) FROM uppercase_columns_struct_statistics WHERE BLAH <= 10", 8, 3);
     }
 
     /**
