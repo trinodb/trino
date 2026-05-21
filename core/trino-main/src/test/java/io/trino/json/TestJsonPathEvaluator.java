@@ -42,6 +42,7 @@ import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguratio
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -606,6 +607,68 @@ public class TestJsonPathEvaluator
                 path(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.empty(), Optional.empty()))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: bigint");
+    }
+
+    @Test
+    public void testDatetimeMethodWithTemplate()
+    {
+        // With a template, the template determines the resulting type, and the value must match it
+        // exactly -- a shape that would be recognized without a template is not accepted.
+        assertThat(pathResult(
+                TextNode.valueOf("01/02/2024"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02 12:34:56.789"),
+                path(true, datetimeMethod("YYYY-MM-DD HH24:MI:SS.FF3"))))
+                .isEqualTo(singletonSequence(TypedValue.fromValueAsObject(createTimestampType(3), parseTimestamp(3, "2024-01-02 12:34:56.789"))));
+
+        // the template, not the value, fixes the precision of the resulting type
+        assertThat(pathResult(
+                TextNode.valueOf("12:34:56.789"),
+                path(true, datetimeMethod("HH24:MI:SS.FF6"))))
+                .isEqualTo(singletonSequence(new TypedValue(createTimeType(6), parseTime("12:34:56.789"))));
+
+        // a template that specifies only the low-order year digits completes the year
+        assertThat(pathResult(
+                TextNode.valueOf("24-01-02"),
+                path(true, datetimeMethod("RR-MM-DD"))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+
+        // multiple inputs -- array is automatically unwrapped in lax mode
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("01/02/2024"), TextNode.valueOf("01/03/2024"))),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isEqualTo(sequence(
+                        new TypedValue(DATE, (long) parseDate("2024-01-02")),
+                        new TypedValue(DATE, (long) parseDate("2024-01-03"))));
+
+        // the value does not match the template
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("2024-01-02"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseMessage("expected literal '/' at position 2");
+
+        // the value carries a field that the template does not accept
+        assertThatThrownBy(() -> evaluate(
+                TextNode.valueOf("13/02/2024"),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasRootCauseInstanceOf(DateTimeException.class);
+
+        // non-text item is rejected before the template is applied
+        assertThatThrownBy(() -> evaluate(
+                IntNode.valueOf(0),
+                path(true, datetimeMethod("MM/DD/YYYY"))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+    }
+
+    private static IrDatetimeMethod datetimeMethod(String template)
+    {
+        return new IrDatetimeMethod(contextVariable(), Optional.of(JsonDateTimeTemplate.parse(template)), Optional.empty());
     }
 
     @Test
