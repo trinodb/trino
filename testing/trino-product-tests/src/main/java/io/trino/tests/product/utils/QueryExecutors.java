@@ -90,6 +90,11 @@ public final class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "mysql");
     }
 
+    public static QueryExecutor onPostgres()
+    {
+        return testContext().getDependency(QueryExecutor.class, "postgres");
+    }
+
     public static QueryExecutor onSpark()
     {
         return new QueryExecutor()
