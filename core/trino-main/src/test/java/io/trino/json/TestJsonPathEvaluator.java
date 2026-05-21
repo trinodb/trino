@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.json.ir.IrDatetimeMethod;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
@@ -105,6 +107,7 @@ import static io.trino.sql.planner.PathNodes.type;
 import static io.trino.sql.planner.PathNodes.wildcardArrayAccessor;
 import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.util.DateTimeUtils.parseDate;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -517,6 +520,32 @@ public class TestJsonPathEvaluator
                 path(true, ceiling(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testDatetimeMethod()
+    {
+        // text item: DATE shape
+        assertThat(pathResult(
+                TextNode.valueOf("2024-01-02"),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isEqualTo(singletonSequence(new TypedValue(DATE, (long) parseDate("2024-01-02"))));
+
+        // non-text JsonNode → itemTypeError
+        assertThatThrownBy(() -> evaluate(
+                IntNode.valueOf(0),
+                path(true, new IrDatetimeMethod(contextVariable(), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: NUMBER");
+
+        // non-text TypedValue → itemTypeError (not ClassCastException). The analyzer rejects
+        // statically-typed non-text sources, but defense in depth: if a non-text TypedValue
+        // somehow reaches the runtime, surface a clean item-type error.
+        assertThatThrownBy(() -> evaluate(
+                NullNode.instance,
+                path(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.empty(), Optional.empty()))))
+                .isInstanceOf(PathEvaluationException.class)
+                .hasMessage("path evaluation failed: invalid item type. Expected: TEXT, actual: bigint");
     }
 
     @Test
