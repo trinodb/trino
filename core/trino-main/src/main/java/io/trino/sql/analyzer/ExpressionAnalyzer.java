@@ -3098,6 +3098,16 @@ public class ExpressionAnalyzer
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
             }
+
+            // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
+            // OMIT QUOTES would require emitting a bare unquoted scalar, which is not valid JSON; the spec
+            // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
+            // QUOTES parameter). On trunk the only reachable JSON-effective return type is an explicit
+            // RETURNING JSON — analyzeJsonPathInvocation's getInputFunction rejects JSON-typed inputs, so
+            // the SR 1 "JSON-typed input with no RETURNING" branch can't be exercised today.
+            if (quotesBehavior.filter(behavior -> behavior == JsonQuery.QuotesBehavior.OMIT).isPresent() && JSON.equals(returnedType)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+            }
             JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 
             // resolve function to format output
