@@ -399,6 +399,41 @@ public final class Session
                 queryDataEncoding);
     }
 
+    public Session withTransactionId(TransactionId transactionId)
+    {
+        requireNonNull(transactionId, "transactionId is null");
+        checkArgument(this.transactionId.isEmpty(), "Session already has an active transaction");
+
+        return new Session(
+                queryId,
+                querySpan,
+                Optional.of(transactionId),
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                ImmutableMap.of(),
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding);
+    }
+
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
