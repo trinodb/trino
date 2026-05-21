@@ -677,7 +677,8 @@ public class TestCassandraConnectorTest
     @Test
     void testInvalidColumn()
     {
-        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
+        assertQueryFails("SELECT bogus FROM nation",
+                ".* Column 'bogus' cannot be resolved, available candidates are: 'id, nationkey, name, regionkey, comment'");
     }
 
     @Test

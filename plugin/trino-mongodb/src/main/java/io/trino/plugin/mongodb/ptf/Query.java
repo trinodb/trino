@@ -53,7 +53,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class Query
@@ -113,12 +112,6 @@ public class Query
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
             String filter = ((Slice) ((ScalarArgument) arguments.get("FILTER")).getValue()).toStringUtf8();
-            if (!database.equals(database.toLowerCase(ENGLISH))) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase database name is supported");
-            }
-            if (!collection.equals(collection.toLowerCase(ENGLISH))) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
-            }
             SchemaTableName schemaTableName = new SchemaTableName(database, collection);
             MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
             if (tableHandle == null) {

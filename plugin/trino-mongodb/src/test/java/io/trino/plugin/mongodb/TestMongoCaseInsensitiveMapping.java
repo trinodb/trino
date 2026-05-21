@@ -29,7 +29,6 @@ import java.util.Map;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -64,6 +63,12 @@ public class TestMongoCaseInsensitiveMapping
         client.close();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testCaseInsensitive()
     {
@@ -76,10 +81,10 @@ public class TestMongoCaseInsensitiveMapping
                 "SHOW COLUMNS FROM testCase.testInsensitive",
                 "VALUES ('Name', 'varchar', '', ''), ('Value', 'bigint', '', '')");
 
-        assertQuery("SELECT name, value FROM testCase.testInsensitive", "SELECT 'abc', 1");
+        assertQuery("SELECT Name, Value FROM testCase.testInsensitive", "SELECT 'abc', 1");
         assertUpdate("INSERT INTO testCase.testInsensitive VALUES('def', 2)", 1);
 
-        assertQuery("SELECT value FROM testCase.testInsensitive WHERE name = 'def'", "SELECT 2");
+        assertQuery("SELECT Value FROM testCase.testInsensitive WHERE Name = 'def'", "SELECT 2");
         assertUpdate("DROP TABLE testCase.testInsensitive");
         assertQueryReturnsEmptyResult("SHOW TABLES IN testCase");
 
@@ -110,18 +115,18 @@ public class TestMongoCaseInsensitiveMapping
         collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
 
         client.getDatabase("NonLowercaseSchema").createView("lowercase_view", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM NonLowercaseSchema.lowercase_view WHERE name = 'abc'", "SELECT 1");
+        assertQuery("SELECT Value FROM NonLowercaseSchema.lowercase_view WHERE Name = 'abc'", "SELECT 1");
 
         // Case sensitive view name
         collection = client.getDatabase("test_database").getCollection("test_collection");
         collection.insertOne(new Document(ImmutableMap.of("Name", "abc", "Value", 1)));
 
         client.getDatabase("test_database").createView("NonLowercaseView", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM test_database.NonLowercaseView WHERE name = 'abc'", "SELECT 1");
+        assertQuery("SELECT Value FROM test_database.NonLowercaseView WHERE Name = 'abc'", "SELECT 1");
 
         // Case sensitive schema and view name
         client.getDatabase("NonLowercaseSchema").createView("NonLowercaseView", "test_collection", ImmutableList.of());
-        assertQuery("SELECT value FROM NonLowercaseSchema.NonLowercaseView WHERE name = 'abc'", "SELECT 1");
+        assertQuery("SELECT Value FROM NonLowercaseSchema.NonLowercaseView WHERE Name = 'abc'", "SELECT 1");
 
         assertUpdate("DROP TABLE NonLowercaseSchema.lowercase_view");
         assertUpdate("DROP TABLE test_database.NonLowercaseView");
@@ -137,7 +142,7 @@ public class TestMongoCaseInsensitiveMapping
         String schemaName = "Test_Case_Insensitive_Schema" + randomNameSuffix();
         client.getDatabase(schemaName).getCollection(tableName).insertOne(new Document("field", "hello"));
 
-        assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => '" + schemaName.toLowerCase(ENGLISH) + "', collection => '" + tableName.toLowerCase(ENGLISH) + "', filter => '{}'))"))
-                .matches("VALUES CAST('hello' AS VARCHAR)");
+        String query = "SELECT * FROM TABLE(mongodb.system.query(database => '%s', collection => '%s', filter => '{}'))";
+        assertThat(query(query.formatted(schemaName, tableName))).matches("VALUES CAST('hello' AS VARCHAR)");
     }
 }

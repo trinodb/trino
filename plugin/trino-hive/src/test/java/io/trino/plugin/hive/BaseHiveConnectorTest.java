@@ -3375,8 +3375,8 @@ public abstract class BaseHiveConnectorTest
                 "SELECT * FROM " + partitionsTable + " WHERE order_status = 'O'",
                 "SELECT DISTINCT \"shippriority\", \"orderstatus\" FROM \"orders\" WHERE \"orderstatus\" = 'O'");
 
-        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved");
-        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE orderkey = 1", "line \\S*: Column 'orderkey' cannot be resolved");
+        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE no_such_column = 1", "line \\S*: Column 'no_such_column' cannot be resolved, available candidates are: 'ship_priority, order_status'");
+        assertQueryFails(session, "SELECT * FROM " + partitionsTable + " WHERE orderkey = 1", "line \\S*: Column 'orderkey' cannot be resolved, available candidates are: 'ship_priority, order_status'");
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 

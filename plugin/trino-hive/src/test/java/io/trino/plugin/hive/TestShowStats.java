@@ -400,7 +400,8 @@ public class TestShowStats
     @Test
     public void testShowStatsForNonExistingColumnFails()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)", ".*Column 'column_does_not_exist' cannot be resolved");
+        assertQueryFails("SHOW STATS FOR (SELECT column_does_not_exist FROM nation_partitioned)",
+                ".*\\QColumn 'column_does_not_exist' cannot be resolved, available candidates are: 'nationkey, name, comment, regionkey, $path, $file_size, $file_modified_time, $partition'\\E");
     }
 
     @Test

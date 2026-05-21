@@ -180,7 +180,7 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1", "VALUES 'dt=2021-12-09/hh=10'");
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
-        assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+        assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".*\\QColumn '$partition' cannot be resolved, available candidates are: '_hoodie_commit_time\\E.*");
     }
 
     @Test

@@ -64,6 +64,12 @@ public class TestMongoTypeMapping
                 .build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testBoolean()
     {

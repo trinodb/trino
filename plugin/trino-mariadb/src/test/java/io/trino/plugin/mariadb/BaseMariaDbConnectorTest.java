@@ -350,10 +350,10 @@ public abstract class BaseMariaDbConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQueryFails(
                 format("SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
-                ".* Column 'name' cannot be resolved");
+                ".* Column 'name' cannot be resolved, available candidates are: 'region_name'");
         assertQueryFails(
                 format("SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
-                ".* Column '%s' cannot be resolved".formatted(canonicalize("column_not_found")));
+                ".* Column 'column_not_found' cannot be resolved, available candidates are: 'region_name'");
     }
 
     @Override
