@@ -323,7 +323,11 @@ public class Scope
     public ResolvedField resolveField(Expression expression, Identifier identifier)
     {
         QualifiedName name = QualifiedName.of(identifier);
-        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
+        return tryResolveField(expression, name)
+                .orElseThrow(() -> missingAttributeException(expression, name, relation.getAllFields().stream()
+                        .filter(field -> field.getName().isPresent())
+                        .map(field -> field.getName().get())
+                        .toList()));
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)

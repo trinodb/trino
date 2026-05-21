@@ -797,7 +797,7 @@ public final class DeltaLakeSchemaSupport
                     // Users can't work around this by casting in their queries because Trino parser always lower case types.
                     // TODO: This is a hack. Engine should be able to handle identifiers in a case insensitive way where necessary.
                     // See also HiveTypeTranslator#toTypeSingature.
-                    TransactionLogAccess.canonicalizeColumnName(fieldName),
+                    fieldName,
                     buildType(typeManager, element.get("type"), usePhysicalName)));
         }
         return RowType.from(fields.build());
