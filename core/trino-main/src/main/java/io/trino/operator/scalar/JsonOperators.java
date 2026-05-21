@@ -22,6 +22,7 @@ import io.trino.json.Json;
 import io.trino.json.JsonItemBuilder;
 import io.trino.json.JsonItemEncoding.TypeTag;
 import io.trino.json.JsonItems;
+import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -29,6 +30,7 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.TrinoNumber;
+import io.trino.type.DateOperators;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
@@ -318,6 +320,37 @@ public final class JsonOperators
     public static Json castFromDate(@SqlType(DATE) long value)
     {
         return JsonItemBuilder.encodeVarchar(utf8Slice(printDate((int) value)));
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @SqlType(DATE)
+    public static Long castToDate(@SqlType(JSON) Json json)
+    {
+        if (json.isNull()) {
+            return null;
+        }
+        if (!json.isScalar() || json.scalarType() != TypeTag.VARCHAR) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to date; expected a JSON string");
+        }
+        Slice text = (Slice) json.materializeScalar().getObjectValue();
+        return DateOperators.castFromVarchar(text);
+    }
+
+    @ScalarOperator(CAST)
+    @SqlNullable
+    @LiteralParameters("p")
+    @SqlType("time(p)")
+    public static Long castToTime(@LiteralParameter("p") long precision, @SqlType(JSON) Json json)
+    {
+        if (json.isNull()) {
+            return null;
+        }
+        if (!json.isScalar() || json.scalarType() != TypeTag.VARCHAR) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast JSON value to time; expected a JSON string");
+        }
+        Slice text = (Slice) json.materializeScalar().getObjectValue();
+        return TimeOperators.castFromVarchar(precision, text);
     }
 
     // TODO: every cast from JSON pays a tree materialization plus a token round-trip through
