@@ -84,6 +84,7 @@ import static io.trino.sql.planner.PathNodes.keyValue;
 import static io.trino.sql.planner.PathNodes.last;
 import static io.trino.sql.planner.PathNodes.lessThan;
 import static io.trino.sql.planner.PathNodes.lessThanOrEqual;
+import static io.trino.sql.planner.PathNodes.likeRegex;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.PathNodes.minus;
@@ -1398,6 +1399,42 @@ public class TestJsonPathEvaluator
                 TextNode.valueOf("abc"),
                 true,
                 startsWith(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), literal(VARCHAR, utf8Slice("A")))))
+                .isEqualTo(FALSE);
+    }
+
+    @Test
+    public void testLikeRegexPredicate()
+    {
+        // simple match
+        assertThat(predicateResult(
+                TextNode.valueOf("abcde"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(TRUE);
+
+        // input is automatically unwrapped in lax mode
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "z$")))
+                .isEqualTo(TRUE);
+
+        // non-text input -> unknown
+        assertThat(predicateResult(
+                IntNode.valueOf(7),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "^abc")))
+                .isEqualTo(null);
+
+        // empty input sequence (subscript out-of-bounds in lax mode) -> FALSE per §9.46 GR F.V
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("abc"), TextNode.valueOf("xyz"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), "^abc")))
                 .isEqualTo(FALSE);
     }
 
