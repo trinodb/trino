@@ -123,7 +123,7 @@ class JsonPathTranslator
     public IrJsonPath rewriteToIr(JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
     {
         PathNode root = pathAnalysis.getPath().getRoot();
-        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis.getTypes(), pathAnalysis.getJsonParameters(), parametersOrder).process(root);
+        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis, parametersOrder).process(root);
 
         return new IrJsonPath(pathAnalysis.getPath().isLax(), rewritten);
     }
@@ -132,22 +132,22 @@ class JsonPathTranslator
             extends JsonPathTreeVisitor<IrPathNode, Void>
     {
         private final LiteralInterpreter literalInterpreter;
+        private final JsonPathAnalysis pathAnalysis;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
         private final List<String> parametersOrder;
 
-        public Rewriter(Session session, PlannerContext plannerContext, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters, List<String> parametersOrder)
+        public Rewriter(Session session, PlannerContext plannerContext, JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
         {
             requireNonNull(session, "session is null");
             requireNonNull(plannerContext, "plannerContext is null");
-            requireNonNull(types, "types is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
-            requireNonNull(jsonParameters, "jsonParameters is null");
+            requireNonNull(pathAnalysis, "pathAnalysis is null");
             requireNonNull(parametersOrder, "parametersOrder is null");
 
             this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
-            this.types = types;
-            this.jsonParameters = jsonParameters;
+            this.pathAnalysis = pathAnalysis;
+            this.types = pathAnalysis.getTypes();
+            this.jsonParameters = pathAnalysis.getJsonParameters();
             this.parametersOrder = parametersOrder;
         }
 
@@ -225,7 +225,10 @@ class JsonPathTranslator
         protected IrPathNode visitDatetimeMethod(DatetimeMethod node, Void context)
         {
             IrPathNode base = process(node.getBase());
-            return new IrDatetimeMethod(base, node.getFormat(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            return new IrDatetimeMethod(
+                    base,
+                    Optional.ofNullable(pathAnalysis.getDatetimeTemplate(node)),
+                    Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override

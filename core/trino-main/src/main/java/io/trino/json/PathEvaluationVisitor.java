@@ -682,7 +682,9 @@ class PathEvaluationVisitor
                         .orElseThrow(() -> itemTypeError("TEXT", jsonNode.getNodeType().name()));
             }
             try {
-                outputSequence.add(getDatetime(value));
+                outputSequence.add(node.format()
+                        .map(template -> template.parseValue(((Slice) value.getObjectValue()).toStringUtf8()))
+                        .orElseGet(() -> getDatetime(value)));
             }
             catch (RuntimeException e) {
                 // A value that cannot be parsed must surface as a path evaluation error, so that
