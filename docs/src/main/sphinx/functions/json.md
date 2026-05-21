@@ -572,8 +572,14 @@ Let `<path>` return a sequence of three JSON arrays:
 
 ### Limitations
 
-The SQL standard describes the `datetime()` JSON path item method and the
-`like_regex()` JSON path predicate. Trino does not support them.
+The SQL standard describes the `like_regex()` JSON path predicate. Trino does
+not support it.
+
+### Trino-specific behavior
+
+Without a format template, `datetime()` parses the value as the most specific of
+`DATE` / `TIME(p)` / `TIME(p) WITH TIME ZONE` / `TIMESTAMP(p)` /
+`TIMESTAMP(p) WITH TIME ZONE` based on the value's shape.
 
 (json-path-modes)=
 ### JSON path modes

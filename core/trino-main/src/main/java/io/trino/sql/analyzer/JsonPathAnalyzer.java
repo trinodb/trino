@@ -254,8 +254,11 @@ public class JsonPathAnalyzer
             if (sourceType != null && !isCharacterStringType(sourceType)) {
                 throw semanticException(INVALID_PATH, pathNode, "JSON path datetime() method requires character string argument (found %s)", sourceType.getDisplayName());
             }
-            // TODO process the format template, record the processed format, and deduce the returned type
-            throw semanticException(NOT_SUPPORTED, pathNode, "datetime method in JSON path is not yet supported");
+            if (node.getFormat().isPresent()) {
+                throw semanticException(NOT_SUPPORTED, pathNode, "datetime() format template is not yet supported");
+            }
+
+            return null;
         }
 
         @Override
