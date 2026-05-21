@@ -304,12 +304,6 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
-    public String canonicalize(String value, boolean delimited)
-    {
-        return delimited ? value : canonicalize(value);
-    }
-
-    @Override
     public String canonicalize(String value)
     {
         return value.toLowerCase(ENGLISH);

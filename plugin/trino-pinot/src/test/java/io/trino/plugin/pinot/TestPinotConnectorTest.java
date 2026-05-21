@@ -106,7 +106,7 @@ public class TestPinotConnectorTest
     @Override // Override because updated_at_seconds column exists
     public void testSelectAll()
     {
-        assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment FROM orders");
+        assertQuery("SELECT \"orderkey\", \"custkey\", \"orderstatus\", \"totalprice\", \"orderdate\", \"orderpriority\", \"clerk\", \"shippriority\", \"comment\" FROM \"orders\"");
     }
 
     @Override

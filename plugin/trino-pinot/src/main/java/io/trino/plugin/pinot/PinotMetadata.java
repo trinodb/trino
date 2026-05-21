@@ -89,7 +89,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -227,7 +226,7 @@ public class PinotMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
         for (PinotColumnHandle columnHandle : getPinotColumnHandlesForPinotSchema(pinotTableName)) {
-            columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle);
+            columnHandlesBuilder.put(columnHandle.getColumnName(), columnHandle);
         }
         return columnHandlesBuilder.buildOrThrow();
     }
@@ -576,10 +575,10 @@ public class PinotMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandlesBuilder = ImmutableMap.builder();
         for (PinotColumnHandle pinotColumnHandle : dynamicTable.projections()) {
-            columnHandlesBuilder.put(pinotColumnHandle.getColumnName().toLowerCase(ENGLISH), pinotColumnHandle);
+            columnHandlesBuilder.put(pinotColumnHandle.getColumnName(), pinotColumnHandle);
         }
         dynamicTable.aggregateColumns()
-                .forEach(columnHandle -> columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle));
+                .forEach(columnHandle -> columnHandlesBuilder.put(columnHandle.getColumnName(), columnHandle));
         return columnHandlesBuilder.buildOrThrow();
     }
 
