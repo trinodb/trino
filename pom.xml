@@ -2007,7 +2007,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>4.2.0</version>
+                <version>4.3.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.lz4</groupId>
