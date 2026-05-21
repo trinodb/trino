@@ -33,6 +33,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -40,6 +41,7 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -1143,6 +1145,49 @@ public class TestJsonOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "'abc'"))
                 .neverFails();
+    }
+
+    @Test
+    public void testCastToDate()
+    {
+        assertThat(assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON 'null'"))
+                .isNull(DATE);
+
+        assertThat(assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '\"2026-05-21\"'"))
+                .hasType(DATE)
+                .matches("DATE '2026-05-21'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '42'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast JSON value to date; expected a JSON string");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DATE)")
+                .binding("a", "JSON '\"not-a-date\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+    }
+
+    @Test
+    public void testCastToTime()
+    {
+        assertThat(assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON 'null'"))
+                .isNull(createTimeType(3));
+
+        assertThat(assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '\"01:23:45.678\"'"))
+                .matches("TIME '01:23:45.678'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast JSON value to time; expected a JSON string");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TIME(3))")
+                .binding("a", "JSON '\"not-a-time\"'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test

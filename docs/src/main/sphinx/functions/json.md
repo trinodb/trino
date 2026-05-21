@@ -1898,10 +1898,22 @@ from a standalone `NULL` will produce SQL `NULL` instead of
 ## Cast from JSON
 
 Casting to `BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`,
-`BIGINT`, `REAL`, `DOUBLE` or `VARCHAR` is supported.
+`BIGINT`, `REAL`, `DOUBLE`, `VARCHAR`, `DATE` or `TIME` is supported.
 Casting to `ARRAY` and `MAP` is supported when the element type of
 the array is one of the supported types, or when the key type of the map
 is `VARCHAR` and value type of the map is one of the supported types.
+
+Casting to `DATE` or `TIME` requires the JSON value to be a string holding a
+valid date or time. Any other JSON value, including a number, is rejected:
+
+```
+SELECT CAST(JSON '"2001-01-31"' AS DATE);      --> DATE '2001-01-31'
+SELECT CAST(JSON '"01:23:45.678"' AS TIME(3)); --> TIME '01:23:45.678'
+SELECT CAST(JSON 'null' AS DATE);              --> NULL
+SELECT CAST(JSON '42' AS DATE);
+--> failure: "Cannot cast JSON value to date; expected a JSON string"
+```
+
 Behaviors of the casts are shown with the examples below:
 
 ```
