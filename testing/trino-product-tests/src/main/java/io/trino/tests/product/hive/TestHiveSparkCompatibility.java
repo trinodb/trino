@@ -47,6 +47,7 @@ import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveSparkCompatibility
         extends ProductTest
@@ -725,7 +726,8 @@ public class TestHiveSparkCompatibility
             result.add(null);
             assertThat(onHive().executeQuery("SELECT * FROM " + tableName)).containsOnly(new Row(result), new Row(result));
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch("Output format org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat with SerDe org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe is not supported");
-            assertQueryFailure(() -> onHive().executeQuery("INSERT INTO " + tableName + " VALUES(2)")).hasMessageFindingMatch(".*Error while processing statement.*");
+            assertThatThrownBy(() -> onHive().executeQuery("INSERT INTO " + tableName + " VALUES(2)"))
+                    .hasStackTraceContaining("org.apache.hadoop.hive.serde2.io.ParquetHiveRecord cannot be cast to org.apache.hadoop.io.BytesWritable");
         }
         finally {
             onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
