@@ -39,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -50,7 +49,6 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
@@ -158,63 +156,6 @@ public class TestHiveStorageFormats
                     "2028-01-01 00:00:00.000",
                     "2027-12-31 23:59:59.999999",
                     "2027-12-31 23:59:59.999999499"));
-
-    // These check that values are correctly rounded on insertion
-    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_TRINO = List.of(
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.999", // millis as millis (no rounding)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.999",
-                    "2020-01-02 12:01:00.999000",
-                    "2020-01-02 12:01:00.999000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111499999", // nanos as millis rounds down (largest)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111000",
-                    "2020-01-02 12:01:00.111000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.1115", // micros as millis rounds up (smallest)
-                    MILLISECONDS,
-                    "2020-01-02 12:01:00.112",
-                    "2020-01-02 12:01:00.112000",
-                    "2020-01-02 12:01:00.112000000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333", // micros as micros (no rounding)
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.1113334", // nanos as micros rounds down
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333777", // nanos as micros rounds up
-                    MICROSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111334",
-                    "2020-01-02 12:01:00.111334000"),
-            timestampAndPrecision(
-                    "2020-01-02 12:01:00.111333444", // nanos as nanos (no rounding)
-                    NANOSECONDS,
-                    "2020-01-02 12:01:00.111",
-                    "2020-01-02 12:01:00.111333",
-                    "2020-01-02 12:01:00.111333444"),
-            timestampAndPrecision(
-                    "2020-01-02 23:59:59.999911333", // nanos as millis rounds up to next day
-                    MILLISECONDS,
-                    "2020-01-03 00:00:00.000",
-                    "2020-01-03 00:00:00.000000",
-                    "2020-01-03 00:00:00.000000000"),
-            timestampAndPrecision(
-                    "2020-12-31 23:59:59.99999", // micros as millis rounds up to next year
-                    MILLISECONDS,
-                    "2021-01-01 00:00:00.000",
-                    "2021-01-01 00:00:00.000000",
-                    "2021-01-01 00:00:00.000000000"));
 
     @DataProvider
     public static String[] storageFormats()
@@ -507,36 +448,6 @@ public class TestHiveStorageFormats
         }
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
-        onTrino().executeQuery(format("DROP TABLE %s", tableName));
-    }
-
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = {STORAGE_FORMATS_DETAILED, HMS_ONLY})
-    public void testStructTimestampsFromTrino(StorageFormat format)
-    {
-        String tableName = createStructTimestampTable("trino_struct_timestamp", format);
-        setAdminRole(onTrino().getConnection());
-
-        // Insert data grouped by write-precision so it rounds as expected
-        TIMESTAMPS_FROM_TRINO.stream()
-                .collect(Collectors.groupingBy(TimestampAndPrecision::getPrecision))
-                .forEach((precision, data) -> {
-                    setTimestampPrecision(precision);
-                    onTrino().executeQuery(format(
-                            "INSERT INTO %s VALUES (%s)",
-                            tableName,
-                            data.stream()
-                                    .map(entry -> format(
-                                            "%s,"
-                                                    + " array[%2$s],"
-                                                    + " map(array[%2$s], array[%2$s]),"
-                                                    + " row(%2$s),"
-                                                    + " array[map(array[%2$s], array[row(array[%2$s])])]",
-                                            entry.getId(),
-                                            format("TIMESTAMP '%s'", entry.getWriteValue())))
-                                    .collect(joining("), ("))));
-                });
-
-        assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 

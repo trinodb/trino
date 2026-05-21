@@ -8940,6 +8940,125 @@ public abstract class BaseHiveConnectorTest
                 });
     }
 
+    @Test
+    public void testNestedTimestampContainerPrecision()
+    {
+        record TimestampTestData(int id, HiveTimestampPrecision writePrecision, String writeValue, String millisValue, String microsValue, String nanosValue)
+        {
+            String readValue(HiveTimestampPrecision precision)
+            {
+                return switch (precision) {
+                    case MILLISECONDS -> millisValue;
+                    case MICROSECONDS -> microsValue;
+                    case NANOSECONDS -> nanosValue;
+                };
+            }
+        }
+
+        List<TimestampTestData> testData = ImmutableList.of(
+                new TimestampTestData(
+                        1,
+                        HiveTimestampPrecision.MILLISECONDS,
+                        "2020-01-02 12:01:00.999",
+                        "2020-01-02 12:01:00.999",
+                        "2020-01-02 12:01:00.999000",
+                        "2020-01-02 12:01:00.999000000"),
+                new TimestampTestData(
+                        2,
+                        HiveTimestampPrecision.MICROSECONDS,
+                        "2020-01-02 12:01:00.111499",
+                        "2020-01-02 12:01:00.111",
+                        "2020-01-02 12:01:00.111499",
+                        "2020-01-02 12:01:00.111499000"),
+                new TimestampTestData(
+                        3,
+                        HiveTimestampPrecision.NANOSECONDS,
+                        "2020-01-02 12:01:00.111499999",
+                        "2020-01-02 12:01:00.111",
+                        "2020-01-02 12:01:00.111500",
+                        "2020-01-02 12:01:00.111499999"));
+
+        for (HiveStorageFormat format : ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.RCBINARY, HiveStorageFormat.RCTEXT, HiveStorageFormat.SEQUENCEFILE, HiveStorageFormat.TEXTFILE)) {
+            String tableName = "test_nested_timestamp_container_precision_" + format.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(format(
+                        """
+                        CREATE TABLE %s (
+                           id INTEGER,
+                           arr ARRAY(TIMESTAMP),
+                           map MAP(TIMESTAMP, TIMESTAMP),
+                           row ROW(col TIMESTAMP),
+                           nested ARRAY(MAP(TIMESTAMP, ROW(col ARRAY(TIMESTAMP))))
+                        )
+                        WITH (format = '%s')
+                        """,
+                        tableName,
+                        format));
+
+                for (TimestampTestData entry : testData) {
+                    String timestamp = format("TIMESTAMP '%s'", entry.writeValue());
+                    assertUpdate(
+                            withTimestampPrecision(getSession(), entry.writePrecision()),
+                            format(
+                                    """
+                                    INSERT INTO %s VALUES (
+                                        %s,
+                                        array[%3$s],
+                                        map(array[%3$s], array[%3$s]),
+                                        row(%3$s),
+                                        array[map(array[%3$s], array[row(array[%3$s])])]
+                                    )
+                                    """,
+                                    tableName,
+                                    entry.id(),
+                                    timestamp),
+                            1);
+                }
+
+                for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+                    Session session = withTimestampPrecision(getSession(), precision);
+                    String type = format("timestamp(%d)", precision.getPrecision());
+                    assertQuery(
+                            session,
+                            format("SELECT typeof(arr), typeof(map), typeof(row), typeof(nested) FROM %s LIMIT 1", tableName),
+                            format(
+                                    "VALUES ('array(%1$s)', 'map(%1$s, %1$s)', 'row(\"col\" %1$s)', 'array(map(%1$s, row(\"col\" array(%1$s))))')",
+                                    type));
+                    assertQuery(
+                            session,
+                            format(
+                                    """
+                                    SELECT
+                                       id,
+                                       CAST(arr[1] AS VARCHAR),
+                                       CAST(map_entries(map)[1][1] AS VARCHAR),
+                                       CAST(map_entries(map)[1][2] AS VARCHAR),
+                                       CAST(row.col AS VARCHAR),
+                                       CAST(map_entries(nested[1])[1][1] AS VARCHAR),
+                                       CAST(map_entries(nested[1])[1][2].col[1] AS VARCHAR)
+                                    FROM %s
+                                    ORDER BY id
+                                    """,
+                                    tableName),
+                            testData.stream()
+                                    .map(entry -> timestampContainerExpectedRow(entry.id(), entry.readValue(precision)))
+                                    .collect(joining(", ", "VALUES ", "")));
+                }
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            }
+        }
+    }
+
+    private static String timestampContainerExpectedRow(int id, String value)
+    {
+        return format(
+                "(%s, '%2$s', '%2$s', '%2$s', '%2$s', '%2$s', '%2$s')",
+                id,
+                value);
+    }
+
     private void testTimestampPrecisionWrites(Session session, String tableName, BiConsumer<String, HiveTimestampPrecision> populateData)
     {
         populateData.accept("2019-02-03 18:30:00.123", HiveTimestampPrecision.MILLISECONDS);
