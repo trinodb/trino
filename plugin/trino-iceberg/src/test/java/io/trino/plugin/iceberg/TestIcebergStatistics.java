@@ -13,12 +13,22 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.math.IntMath;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.GenericStatisticsFile;
+import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinWriter;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,6 +40,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
@@ -44,6 +57,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergStatistics
         extends AbstractTestQueryFramework
 {
+    private HiveMetastore metastore;
+    private TrinoFileSystemFactory fileSystemFactory;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -51,6 +67,13 @@ public class TestIcebergStatistics
         return IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
                 .build();
+    }
+
+    @BeforeAll
+    public void setUp()
+    {
+        metastore = getHiveMetastore(getQueryRunner());
+        fileSystemFactory = getFileSystemFactory(getQueryRunner());
     }
 
     @ParameterizedTest
@@ -1149,6 +1172,66 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testOptimizeWithoutPreexistingStatistics()
+    {
+        String tableName = "test_optimize_no_stats_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+        // Delete forces OPTIMIZE to actually rewrite the file (a lone file with no deletions is skipped)
+        assertUpdate(writeSession, "DELETE FROM " + tableName + " WHERE key = 1", 1);
+
+        // OPTIMIZE with no prior ANALYZE — must not write a statistics file
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+
+        assertThat(loadIcebergTable(tableName).statisticsFiles()).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testOptimizeWithEmptyPreexistingStatistics()
+            throws Exception
+    {
+        String tableName = "test_optimize_empty_stats_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+        // Delete forces OPTIMIZE to actually rewrite the file (a lone file with no deletions is skipped)
+        assertUpdate(writeSession, "DELETE FROM " + tableName + " WHERE key = 1", 1);
+
+        // Register an empty statistics file (no blobs) for the current snapshot by writing a real Puffin file.
+        // Iceberg silently discards GenericStatisticsFile registrations with empty blob lists if no physical file exists.
+        BaseTable icebergTable = loadIcebergTable(tableName);
+        long snapshotId = icebergTable.currentSnapshot().snapshotId();
+        TableOperations ops = icebergTable.operations();
+        String statsPath = ops.metadataFileLocation("empty-stats-" + randomNameSuffix() + ".stats");
+        try (PuffinWriter writer = Puffin.write(ops.io().newOutputFile(statsPath)).build()) {
+            writer.finish();
+            StatisticsFile emptyStatsFile = new GenericStatisticsFile(snapshotId, statsPath, writer.fileSize(), writer.footerSize(), ImmutableList.of());
+            icebergTable.updateStatistics()
+                    .setStatistics(emptyStatsFile)
+                    .commit();
+        }
+        icebergTable.refresh();
+
+        List<StatisticsFile> statisticsFiles = icebergTable.statisticsFiles();
+        assertThat(statisticsFiles).hasSize(1);
+
+        // OPTIMIZE with an empty pre-existing statistics file — must not write a new statistics file
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+
+        icebergTable.refresh();
+        assertThat(icebergTable.statisticsFiles())
+                .hasSize(1)
+                .containsExactlyInAnyOrderElementsOf(statisticsFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testStatsAfterDeletingAllRows()
     {
         String tableName = "test_stats_after_deleting_all_rows_";
@@ -1204,5 +1287,10 @@ public class TestIcebergStatistics
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
+    }
+
+    private BaseTable loadIcebergTable(String tableName)
+    {
+        return loadTable(tableName, metastore, fileSystemFactory, "iceberg", "tpch");
     }
 }
