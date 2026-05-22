@@ -98,11 +98,20 @@ public class TestIcebergReadVersionedTable
     }
 
     @Test
-    public void testSystemTables()
+    public void testSystemTableVersioning()
     {
         // TODO https://github.com/trinodb/trino/issues/12920
-        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$files\" FOR VERSION AS OF " + v1SnapshotId,
                 "This connector does not support versioned tables");
+    }
+
+    @Test
+    public void testSystemViewVersioning()
+    {
+        // this test is similar to the testSystemTableVersioning but errors differently
+        // because it is a view and fails in the StatementAnalyzer
+        assertQueryFails("SELECT * FROM \"test_iceberg_read_versioned_table$partitions\" FOR VERSION AS OF " + v1SnapshotId,
+                "line 1:15: Views do not support versioning");
     }
 
     private long getLatestSnapshotId(String tableName)
