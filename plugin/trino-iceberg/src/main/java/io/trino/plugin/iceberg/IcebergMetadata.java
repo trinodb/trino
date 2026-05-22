@@ -2141,10 +2141,10 @@ public class IcebergMetadata
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
-        StatisticsFile newStatsFile = tableStatisticsWriter.rewriteStatisticsFile(session, icebergTable, newSnapshotId);
-        transaction.updateStatistics()
-                .setStatistics(newStatsFile)
-                .commit();
+        tableStatisticsWriter.rewriteStatisticsFile(session, icebergTable, newSnapshotId).ifPresent(newStatsFile ->
+                transaction.updateStatistics()
+                        .setStatistics(newStatsFile)
+                        .commit());
 
         commitTransaction(transaction, "optimize");
         transaction = null;
