@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
@@ -256,6 +257,157 @@ final class TestIcebergRestCatalogFileSystemFactory
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
         assertThat(identity.getExtraCredentials()).isEmpty();
+    }
+
+    @Test
+    void testS3StorageCredentialsSinglePrefix()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "s3://bucket-a/",
+                ImmutableMap.of(
+                        S3FileIOProperties.ACCESS_KEY_ID, "key-a",
+                        S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                        S3FileIOProperties.SESSION_TOKEN, "token-a"));
+
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(storageCredential)))
+                .newInputFile(Location.of("s3://bucket-a/path/file"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "key-a")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "secret-a")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "token-a");
+    }
+
+    @Test
+    void testS3StorageCredentialsMultiplePrefixes()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentityA = new AtomicReference<>();
+        AtomicReference<ConnectorIdentity> capturedIdentityB = new AtomicReference<>();
+        AtomicReference<ConnectorIdentity> capturedIdentityRoot = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            switch (identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "")) {
+                case "key-a" -> capturedIdentityA.set(identity);
+                case "key-b" -> capturedIdentityB.set(identity);
+                default -> capturedIdentityRoot.set(identity);
+            }
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.ACCESS_KEY_ID, "key-root",
+                S3FileIOProperties.SECRET_ACCESS_KEY, "secret-root",
+                S3FileIOProperties.SESSION_TOKEN, "token-root");
+        IcebergStorageCredentials credentialA = new IcebergStorageCredentials(
+                "s3://bucket-a/",
+                ImmutableMap.of(
+                        S3FileIOProperties.ACCESS_KEY_ID, "key-a",
+                        S3FileIOProperties.SECRET_ACCESS_KEY, "secret-a",
+                        S3FileIOProperties.SESSION_TOKEN, "token-a"));
+        IcebergStorageCredentials credentialB = new IcebergStorageCredentials(
+                "s3://bucket-b/",
+                ImmutableMap.of(
+                        S3FileIOProperties.ACCESS_KEY_ID, "key-b",
+                        S3FileIOProperties.SECRET_ACCESS_KEY, "secret-b",
+                        S3FileIOProperties.SESSION_TOKEN, "token-b"));
+
+        IcebergTableCredentials tableCredentials = new IcebergTableCredentials(fileIoProperties, ImmutableList.of(credentialA, credentialB));
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), tableCredentials);
+
+        fileSystem.newInputFile(Location.of("s3://bucket-a/path/file"));
+        assertThat(capturedIdentityA.get()).isNotNull();
+        assertThat(capturedIdentityA.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "key-a")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "secret-a")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "token-a");
+
+        fileSystem.newInputFile(Location.of("s3://bucket-b/data/file"));
+        assertThat(capturedIdentityB.get()).isNotNull();
+        assertThat(capturedIdentityB.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "key-b")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "secret-b")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "token-b");
+
+        // bucket-c has no per-prefix credential — falls back to the root credential from fileIoProperties
+        fileSystem.newInputFile(Location.of("s3://bucket-c/other/file"));
+        assertThat(capturedIdentityRoot.get()).isNotNull();
+        assertThat(capturedIdentityRoot.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "key-root")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "secret-root")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "token-root");
+    }
+
+    @Test
+    void testGcsStorageCredentialsSinglePrefix()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials storageCredential = new IcebergStorageCredentials(
+                "gs://gcs-bucket/",
+                ImmutableMap.of(GCPProperties.GCS_OAUTH2_TOKEN, "ya29.token-for-gcs-bucket"));
+
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(storageCredential)))
+                .newInputFile(Location.of("gs://gcs-bucket/path/file"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.token-for-gcs-bucket");
+    }
+
+    @Test
+    void testGcsStorageCredentialsMultiplePrefixes()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentityA = new AtomicReference<>();
+        AtomicReference<ConnectorIdentity> capturedIdentityB = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            if (identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "").equals("ya29.token-a")) {
+                capturedIdentityA.set(identity);
+            }
+            else {
+                capturedIdentityB.set(identity);
+            }
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        IcebergStorageCredentials credentialA = new IcebergStorageCredentials(
+                "gs://bucket-a/",
+                ImmutableMap.of(GCPProperties.GCS_OAUTH2_TOKEN, "ya29.token-a"));
+        IcebergStorageCredentials credentialB = new IcebergStorageCredentials(
+                "gs://bucket-b/",
+                ImmutableMap.of(GCPProperties.GCS_OAUTH2_TOKEN, "ya29.token-b"));
+
+        IcebergTableCredentials tableCredentials = new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of(credentialA, credentialB));
+        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"), tableCredentials);
+
+        fileSystem.newInputFile(Location.of("gs://bucket-a/path/file"));
+        assertThat(capturedIdentityA.get()).isNotNull();
+        assertThat(capturedIdentityA.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.token-a");
+
+        fileSystem.newInputFile(Location.of("gs://bucket-b/data/file"));
+        assertThat(capturedIdentityB.get()).isNotNull();
+        assertThat(capturedIdentityB.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.token-b");
     }
 
     private static IcebergRestCatalogFileSystemFactory createFactory(TrinoFileSystemFactory delegate, boolean vendedCredentialsEnabled)
