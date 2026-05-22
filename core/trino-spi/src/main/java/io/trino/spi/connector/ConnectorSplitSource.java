@@ -20,8 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * Source of splits to be processed.
  * <p>
@@ -50,16 +48,11 @@ public interface ConnectorSplitSource
      * immediately before this call. The engine waits up to
      * {@link #getRequestedDynamicFilterWaitTimeoutMillis()} before the <em>first</em> call;
      * subsequent calls receive the current state without additional waiting.
+     * <p>
+     * When the returned list is empty and {@link #isFinished()} returns {@code false}, the caller
+     * should retry. No more batches will be produced once {@link #isFinished()} returns {@code true}.
      */
-    default CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
-    {
-        return getNextBatch(maxSize).thenApply(ConnectorSplitBatch::getSplits);
-    }
-
-    default CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
-    {
-        throw new UnsupportedOperationException();
-    }
+    CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot);
 
     @Override
     void close();
@@ -102,27 +95,5 @@ public interface ConnectorSplitSource
     default Metrics getMetrics()
     {
         return Metrics.EMPTY;
-    }
-
-    class ConnectorSplitBatch
-    {
-        private final List<ConnectorSplit> splits;
-        private final boolean noMoreSplits;
-
-        public ConnectorSplitBatch(List<ConnectorSplit> splits, boolean noMoreSplits)
-        {
-            this.splits = requireNonNull(splits, "splits is null");
-            this.noMoreSplits = noMoreSplits;
-        }
-
-        public List<ConnectorSplit> getSplits()
-        {
-            return splits;
-        }
-
-        public boolean isNoMoreSplits()
-        {
-            return noMoreSplits;
-        }
     }
 }

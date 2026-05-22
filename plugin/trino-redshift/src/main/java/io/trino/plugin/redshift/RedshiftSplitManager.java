@@ -26,13 +26,13 @@ import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
@@ -40,9 +40,9 @@ import io.trino.spi.type.VarbinaryType;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.redshift.RedshiftSessionProperties.isUnloadEnabled;
 import static java.util.Objects.requireNonNull;
 
@@ -81,22 +81,21 @@ public class RedshiftSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, DynamicFilter dynamicFilter, Constraint constraint)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> dynamicFilterColumns, Constraint constraint)
     {
         if (table instanceof JdbcProcedureHandle) {
-            return jdbcSplitManager.getSplits(transaction, session, table, dynamicFilter, constraint);
+            return jdbcSplitManager.getSplits(transaction, session, table, dynamicFilterColumns, constraint);
         }
         ConnectorSplitSource fallbackSplitSource = new FixedSplitSource(new JdbcSplit(Optional.empty()));
         if (!isUnloadEnabled(session)) {
             return fallbackSplitSource;
         }
         JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
-        JdbcTableHandle jdbcTableHandle = dynamicFilteringEnabled(session) ? jdbcTable.intersectedWithConstraint(dynamicFilter.getCurrentPredicate()) : jdbcTable;
-        List<JdbcColumnHandle> columns = jdbcTableHandle.getColumns()
+        List<JdbcColumnHandle> columns = jdbcTable.getColumns()
                 .orElseGet(() -> jdbcClient.getColumns(
                         session,
-                        jdbcTableHandle.getRequiredNamedRelation().getSchemaTableName(),
-                        jdbcTableHandle.getRequiredNamedRelation().getRemoteTableName()));
+                        jdbcTable.getRequiredNamedRelation().getSchemaTableName(),
+                        jdbcTable.getRequiredNamedRelation().getRemoteTableName()));
 
         if (!isUnloadSupported(jdbcTable, columns)) {
             log.debug("Unsupported query shape detected. Falling back to using JDBC");
@@ -106,7 +105,7 @@ public class RedshiftSplitManager
                 executor,
                 session,
                 jdbcClient,
-                jdbcTableHandle,
+                jdbcTable,
                 columns,
                 queryBuilder,
                 queryModifier,

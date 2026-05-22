@@ -26,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -134,7 +135,7 @@ public class TableChangesSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
         int i = 0;
@@ -142,7 +143,7 @@ public class TableChangesSplitSource
             result.add(splits.next());
             i++;
         }
-        return CompletableFuture.completedFuture(new ConnectorSplitBatch(result.build(), isFinished()));
+        return CompletableFuture.completedFuture(result.build());
     }
 
     private TableChangesSplit mapToDeltaLakeTableChangesSplit(
