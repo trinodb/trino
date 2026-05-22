@@ -41,7 +41,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Type.PrimitiveType;
@@ -363,19 +362,14 @@ public final class FilesTablePageSource
         }
 
         List<RowType.Field> fields = rowType.getFields();
-        // start a new lower/upper bounds entry
         RowEntryBuilder boundsEntry = boundsBuilder.buildEntry();
 
         for (int i = 0; i < fields.size(); i++) {
             BlockBuilder fieldIdBlockBuilder = boundsEntry.getFieldBuilder(i);
-            // get the field id
             RowType.Field fieldIdRowField = fields.get(i);
             int fieldId = Integer.parseInt(fieldIdRowField.getName().orElseThrow());
-            // get the iceberg type
             PrimitiveType icebergType = idToTypeMapping.get(fieldId);
-            // get the corresponding trino type. min and max should be the same type
             io.trino.spi.type.Type trinoType = fieldIdRowField.getType();
-            // write bound entry entries
             if (icebergType == null || !bounds.containsKey(fieldId)) {
                 fieldIdBlockBuilder.appendNull();
                 continue;
@@ -436,22 +430,6 @@ public final class FilesTablePageSource
                 INTEGER.writeInt(keyBuilder, key);
                 BIGINT.writeLong(valueBuilder, value);
             }));
-        }
-    }
-
-    private void writeIntegerVarcharInMap(BlockBuilder blockBuilder, Map<Integer, ByteBuffer> values)
-    {
-        if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
-            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                values.forEach((key, value) -> {
-                    if (idToTypeMapping.containsKey(key)) {
-                        INTEGER.writeInt(keyBuilder, key);
-                        VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(
-                                idToTypeMapping.get(key),
-                                Conversions.fromByteBuffer(idToTypeMapping.get(key), value)));
-                    }
-                });
-            });
         }
     }
 }

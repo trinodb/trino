@@ -462,7 +462,7 @@ public class TestIcebergGlueCatalogAccessOperations
             // select from $partitions
             assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
 
             // select from $files

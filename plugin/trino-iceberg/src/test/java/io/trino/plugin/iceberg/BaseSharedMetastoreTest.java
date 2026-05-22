@@ -299,6 +299,13 @@ public abstract class BaseSharedMetastoreTest
         assertUpdate("DROP TABLE " + icebergTableName);
     }
 
+    @Test
+    public void testSelectRedirectedIcebergPartitionsView()
+    {
+        assertThat(query("SELECT record_count FROM hive_with_redirections." + tpchSchema + ".\"nation$partitions\""))
+                .matches("SELECT record_count FROM iceberg." + tpchSchema + ".\"nation$partitions\"");
+    }
+
     private long getLatestSnapshotId(String schema)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));
