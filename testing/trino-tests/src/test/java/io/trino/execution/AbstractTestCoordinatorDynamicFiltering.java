@@ -115,7 +115,6 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 ImmutableMap.of("tpch.partitioning-enabled", "false", "tpch.splits-per-node", "16"));
         getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of("memory.splits-per-node", "16"));
-        //computeActual("CREATE SCHEMA memory.default");
         computeActual("CREATE TABLE \"lineitem\" AS SELECT * FROM tpch.tiny.lineitem");
         computeActual("CREATE TABLE \"customer\" AS SELECT * FROM tpch.tiny.customer");
         computeActual("CREATE TABLE \"store_sales\" AS SELECT * FROM tpcds.tiny.store_sales");

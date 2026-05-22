@@ -1121,12 +1121,12 @@ public class TestPinotConnectorSmokeTest
 
         // Test information schema
         assertQuery(
-                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = 'mixedcase'",
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = '%s'".formatted(MIXED_CASE_TABLE_NAME),
                 "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
         assertQuery(
-                "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedcase'",
+                "SELECT column_name FROM information_schema.columns WHERE table_name = '%s'".formatted(MIXED_CASE_TABLE_NAME),
                 "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
-        assertThat(computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
+        assertThat(computeActual("SHOW COLUMNS FROM default.%s".formatted(MIXED_CASE_TABLE_NAME)).getMaterializedRows().stream()
                 .map(row -> row.getField(0))
                 .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringCol", "updatedAtSeconds", "longCol"));
     }
@@ -2868,10 +2868,10 @@ public class TestPinotConnectorSmokeTest
                 "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(2000)) + "')," +
                 "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(3000)) + "')," +
                 "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(4000)) + "')";
-        assertThat(query("SELECT stringCol, longCol, updatedat FROM " + HYBRID_TABLE_NAME))
+        assertThat(query("SELECT stringCol, longCol, updatedAt FROM " + HYBRID_TABLE_NAME))
                 .matches(expectedValues);
         // Verify that this matches the time boundary behavior on the broker
-        assertThat(query("SELECT stringCol, longCol, updatedat FROM \"SELECT stringCol, longCol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+        assertThat(query("SELECT stringCol, longCol, updatedAt FROM \"SELECT stringCol, longCol, updatedAt FROM " + HYBRID_TABLE_NAME + "\""))
                 .matches(expectedValues);
     }
 
