@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.Location;
@@ -117,7 +118,15 @@ final class TestNativeCacheFileSystemAccessOperations
     {
         TestingTelemetry telemetry = TestingTelemetry.create("local-cache");
         TracingFileSystemFactory tracingFileSystemFactory = new TracingFileSystemFactory(telemetry.getTracer(), new MemoryFileSystemFactory());
-        NativeFileSystemCache cache = new NativeFileSystemCache(telemetry.getTracer(), List.of(cacheRoot), DataSize.ofBytes(PAGE_SIZE), new NativeFileSystemCacheStats());
+        NativeFileSystemCache cache = new NativeFileSystemCache(
+                new NativeFileSystemCacheConfig()
+                        .setCacheDirectories(List.of(cacheRoot.toString()))
+                        .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
+                        .setMaxCacheSizes(List.of(DataSize.valueOf("1GB")))
+                        .setMaxCacheFilesPerDirectory(Long.MAX_VALUE / 2)
+                        .setCacheTTL(Duration.valueOf("7d")),
+                new NativeFileSystemCacheStats(),
+                telemetry.getTracer());
         CacheFileSystem fileSystem = new CacheFileSystem(
                 tracingFileSystemFactory.create(ConnectorIdentity.ofUser("test")),
                 new TracingFileSystemCache(telemetry.getTracer(), cache),

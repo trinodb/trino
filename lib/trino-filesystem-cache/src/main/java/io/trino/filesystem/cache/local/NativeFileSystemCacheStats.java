@@ -25,6 +25,15 @@ public class NativeFileSystemCacheStats
     private final AtomicLong externalReads = new AtomicLong();
     private final AtomicLong cacheWrites = new AtomicLong();
     private final AtomicLong cacheWriteFailures = new AtomicLong();
+    private final AtomicLong cacheWriteSkips = new AtomicLong();
+    private final AtomicLong cachedBytes = new AtomicLong();
+    private final AtomicLong cachedFiles = new AtomicLong();
+    private final AtomicLong evictionCount = new AtomicLong();
+    private final AtomicLong evictionBytes = new AtomicLong();
+    private final AtomicLong evictionFiles = new AtomicLong();
+    private final AtomicLong expiredFiles = new AtomicLong();
+    private final AtomicLong staleTemporaryFiles = new AtomicLong();
+    private final AtomicLong accessRecords = new AtomicLong();
 
     void recordCacheRead(long bytes)
     {
@@ -46,6 +55,50 @@ public class NativeFileSystemCacheStats
     void recordCacheWriteFailure()
     {
         cacheWriteFailures.incrementAndGet();
+    }
+
+    void recordCacheWriteSkip()
+    {
+        cacheWriteSkips.incrementAndGet();
+    }
+
+    void addCachedFile(long bytes)
+    {
+        cachedFiles.incrementAndGet();
+        cachedBytes.addAndGet(bytes);
+    }
+
+    void removeCachedFiles(long files, long bytes)
+    {
+        adjustCachedFiles(-files, -bytes);
+    }
+
+    void adjustCachedFiles(long files, long bytes)
+    {
+        cachedFiles.addAndGet(files);
+        cachedBytes.addAndGet(bytes);
+    }
+
+    void recordEviction(long files, long bytes)
+    {
+        evictionCount.incrementAndGet();
+        evictionFiles.addAndGet(files);
+        evictionBytes.addAndGet(bytes);
+    }
+
+    void recordExpiredFile()
+    {
+        expiredFiles.incrementAndGet();
+    }
+
+    void recordStaleTemporaryFile()
+    {
+        staleTemporaryFiles.incrementAndGet();
+    }
+
+    void recordAccess()
+    {
+        accessRecords.incrementAndGet();
     }
 
     @Managed
@@ -82,5 +135,59 @@ public class NativeFileSystemCacheStats
     public long getCacheWriteFailures()
     {
         return cacheWriteFailures.get();
+    }
+
+    @Managed
+    public long getCacheWriteSkips()
+    {
+        return cacheWriteSkips.get();
+    }
+
+    @Managed
+    public long getCachedBytes()
+    {
+        return cachedBytes.get();
+    }
+
+    @Managed
+    public long getCachedFiles()
+    {
+        return cachedFiles.get();
+    }
+
+    @Managed
+    public long getEvictionCount()
+    {
+        return evictionCount.get();
+    }
+
+    @Managed
+    public long getEvictionBytes()
+    {
+        return evictionBytes.get();
+    }
+
+    @Managed
+    public long getEvictionFiles()
+    {
+        return evictionFiles.get();
+    }
+
+    @Managed
+    public long getExpiredFiles()
+    {
+        return expiredFiles.get();
+    }
+
+    @Managed
+    public long getStaleTemporaryFiles()
+    {
+        return staleTemporaryFiles.get();
+    }
+
+    @Managed
+    public long getAccessRecords()
+    {
+        return accessRecords.get();
     }
 }

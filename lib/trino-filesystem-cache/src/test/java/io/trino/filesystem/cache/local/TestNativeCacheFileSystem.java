@@ -14,6 +14,8 @@
 package io.trino.filesystem.cache.local;
 
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.TracerProvider;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -48,7 +50,15 @@ public class TestNativeCacheFileSystem
         memoryFileSystem = new IncompleteStreamMemoryFileSystem();
         fileSystem = new CacheFileSystem(
                 memoryFileSystem,
-                new NativeFileSystemCache(List.of(cacheDirectory), DataSize.valueOf("32003B"), new NativeFileSystemCacheStats()),
+                new NativeFileSystemCache(
+                        new NativeFileSystemCacheConfig()
+                                .setCacheDirectories(List.of(cacheDirectory.toString()))
+                                .setCachePageSize(DataSize.valueOf("32003B"))
+                                .setMaxCacheSizes(List.of(DataSize.valueOf("1GB")))
+                                .setMaxCacheFilesPerDirectory(Long.MAX_VALUE / 2)
+                                .setCacheTTL(Duration.valueOf("7d")),
+                        new NativeFileSystemCacheStats(),
+                        TracerProvider.noop().get("test")),
                 new DefaultCacheKeyProvider());
     }
 

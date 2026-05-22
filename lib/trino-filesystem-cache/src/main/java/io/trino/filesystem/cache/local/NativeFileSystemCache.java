@@ -15,64 +15,54 @@ package io.trino.filesystem.cache.local;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.api.trace.TracerProvider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.filesystem.cache.local.NativeFileSystemCacheConfig.CACHE_DIRECTORIES;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class NativeFileSystemCache
         implements TrinoFileSystemCache
 {
-    private final Tracer tracer;
+    private static final Logger log = Logger.get(NativeFileSystemCache.class);
+
     private final List<NativeCacheDirectory> cacheDirectories;
-    private final NativeFileSystemCacheStats stats;
     private final int pageSize;
+    private final NativeFileSystemCacheStats stats;
+    private final Tracer tracer;
+    private final List<ScheduledExecutorService> maintenanceExecutors;
 
     @Inject
-    public NativeFileSystemCache(Tracer tracer, NativeFileSystemCacheConfig config, NativeFileSystemCacheStats stats)
+    public NativeFileSystemCache(NativeFileSystemCacheConfig config, NativeFileSystemCacheStats stats, Tracer tracer)
     {
-        this.tracer = requireNonNull(tracer, "tracer is null");
-        requireNonNull(config, "config is null");
-        this.stats = requireNonNull(stats, "stats is null");
+        this.cacheDirectories = createCacheDirectories(requireNonNull(config, "config is null"), requireNonNull(stats, "stats is null"));
         this.pageSize = toIntExact(config.getCachePageSize().toBytes());
-        validate(config);
-        this.cacheDirectories = config.getCacheDirectories().stream()
-                .map(Path::of)
-                .map(path -> createCacheDirectory(path, stats))
+        this.stats = stats;
+        this.tracer = tracer;
+        this.maintenanceExecutors = IntStream.range(0, cacheDirectories.size())
+                .mapToObj(index -> newSingleThreadScheduledExecutor(daemonThreadsNamed("native-file-system-cache-maintenance-" + index)))
                 .collect(toImmutableList());
-    }
-
-    @VisibleForTesting
-    NativeFileSystemCache(List<Path> cacheDirectories, DataSize pageSize, NativeFileSystemCacheStats stats)
-    {
-        this(TracerProvider.noop().get("native-file-system-cache"), cacheDirectories, pageSize, stats);
-    }
-
-    @VisibleForTesting
-    NativeFileSystemCache(Tracer tracer, List<Path> cacheDirectories, DataSize pageSize, NativeFileSystemCacheStats stats)
-    {
-        this.stats = requireNonNull(stats, "stats is null");
-        this.tracer = requireNonNull(tracer, "tracer is null");
-        this.pageSize = toIntExact(pageSize.toBytes());
-        this.cacheDirectories = cacheDirectories.stream()
-                .map(path -> createCacheDirectory(path, stats))
-                .collect(toImmutableList());
+        startMaintenance();
     }
 
     @Override
@@ -114,6 +104,41 @@ public class NativeFileSystemCache
         }
     }
 
+    @PreDestroy
+    public void shutdown()
+    {
+        maintenanceExecutors.forEach(ScheduledExecutorService::shutdownNow);
+    }
+
+    private void startMaintenance()
+    {
+        for (int index = 0; index < cacheDirectories.size(); index++) {
+            startMaintenance(cacheDirectories.get(index), maintenanceExecutors.get(index));
+        }
+    }
+
+    private static void startMaintenance(NativeCacheDirectory cacheDirectory, ScheduledExecutorService maintenanceExecutor)
+    {
+        maintenanceExecutor.execute(() -> {
+            try {
+                cacheDirectory.initialize();
+            }
+            catch (RuntimeException | Error e) {
+                // This background task runs without a retained Future to report failures.
+                log.error(e, "Error initializing native file system cache directory: %s", cacheDirectory);
+            }
+        });
+        maintenanceExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                cacheDirectory.maintenance();
+            }
+            catch (RuntimeException | Error e) {
+                // scheduleWithFixedDelay stops future executions when a failure escapes.
+                log.error(e, "Error maintaining native file system cache directory: %s", cacheDirectory);
+            }
+        }, 1, 1, HOURS);
+    }
+
     private NativeCacheFile cacheFile(TrinoInputFile delegate, String key)
             throws IOException
     {
@@ -126,30 +151,55 @@ public class NativeFileSystemCache
         return cacheDirectories.get(index);
     }
 
-    private static NativeCacheDirectory createCacheDirectory(Path path, NativeFileSystemCacheStats stats)
+    @VisibleForTesting
+    List<NativeCacheDirectory> getCacheDirectories()
     {
-        try {
-            return new NativeCacheDirectory(path, stats);
-        }
-        catch (IOException e) {
-            throw new IllegalArgumentException("Failed to initialize cache directory: " + path, e);
-        }
+        return cacheDirectories;
     }
 
-    private static void validate(NativeFileSystemCacheConfig config)
+    private static List<NativeCacheDirectory> createCacheDirectories(NativeFileSystemCacheConfig config, NativeFileSystemCacheStats stats)
     {
-        checkArgument(!config.getCacheDirectories().isEmpty(), "%s must be specified", CACHE_DIRECTORIES);
-        config.getCacheDirectories().forEach(directory -> canWrite(Path.of(directory)));
+        List<DataSize> maxCacheSizes = maxCacheSizes(config);
+        DataSize accessTrackingMemory = DataSize.ofBytes(Math.max(1, config.getAccessTrackingMemory().toBytes() / config.getCacheDirectories().size()));
+        return IntStream.range(0, config.getCacheDirectories().size())
+                .mapToObj(index -> {
+                    Path path = Path.of(config.getCacheDirectories().get(index));
+                    try {
+                        BloomFilterAccessTracker accessTracker = new BloomFilterAccessTracker(path, config.getAccessHistoryDuration(), config.getAccessBucketDuration(), accessTrackingMemory, stats);
+                        return new NativeCacheDirectory(path, maxCacheSizes.get(index).toBytes(), config.getMaxCacheFilesPerDirectory(), config.getCacheTTL(), accessTracker, stats);
+                    }
+                    catch (IOException e) {
+                        throw new IllegalArgumentException("Failed to initialize cache directory: " + path, e);
+                    }
+                })
+                .collect(toImmutableList());
     }
 
-    private static void canWrite(Path path)
+    private static List<DataSize> maxCacheSizes(NativeFileSystemCacheConfig config)
+    {
+        if (!config.getMaxCacheSizes().isEmpty()) {
+            return config.getMaxCacheSizes();
+        }
+        List<DataSize> sizes = new ArrayList<>(config.getCacheDirectories().size());
+        for (int index = 0; index < config.getCacheDirectories().size(); index++) {
+            long totalSpace = totalSpace(Path.of(config.getCacheDirectories().get(index)));
+            sizes.add(DataSize.ofBytes(Math.round(config.getMaxCacheDiskUsagePercentages().get(index) / 100.0 * totalSpace)));
+        }
+        return sizes;
+    }
+
+    @VisibleForTesting
+    static long totalSpace(Path path)
     {
         Path originalPath = path;
         while (!Files.exists(path) && path.getParent() != null) {
             path = path.getParent();
         }
-        checkArgument(Files.isDirectory(path), "Cache directory %s is not a directory", path);
-        checkArgument(Files.isReadable(path), "Cannot read from cache directory %s", originalPath);
-        checkArgument(Files.isWritable(path), "Cannot write to cache directory %s", originalPath);
+        try {
+            return Files.getFileStore(path).getTotalSpace();
+        }
+        catch (IOException e) {
+            throw new IllegalArgumentException("Failed to get total space for cache directory: " + originalPath, e);
+        }
     }
 }

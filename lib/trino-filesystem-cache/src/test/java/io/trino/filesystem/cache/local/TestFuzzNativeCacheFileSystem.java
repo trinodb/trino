@@ -16,6 +16,8 @@ package io.trino.filesystem.cache.local;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.TracerProvider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.cache.CacheFileSystem;
@@ -188,7 +190,15 @@ class TestFuzzNativeCacheFileSystem
             Path cacheDirectory = Files.createDirectory(tempDirectory.resolve("cache"));
             return new CacheFileSystem(
                     new IncompleteStreamMemoryFileSystem(),
-                    new NativeFileSystemCache(List.of(cacheDirectory), PAGE_SIZE, new NativeFileSystemCacheStats()),
+                    new NativeFileSystemCache(
+                            new NativeFileSystemCacheConfig()
+                                    .setCacheDirectories(List.of(cacheDirectory.toString()))
+                                    .setCachePageSize(PAGE_SIZE)
+                                    .setMaxCacheSizes(List.of(CACHE_SIZE))
+                                    .setMaxCacheFilesPerDirectory(Long.MAX_VALUE / 2)
+                                    .setCacheTTL(Duration.valueOf("7d")),
+                            new NativeFileSystemCacheStats(),
+                            TracerProvider.noop().get("test")),
                     new DefaultCacheKeyProvider());
         }
 
