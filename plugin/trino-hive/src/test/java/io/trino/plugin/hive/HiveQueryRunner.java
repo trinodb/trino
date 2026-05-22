@@ -434,4 +434,34 @@ public final class HiveQueryRunner
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
     }
+
+    public static final class HiveLocalFileSystemQueryRunnerMain
+    {
+        private HiveLocalFileSystemQueryRunnerMain() {}
+
+        static void main(String[] args)
+                throws Exception
+        {
+            Path storageDir = args.length > 0 ? Path.of(args[0]) : Path.of(System.getProperty("user.home"), "hive-local-storage");
+            createDirectories(storageDir);
+            //noinspection resource
+            DistributedQueryRunner queryRunner = HiveQueryRunner.builder(testSessionBuilder()
+                            .setCatalog("hive")
+                            .setSchema("tpch")
+                            .build())
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addHiveProperty("hive.metastore", "file")
+                    .addHiveProperty("fs.hadoop.enabled", "false")
+                    .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
+                    .addHiveProperty("hive.security", "allow-all")
+                    .setBaseDataDir(Optional.of(storageDir))
+                    .setCreateTpchSchemas(false)
+                    .setSkipTimezoneSetup(true)
+                    .build();
+
+            Logger log = Logger.get(HiveLocalFileSystemQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
 }
