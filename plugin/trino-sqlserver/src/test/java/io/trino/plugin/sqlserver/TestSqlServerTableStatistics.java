@@ -56,6 +56,56 @@ public class TestSqlServerTableStatistics
         return value;
     }
 
+    @Test
+    @Override
+    public void testStatsWithDistinctLimitPushdown()
+    {
+        // FIXME:SHOW STATS wont work with sqlserver
+        // Distinct with limit (DistinctLimitNode), should be eligible for pushdown.
+        String query = """
+                SELECT DISTINCT "regionkey" FROM "nation" LIMIT 3""";
+
+        // Verify query can be pushed down, that's the situation we want to test for.
+        // it's important that we test with LIMIT value smaller than count(DISTINCT regionkey), hence need to skip results check
+        assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+
+        assertThat(query("SHOW STATS FOR (" + query + ")"))
+                .result()
+                // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
+                .exceptColumns("data_size", "low_value", "high_value")
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES \
+                        ('regionkey', null, null, null), \
+                        (null, null, null, null)\
+                        """);
+    }
+
+    @Test
+    @Override
+    public void testStatsWithSimpleJoinPushdown()
+    {
+        // FIXME:SHOW STATS wont work with sqlserver
+        // Simple filtering join with no predicates, should be eligible for pushdown.
+        String query = """
+                SELECT n."name" "n_name" FROM "nation" n JOIN "region" r ON n."nationkey" = r."regionkey"\
+                """;
+
+        // Verify query can be pushed down, that's the situation we want to test for.
+        assertThat(query(query)).isFullyPushedDown();
+
+        assertThat(query("SHOW STATS FOR (" + query + ")"))
+                .result()
+                // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
+                .exceptColumns("data_size", "low_value", "high_value")
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES \
+                        ('n_name', null, null, null), \
+                        (null, null, null, null)\
+                        """);
+    }
+
     @Override
     @Test
     public void testNotAnalyzed()

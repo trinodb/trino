@@ -899,7 +899,7 @@ public abstract class BaseSqlServerConnectorTest
     void testInvalidColumn()
     {
         assertQueryFails("SELECT bogus FROM nation",
-                ".* Column 'bogus' cannot be resolved, available candidates are: '*'");
+                ".* Column 'bogus' cannot be resolved, available candidates are: '.*'");
     }
 
     private TestProcedure createTestingProcedure(String baseQuery)

@@ -440,9 +440,10 @@ public final class ShowQueriesRewrite
                 rows = ImmutableList.of(new StringLiteral(""));
                 predicate = Optional.of(BooleanLiteral.FALSE_LITERAL);
             }
+            // FIXME: predicate must be Catalog and not catalog, why?
             else if (node.getLikePattern().isPresent()) {
                 predicate = Optional.of(new LikePredicate(
-                        delimitedIdentifier("catalog"),
+                        delimitedIdentifier("Catalog"),
                         new StringLiteral(node.getLikePattern().get()),
                         node.getEscape().map(StringLiteral::new)));
             }

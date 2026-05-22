@@ -1666,6 +1666,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            //System.out.println("StatementAnalyzer.visitQuery() 1 scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // In case of simple select with no table we set as last resolver the SYSTEM_CANONICALIZER
             // and if the query has a FROM clause when the visitTable will override the last resolver.
             for (FunctionSpecification function : node.getFunctions()) {
@@ -1723,6 +1724,7 @@ class StatementAnalyzer
 
             analysis.setScope(node, queryScope);
             plannerContext.setCanonicalizer(session, queryBodyScope.getCanonicalizer());
+            //System.out.println("StatementAnalyzer.visitQuery() end queryScope canonicalizer: " + queryScope.canonicalizerType());
             return queryScope;
         }
 
@@ -2416,6 +2418,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
+            //System.out.println("StatementAnalyzer.vsitTable() scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
@@ -3131,6 +3134,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
+            //System.out.println("StatementAnalyzer.visitAliasedRelation() scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // FIXME: AliasedRelation are now canonicalized
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
@@ -3179,7 +3183,9 @@ class StatementAnalyzer
                     descriptor.getAllFields().stream(),
                     inputFields.stream(),
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
-            return createAndAssignScope(relation, scope, descriptor, relationScope.getCanonicalizer());
+            Scope outputScope = createAndAssignScope(relation, scope, descriptor, relationScope.getCanonicalizer());
+            //System.out.println("StatementAnalyzer.visitAliasedRelation() end outputScope canonicalizer: " + outputScope.canonicalizerType());
+            return outputScope;
         }
 
         // As described by the SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409
@@ -3337,6 +3343,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
+            //System.out.println("StatementAnalyzer.visitTableSubquery() scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
             // FIXME: StatementAnalyzer::visitQuery receive the inner scope canonicalizer to use without FROM clause
             Scope queryScope = analyzer.analyze(createInnerScope(scope), node.getQuery(), scope.orElseThrow());
@@ -3347,6 +3354,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
+            //System.out.println("StatementAnalyzer.visitQuerySpecification() 1 scope canonicalizer: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             //       to pass down to analyzeFrom
 
@@ -3437,6 +3445,7 @@ class StatementAnalyzer
                 verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.orElseThrow());
             }
 
+            //System.out.println("StatementAnalyzer.visitQuerySpecification() end outputScope canonicalizer: " + outputScope.canonicalizerType());
             return outputScope;
         }
 
