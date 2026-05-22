@@ -15,14 +15,15 @@ package io.trino.filesystem.manager;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
 import static java.lang.System.getenv;
 
+@DefunctConfig("fs.alluxio.enabled")
 public class FileSystemConfig
 {
     private boolean hadoopEnabled;
-    private boolean alluxioEnabled;
     private boolean azureEnabled;
     private boolean s3Enabled;
     private boolean gcsEnabled;
@@ -41,18 +42,6 @@ public class FileSystemConfig
     public FileSystemConfig setHadoopEnabled(boolean hadoopEnabled)
     {
         this.hadoopEnabled = hadoopEnabled;
-        return this;
-    }
-
-    public boolean isAlluxioEnabled()
-    {
-        return alluxioEnabled;
-    }
-
-    @Config("fs.alluxio.enabled")
-    public FileSystemConfig setAlluxioEnabled(boolean alluxioEnabled)
-    {
-        this.alluxioEnabled = alluxioEnabled;
         return this;
     }
 

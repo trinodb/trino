@@ -33,7 +33,6 @@ public class TestFileSystemConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
                 .setHadoopEnabled(false)
-                .setAlluxioEnabled(false)
                 .setAzureEnabled(false)
                 .setS3Enabled(false)
                 .setGcsEnabled(false)
@@ -47,7 +46,6 @@ public class TestFileSystemConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.hadoop.enabled", "true")
-                .put("fs.alluxio.enabled", "true")
                 .put("fs.azure.enabled", "true")
                 .put("fs.s3.enabled", "true")
                 .put("fs.gcs.enabled", "true")
@@ -58,7 +56,6 @@ public class TestFileSystemConfig
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(true)
-                .setAlluxioEnabled(true)
                 .setAzureEnabled(true)
                 .setS3Enabled(true)
                 .setGcsEnabled(true)

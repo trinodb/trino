@@ -24,8 +24,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
-import io.trino.filesystem.alluxio.AlluxioFileSystemFactory;
-import io.trino.filesystem.alluxio.AlluxioFileSystemModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
 import io.trino.filesystem.cache.CacheFileSystemFactory;
@@ -89,11 +87,6 @@ public class FileSystemModule
         }
 
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
-
-        if (config.isAlluxioEnabled()) {
-            install(new AlluxioFileSystemModule());
-            factories.addBinding("alluxio").to(AlluxioFileSystemFactory.class);
-        }
 
         if (config.isAzureEnabled()) {
             install(new AzureFileSystemModule());
