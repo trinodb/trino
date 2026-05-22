@@ -122,7 +122,7 @@ public abstract class BaseSqlServerConnectorTest
     {
         try (TestView view = new TestView(onRemoteDatabase(), "test_view", "SELECT * FROM orders")) {
             assertThat(getQueryRunner().tableExists(getSession(), view.getName())).isTrue();
-            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT orderkey FROM orders");
+            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT \"orderkey\" FROM \"orders\"");
         }
     }
 
@@ -898,7 +898,8 @@ public abstract class BaseSqlServerConnectorTest
     @Test
     void testInvalidColumn()
     {
-        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
+        assertQueryFails("SELECT bogus FROM nation",
+                ".* Column 'bogus' cannot be resolved, available candidates are: '*'");
     }
 
     private TestProcedure createTestingProcedure(String baseQuery)

@@ -77,12 +77,12 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
-        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM \"customer\"");
 
         // check that there are no locks remaining on the target table after bulk copy
-        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
+        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM \"customer\"");
         assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
-        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM customer");
+        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM \"customer\"");
 
         assertUpdate("DROP TABLE " + table);
     }
@@ -114,7 +114,7 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer", table));
-        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM \"customer\"");
 
         // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
@@ -123,9 +123,9 @@ public class TestSqlServerConnectorTest
                 .isEqualTo(bulkCopyForWrite && bulkCopyForWriteLockDestinationTable ? 0 : 1500);
 
         // check that there are no locks remaining on the target table after bulk copy
-        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
+        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM \"customer\"");
         assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.tiny.customer LIMIT 1", table), 1);
-        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM customer");
+        assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) + 1 FROM \"customer\"");
 
         assertUpdate("DROP TABLE " + table);
     }
@@ -178,11 +178,11 @@ public class TestSqlServerConnectorTest
     {
         for (String tableName : testTableNameTestData()) {
             tableName = addRandomNameSuffix(tableName);
-            String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+            String tableNameInSql = quoted(tableName);
             // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
             assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-            assertTableColumnNames(tableNameInSql, "a", "b", "c");
+            assertTableColumnNames(tableName, "a", "b", "c");
 
             assertUpdate("DROP TABLE " + tableNameInSql);
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -215,7 +215,7 @@ public class TestSqlServerConnectorTest
     {
         for (String tableName : testTableNameTestData()) {
             tableName = addRandomNameSuffix(tableName);
-            String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
+            String tableNameInSql = quoted(tableName);
             String sourceTableName = "test_rename_source_" + randomNameSuffix();
             assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 

@@ -295,6 +295,12 @@ public abstract class AbstractTestQueryFramework
         return queryRunner.getDefaultSession();
     }
 
+    protected String quoted(String identifier)
+    {
+        String delimiter = "\"";
+        return delimiter + identifier.replace(delimiter, delimiter + delimiter) + delimiter;
+    }
+
     protected final int getNodeCount()
     {
         return queryRunner.getNodeCount();
@@ -529,7 +535,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
-        MaterializedResult result = computeActual("DESCRIBE \"" + tableName + "\"");
+        MaterializedResult result = computeActual("DESCRIBE " + quoted(tableName));
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());

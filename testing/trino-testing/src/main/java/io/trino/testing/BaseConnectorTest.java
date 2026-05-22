@@ -8218,12 +8218,6 @@ public abstract class BaseConnectorTest
         return "CREATE SCHEMA " + quoted(schemaName);
     }
 
-    protected String quoted(String identifier)
-    {
-        String delimiter = "\"";
-        return delimiter + identifier.replace(delimiter, delimiter + delimiter) + delimiter;
-    }
-
     protected boolean supportsPhysicalPushdown()
     {
         return true;

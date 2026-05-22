@@ -1039,40 +1039,40 @@ public class TestPinotConnectorSmokeTest
 
         // Test segment query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
+                "SELECT stringCol, longCol, updatedAtSeconds" +
                         "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
+                "SELECT stringCol, longCol, updatedAtSeconds" +
+                        "  FROM  \"SELECT updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE + "\"",
                 mixedCaseColumnNamesTableValues);
 
         String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
 
         // Test segment query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "  WHERE longcol = 3"))
+                "  WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test broker query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "\" WHERE longcol = 3"))
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
+                "  FROM  \"SELECT updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
+                "\" WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+        assertThat(query("SELECT AVG(longCol), MIN(longCol), MAX(longCol), APPROX_DISTINCT(longCol), SUM(longCol)" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE))
                 .matches("VALUES (DOUBLE '1.5', BIGINT '0', BIGINT '3', BIGINT '4', BIGINT '6')")
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT stringcol, AVG(longcol), MIN(longcol), MAX(longcol), APPROX_DISTINCT(longcol), SUM(longcol)" +
+        assertThat(query("SELECT stringCol, AVG(longCol), MIN(longCol), MAX(longCol), APPROX_DISTINCT(longCol), SUM(longCol)" +
                 "  FROM " + MIXED_CASE_COLUMN_NAMES_TABLE +
-                "  GROUP BY stringcol"))
+                "  GROUP BY stringCol"))
                 .matches("VALUES (VARCHAR 'string_0', DOUBLE '0.0', BIGINT '0', BIGINT '0', BIGINT '1', BIGINT '0')," +
                         "  (VARCHAR 'string_1', DOUBLE '1.0', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')," +
                         "  (VARCHAR 'string_2', DOUBLE '2.0', BIGINT '2', BIGINT '2', BIGINT '1', BIGINT '2')," +
@@ -1093,42 +1093,42 @@ public class TestPinotConnectorSmokeTest
 
         // Test segment query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
+                "SELECT stringCol, longCol, updatedAtSeconds" +
                         "  FROM " + MIXED_CASE_TABLE_NAME,
                 mixedCaseColumnNamesTableValues);
 
         // Test broker query all rows
         assertQuery(
-                "SELECT stringcol, longcol, updatedatseconds" +
-                        "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME + "\"",
+                "SELECT stringCol, longCol, updatedAtSeconds" +
+                        "  FROM  \"SELECT updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_TABLE_NAME + "\"",
                 mixedCaseColumnNamesTableValues);
 
         String singleRowValues = "VALUES (VARCHAR 'string_3', BIGINT '3', BIGINT '" + initialUpdatedAt.plusMillis(3 * 1000).getEpochSecond() + "')";
 
         // Test segment query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
                 "  FROM " + MIXED_CASE_TABLE_NAME +
-                "  WHERE longcol = 3"))
+                "  WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test broker query single row
-        assertThat(query("SELECT stringcol, longcol, updatedatseconds" +
-                "  FROM  \"SELECT updatedatseconds, longcol, stringcol FROM " + MIXED_CASE_TABLE_NAME +
-                "\" WHERE longcol = 3"))
+        assertThat(query("SELECT stringCol, longCol, updatedAtSeconds" +
+                "  FROM  \"SELECT updatedAtSeconds, longCol, stringCol FROM " + MIXED_CASE_TABLE_NAME +
+                "\" WHERE longCol = 3"))
                 .matches(singleRowValues)
                 .isFullyPushedDown();
 
         // Test information schema
         assertQuery(
                 "SELECT column_name FROM information_schema.columns WHERE table_schema = 'default' AND table_name = 'mixedcase'",
-                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
+                "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
         assertQuery(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedcase'",
-                "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
+                "VALUES 'stringCol', 'updatedAtSeconds', 'longCol'");
         assertThat(computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
                 .map(row -> row.getField(0))
-                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringcol", "updatedatseconds", "longcol"));
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringCol", "updatedAtSeconds", "longCol"));
     }
 
     @Test
@@ -2868,10 +2868,10 @@ public class TestPinotConnectorSmokeTest
                 "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(2000)) + "')," +
                 "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(3000)) + "')," +
                 "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(4000)) + "')";
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+        assertThat(query("SELECT stringCol, longCol, updatedat FROM " + HYBRID_TABLE_NAME))
                 .matches(expectedValues);
         // Verify that this matches the time boundary behavior on the broker
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+        assertThat(query("SELECT stringCol, longCol, updatedat FROM \"SELECT stringCol, longCol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
                 .matches(expectedValues);
     }
 
