@@ -43,7 +43,6 @@
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
-        <module>lib/trino-filesystem-alluxio</module>
         <module>lib/trino-filesystem-azure</module>
         <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
@@ -1050,12 +1049,6 @@
                 <artifactId>trino-filesystem</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-filesystem-alluxio</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>

@@ -75,7 +75,7 @@ public final class EmulatedListFilesStartingFromIterator
             FileEntry entry = delegate.next();
             String entryPath = entry.location().path();
 
-            // LocalFileSystem, AlluxioFileSystem, and ADLS Gen2 hierarchical canonicalize runs of
+            // LocalFileSystem and ADLS Gen2 hierarchical canonicalize runs of
             // slashes in returned paths. Try the original prefix first to preserve blob-store keys
             // where `//` is meaningful; fall back to the slash-collapsed form.
             String prefix;
