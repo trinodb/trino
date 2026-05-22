@@ -384,7 +384,7 @@ public class TestIcebergMetastoreAccessOperations
         // select from $partitions
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$partitions\"",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 1)
+                        .addCopies(GET_TABLE, 2)
                         .build());
 
         // select from $files

@@ -226,6 +226,7 @@ public class TestTrinoSnowflakeCatalog
 
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                new CatalogName("iceberg"),
                 PLANNER_CONTEXT.getTypeManager(),
                 jsonCodec(CommitTaskData.class),
                 catalog,

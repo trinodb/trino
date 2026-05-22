@@ -2399,6 +2399,10 @@ class StatementAnalyzer
             RedirectionAwareView viewRedirection = metadata.getRedirectionAwareView(session, name);
             Optional<ViewDefinition> optionalView = viewRedirection.viewDefinition();
             if (optionalView.isPresent()) {
+                if (table.getQueryPeriod().isPresent() && !isBranchVersionReference(table)) {
+                    throw semanticException(NOT_SUPPORTED, table, "Views do not support versioning");
+                }
+
                 QualifiedObjectName targetViewName = viewRedirection.redirectedTableName().orElse(name);
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetViewName, getBranchName(table));
                 return createScopeForView(table, targetViewName, scope, optionalView.get());
@@ -6228,7 +6232,7 @@ class StatementAnalyzer
             return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
         }
 
-        private Optional<String> getBranchName(Table table)
+        private static Optional<String> getBranchName(Table table)
         {
             return table
                     // branch is explicitly provided for INSERT @ branch, UPDATE @ branch, DELETE @ branch and MERGE @ branch:
@@ -6240,6 +6244,16 @@ class StatementAnalyzer
                             .filter(StringLiteral.class::isInstance)
                             .map(StringLiteral.class::cast)
                             .map(StringLiteral::getValue));
+        }
+
+        private static boolean isBranchVersionReference(Table table)
+        {
+            return table.getQueryPeriod()
+                    .filter(queryPeriod -> queryPeriod.getRangeType() == QueryPeriod.RangeType.VERSION)
+                    .filter(queryPeriod -> queryPeriod.getStart().isEmpty())
+                    .filter(queryPeriod -> queryPeriod.getEnd().isPresent())
+                    .isPresent()
+                    && getBranchName(table).isPresent();
         }
 
         /**
