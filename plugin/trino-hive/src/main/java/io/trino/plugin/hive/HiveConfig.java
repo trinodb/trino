@@ -170,6 +170,7 @@ public class HiveConfig
     private Optional<String> hudiCatalogName = Optional.empty();
     private Map<String, String> schemaPrefixRedirectRules = ImmutableMap.of();
     private Optional<String> defaultRedirectCatalog = Optional.empty();
+    private List<String> defaultRedirectExcludedPrefixes = ImmutableList.of();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
@@ -1272,6 +1273,19 @@ public class HiveConfig
     public HiveConfig setDefaultRedirectCatalog(String defaultRedirectCatalog)
     {
         this.defaultRedirectCatalog = Optional.ofNullable(defaultRedirectCatalog);
+        return this;
+    }
+
+    public List<String> getDefaultRedirectExcludedPrefixes()
+    {
+        return defaultRedirectExcludedPrefixes;
+    }
+
+    @Config("hive.default-redirect-excluded-prefixes")
+    @ConfigDescription("Comma-separated list of schema name prefixes that bypass hive.default-redirect-catalog (e.g. 'bexg_,vrbo_')")
+    public HiveConfig setDefaultRedirectExcludedPrefixes(List<String> excludedPrefixes)
+    {
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(excludedPrefixes);
         return this;
     }
 

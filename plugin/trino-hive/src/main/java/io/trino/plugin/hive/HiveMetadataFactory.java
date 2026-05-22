@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
@@ -34,6 +35,7 @@ import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -84,6 +86,7 @@ public class HiveMetadataFactory
     private final Executor metadataFetchingExecutor;
     private final Map<String, String> schemaPrefixRedirectRules;
     private final Optional<String> defaultRedirectCatalog;
+    private final List<String> defaultRedirectExcludedPrefixes;
 
     @Inject
     public HiveMetadataFactory(
@@ -144,7 +147,8 @@ public class HiveMetadataFactory
                 hiveConfig.getTimestampPrecision(),
                 hiveConfig.getMetadataParallelism(),
                 hiveConfig.getSchemaPrefixRedirectRules(),
-                hiveConfig.getDefaultRedirectCatalog());
+                hiveConfig.getDefaultRedirectCatalog(),
+                hiveConfig.getDefaultRedirectExcludedPrefixes());
     }
 
     public HiveMetadataFactory(
@@ -184,7 +188,8 @@ public class HiveMetadataFactory
             HiveTimestampPrecision hiveViewsTimestampPrecision,
             int metadataParallelism,
             Map<String, String> schemaPrefixRedirectRules,
-            Optional<String> defaultRedirectCatalog)
+            Optional<String> defaultRedirectCatalog,
+            List<String> defaultRedirectExcludedPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -229,6 +234,7 @@ public class HiveMetadataFactory
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
         this.defaultRedirectCatalog = requireNonNull(defaultRedirectCatalog, "defaultRedirectCatalog is null");
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(requireNonNull(defaultRedirectExcludedPrefixes, "defaultRedirectExcludedPrefixes is null"));
         if (metadataParallelism == 1) {
             this.metadataFetchingExecutor = directExecutor();
         }
@@ -286,6 +292,7 @@ public class HiveMetadataFactory
                 hiveViewsTimestampPrecision,
                 metadataFetchingExecutor,
                 schemaPrefixRedirectRules,
-                defaultRedirectCatalog);
+                defaultRedirectCatalog,
+                defaultRedirectExcludedPrefixes);
     }
 }

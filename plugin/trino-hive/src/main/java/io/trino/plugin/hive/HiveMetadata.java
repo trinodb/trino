@@ -430,6 +430,7 @@ public class HiveMetadata
     private final Executor metadataFetchingExecutor;
     private final Map<String, String> schemaPrefixRedirectRules;
     private final Optional<String> defaultRedirectCatalog;
+    private final List<String> defaultRedirectExcludedPrefixes;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -459,7 +460,8 @@ public class HiveMetadata
             HiveTimestampPrecision hiveViewsTimestampPrecision,
             Executor metadataFetchingExecutor,
             Map<String, String> schemaPrefixRedirectRules,
-            Optional<String> defaultRedirectCatalog)
+            Optional<String> defaultRedirectCatalog,
+            List<String> defaultRedirectExcludedPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -489,6 +491,7 @@ public class HiveMetadata
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.schemaPrefixRedirectRules = ImmutableMap.copyOf(requireNonNull(schemaPrefixRedirectRules, "schemaPrefixRedirectRules is null"));
         this.defaultRedirectCatalog = requireNonNull(defaultRedirectCatalog, "defaultRedirectCatalog is null");
+        this.defaultRedirectExcludedPrefixes = ImmutableList.copyOf(requireNonNull(defaultRedirectExcludedPrefixes, "defaultRedirectExcludedPrefixes is null"));
     }
 
     @Override
@@ -4035,6 +4038,11 @@ public class HiveMetadata
                     continue;
                 }
                 return Optional.of(new CatalogSchemaTableName(targetCatalog, targetSchema, tableName.getTableName()));
+            }
+        }
+        for (String excludedPrefix : defaultRedirectExcludedPrefixes) {
+            if (schemaName.startsWith(excludedPrefix)) {
+                return Optional.empty();
             }
         }
         return defaultRedirectCatalog.map(catalog ->
