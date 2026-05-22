@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -51,7 +52,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
@@ -273,11 +274,11 @@ public class TestDeltaLakeSplitManager
                 transactionHandle,
                 testingConnectorSessionWithConfig(deltaLakeConfig),
                 tableHandle,
-                DynamicFilter.EMPTY,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
         ImmutableList.Builder<DeltaLakeSplit> splits = ImmutableList.builder();
         while (!splitSource.isFinished()) {
-            List<ConnectorSplit> nextBatch = splitSource.getNextBatch(10).get().getSplits();
+            List<ConnectorSplit> nextBatch = splitSource.getNextBatch(10, new DynamicFilterSnapshot(TupleDomain.all(), true)).get();
             splits.addAll(
                     nextBatch.stream()
                             .map(split -> (DeltaLakeSplit) split)

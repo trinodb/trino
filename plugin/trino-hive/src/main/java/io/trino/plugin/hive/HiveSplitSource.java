@@ -29,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -50,6 +51,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxSplitSize;
@@ -89,6 +91,8 @@ class HiveSplitSource
 
     private final boolean recordScannedFiles;
     private final ImmutableList.Builder<Object> scannedFilePaths = ImmutableList.builder();
+    private final DynamicFilterState dynamicFilterState;
+    private final long dynamicFilterWaitTimeoutMillis;
 
     private HiveSplitSource(
             ConnectorSession session,
@@ -100,7 +104,8 @@ class HiveSplitSource
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter,
             SplitAffinityProvider splitAffinityProvider,
-            boolean recordScannedFiles)
+            boolean recordScannedFiles,
+            DynamicFilterState dynamicFilterState)
     {
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
@@ -117,6 +122,8 @@ class HiveSplitSource
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.splitAffinityProvider = requireNonNull(splitAffinityProvider, "splitAffinityProvider is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.dynamicFilterState = requireNonNull(dynamicFilterState, "dynamicFilterState is null");
+        this.dynamicFilterWaitTimeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
     }
 
     public static HiveSplitSource allAtOnce(
@@ -130,7 +137,8 @@ class HiveSplitSource
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             SplitAffinityProvider splitAffinityProvider,
-            boolean recordScannedFiles)
+            boolean recordScannedFiles,
+            DynamicFilterState dynamicFilterState)
     {
         AtomicReference<State> stateReference = new AtomicReference<>(State.initial());
         return new HiveSplitSource(
@@ -170,7 +178,8 @@ class HiveSplitSource
                 stateReference,
                 highMemorySplitSourceCounter,
                 splitAffinityProvider,
-                recordScannedFiles);
+                recordScannedFiles,
+                dynamicFilterState);
     }
 
     /**
@@ -247,17 +256,18 @@ class HiveSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public long getRequestedDynamicFilterWaitTimeoutMillis()
     {
-        boolean noMoreSplits;
+        return dynamicFilterWaitTimeoutMillis;
+    }
+
+    @Override
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
+    {
+        dynamicFilterState.update(dynamicFilterSnapshot);
         State state = stateReference.get();
         switch (state.getKind()) {
-            case INITIAL -> {
-                noMoreSplits = false;
-            }
-            case NO_MORE_SPLITS -> {
-                noMoreSplits = true;
-            }
+            case INITIAL, NO_MORE_SPLITS -> {}
             case FAILED -> {
                 return failedFuture(state.getThrowable());
             }
@@ -357,21 +367,7 @@ class HiveSplitSource
             }
             // This won't actually initiate a copy since hiveSplits is already an ImmutableList, but it will
             // let us convert from List<HiveSplit> to List<ConnectorSplit> without casting
-            List<ConnectorSplit> splits = ImmutableList.copyOf(hiveSplits);
-            if (noMoreSplits) {
-                // Checking splits.isEmpty() here is required for thread safety.
-                // Let's say there are 10 splits left, and max number of splits per batch is 5.
-                // The futures constructed in two getNextBatch calls could each fetch 5, resulting in zero splits left.
-                // After fetching the splits, both futures reach this line at the same time.
-                // Without the isEmpty check, both will claim they are the last.
-                // Side note 1: In such a case, it doesn't actually matter which one gets to claim it's the last.
-                //              But having both claim they are the last would be a surprising behavior.
-                // Side note 2: One could argue that the isEmpty check is overly conservative.
-                //              The caller of getNextBatch will likely need to make an extra invocation.
-                //              But an extra invocation likely doesn't matter.
-                return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished());
-            }
-            return new ConnectorSplitBatch(splits, false);
+            return ImmutableList.copyOf(hiveSplits);
         });
     }
 

@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -131,9 +133,9 @@ public class TestPrometheusIntegration
                 null,
                 session,
                 newTableHandle("default", table.name()),
-                (DynamicFilter) null,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
-        int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
+        int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null).size();
         assertThat((double) numSplits).isEqualTo(config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS));
     }
 }
