@@ -18,8 +18,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.util.Map;
-
 import static java.util.Objects.requireNonNull;
 
 public class DefaultIcebergFileSystemFactory
@@ -34,7 +32,7 @@ public class DefaultIcebergFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    public TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
     {
         return fileSystemFactory.create(identity);
     }

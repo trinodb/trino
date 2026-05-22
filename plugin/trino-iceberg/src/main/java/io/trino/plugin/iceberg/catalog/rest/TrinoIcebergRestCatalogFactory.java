@@ -20,6 +20,8 @@ import com.google.inject.Inject;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
@@ -32,13 +34,16 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.rest.FileIOBuilder;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.RESTUtil;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
@@ -114,11 +119,22 @@ public class TrinoIcebergRestCatalogFactory
                             .uri(config.get(CatalogProperties.URI))
                             .withHeaders(RESTUtil.configHeaders(config))
                             .build(),
-                    (context, config) -> {
+                    (FileIOBuilder) (context, config, credentials) -> {
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
                                 : ConnectorIdentity.ofUser("fake");
-                        return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
+                        List<IcebergStorageCredentials> storageCredentials = credentials.stream()
+                                .map(credential -> new IcebergStorageCredentials(credential.prefix(), credential.config()))
+                                .collect(toImmutableList());
+                        return fileIoFactory.create(
+                                fileSystemFactory.create(
+                                        currentIdentity,
+                                        new IcebergTableCredentials(
+                                                config,
+                                                storageCredentials)),
+                                true,
+                                config,
+                                storageCredentials);
                     });
             icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
 

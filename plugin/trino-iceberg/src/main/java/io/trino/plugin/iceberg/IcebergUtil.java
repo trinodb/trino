@@ -33,13 +33,13 @@ import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.util.DefaultLocationProvider;
 import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
@@ -1383,11 +1383,15 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
+    public static IcebergTableCredentials getTableCredentials(FileIO fileIo)
     {
-        if (tableCredentials.isPresent()) {
-            return ((IcebergTableCredentials) tableCredentials.get()).fileIoProperties();
+        if (fileIo instanceof ForwardingFileIo ioWithCredentials) {
+            return new IcebergTableCredentials(
+                    fileIo.properties(),
+                    ioWithCredentials.credentials().stream()
+                            .map(credential -> new IcebergStorageCredentials(credential.prefix(), credential.config()))
+                            .collect(toImmutableList()));
         }
-        return ImmutableMap.of();
+        return new IcebergTableCredentials(fileIo.properties(), ImmutableList.of());
     }
 }

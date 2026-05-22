@@ -13,10 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.spi.security.ConnectorIdentity;
+import com.google.common.collect.ImmutableMap;
 
-public interface IcebergFileSystemFactory
+import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
+
+public record IcebergStorageCredentials(String prefix, Map<String, String> config)
 {
-    TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials);
+    public IcebergStorageCredentials
+    {
+        requireNonNull(prefix, "prefix is null");
+        config = ImmutableMap.copyOf(config);
+    }
 }

@@ -14,11 +14,13 @@
 package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.spi.TrinoException;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
@@ -53,20 +55,22 @@ public class ForwardingFileIo
 
     private final TrinoFileSystem fileSystem;
     private final Map<String, String> properties;
+    private final List<IcebergStorageCredentials> storageCredentials;
     private final boolean useFileSizeFromMetadata;
     private final ExecutorService deleteExecutor;
 
     @VisibleForTesting
     public ForwardingFileIo(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata)
     {
-        this(fileSystem, ImmutableMap.of(), useFileSizeFromMetadata, newDirectExecutorService());
+        this(fileSystem, ImmutableMap.of(), ImmutableList.of(), useFileSizeFromMetadata, newDirectExecutorService());
     }
 
-    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties, boolean useFileSizeFromMetadata, ExecutorService deleteExecutor)
+    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties, List<IcebergStorageCredentials> storageCredentials, boolean useFileSizeFromMetadata, ExecutorService deleteExecutor)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.deleteExecutor = requireNonNull(deleteExecutor, "executorService is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.storageCredentials = ImmutableList.copyOf(requireNonNull(storageCredentials, "storageCredentials is null"));
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
     }
 
@@ -187,4 +191,9 @@ public class ForwardingFileIo
 
     @Override
     public void close() {}
+
+    public List<IcebergStorageCredentials> credentials()
+    {
+        return storageCredentials;
+    }
 }

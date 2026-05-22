@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
@@ -23,6 +24,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
@@ -65,7 +67,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 S3FileIOProperties.SECRET_ACCESS_KEY, "test-secret-key",
                 S3FileIOProperties.SESSION_TOKEN, "test-session-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("s3://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -89,7 +91,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 GCPProperties.GCS_OAUTH2_TOKEN, "ya29.test-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("gs://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -116,7 +118,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 .put(GCPProperties.GCS_PROJECT_ID, "my-gcp-project")
                 .buildOrThrow();
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("gs://bucket/path"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("gs://bucket/path"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -142,7 +144,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 GCPProperties.GCS_PROJECT_ID, "my-gcp-project");
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
-        factory.create(originalIdentity, fileIoProperties);
+        factory.create(originalIdentity, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -161,7 +163,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
-        factory.create(originalIdentity, ImmutableMap.of());
+        factory.create(originalIdentity, new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of()));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isSameAs(originalIdentity);
@@ -181,7 +183,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -204,7 +206,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account1", "sas-token-1",
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account2", "sas-token-2");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@account1.dfs.core.windows.net/some/path/file"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("abfs://container@account1.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -226,7 +228,7 @@ final class TestIcebergRestCatalogFileSystemFactory
 
         Map<String, String> fileIoProperties = ImmutableMap.of(AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
 
-        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
+        factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, ImmutableList.of())).newInputFile(Location.of("abfs://container@mystorageaccount.dfs.core.windows.net/some/path/file"));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();
@@ -249,7 +251,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 AzureProperties.ADLS_SAS_TOKEN_PREFIX + "mystorageaccount", "sv=2022-test-sas-token");
 
         ConnectorIdentity originalIdentity = ConnectorIdentity.ofUser("test");
-        factory.create(originalIdentity, fileIoProperties);
+        factory.create(originalIdentity, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()));
 
         ConnectorIdentity identity = capturedIdentity.get();
         assertThat(identity).isNotNull();

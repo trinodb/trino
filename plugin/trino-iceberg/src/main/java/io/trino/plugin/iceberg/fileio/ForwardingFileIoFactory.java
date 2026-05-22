@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.ForIcebergFileDelete;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import org.apache.iceberg.io.FileIO;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
@@ -36,16 +39,16 @@ public class ForwardingFileIoFactory
 
     public FileIO create(TrinoFileSystem fileSystem)
     {
-        return create(fileSystem, true, ImmutableMap.of());
+        return create(fileSystem, true, ImmutableMap.of(), ImmutableList.of());
     }
 
     public FileIO create(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata)
     {
-        return create(fileSystem, useFileSizeFromMetadata, ImmutableMap.of());
+        return create(fileSystem, useFileSizeFromMetadata, ImmutableMap.of(), ImmutableList.of());
     }
 
-    public FileIO create(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata, Map<String, String> properties)
+    public FileIO create(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata, Map<String, String> properties, List<IcebergStorageCredentials> storageCredentials)
     {
-        return new ForwardingFileIo(fileSystem, properties, useFileSizeFromMetadata, deleteExecutor);
+        return new ForwardingFileIo(fileSystem, properties, storageCredentials, useFileSizeFromMetadata, deleteExecutor);
     }
 }

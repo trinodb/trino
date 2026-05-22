@@ -20,6 +20,7 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
@@ -57,13 +58,13 @@ public class IcebergRestCatalogFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
+    public TrinoFileSystem create(ConnectorIdentity identity, IcebergTableCredentials tableCredentials)
     {
         if (vendedCredentialsEnabled) {
             CachedVendedCredentialsProviders cached = uncheckedCacheGet(
                     vendedCredentialsProvidersCache,
-                    createVendedCredentialsCacheKey(identity, fileIoProperties),
-                    () -> createVendedCredentialsProviders(fileIoProperties));
+                    createVendedCredentialsCacheKey(identity, tableCredentials.fileIoProperties()),
+                    () -> createVendedCredentialsProviders(tableCredentials.fileIoProperties()));
 
             if (cached.s3VendedCredentialsProvider().isPresent() || cached.gcsVendedCredentialsProvider().isPresent() || cached.azureVendedCredentialsProvider().isPresent()) {
                 return new IcebergRestCatalogFileSystem(
