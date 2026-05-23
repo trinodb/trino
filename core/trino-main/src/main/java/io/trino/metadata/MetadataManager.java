@@ -1648,7 +1648,8 @@ public final class MetadataManager
                         .collect(toImmutableList()),
                 view.getComment(),
                 runAsIdentity,
-                view.getPath());
+            view.getPath(),
+            view.getWhenStaleBehavior().orElse(ViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR));
     }
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)

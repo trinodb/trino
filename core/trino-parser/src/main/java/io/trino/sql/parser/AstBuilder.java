@@ -981,6 +981,14 @@ class AstBuilder
             security = Optional.of(CreateView.Security.INVOKER);
         }
 
+        Optional<CreateView.WhenStaleBehavior> whenStale = Optional.empty();
+        if (context.REFRESH() != null) {
+            whenStale = Optional.of(CreateView.WhenStaleBehavior.REFRESH);
+        }
+        else if (context.FAIL() != null) {
+            whenStale = Optional.of(CreateView.WhenStaleBehavior.FAIL);
+        }
+
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
             properties = visit(context.properties().propertyAssignments().property(), Property.class);
@@ -993,6 +1001,7 @@ class AstBuilder
                 context.REPLACE() != null,
                 comment,
                 security,
+                whenStale,
                 properties);
     }
 
