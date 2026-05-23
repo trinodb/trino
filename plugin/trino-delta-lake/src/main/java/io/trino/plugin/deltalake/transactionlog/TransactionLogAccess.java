@@ -36,10 +36,11 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -116,6 +117,7 @@ public class TransactionLogAccess
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
     private final ParquetReaderOptions parquetReaderOptions;
     private final ExecutorService executorService;
     private final boolean checkpointRowStatisticsWritingEnabled;
@@ -136,12 +138,14 @@ public class TransactionLogAccess
             DeltaLakeFileSystemFactory fileSystemFactory,
             ParquetReaderConfig parquetReaderConfig,
             @ForDeltaLakeMetadata ExecutorService executorService,
-            TransactionLogReaderFactory transactionLogReaderFactory)
+            TransactionLogReaderFactory transactionLogReaderFactory,
+            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
         this.parquetReaderOptions = ParquetReaderOptions.builder(parquetReaderConfig.toParquetReaderOptions()).withBloomFilter(false).build();
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
@@ -191,25 +195,29 @@ public class TransactionLogAccess
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion)
             throws IOException
     {
-        return loadSnapshot(session, table, endVersion, readLastCheckpoint(fileSystemFactory.create(session, table), table.location()));
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
+        return loadSnapshot(session, table, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), table.location()));
     }
 
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, VendedCredentialsHandle.of(table), lastCheckpoint);
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(table);
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion, tableCredentials, lastCheckpoint);
     }
 
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion)
             throws IOException
     {
-        return loadSnapshot(session, tableHandle, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableHandle), tableHandle.getLocation()));
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle());
+        return loadSnapshot(session, tableHandle, endVersion, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), tableHandle.getLocation()));
     }
 
     public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion, Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableHandle.toCredentialsHandle(), lastCheckpoint);
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle());
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion, tableCredentials, lastCheckpoint);
     }
 
     /**
@@ -227,10 +235,10 @@ public class TransactionLogAccess
             SchemaTableName table,
             String tableLocation,
             Optional<Long> endVersion,
-            VendedCredentialsHandle credentialsHandle)
+            Optional<DeltaLakeTableCredentials> tableCredentials)
             throws IOException
     {
-        return loadSnapshot(session, transactionLogReader, table, tableLocation, endVersion, credentialsHandle, readLastCheckpoint(fileSystemFactory.create(session, credentialsHandle), tableLocation));
+        return loadSnapshot(session, transactionLogReader, table, tableLocation, endVersion, tableCredentials, readLastCheckpoint(fileSystemFactory.create(session, tableCredentials), tableLocation));
     }
 
     public TableSnapshot loadSnapshot(
@@ -239,11 +247,11 @@ public class TransactionLogAccess
             SchemaTableName table,
             String tableLocation,
             Optional<Long> endVersion,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             Optional<LastCheckpoint> lastCheckpoint)
             throws IOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         if (endVersion.isPresent()) {
             return loadSnapshotForTimeTravel(session, transactionLogReader, fileSystem, table, tableLocation, endVersion.get(), lastCheckpoint);
         }
@@ -435,7 +443,7 @@ public class TransactionLogAccess
                 tableHandle.getProtocolEntry(),
                 partitionConstraint,
                 addStatsMinMaxColumnFilter,
-                tableHandle.toCredentialsHandle());
+                tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle()));
     }
 
     private Stream<AddFileEntry> getActiveFiles(
@@ -445,9 +453,9 @@ public class TransactionLogAccess
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Predicate<String> addStatsMinMaxColumnFilter,
-            VendedCredentialsHandle credentialsHandle)
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        return loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, credentialsHandle);
+        return loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, tableCredentials);
     }
 
     public Stream<AddFileEntry> loadActiveFiles(
@@ -457,10 +465,10 @@ public class TransactionLogAccess
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Predicate<String> addStatsMinMaxColumnFilter,
-            VendedCredentialsHandle credentialsHandle)
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         List<Transaction> transactions = tableSnapshot.getTransactions();
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
                 session,
                 ImmutableSet.of(ADD),

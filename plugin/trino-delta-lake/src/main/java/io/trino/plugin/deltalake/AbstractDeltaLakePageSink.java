@@ -26,7 +26,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
@@ -121,7 +120,7 @@ public abstract class AbstractDeltaLakePageSink
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             Location outputPathDirectory,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
@@ -134,7 +133,7 @@ public abstract class AbstractDeltaLakePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session, credentialsHandle);
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session, tableCredentials);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");

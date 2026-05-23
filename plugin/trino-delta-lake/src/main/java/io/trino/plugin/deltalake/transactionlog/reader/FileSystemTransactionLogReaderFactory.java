@@ -15,9 +15,9 @@ package io.trino.plugin.deltalake.transactionlog.reader;
 
 import com.google.inject.Inject;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,22 +25,24 @@ public class FileSystemTransactionLogReaderFactory
         implements TransactionLogReaderFactory
 {
     private final DeltaLakeFileSystemFactory fileSystemFactory;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
-    public FileSystemTransactionLogReaderFactory(DeltaLakeFileSystemFactory fileSystemFactory)
+    public FileSystemTransactionLogReaderFactory(DeltaLakeFileSystemFactory fileSystemFactory, DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     @Override
     public TransactionLogReader createReader(DeltaLakeTableHandle tableHandle)
     {
-        return new FileSystemTransactionLogReader(tableHandle.getLocation(), tableHandle.toCredentialsHandle(), fileSystemFactory);
+        return new FileSystemTransactionLogReader(tableHandle.getLocation(), tableCredentialsProvider.getTableCredentials(tableHandle.toCredentialsHandle()), fileSystemFactory);
     }
 
     @Override
     public TransactionLogReader createReader(DeltaMetastoreTable table)
     {
-        return new FileSystemTransactionLogReader(table.location(), VendedCredentialsHandle.of(table), fileSystemFactory);
+        return new FileSystemTransactionLogReader(table.location(), tableCredentialsProvider.getTableCredentials(table), fileSystemFactory);
     }
 }

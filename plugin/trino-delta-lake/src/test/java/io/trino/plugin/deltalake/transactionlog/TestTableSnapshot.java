@@ -24,8 +24,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.NoOpTableCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
@@ -76,7 +75,6 @@ public class TestTableSnapshot
     private TestingTelemetry testingTelemetry = TestingTelemetry.create("test-table-snapshot");
     private TrinoFileSystem trackingFileSystem;
     private String tableLocation;
-    private VendedCredentialsHandle credentialsHandle;
 
     @BeforeEach
     public void setUp()
@@ -85,9 +83,8 @@ public class TestTableSnapshot
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
         tableLocation = getClass().getClassLoader().getResource("databricks73/person").toURI().toString();
 
-        tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), HDFS_FILE_SYSTEM_FACTORY), new NoOpVendedCredentialsProvider());
-        credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
-        trackingFileSystem = tracingFileSystemFactory.create(SESSION, credentialsHandle);
+        tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), HDFS_FILE_SYSTEM_FACTORY), new NoOpTableCredentialsProvider());
+        trackingFileSystem = tracingFileSystemFactory.create(SESSION, Optional.empty());
     }
 
     @Test
@@ -100,7 +97,7 @@ public class TestTableSnapshot
                     Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
                     tableSnapshot.set(load(
                             SESSION,
-                            new FileSystemTransactionLogReader(tableLocation, credentialsHandle, tracingFileSystemFactory),
+                            new FileSystemTransactionLogReader(tableLocation, Optional.empty(), tracingFileSystemFactory),
                             new SchemaTableName("schema", "person"),
                             lastCheckpoint,
                             tableLocation,
@@ -137,7 +134,7 @@ public class TestTableSnapshot
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
                 SESSION,
-                new FileSystemTransactionLogReader(tableLocation, credentialsHandle, tracingFileSystemFactory),
+                new FileSystemTransactionLogReader(tableLocation, Optional.empty(), tracingFileSystemFactory),
                 new SchemaTableName("schema", "person"),
                 lastCheckpoint,
                 tableLocation,
@@ -156,7 +153,8 @@ public class TestTableSnapshot
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
                 executorService,
-                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory, new NoOpTableCredentialsProvider()),
+                new NoOpTableCredentialsProvider());
         TrinoFileSystem fileSystem = tracingFileSystemFactory.create(SESSION, tableLocation);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, fileSystem, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, fileSystem, tableSnapshot);
@@ -272,7 +270,7 @@ public class TestTableSnapshot
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
                 SESSION,
-                new FileSystemTransactionLogReader(tableLocation, credentialsHandle, tracingFileSystemFactory),
+                new FileSystemTransactionLogReader(tableLocation, Optional.empty(), tracingFileSystemFactory),
                 new SchemaTableName("schema", "person"),
                 lastCheckpoint,
                 tableLocation,

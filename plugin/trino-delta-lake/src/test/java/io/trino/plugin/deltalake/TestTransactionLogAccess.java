@@ -24,7 +24,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTableDescriptor;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -111,7 +110,7 @@ public class TestTransactionLogAccess
             "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
 
     private final TestingTelemetry testingTelemetry = TestingTelemetry.create("transaction-log-access");
-    private final DefaultDeltaLakeFileSystemFactory tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), HDFS_FILE_SYSTEM_FACTORY), new NoOpVendedCredentialsProvider());
+    private final DefaultDeltaLakeFileSystemFactory tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), HDFS_FILE_SYSTEM_FACTORY), new NoOpTableCredentialsProvider());
 
     private TransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
@@ -145,7 +144,8 @@ public class TestTransactionLogAccess
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
-                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory, new NoOpTableCredentialsProvider()),
+                new NoOpTableCredentialsProvider());
 
         tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableLocation), endVersion);
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");

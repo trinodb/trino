@@ -15,12 +15,12 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 
@@ -36,7 +36,7 @@ public class DeltaLakePageSink
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
@@ -51,7 +51,7 @@ public class DeltaLakePageSink
                 maxOpenWriters,
                 dataFileInfoCodec,
                 tableLocation,
-                credentialsHandle,
+                tableCredentials,
                 tableLocation,
                 session,
                 stats,

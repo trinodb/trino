@@ -11,11 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.metastore;
+package io.trino.plugin.deltalake;
+
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 
 import java.util.Optional;
 
-public interface VendedCredentialsProvider
+import static java.util.Objects.requireNonNull;
+
+public interface DeltaLakeTableCredentialsProvider
 {
-    Optional<FileSystemCredentials> getVendedCredentials(VendedCredentialsHandle handle);
+    default Optional<DeltaLakeTableCredentials> getTableCredentials(DeltaMetastoreTable table)
+    {
+        return getTableCredentials(VendedCredentialsHandle.of(requireNonNull(table, "table is null")));
+    }
+
+    Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle credentialsHandle);
 }

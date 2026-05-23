@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
@@ -82,7 +83,7 @@ public class FileBasedTableStatisticsProvider
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, TableSnapshot tableSnapshot)
+    public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle, TableSnapshot tableSnapshot, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         double numRecords = 0L;
 
@@ -212,7 +213,7 @@ public class FileBasedTableStatisticsProvider
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.toCredentialsHandle());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableCredentials);
         }
 
         for (DeltaLakeColumnHandle column : columns) {

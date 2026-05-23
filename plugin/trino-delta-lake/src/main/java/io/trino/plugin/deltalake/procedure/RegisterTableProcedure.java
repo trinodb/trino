@@ -26,6 +26,8 @@ import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -84,6 +86,7 @@ public class RegisterTableProcedure
     private final CachingExtendedStatisticsAccess statisticsAccess;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final boolean registerTableProcedureEnabled;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public RegisterTableProcedure(
@@ -91,13 +94,15 @@ public class RegisterTableProcedure
             TransactionLogAccess transactionLogAccess,
             CachingExtendedStatisticsAccess statisticsAccess,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            DeltaLakeConfig deltaLakeConfig)
+            DeltaLakeConfig deltaLakeConfig,
+            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.registerTableProcedureEnabled = deltaLakeConfig.isRegisterTableProcedureEnabled();
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     @Override
@@ -172,8 +177,14 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
-                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory), schemaTableName, tableLocation, Optional.empty(), credentialsHandle);
+                Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(tableLocation));
+                tableSnapshot = transactionLogAccess.loadSnapshot(
+                        session,
+                        new FileSystemTransactionLogReader(tableLocation, tableCredentials, fileSystemFactory),
+                        schemaTableName,
+                        tableLocation,
+                        Optional.empty(),
+                        tableCredentials);
                 metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             }
             catch (TrinoException e) {
