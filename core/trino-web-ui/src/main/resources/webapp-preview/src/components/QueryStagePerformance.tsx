@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import {
     Alert,
@@ -25,28 +24,17 @@ import {
     SelectChangeEvent,
 } from '@mui/material'
 import { type Edge, type Node, ReactFlow, useEdgesState, useNodesState, type Viewport } from '@xyflow/react'
-import { queryStatusApi, QueryStatusInfo, QueryStage } from '../api/webapp/api.ts'
-import { ApiResponse } from '../api/base.ts'
-import { Texts } from '../constant.ts'
+import { QueryStage } from '../api/webapp/api.ts'
 import { QueryProgressBar } from './QueryProgressBar.tsx'
 import { HelpMessage } from './flow/HelpMessage'
 import { nodeTypes, getLayoutedStagePerformanceElements, getViewportFocusedOnNode } from './flow/layout'
 import { LayoutDirectionType } from './flow/types'
 import { getStagePerformanceFlowElements } from './flow/flowUtils.ts'
-
-interface IQueryStatus {
-    info: QueryStatusInfo | null
-    ended: boolean
-}
+import { useQueryStatus } from './QueryStatusContext'
 
 export const QueryStagePerformance = () => {
-    const { queryId } = useParams()
-    const initialQueryStatus: IQueryStatus = {
-        info: null,
-        ended: false,
-    }
+    const { queryStatusInfo, loading, error, ended } = useQueryStatus()
 
-    const [queryStatus, setQueryStatus] = useState<IQueryStatus>(initialQueryStatus)
     const [stagePlanIds, setStagePlanIds] = useState<string[]>([])
     const [stagePlanId, setStagePlanId] = useState<string>()
     const [stage, setStage] = useState<QueryStage>()
@@ -55,26 +43,19 @@ export const QueryStagePerformance = () => {
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
     const [viewport, setViewport] = useState<Viewport>()
 
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
-    const queryStatusRef = useRef(queryStatus)
     const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        queryStatusRef.current = queryStatus
-    }, [queryStatus])
-
-    useEffect(() => {
-        if (queryStatus.info?.stages) {
-            const allStagePlanIds = queryStatus.info.stages.stages.map((stage) => stage.plan.id)
+        if (queryStatusInfo?.stages) {
+            const allStagePlanIds = queryStatusInfo.stages.stages.map((stage) => stage.plan.id)
             setStagePlanIds(allStagePlanIds)
             setStagePlanId(allStagePlanIds[0])
         }
-    }, [queryStatus])
+    }, [queryStatusInfo])
 
     useEffect(() => {
-        if (queryStatus.ended && stagePlanId) {
-            const stage = queryStatus.info?.stages.stages.find((stage) => stage.plan.id === stagePlanId)
+        if (ended && stagePlanId) {
+            const stage = queryStatusInfo?.stages.stages.find((stage) => stage.plan.id === stagePlanId)
             setStage(stage)
 
             if (stage) {
@@ -88,41 +69,7 @@ export const QueryStagePerformance = () => {
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryStatus, stagePlanId, layoutDirection])
-
-    useEffect(() => {
-        const runLoop = () => {
-            const queryEnded = !!queryStatusRef.current.info?.finalQueryInfo
-            if (!queryEnded) {
-                getQueryStatus()
-                setTimeout(runLoop, 3000)
-            }
-        }
-
-        if (queryId) {
-            queryStatusRef.current = initialQueryStatus
-        }
-
-        runLoop()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryId])
-
-    const getQueryStatus = () => {
-        if (queryId) {
-            queryStatusApi(queryId, false).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    setQueryStatus({
-                        info: apiResponse.data,
-                        ended: apiResponse.data.finalQueryInfo,
-                    })
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-                }
-            })
-        }
-    }
+    }, [queryStatusInfo, ended, stagePlanId, layoutDirection])
 
     const smallFormControlSx = {
         fontSize: '0.8rem',
@@ -153,17 +100,17 @@ export const QueryStagePerformance = () => {
     return (
         <>
             {loading && <CircularProgress />}
-            {error && <Alert severity="error">{Texts.Error.QueryNotFound}</Alert>}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            {!loading && !error && queryStatus.info && (
+            {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2 }}>
                             <Box sx={{ width: '100%' }}>
-                                <QueryProgressBar queryInfoBase={queryStatus.info} />
+                                <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
 
-                            {queryStatus.ended ? (
+                            {ended ? (
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 12 }}>
                                         <Box sx={{ pt: 2 }}>

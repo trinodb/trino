@@ -11,22 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useParams } from 'react-router-dom'
-import { useEffect, useRef, useState, type ComponentProps, type HTMLAttributes, type Ref } from 'react'
+import { type ComponentProps, type HTMLAttributes, type Ref } from 'react'
 import { Alert, Box, CircularProgress, Divider, Grid, Tooltip, Typography } from '@mui/material'
 import { blue, green, purple, teal } from '@mui/material/colors'
 import { darken, useTheme } from '@mui/material/styles'
 import Timeline, { type TimelineGroupBase, type TimelineItemBase } from 'react-calendar-timeline'
-import { queryStatusApi, QueryStage, QueryStatusInfo, QueryTask } from '../api/webapp/api.ts'
-import { Texts } from '../constant.ts'
-import { ApiResponse } from '../api/base.ts'
+import { QueryStage, QueryTask } from '../api/webapp/api.ts'
 import { getTaskIdSuffix } from '../utils/utils'
 import { QueryProgressBar } from './QueryProgressBar'
+import { useQueryStatus } from './QueryStatusContext'
 import 'react-calendar-timeline/dist/style.css'
-
-interface IQueryStatus {
-    info: QueryStatusInfo | null
-}
 
 type SplitTimelineItem = TimelineItemBase<number> & {
     color: string
@@ -38,54 +32,8 @@ type TimelineItemRenderer = NonNullable<ComponentProps<typeof Timeline>['itemRen
 type TimelineItemRendererProps = Parameters<TimelineItemRenderer>[0]
 
 export const QuerySplitsTimeline = () => {
-    const { queryId } = useParams()
+    const { queryStatusInfo, loading, error } = useQueryStatus()
     const theme = useTheme()
-    const initialQueryStatus: IQueryStatus = {
-        info: null,
-    }
-
-    const [queryStatus, setQueryStatus] = useState<IQueryStatus>(initialQueryStatus)
-
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
-    const queryStatusRef = useRef(queryStatus)
-
-    useEffect(() => {
-        queryStatusRef.current = queryStatus
-    }, [queryStatus])
-
-    useEffect(() => {
-        const runLoop = () => {
-            const queryEnded = !!queryStatusRef.current.info?.finalQueryInfo
-            if (!queryEnded) {
-                getQueryStatus()
-                setTimeout(runLoop, 3000)
-            }
-        }
-
-        if (queryId) {
-            queryStatusRef.current = initialQueryStatus
-        }
-
-        runLoop()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryId])
-
-    const getQueryStatus = () => {
-        if (queryId) {
-            queryStatusApi(queryId).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    setQueryStatus({
-                        info: apiResponse.data,
-                    })
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-                }
-            })
-        }
-    }
 
     const renderSplitsTimeline = (stages: QueryStage[]) => {
         const tasks = stages
@@ -318,24 +266,24 @@ export const QuerySplitsTimeline = () => {
     return (
         <>
             {loading && <CircularProgress />}
-            {error && <Alert severity="error">{Texts.Error.QueryNotFound}</Alert>}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            {!loading && !error && queryStatus.info && (
+            {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2 }}>
                             <Box sx={{ width: '100%' }}>
-                                <QueryProgressBar queryInfoBase={queryStatus.info} />
+                                <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
 
-                            {queryStatus.info?.stages?.stages ? (
+                            {queryStatusInfo?.stages?.stages ? (
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 12 }}>
                                         <Box sx={{ pt: 2 }}>
                                             <Typography variant="h6">Splits timeline</Typography>
                                             <Divider />
                                         </Box>
-                                        {renderSplitsTimeline(queryStatus.info.stages.stages)}
+                                        {renderSplitsTimeline(queryStatusInfo.stages.stages)}
                                     </Grid>
                                 </Grid>
                             ) : (
