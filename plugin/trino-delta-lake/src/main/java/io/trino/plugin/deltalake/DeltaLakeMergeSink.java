@@ -30,7 +30,6 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -151,7 +150,7 @@ public class DeltaLakeMergeSink
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats writerStats,
             Location rootTableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
             int domainCompactionThreshold,
@@ -168,7 +167,7 @@ public class DeltaLakeMergeSink
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
-        this.fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        this.fileSystem = fileSystemFactory.create(session, tableCredentials);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");

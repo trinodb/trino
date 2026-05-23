@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -59,14 +60,15 @@ public class TableChangesSplitSource
     public TableChangesSplitSource(
             ConnectorSession session,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            TableChangesTableFunctionHandle functionHandle)
+            TableChangesTableFunctionHandle functionHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         tableLocation = functionHandle.tableLocation();
         splits = prepareSplits(
                 functionHandle.firstReadVersion(),
                 functionHandle.tableReadVersion(),
                 getTransactionLogDir(functionHandle.tableLocation()),
-                fileSystemFactory.create(session, functionHandle.credentialsHandle()))
+                fileSystemFactory.create(session, tableCredentials))
                 .iterator();
     }
 

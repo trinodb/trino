@@ -67,6 +67,7 @@ public class DeltaLakeMetadataFactory
     private final String trinoVersion;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final ConnectorExpressionEvaluator evaluator;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -87,7 +88,8 @@ public class DeltaLakeMetadataFactory
             DeltaLakeTableMetadataScheduler metadataScheduler,
             @ForDeltaLakeMetadata ExecutorService executorService,
             TransactionLogReaderFactory transactionLogReaderFactory,
-            ConnectorExpressionEvaluator evaluator)
+            ConnectorExpressionEvaluator evaluator,
+            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -117,6 +119,7 @@ public class DeltaLakeMetadataFactory
         }
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -156,6 +159,7 @@ public class DeltaLakeMetadataFactory
                 allowManagedTableRename,
                 metadataFetchingExecutor,
                 transactionLogReaderFactory,
-                evaluator);
+                evaluator,
+                tableCredentialsProvider);
     }
 }

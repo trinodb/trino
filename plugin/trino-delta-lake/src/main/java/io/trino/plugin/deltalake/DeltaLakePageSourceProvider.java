@@ -224,7 +224,7 @@ public class DeltaLakePageSourceProvider
         }
 
         Location location = Location.of(split.path());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials.map(DeltaLakeTableCredentials.class::cast));
         TrinoInputFile inputFile = fileSystem.newInputFile(location, split.fileSize());
         ParquetReaderOptions options = ParquetReaderOptions.builder(parquetReaderOptions)
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))

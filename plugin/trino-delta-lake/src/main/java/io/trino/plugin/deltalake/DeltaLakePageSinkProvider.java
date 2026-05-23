@@ -129,7 +129,7 @@ public class DeltaLakePageSinkProvider
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 Location.of(tableHandle.location()),
-                tableHandle.toCredentialsHandle(),
+                tableCredentials.map(DeltaLakeTableCredentials.class::cast),
                 session,
                 stats,
                 trinoVersion,
@@ -157,7 +157,7 @@ public class DeltaLakePageSinkProvider
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 Location.of(tableHandle.location()),
-                tableHandle.credentialsHandle(),
+                tableCredentials.map(DeltaLakeTableCredentials.class::cast),
                 session,
                 stats,
                 trinoVersion,
@@ -187,7 +187,7 @@ public class DeltaLakePageSinkProvider
                         maxPartitionsPerWriter,
                         dataFileInfoCodec,
                         Location.of(executeHandle.tableLocation()),
-                        optimizeHandle.getCredentialsHandle(),
+                        tableCredentials.map(DeltaLakeTableCredentials.class::cast),
                         session,
                         stats,
                         trinoVersion,
@@ -211,6 +211,7 @@ public class DeltaLakePageSinkProvider
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle, tableCredentials, pageSinkId);
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(tableHandle.metadataEntry(), tableHandle.protocolEntry(), typeManager);
 
+        Optional<DeltaLakeTableCredentials> deltaTableCredentials = tableCredentials.map(DeltaLakeTableCredentials.class::cast);
         return new DeltaLakeMergeSink(
                 typeManager.getTypeOperators(),
                 fileSystemFactory,
@@ -221,11 +222,11 @@ public class DeltaLakePageSinkProvider
                 mergeResultJsonCodec,
                 stats,
                 Location.of(tableHandle.location()),
-                tableHandle.credentialsHandle(),
+                deltaTableCredentials,
                 pageSink,
                 tableHandle.inputColumns(),
                 domainCompactionThreshold,
-                () -> createCdfPageSink(merge, session),
+                () -> createCdfPageSink(merge, session, deltaTableCredentials),
                 changeDataFeedEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()).orElse(false),
                 parquetSchemaMapping,
                 parquetReaderOptions,
@@ -239,7 +240,8 @@ public class DeltaLakePageSinkProvider
 
     private DeltaLakeCdfPageSink createCdfPageSink(
             DeltaLakeMergeTableHandle mergeTableHandle,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         MetadataEntry metadataEntry = mergeTableHandle.tableHandle().getMetadataEntry();
         ProtocolEntry protocolEntry = mergeTableHandle.tableHandle().getProtocolEntry();
@@ -278,7 +280,7 @@ public class DeltaLakePageSinkProvider
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 tableLocation,
-                mergeTableHandle.tableHandle().toCredentialsHandle(),
+                tableCredentials,
                 tableLocation.appendPath(CHANGE_DATA_FOLDER_NAME),
                 session,
                 stats,

@@ -17,7 +17,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
@@ -25,6 +25,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
@@ -43,10 +44,10 @@ public class TestingLocalTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             Path targetPath = ((LocalFileSystem) fileSystem).toFilePath(newLogEntryPath);
             Files.createDirectories(targetPath.getParent());
             Path tmpPath = targetPath.resolveSibling(".tmp.%s.%s".formatted(targetPath.getFileName().toString(), randomUUID()));

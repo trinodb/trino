@@ -20,7 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -62,23 +62,23 @@ public class MetaDirStatisticsAccess
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
-            VendedCredentialsHandle credentialsHandle)
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         Location location = Location.of(tableLocation);
-        return readExtendedStatistics(session, location, credentialsHandle, STATISTICS_META_DIR, STATISTICS_FILE)
-                .or(() -> readExtendedStatistics(session, location, credentialsHandle, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
+        return readExtendedStatistics(session, location, tableCredentials, STATISTICS_META_DIR, STATISTICS_FILE)
+                .or(() -> readExtendedStatistics(session, location, tableCredentials, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
     }
 
     private Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
             Location tableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             String statisticsDirectory,
             String statisticsFile)
     {
         try {
             Location statisticsPath = tableLocation.appendPath(statisticsDirectory).appendPath(statisticsFile);
-            TrinoInputFile inputFile = fileSystemFactory.create(session, credentialsHandle).newInputFile(statisticsPath);
+            TrinoInputFile inputFile = fileSystemFactory.create(session, tableCredentials).newInputFile(statisticsPath);
             try (InputStream inputStream = inputFile.newStream()) {
                 return Optional.of(decodeAndRethrowIfNotFound(statisticsCodec, inputStream));
             }
@@ -96,13 +96,13 @@ public class MetaDirStatisticsAccess
             ConnectorSession session,
             SchemaTableName schemaTableName,
             String tableLocation,
-            VendedCredentialsHandle credentialsHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials,
             ExtendedStatistics statistics)
     {
         try {
             Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             fileSystem.newOutputFile(statisticsPath).createOrOverwrite(statisticsCodec.toJsonBytes(statistics));
 
             // Remove outdated Starburst stats file, if it exists.
@@ -117,11 +117,11 @@ public class MetaDirStatisticsAccess
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, VendedCredentialsHandle credentialsHandle)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             if (fileSystem.newInputFile(statisticsPath).exists()) {
                 fileSystem.deleteFile(statisticsPath);
             }
