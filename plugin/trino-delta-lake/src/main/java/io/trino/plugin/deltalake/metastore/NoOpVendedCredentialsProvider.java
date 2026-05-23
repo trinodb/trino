@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import java.util.Optional;
+
 public class NoOpVendedCredentialsProvider
         implements VendedCredentialsProvider
 {
     @Override
-    public VendedCredentialsHandle getFreshCredentials(VendedCredentialsHandle handle)
+    public Optional<FileSystemCredentials> getVendedCredentials(VendedCredentialsHandle handle)
     {
-        return handle;
+        return Optional.empty();
     }
 }

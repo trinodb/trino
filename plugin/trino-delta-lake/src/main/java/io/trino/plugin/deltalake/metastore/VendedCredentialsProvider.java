@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import java.util.Optional;
+
 public interface VendedCredentialsProvider
 {
-    VendedCredentialsHandle getFreshCredentials(VendedCredentialsHandle handle);
+    Optional<FileSystemCredentials> getVendedCredentials(VendedCredentialsHandle handle);
 }

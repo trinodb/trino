@@ -45,7 +45,7 @@ public class DefaultDeltaLakeFileSystemFactory
         requireNonNull(vendedCredentialsHandle, "vendedCredentialsHandle is null");
 
         ConnectorIdentity identity = session.getIdentity();
-        Optional<FileSystemCredentials> vendedCredentials = vendedCredentialsProvider.getFreshCredentials(vendedCredentialsHandle).vendedCredentials();
+        Optional<FileSystemCredentials> vendedCredentials = vendedCredentialsProvider.getVendedCredentials(vendedCredentialsHandle);
         if (vendedCredentials.isPresent()) {
             // Do not include original credentials as they should not be used in vended mode
             ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
