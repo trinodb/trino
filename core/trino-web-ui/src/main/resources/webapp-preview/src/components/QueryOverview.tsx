@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { QueryProgressBar } from './QueryProgressBar'
 import {
@@ -30,15 +29,7 @@ import {
 } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { Texts } from '../constant.ts'
-import {
-    StackInfo,
-    killQueryApi,
-    queryStatusApi,
-    QueryStage,
-    QueryStages,
-    QueryStatusInfo,
-    Session,
-} from '../api/webapp/api.ts'
+import { StackInfo, killQueryApi, QueryStage, QueryStages, QueryStatusInfo, Session } from '../api/webapp/api.ts'
 import { ApiResponse } from '../api/base.ts'
 import {
     addToHistory,
@@ -52,9 +43,9 @@ import {
 } from '../utils/utils.ts'
 import { QueryStageCard } from './QueryStageCard'
 import { CodeBlock } from './CodeBlock.tsx'
+import { useQueryStatus } from './QueryStatusContext'
 
-interface IQueryStatus {
-    info: QueryStatusInfo | null
+interface IDerivedQueryStatus {
     lastQueryStages: QueryStages | null
 
     lastScheduledTime: number
@@ -74,180 +65,138 @@ interface IQueryStatus {
     lastRefresh: number | null
 }
 
+const initialDerivedStatus: IDerivedQueryStatus = {
+    lastQueryStages: null,
+
+    lastScheduledTime: 0,
+    lastCpuTime: 0,
+    lastPhysicalInputReadTime: 0,
+    lastProcessedInputPositions: 0,
+    lastProcessedInputDataSize: 0,
+    lastPhysicalInputDataSize: 0,
+
+    scheduledTimeRate: [],
+    cpuTimeRate: [],
+    rowInputRate: [],
+    byteInputRate: [],
+    reservedMemory: [],
+    physicalInputRate: [],
+
+    lastRefresh: null,
+}
+
 export const QueryOverview = () => {
-    const { queryId } = useParams()
-    const initialQueryStatus: IQueryStatus = {
-        info: null,
-        lastQueryStages: null,
+    const { queryStatusInfo, loading, error } = useQueryStatus()
 
-        lastScheduledTime: 0,
-        lastCpuTime: 0,
-        lastPhysicalInputReadTime: 0,
-        lastProcessedInputPositions: 0,
-        lastProcessedInputDataSize: 0,
-        lastPhysicalInputDataSize: 0,
-
-        scheduledTimeRate: [],
-        cpuTimeRate: [],
-        rowInputRate: [],
-        byteInputRate: [],
-        reservedMemory: [],
-        physicalInputRate: [],
-
-        lastRefresh: null,
-    }
-    const [queryStatus, setQueryStatus] = useState<IQueryStatus>(initialQueryStatus)
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
+    const [derivedStatus, setDerivedStatus] = useState<IDerivedQueryStatus>(initialDerivedStatus)
     const [queryActionError, setQueryActionError] = useState<string | null>(null)
     const [queryActionRunning, setQueryActionRunning] = useState<boolean>(false)
-    const queryStatusRef = useRef(queryStatus)
+    const prevQueryStatusInfoRef = useRef<QueryStatusInfo | null>(null)
 
     useEffect(() => {
-        queryStatusRef.current = queryStatus
-    }, [queryStatus])
-
-    useEffect(() => {
-        const runLoop = () => {
-            const queryEnded = !!queryStatusRef.current.info?.finalQueryInfo
-            if (!queryEnded) {
-                getQueryStatus()
-                setTimeout(runLoop, 3000)
-            }
-        }
-
-        if (queryId) {
-            queryStatusRef.current = initialQueryStatus
+        if (!queryStatusInfo) {
+            setDerivedStatus(initialDerivedStatus)
             setQueryActionError(null)
+            return
         }
 
-        runLoop()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryId])
-
-    const getQueryStatus = () => {
-        if (queryId) {
-            queryStatusApi(queryId).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    const newQueryStatusInfo: QueryStatusInfo = apiResponse.data
-                    setQueryStatus((prevQueryStatus) => {
-                        let lastRefresh = prevQueryStatus.lastRefresh
-
-                        const lastScheduledTime = prevQueryStatus.lastScheduledTime
-                        const lastCpuTime = prevQueryStatus.lastCpuTime
-                        const lastPhysicalInputReadTime = prevQueryStatus.lastPhysicalInputReadTime
-                        const lastProcessedInputPositions = prevQueryStatus.lastProcessedInputPositions
-                        const lastProcessedInputDataSize = prevQueryStatus.lastProcessedInputDataSize
-                        const lastPhysicalInputDataSize = prevQueryStatus.lastPhysicalInputDataSize
-                        const nowMillis = Date.now()
-
-                        const elapsedTime = parseDuration(newQueryStatusInfo.queryStats.elapsedTime || '') || 0
-
-                        let newScheduledTimeRate = prevQueryStatus.scheduledTimeRate
-                        let newCpuTimeRate = prevQueryStatus.cpuTimeRate
-                        let newRowInputRate = prevQueryStatus.rowInputRate
-                        let newByteInputRate = prevQueryStatus.byteInputRate
-                        let newReservedMemory = prevQueryStatus.reservedMemory
-                        let newPhysicalInputRate = prevQueryStatus.physicalInputRate
-
-                        const newQueryStats = newQueryStatusInfo.queryStats
-
-                        if (lastRefresh === null) {
-                            lastRefresh = nowMillis - elapsedTime
-                        }
-
-                        const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0
-                        if (elapsedSecsSinceLastRefresh >= 0) {
-                            const calcSafeRate = (newVal: number, lastVal: number, elapsedMs: number): number =>
-                                elapsedMs > 0 && Number.isFinite(newVal - lastVal) ? (newVal - lastVal) / elapsedMs : 0
-                            const safeAddToHistory = (val: number, arr: number[]): number[] =>
-                                arr.length === 0 || val > 0 ? addToHistory(val, arr) : arr
-
-                            const newScheduledTime = parseDuration(newQueryStats.totalScheduledTime) || 0
-                            const newCpuTime = parseDuration(newQueryStats.totalCpuTime) || 0
-                            const newPhysicalInputReadTime = parseDuration(newQueryStats.physicalInputReadTime) || 0
-                            const newProcessedInputPositions = newQueryStats.processedInputPositions
-                            const newProcessedInputDataSize = parseDataSize(newQueryStats.processedInputDataSize) || 0
-                            const newPhysicalInputDataSize = parseDataSize(newQueryStats.physicalInputDataSize) || 0
-                            const currentReservedMemory = parseDataSize(newQueryStats.totalMemoryReservation) || 0
-
-                            const currentScheduledTimeRate = calcSafeRate(
-                                newScheduledTime,
-                                lastScheduledTime,
-                                elapsedSecsSinceLastRefresh * 1000
-                            )
-                            const currentCpuTimeRate = calcSafeRate(
-                                newCpuTime,
-                                lastCpuTime,
-                                elapsedSecsSinceLastRefresh * 1000
-                            )
-                            const currentPhysicalReadTime = calcSafeRate(
-                                newPhysicalInputReadTime,
-                                lastPhysicalInputReadTime,
-                                1000
-                            )
-                            const currentRowInputRate = calcSafeRate(
-                                newProcessedInputPositions,
-                                lastProcessedInputPositions,
-                                elapsedSecsSinceLastRefresh
-                            )
-                            const currentByteInputRate = calcSafeRate(
-                                newProcessedInputDataSize,
-                                lastProcessedInputDataSize,
-                                elapsedSecsSinceLastRefresh
-                            )
-                            const currentPhysicalInputRate =
-                                currentPhysicalReadTime > 0
-                                    ? calcSafeRate(
-                                          newPhysicalInputDataSize,
-                                          lastPhysicalInputDataSize,
-                                          currentPhysicalReadTime
-                                      )
-                                    : 0
-
-                            newScheduledTimeRate = safeAddToHistory(
-                                currentScheduledTimeRate,
-                                prevQueryStatus.scheduledTimeRate
-                            )
-                            newCpuTimeRate = safeAddToHistory(currentCpuTimeRate, prevQueryStatus.cpuTimeRate)
-                            newRowInputRate = safeAddToHistory(currentRowInputRate, prevQueryStatus.rowInputRate)
-                            newByteInputRate = safeAddToHistory(currentByteInputRate, prevQueryStatus.byteInputRate)
-                            newReservedMemory = safeAddToHistory(currentReservedMemory, prevQueryStatus.reservedMemory)
-                            newPhysicalInputRate = safeAddToHistory(
-                                currentPhysicalInputRate,
-                                prevQueryStatus.physicalInputRate
-                            )
-                        }
-
-                        return {
-                            info: newQueryStatusInfo,
-                            lastQueryStages: newQueryStatusInfo.stages,
-
-                            lastScheduledTime: parseDuration(newQueryStats.totalScheduledTime) || 0,
-                            lastCpuTime: parseDuration(newQueryStats.totalCpuTime) || 0,
-                            lastPhysicalInputReadTime: parseDuration(newQueryStats.physicalInputReadTime) || 0,
-                            lastProcessedInputPositions: newQueryStats.processedInputPositions,
-                            lastProcessedInputDataSize: parseDataSize(newQueryStats.processedInputDataSize) || 0,
-                            lastPhysicalInputDataSize: parseDataSize(newQueryStats.physicalInputDataSize) || 0,
-
-                            scheduledTimeRate: newScheduledTimeRate,
-                            cpuTimeRate: newCpuTimeRate,
-                            rowInputRate: newRowInputRate,
-                            byteInputRate: newByteInputRate,
-                            reservedMemory: newReservedMemory,
-                            physicalInputRate: newPhysicalInputRate,
-
-                            lastRefresh: nowMillis,
-                        }
-                    })
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-                }
-            })
+        if (queryStatusInfo === prevQueryStatusInfoRef.current) {
+            return
         }
-    }
+        prevQueryStatusInfoRef.current = queryStatusInfo
+
+        setDerivedStatus((prevDerivedStatus) => {
+            let lastRefresh = prevDerivedStatus.lastRefresh
+
+            const lastScheduledTime = prevDerivedStatus.lastScheduledTime
+            const lastCpuTime = prevDerivedStatus.lastCpuTime
+            const lastPhysicalInputReadTime = prevDerivedStatus.lastPhysicalInputReadTime
+            const lastProcessedInputPositions = prevDerivedStatus.lastProcessedInputPositions
+            const lastProcessedInputDataSize = prevDerivedStatus.lastProcessedInputDataSize
+            const lastPhysicalInputDataSize = prevDerivedStatus.lastPhysicalInputDataSize
+            const nowMillis = Date.now()
+
+            const elapsedTime = parseDuration(queryStatusInfo.queryStats.elapsedTime || '') || 0
+
+            let newScheduledTimeRate = prevDerivedStatus.scheduledTimeRate
+            let newCpuTimeRate = prevDerivedStatus.cpuTimeRate
+            let newRowInputRate = prevDerivedStatus.rowInputRate
+            let newByteInputRate = prevDerivedStatus.byteInputRate
+            let newReservedMemory = prevDerivedStatus.reservedMemory
+            let newPhysicalInputRate = prevDerivedStatus.physicalInputRate
+
+            const newQueryStats = queryStatusInfo.queryStats
+
+            if (lastRefresh === null) {
+                lastRefresh = nowMillis - elapsedTime
+            }
+
+            const elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000.0
+            if (elapsedSecsSinceLastRefresh >= 0) {
+                const calcSafeRate = (newVal: number, lastVal: number, elapsedMs: number): number =>
+                    elapsedMs > 0 && Number.isFinite(newVal - lastVal) ? (newVal - lastVal) / elapsedMs : 0
+                const safeAddToHistory = (val: number, arr: number[]): number[] =>
+                    arr.length === 0 || val > 0 ? addToHistory(val, arr) : arr
+
+                const newScheduledTime = parseDuration(newQueryStats.totalScheduledTime) || 0
+                const newCpuTime = parseDuration(newQueryStats.totalCpuTime) || 0
+                const newPhysicalInputReadTime = parseDuration(newQueryStats.physicalInputReadTime) || 0
+                const newProcessedInputPositions = newQueryStats.processedInputPositions
+                const newProcessedInputDataSize = parseDataSize(newQueryStats.processedInputDataSize) || 0
+                const newPhysicalInputDataSize = parseDataSize(newQueryStats.physicalInputDataSize) || 0
+                const currentReservedMemory = parseDataSize(newQueryStats.totalMemoryReservation) || 0
+
+                const currentScheduledTimeRate = calcSafeRate(
+                    newScheduledTime,
+                    lastScheduledTime,
+                    elapsedSecsSinceLastRefresh * 1000
+                )
+                const currentCpuTimeRate = calcSafeRate(newCpuTime, lastCpuTime, elapsedSecsSinceLastRefresh * 1000)
+                const currentPhysicalReadTime = calcSafeRate(newPhysicalInputReadTime, lastPhysicalInputReadTime, 1000)
+                const currentRowInputRate = calcSafeRate(
+                    newProcessedInputPositions,
+                    lastProcessedInputPositions,
+                    elapsedSecsSinceLastRefresh
+                )
+                const currentByteInputRate = calcSafeRate(
+                    newProcessedInputDataSize,
+                    lastProcessedInputDataSize,
+                    elapsedSecsSinceLastRefresh
+                )
+                const currentPhysicalInputRate =
+                    currentPhysicalReadTime > 0
+                        ? calcSafeRate(newPhysicalInputDataSize, lastPhysicalInputDataSize, currentPhysicalReadTime)
+                        : 0
+
+                newScheduledTimeRate = safeAddToHistory(currentScheduledTimeRate, prevDerivedStatus.scheduledTimeRate)
+                newCpuTimeRate = safeAddToHistory(currentCpuTimeRate, prevDerivedStatus.cpuTimeRate)
+                newRowInputRate = safeAddToHistory(currentRowInputRate, prevDerivedStatus.rowInputRate)
+                newByteInputRate = safeAddToHistory(currentByteInputRate, prevDerivedStatus.byteInputRate)
+                newReservedMemory = safeAddToHistory(currentReservedMemory, prevDerivedStatus.reservedMemory)
+                newPhysicalInputRate = safeAddToHistory(currentPhysicalInputRate, prevDerivedStatus.physicalInputRate)
+            }
+
+            return {
+                lastQueryStages: queryStatusInfo.stages,
+
+                lastScheduledTime: parseDuration(newQueryStats.totalScheduledTime) || 0,
+                lastCpuTime: parseDuration(newQueryStats.totalCpuTime) || 0,
+                lastPhysicalInputReadTime: parseDuration(newQueryStats.physicalInputReadTime) || 0,
+                lastProcessedInputPositions: newQueryStats.processedInputPositions,
+                lastProcessedInputDataSize: parseDataSize(newQueryStats.processedInputDataSize) || 0,
+                lastPhysicalInputDataSize: parseDataSize(newQueryStats.physicalInputDataSize) || 0,
+
+                scheduledTimeRate: newScheduledTimeRate,
+                cpuTimeRate: newCpuTimeRate,
+                rowInputRate: newRowInputRate,
+                byteInputRate: newByteInputRate,
+                reservedMemory: newReservedMemory,
+                physicalInputRate: newPhysicalInputRate,
+
+                lastRefresh: nowMillis,
+            }
+        })
+    }, [queryStatusInfo])
 
     const formatStackTrace = (info: StackInfo) => {
         return formatStackTraceHelper(info, [], '', '')
@@ -342,8 +291,6 @@ export const QueryOverview = () => {
     }
 
     const renderWarningInfo = () => {
-        const queryStatusInfo = queryStatus.info
-
         if (queryStatusInfo?.warnings?.length) {
             return (
                 <Grid size={{ xs: 12 }}>
@@ -372,8 +319,6 @@ export const QueryOverview = () => {
     }
 
     const renderFailureInfo = () => {
-        const queryStatusInfo = queryStatus.info
-
         if (queryStatusInfo?.failureInfo) {
             return (
                 <Grid size={{ xs: 12 }}>
@@ -419,8 +364,6 @@ export const QueryOverview = () => {
     }
 
     const renderPreparedQuery = () => {
-        const queryStatusInfo = queryStatus.info
-
         if (queryStatusInfo?.preparedQuery) {
             return (
                 <Grid size={{ xs: 12 }}>
@@ -439,7 +382,7 @@ export const QueryOverview = () => {
     }
 
     const renderStages = (taskRetriesEnabled: boolean) => {
-        const stages = queryStatus.lastQueryStages?.stages
+        const stages = derivedStatus.lastQueryStages?.stages
 
         return (
             <Grid size={{ xs: 12 }}>
@@ -471,7 +414,8 @@ export const QueryOverview = () => {
     }
 
     const runQueryAction = (queryAction: (queryId: string) => Promise<ApiResponse<void>>, actionName: string) => {
-        if (!queryId || queryActionRunning || queryStatus.info?.finalQueryInfo) {
+        const queryId = queryStatusInfo?.queryId
+        if (!queryId || queryActionRunning || queryStatusInfo?.finalQueryInfo) {
             return
         }
 
@@ -486,7 +430,6 @@ export const QueryOverview = () => {
                 } else if (apiResponse.status !== 202 && apiResponse.status !== 409) {
                     setQueryActionError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
                 }
-                getQueryStatus()
             })
             .finally(() => {
                 setQueryActionRunning(false)
@@ -497,19 +440,19 @@ export const QueryOverview = () => {
         runQueryAction(killQueryApi, 'cancel')
     }
 
-    const taskRetriesEnabled = queryStatus.info?.retryPolicy == 'TASK'
-    const queryActionDisabled = queryActionRunning || !!queryStatus.info?.finalQueryInfo
+    const taskRetriesEnabled = queryStatusInfo?.retryPolicy == 'TASK'
+    const queryActionDisabled = queryActionRunning || !!queryStatusInfo?.finalQueryInfo
     return (
         <>
             {loading && <CircularProgress />}
-            {error && <Alert severity="error">{Texts.Error.QueryNotFound}</Alert>}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            {!loading && !error && queryStatus.info && (
+            {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                <QueryProgressBar queryInfoBase={queryStatus.info} />
+                                <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
                             <Box sx={{ display: 'flex', flexShrink: 0, gap: 1 }}>
                                 <Button
@@ -541,47 +484,47 @@ export const QueryOverview = () => {
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
-                                            <TableCell>{queryStatus.info.session.user}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.user}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Principal</TableCell>
-                                            <TableCell>{queryStatus.info.session.principal}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.principal}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Source</TableCell>
-                                            <TableCell>{queryStatus.info.session.source}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.source}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Catalog</TableCell>
-                                            <TableCell>{queryStatus.info.session.catalog}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.catalog}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Schema</TableCell>
-                                            <TableCell>{queryStatus.info.session.schema}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.schema}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Time zone</TableCell>
-                                            <TableCell>{queryStatus.info.session.timeZone}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.timeZone}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Client address</TableCell>
-                                            <TableCell>{queryStatus.info.session.remoteUserAddress}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.remoteUserAddress}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Client tags</TableCell>
-                                            <TableCell>{queryStatus.info.session.clientTags.join(', ')}</TableCell>
+                                            <TableCell>{queryStatusInfo.session.clientTags.join(', ')}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Protocol encoding</TableCell>
                                             <TableCell>
-                                                {queryStatus.info.session.queryDataEncoding
-                                                    ? 'spooled ' + queryStatus.info.session.queryDataEncoding
+                                                {queryStatusInfo.session.queryDataEncoding
+                                                    ? 'spooled ' + queryStatusInfo.session.queryDataEncoding
                                                     : 'non-spooled'}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Session properties</TableCell>
-                                            <TableCell>{renderSessionProperties(queryStatus.info.session)}</TableCell>
+                                            <TableCell>{renderSessionProperties(queryStatusInfo.session)}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Resource estimates</TableCell>
@@ -603,44 +546,44 @@ export const QueryOverview = () => {
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Resource group</TableCell>
                                             <TableCell>
-                                                {queryStatus.info.resourceGroupId
-                                                    ? queryStatus.info.resourceGroupId.join('.')
+                                                {queryStatusInfo.resourceGroupId
+                                                    ? queryStatusInfo.resourceGroupId.join('.')
                                                     : 'n/a'}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Submission time</TableCell>
                                             <TableCell>
-                                                {formatShortDateTime(new Date(queryStatus.info.queryStats.createTime))}
+                                                {formatShortDateTime(new Date(queryStatusInfo.queryStats.createTime))}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Completion time</TableCell>
                                             <TableCell>
-                                                {queryStatus.info.queryStats.endTime
-                                                    ? formatShortDateTime(new Date(queryStatus.info.queryStats.endTime))
+                                                {queryStatusInfo.queryStats.endTime
+                                                    ? formatShortDateTime(new Date(queryStatusInfo.queryStats.endTime))
                                                     : ''}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Elapsed time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.elapsedTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.elapsedTime}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Queued time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.queuedTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.queuedTime}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Elapsed time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.elapsedTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.elapsedTime}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Planned time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.planningTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.planningTime}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Execution time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.executionTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.executionTime}</TableCell>
                                         </TableRow>
                                     </TableBody>
                                 </Table>
@@ -657,30 +600,30 @@ export const QueryOverview = () => {
                                     <TableBody>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>CPU time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.totalCpuTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.totalCpuTime}</TableCell>
                                             {taskRetriesEnabled && (
-                                                <TableCell>{queryStatus.info.queryStats.failedCpuTime}</TableCell>
+                                                <TableCell>{queryStatusInfo.queryStats.failedCpuTime}</TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Planning CPU time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.planningCpuTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.planningCpuTime}</TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Scheduled time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.totalScheduledTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.totalScheduledTime}</TableCell>
                                             {taskRetriesEnabled && (
-                                                <TableCell>{queryStatus.info.queryStats.failedScheduledTime}</TableCell>
+                                                <TableCell>{queryStatusInfo.queryStats.failedScheduledTime}</TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Input rows</TableCell>
                                             <TableCell>
-                                                {formatCount(queryStatus.info.queryStats.processedInputPositions)}
+                                                {formatCount(queryStatusInfo.queryStats.processedInputPositions)}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {queryStatus.info.queryStats.failedProcessedInputPositions}
+                                                    {queryStatusInfo.queryStats.failedProcessedInputPositions}
                                                 </TableCell>
                                             )}
                                         </TableRow>
@@ -688,23 +631,23 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Input data</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.processedInputDataSize
+                                                    queryStatusInfo.queryStats.processedInputDataSize
                                                 )}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {queryStatus.info.queryStats.failedProcessedInputDataSize}
+                                                    {queryStatusInfo.queryStats.failedProcessedInputDataSize}
                                                 </TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Physical input rows</TableCell>
                                             <TableCell>
-                                                {formatCount(queryStatus.info.queryStats.physicalInputPositions)}
+                                                {formatCount(queryStatusInfo.queryStats.physicalInputPositions)}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {queryStatus.info.queryStats.failedPhysicalInputPositions}
+                                                    {queryStatusInfo.queryStats.failedPhysicalInputPositions}
                                                 </TableCell>
                                             )}
                                         </TableRow>
@@ -712,33 +655,33 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Physical input data</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.physicalInputDataSize
+                                                    queryStatusInfo.queryStats.physicalInputDataSize
                                                 )}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {queryStatus.info.queryStats.failedPhysicalInputDataSize}
+                                                    {queryStatusInfo.queryStats.failedPhysicalInputDataSize}
                                                 </TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Physical input read time</TableCell>
-                                            <TableCell>{queryStatus.info.queryStats.physicalInputReadTime}</TableCell>
+                                            <TableCell>{queryStatusInfo.queryStats.physicalInputReadTime}</TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {queryStatus.info.queryStats.failedPhysicalInputReadTime}
+                                                    {queryStatusInfo.queryStats.failedPhysicalInputReadTime}
                                                 </TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Internal network rows</TableCell>
                                             <TableCell>
-                                                {formatCount(queryStatus.info.queryStats.internalNetworkInputPositions)}
+                                                {formatCount(queryStatusInfo.queryStats.internalNetworkInputPositions)}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
                                                     {formatCount(
-                                                        queryStatus.info.queryStats.failedInternalNetworkInputPositions
+                                                        queryStatusInfo.queryStats.failedInternalNetworkInputPositions
                                                     )}
                                                 </TableCell>
                                             )}
@@ -747,13 +690,13 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Internal network data</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.internalNetworkInputDataSize
+                                                    queryStatusInfo.queryStats.internalNetworkInputDataSize
                                                 )}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
                                                     {parseAndFormatDataSize(
-                                                        queryStatus.info.queryStats.failedInternalNetworkInputDataSize
+                                                        queryStatusInfo.queryStats.failedInternalNetworkInputDataSize
                                                     )}
                                                 </TableCell>
                                             )}
@@ -762,16 +705,16 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Peak user memory</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.peakUserMemoryReservation
+                                                    queryStatusInfo.queryStats.peakUserMemoryReservation
                                                 )}
                                             </TableCell>
                                         </TableRow>
-                                        {queryStatus.info.queryStats.peakRevocableMemoryReservation && (
+                                        {queryStatusInfo.queryStats.peakRevocableMemoryReservation && (
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Peak revocable memory</TableCell>
                                                 <TableCell>
                                                     {parseAndFormatDataSize(
-                                                        queryStatus.info.queryStats.peakRevocableMemoryReservation
+                                                        queryStatusInfo.queryStats.peakRevocableMemoryReservation
                                                     )}
                                                 </TableCell>
                                             </TableRow>
@@ -780,7 +723,7 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Peak total memory</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.peakTotalMemoryReservation
+                                                    queryStatusInfo.queryStats.peakTotalMemoryReservation
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -788,13 +731,13 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Cumulative user memory</TableCell>
                                             <TableCell>
                                                 {formatDataSize(
-                                                    queryStatus.info.queryStats.cumulativeUserMemory / 1000.0
+                                                    queryStatusInfo.queryStats.cumulativeUserMemory / 1000.0
                                                 ) + '*seconds'}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
                                                     {formatDataSize(
-                                                        queryStatus.info.queryStats.failedCumulativeUserMemory / 1000.0
+                                                        queryStatusInfo.queryStats.failedCumulativeUserMemory / 1000.0
                                                     ) + '*seconds'}
                                                 </TableCell>
                                             )}
@@ -802,23 +745,23 @@ export const QueryOverview = () => {
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Output rows</TableCell>
                                             <TableCell>
-                                                {formatCount(queryStatus.info.queryStats.outputPositions)}
+                                                {formatCount(queryStatusInfo.queryStats.outputPositions)}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
-                                                    {formatCount(queryStatus.info.queryStats.failedOutputPositions)}
+                                                    {formatCount(queryStatusInfo.queryStats.failedOutputPositions)}
                                                 </TableCell>
                                             )}
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Output data</TableCell>
                                             <TableCell>
-                                                {parseAndFormatDataSize(queryStatus.info.queryStats.outputDataSize)}
+                                                {parseAndFormatDataSize(queryStatusInfo.queryStats.outputDataSize)}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
                                                     {parseAndFormatDataSize(
-                                                        queryStatus.info.queryStats.failedOutputDataSize
+                                                        queryStatusInfo.queryStats.failedOutputDataSize
                                                     )}
                                                 </TableCell>
                                             )}
@@ -826,14 +769,14 @@ export const QueryOverview = () => {
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Written rows</TableCell>
                                             <TableCell>
-                                                {formatCount(queryStatus.info.queryStats.writtenPositions)}
+                                                {formatCount(queryStatusInfo.queryStats.writtenPositions)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Logical written data</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.logicalWrittenDataSize
+                                                    queryStatusInfo.queryStats.logicalWrittenDataSize
                                                 )}
                                             </TableCell>
                                         </TableRow>
@@ -841,24 +784,22 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Physical written data</TableCell>
                                             <TableCell>
                                                 {parseAndFormatDataSize(
-                                                    queryStatus.info.queryStats.physicalWrittenDataSize
+                                                    queryStatusInfo.queryStats.physicalWrittenDataSize
                                                 )}
                                             </TableCell>
                                             {taskRetriesEnabled && (
                                                 <TableCell>
                                                     {parseAndFormatDataSize(
-                                                        queryStatus.info.queryStats.failedPhysicalWrittenDataSize
+                                                        queryStatusInfo.queryStats.failedPhysicalWrittenDataSize
                                                     )}
                                                 </TableCell>
                                             )}
                                         </TableRow>
-                                        {queryStatus.info.queryStats.spilledDataSize && (
+                                        {queryStatusInfo.queryStats.spilledDataSize && (
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Spilled data</TableCell>
                                                 <TableCell>
-                                                    {parseAndFormatDataSize(
-                                                        queryStatus.info.queryStats.spilledDataSize
-                                                    )}
+                                                    {parseAndFormatDataSize(queryStatusInfo.queryStats.spilledDataSize)}
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -880,7 +821,7 @@ export const QueryOverview = () => {
                                                 Parallelism
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.cpuTimeRate, formatCount)}
+                                                {renderSparkLine(derivedStatus.cpuTimeRate, formatCount)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -888,7 +829,7 @@ export const QueryOverview = () => {
                                                 Scheduled time/s
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.scheduledTimeRate, formatCount)}
+                                                {renderSparkLine(derivedStatus.scheduledTimeRate, formatCount)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -896,7 +837,7 @@ export const QueryOverview = () => {
                                                 Input rows/s
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.rowInputRate, formatCount)}
+                                                {renderSparkLine(derivedStatus.rowInputRate, formatCount)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -904,7 +845,7 @@ export const QueryOverview = () => {
                                                 Input bytes/s
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.byteInputRate, formatDataSize)}
+                                                {renderSparkLine(derivedStatus.byteInputRate, formatDataSize)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -912,7 +853,7 @@ export const QueryOverview = () => {
                                                 Physical input bytes/s
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.physicalInputRate, formatDataSize)}
+                                                {renderSparkLine(derivedStatus.physicalInputRate, formatDataSize)}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
@@ -920,7 +861,7 @@ export const QueryOverview = () => {
                                                 Memory utilization
                                             </TableCell>
                                             <TableCell>
-                                                {renderSparkLine(queryStatus.reservedMemory, formatDataSize)}
+                                                {renderSparkLine(derivedStatus.reservedMemory, formatDataSize)}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -935,7 +876,7 @@ export const QueryOverview = () => {
                                 <Divider />
                             </Box>
                             <Box>
-                                <CodeBlock language="sql" code={queryStatus.info.query} />
+                                <CodeBlock language="sql" code={queryStatusInfo.query} />
                             </Box>
                         </Grid>
                         {renderPreparedQuery()}

@@ -11,46 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useParams } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { Alert, Box, CircularProgress, Grid } from '@mui/material'
-import { Texts } from '../constant.ts'
-import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
-import { ApiResponse } from '../api/base.ts'
 import { CodeBlock } from './CodeBlock.tsx'
+import { useQueryStatus } from './QueryStatusContext'
 
 export const QueryJson = () => {
-    const { queryId } = useParams()
+    const { queryStatusInfo, loading, error } = useQueryStatus()
 
-    const [queryJson, setQueryJson] = useState<string | null>(null)
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (queryId) {
-            getQueryJson()
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryId])
-
-    const getQueryJson = () => {
-        if (queryId) {
-            queryStatusApi(queryId).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    setQueryJson(JSON.stringify(apiResponse.data, null, 2))
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-                }
-            })
-        }
-    }
+    const queryJson = useMemo(() => {
+        return queryStatusInfo ? JSON.stringify(queryStatusInfo, null, 2) : null
+    }, [queryStatusInfo])
 
     return (
         <>
             {loading && <CircularProgress />}
-            {error && <Alert severity="error">{Texts.Error.QueryNotFound}</Alert>}
+            {error && <Alert severity="error">{error}</Alert>}
 
             {!loading && !error && queryJson && (
                 <Grid container spacing={0}>

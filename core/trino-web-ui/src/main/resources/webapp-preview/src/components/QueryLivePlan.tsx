@@ -11,45 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, CircularProgress, Grid, Typography } from '@mui/material'
 import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState, type Viewport } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
 import { QueryProgressBar } from './QueryProgressBar'
 import { nodeTypes, getLayoutedPlanFlowElements, getViewportFocusedOnNode } from './flow/layout'
 import { HelpMessage } from './flow/HelpMessage'
 import { getPlanFlowElements } from './flow/flowUtils'
-import { IQueryStatus, LayoutDirectionType } from './flow/types'
-import { ApiResponse } from '../api/base.ts'
-import { Texts } from '../constant.ts'
+import { LayoutDirectionType } from './flow/types'
+import { useQueryStatus } from './QueryStatusContext'
 
 export const QueryLivePlan = () => {
-    const { queryId } = useParams()
-    const initialQueryStatus: IQueryStatus = {
-        info: null,
-        ended: false,
-    }
+    const { queryStatusInfo, loading, error } = useQueryStatus()
 
-    const [queryStatus, setQueryStatus] = useState<IQueryStatus>(initialQueryStatus)
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
     const [viewport, setViewport] = useState<Viewport>()
 
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
-    const queryStatusRef = useRef(queryStatus)
     const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
-        queryStatusRef.current = queryStatus
-    }, [queryStatus])
-
-    useEffect(() => {
-        if (queryStatus.info?.stages) {
-            const flowElements = getPlanFlowElements(queryStatus.info.stages, layoutDirection)
+        if (queryStatusInfo?.stages) {
+            const flowElements = getPlanFlowElements(queryStatusInfo.stages, layoutDirection)
             const layoutedElements = getLayoutedPlanFlowElements(flowElements.nodes, flowElements.edges, {
                 direction: layoutDirection,
             })
@@ -58,42 +43,7 @@ export const QueryLivePlan = () => {
             setEdges(layoutedElements.edges)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryStatus, layoutDirection])
-
-    useEffect(() => {
-        const runLoop = () => {
-            const queryEnded = !!queryStatusRef.current.info?.finalQueryInfo
-            if (!queryEnded) {
-                getQueryStatus()
-                setTimeout(runLoop, 3000)
-            }
-        }
-
-        if (queryId) {
-            queryStatusRef.current = initialQueryStatus
-        }
-
-        runLoop()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [queryId])
-
-    const getQueryStatus = () => {
-        if (queryId) {
-            queryStatusApi(queryId).then((apiResponse: ApiResponse<QueryStatusInfo>) => {
-                setLoading(false)
-                if (apiResponse.status === 200 && apiResponse.data) {
-                    setQueryStatus({
-                        info: apiResponse.data,
-                        ended: apiResponse.data.finalQueryInfo,
-                    })
-
-                    setError(null)
-                } else {
-                    setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-                }
-            })
-        }
-    }
+    }, [queryStatusInfo, layoutDirection])
 
     const focusViewportToFirstStage = () => {
         const viewportTarget = getViewportFocusedOnNode(nodes, {
@@ -108,17 +58,17 @@ export const QueryLivePlan = () => {
     return (
         <>
             {loading && <CircularProgress />}
-            {error && <Alert severity="error">{Texts.Error.QueryNotFound}</Alert>}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            {!loading && !error && queryStatus.info && (
+            {!loading && !error && queryStatusInfo && (
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2 }}>
                             <Box sx={{ width: '100%' }}>
-                                <QueryProgressBar queryInfoBase={queryStatus.info} />
+                                <QueryProgressBar queryInfoBase={queryStatusInfo} />
                             </Box>
 
-                            {queryStatus.info?.stages ? (
+                            {queryStatusInfo?.stages ? (
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 12 }}>
                                         <Box sx={{ pt: 2 }}>

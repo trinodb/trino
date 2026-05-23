@@ -20,6 +20,7 @@ import { QueryLivePlan } from './QueryLivePlan'
 import { QueryOverview } from './QueryOverview'
 import { QueryStagePerformance } from './QueryStagePerformance'
 import { QuerySplitsTimeline } from './QuerySplitsTimeline'
+import { QueryStatusProvider } from './QueryStatusProvider'
 
 const tabValues = ['overview', 'livePlan', 'stagePerformance', 'splits', 'json', 'references'] as const
 type TabValue = (typeof tabValues)[number]
@@ -79,7 +80,9 @@ export const QueryDetails = () => {
                 </Grid>
                 <Divider />
 
-                <div>{tabComponentMap[tabValue]}</div>
+                <QueryStatusProvider queryId={queryId}>
+                    <div>{tabComponentMap[tabValue]}</div>
+                </QueryStatusProvider>
             </>
         </>
     )
