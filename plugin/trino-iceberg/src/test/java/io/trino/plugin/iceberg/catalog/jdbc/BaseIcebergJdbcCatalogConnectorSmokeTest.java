@@ -42,6 +42,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -188,6 +189,28 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         assertQueryFails("SELECT * FROM " + viewName, "Cannot read unsupported dialect 'spark' for view '.*'");
 
         jdbcCatalog.dropView(identifier);
+    }
+
+    protected void assertCreateOrReplaceViewClearsRunAsOwner()
+    {
+        String viewName = "test_replace_view_security_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE VIEW " + viewName + " SECURITY DEFINER AS SELECT 1 x");
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
+                    .contains("SECURITY DEFINER");
+
+            assertUpdate("CREATE OR REPLACE VIEW " + viewName + " SECURITY INVOKER AS SELECT 1 x");
+
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + viewName))
+                    .contains("SECURITY INVOKER")
+                    .doesNotContain("SECURITY DEFINER");
+            assertThat(jdbcCatalog.loadView(toIdentifier(viewName)).properties())
+                    .doesNotContainKey(ICEBERG_VIEW_RUN_AS_OWNER);
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
