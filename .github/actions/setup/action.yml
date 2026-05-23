@@ -45,6 +45,9 @@ runs:
           else
             echo "Skipping disk cleanup, ${available_gb} GiB available"
           fi
+      - name: Configure Docker Hub mirror
+        shell: bash
+        run: ./.github/bin/configure-docker-hub-mirror.sh
       - uses: actions/setup-java@v5
         if: ${{ inputs.java-version != '' }}
         with:
