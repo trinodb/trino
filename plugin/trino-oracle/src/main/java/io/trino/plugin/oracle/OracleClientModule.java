@@ -57,7 +57,6 @@ public class OracleClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(OracleMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TimestampTimeZoneDomain.class).setBinding().toInstance(TimestampTimeZoneDomain.ANY);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
         configBinder(binder).bindConfig(OracleConfig.class);

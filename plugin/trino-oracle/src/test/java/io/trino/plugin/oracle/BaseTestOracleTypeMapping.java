@@ -68,7 +68,6 @@ import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Locale.ENGLISH;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -1353,12 +1352,6 @@ public abstract class BaseTestOracleTypeMapping
         testUnsupportedOracleType("BFILE"); // Never in mapping
     }
 
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
-
     /**
      * Check that unsupported data types are ignored
      */
@@ -1376,7 +1369,7 @@ public abstract class BaseTestOracleTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1386,12 +1379,12 @@ public abstract class BaseTestOracleTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup oracleCreateAndTrinoInsert(String tableNamePrefix)

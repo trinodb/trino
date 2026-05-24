@@ -1221,6 +1221,6 @@ public class TestClickHouseConnectorTest
 
     private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix, this::canonicalize);
     }
 }

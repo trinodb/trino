@@ -1111,7 +1111,7 @@ public abstract class BaseSingleStoreTypeMapping
 
     protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1121,12 +1121,12 @@ public abstract class BaseSingleStoreTypeMapping
 
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup singleStoreCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(singleStoreServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(singleStoreServer::execute, tableNamePrefix, this::canonicalize);
     }
 
     private static String toTimestamp(String value)

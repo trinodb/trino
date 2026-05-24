@@ -549,7 +549,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CassandraCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, getQueryRunner(), session);
+        return new CassandraCreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, getQueryRunner(), session, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -559,7 +559,7 @@ public class TestCassandraTypeMapping
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup cassandraCreateAndInsert(String tableNamePrefix)
@@ -613,9 +613,9 @@ public class TestCassandraTypeMapping
         private final QueryRunner queryRunner;
         private final Session session;
 
-        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session)
+        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session, Function<String, String> canonicalizer)
         {
-            super(sqlExecutor, tableNamePrefix);
+            super(sqlExecutor, tableNamePrefix, canonicalizer);
             this.queryRunner = queryRunner;
             this.session = session;
         }

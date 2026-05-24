@@ -236,12 +236,6 @@ public class QualifiedName
     @Override
     public String toString()
     {
-        Iterator<String> values = parts.iterator();
-        Iterator<Identifier> identifiers = originalParts.iterator();
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
-        while (values.hasNext() && identifiers.hasNext()) {
-            builder.add(identifiers.next().isDelimited() ? '"' + values.next() + '"' : values.next());
-        }
-        return String.join(".", builder.build());
+        return name;
     }
 }

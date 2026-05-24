@@ -1349,7 +1349,7 @@ public abstract class BaseMySqlTypeMappingTest
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1359,12 +1359,12 @@ public abstract class BaseMySqlTypeMappingTest
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(mySqlServer::execute, tableNamePrefix, this::canonicalize);
     }
 
     private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)

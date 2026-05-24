@@ -1274,7 +1274,7 @@ public abstract class BaseClickHouseTypeMapping
 
     protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -1284,12 +1284,12 @@ public abstract class BaseClickHouseTypeMapping
 
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)

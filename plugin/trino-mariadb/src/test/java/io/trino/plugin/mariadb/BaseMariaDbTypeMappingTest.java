@@ -969,7 +969,7 @@ public abstract class BaseMariaDbTypeMappingTest
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -979,12 +979,12 @@ public abstract class BaseMariaDbTypeMappingTest
 
     private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup mariaDbCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(server::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(server::execute, tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDate date)

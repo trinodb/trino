@@ -205,12 +205,6 @@ public class TestOracleCastPushdown
         return right.getName();
     }
 
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
-
     @Test
     public void testCastPushdownSpecialCase()
     {

@@ -2075,7 +2075,7 @@ public abstract class BasePostgreSqlTypeMappingTest
 
     protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup trinoCreateAndInsert(String tableNamePrefix)
@@ -2085,12 +2085,12 @@ public abstract class BasePostgreSqlTypeMappingTest
 
     protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix, this::canonicalize);
     }
 
     protected DataSetup postgresCreateAndTrinoInsert(String tableNamePrefix)

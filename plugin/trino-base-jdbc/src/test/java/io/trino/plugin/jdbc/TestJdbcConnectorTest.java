@@ -335,12 +335,6 @@ public class TestJdbcConnectorTest
         return OptionalInt.of(256);
     }
 
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
-
     @Test
     @Override
     public void testShowCreateInformationSchemaTable()

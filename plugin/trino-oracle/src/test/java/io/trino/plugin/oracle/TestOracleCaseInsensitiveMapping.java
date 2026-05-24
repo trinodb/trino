@@ -89,10 +89,4 @@ public class TestOracleCaseInsensitiveMapping
     {
         return oracleServer::execute;
     }
-
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
 }

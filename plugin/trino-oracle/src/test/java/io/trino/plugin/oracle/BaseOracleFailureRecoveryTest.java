@@ -75,10 +75,4 @@ public abstract class BaseOracleFailureRecoveryTest
         // checking if tmp_trino tables are deleted immediatelly after DML operation renders test flaky.
         return false;
     }
-
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
 }

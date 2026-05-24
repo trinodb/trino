@@ -315,7 +315,7 @@ final class TestDuckDbTypeMapping
 
     private DataSetup duckDbCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(duckDb.getSqlExecutor(), TPCH_SCHEMA + "." + tableNamePrefix);
+        return new CreateAndInsertDataSetup(duckDb.getSqlExecutor(), TPCH_SCHEMA + "." + tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
@@ -325,12 +325,12 @@ final class TestDuckDbTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix, this::canonicalize);
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix, this::canonicalize);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

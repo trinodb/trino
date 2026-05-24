@@ -50,10 +50,4 @@ public abstract class BaseOracleConnectorSmokeTest
 
         assertUpdate("DROP TABLE " + tableName);
     }
-
-    @Override
-    protected String canonicalize(String value)
-    {
-        return value.toUpperCase(ENGLISH);
-    }
 }
