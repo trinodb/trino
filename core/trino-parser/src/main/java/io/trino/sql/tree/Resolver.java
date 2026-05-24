@@ -24,6 +24,12 @@ public class Resolver
     private final BiFunction<String, Boolean, String> canonicalizer;
     private final BiFunction<String, IdentifierKind, String> comparator;
     private final Predicate<String> predicator;
+    private final CanonicalizerKind canonicalizerKind;
+
+    public enum CanonicalizerKind
+    {
+        IDENTITY, LOWER_CASE, UPPER_CASE
+    }
 
     public Resolver(String catalog, BiFunction<String, Boolean, String> canonicalizer, BiFunction<String, IdentifierKind, String> comparator, Predicate<String> predicator)
     {
@@ -31,9 +37,25 @@ public class Resolver
         this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.predicator = requireNonNull(predicator, "predicator is null");
+        this.canonicalizerKind = getCanonicalizerKind(canonicalizer);
     }
 
-    public BiFunction<String, Boolean, String> getCanonicalizer()
+    private CanonicalizerKind getCanonicalizerKind(BiFunction<String, Boolean, String> canonicalizer)
+    {
+        return switch (canonicalizer.apply("Xy", false)){
+            case "Xy" -> CanonicalizerKind.IDENTITY;
+            case "xy" -> CanonicalizerKind.LOWER_CASE;
+            case "XY" -> CanonicalizerKind.UPPER_CASE;
+            default -> throw new IllegalStateException("Unexpected value: " + canonicalizer.apply("Xy", false));
+        };
+    }
+
+    public CanonicalizerKind getCanonicalizerKind()
+    {
+        return canonicalizerKind;
+    }
+
+        public BiFunction<String, Boolean, String> getCanonicalizer()
     {
         return canonicalizer;
     }

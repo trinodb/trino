@@ -20,6 +20,7 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.WithQuery;
 
 import java.util.HashMap;
@@ -45,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 public class Scope
 {
     private final Optional<Scope> parent;
-    private final Optional<Function<Identifier, String>> canonicalizer;
+    private final Optional<Resolver> resolver;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
@@ -63,7 +64,6 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
-            Optional<Function<Identifier, String>> canonicalizer,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -71,40 +71,41 @@ public class Scope
     {
 
         this.parent = requireNonNull(parent, "parent is null");
-        this.canonicalizer = requireNonNull(canonicalizer, "canonicalizer is null");
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
+        //this.resolver = Optional.empty();
+        this.resolver = getRelationResolver();
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
 
-    public String lastCanonicalizerType()
+    private Optional<Resolver> getRelationResolver()
     {
-        Optional<Function<Identifier, String>> canonicalizer = getLastCanonicalizer();
-        if (canonicalizer.isPresent()) {
-            return canonicalizerType(canonicalizer.get());
-        }
-        return "No canonicalizer";
+        return relation.getAllFields().stream()
+                    .map(Field::getResolver)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .findFirst();
+    }
+
+    public Optional<Resolver> getResolver()
+    {
+        return resolver;
     }
 
     public String canonicalizerType()
     {
         // FIXME: Here for debugging purpose
-        if (canonicalizer.isPresent()) {
-            return canonicalizerType(canonicalizer.get());
+        if (resolver.isPresent()) {
+            return canonicalizerType(resolver.get()::canonicalize);
         }
         return "No canonicalizer";
     }
 
     public int canonicalizerKind()
     {
-        return canonicalizerKind(canonicalizer);
-    }
-
-    private int canonicalizerKind(Optional<Function<Identifier, String>> canonicalizer)
-    {
-        if (canonicalizer.isPresent()) {
-            String value = canonicalizer.get().apply(new Identifier("Xy", false));
+        if (resolver.isPresent()) {
+            String value = resolver.get().canonicalize(new Identifier("Xy", false));
             return switch (value) {
                 case "Xy" -> 3;
                 case "xy" -> 1;
@@ -115,7 +116,7 @@ public class Scope
         return 3;
     }
 
-    public String canonicalizerType(Function<Identifier, String> canonicalizer)
+    private String canonicalizerType(Function<Identifier, String> canonicalizer)
     {
         String value = canonicalizer.apply(new Identifier("Xy", false));
         return switch (value) {
@@ -126,19 +127,18 @@ public class Scope
         };
    }
 
+    public String getFields()
+    {
+        List<String> fields = relation.getAllFields().stream()
+                .filter(f -> f.getName().isPresent())
+                .map(f -> f.getName().get() + " - " + f.canonicalizerType())
+                .toList();
+        return String.join(", ", fields);
+    }
+
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, Optional.empty(), queryBoundary, relationId, relationType, namedQueries);
-    }
-
-    public Scope withCanonicalizer(Function<Identifier, String> canonicalizer)
-    {
-        return withCanonicalizer(Optional.of(canonicalizer));
-    }
-
-    public Scope withCanonicalizer(Optional<Function<Identifier, String>> canonicalizer)
-    {
-        return new Scope(parent, canonicalizer, queryBoundary, relationId, relation, namedQueries);
+        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -202,13 +202,13 @@ public class Scope
 
     public boolean requireDelimiter()
     {
-        return relation.getAllFields().stream().anyMatch(field -> field.getCanonicalizer().isEmpty())
-                && relation.getAllFields().stream().anyMatch(field -> field.getCanonicalizer().isPresent());
+        return relation.getAllFields().stream().anyMatch(field -> field.getResolver().isEmpty())
+                && relation.getAllFields().stream().anyMatch(field -> field.getResolver().isPresent());
     }
 
     public String canonicalize(Identifier identifier)
     {
-        return canonicalizer.map(function -> function.apply(identifier))
+        return resolver.map(r -> r.canonicalize(identifier))
                 .orElse(identifier.getValue());
     }
 
@@ -219,15 +219,15 @@ public class Scope
 
     public Optional<Function<Identifier, String>> getCanonicalizer()
     {
-        return canonicalizer;
+        return Optional.empty();
     }
 
-    public Optional<Function<Identifier, String>> getLastCanonicalizer()
+    public Optional<Resolver> getLastResolver()
     {
         Scope parent = this;
         while (parent != null) {
-            if (parent.canonicalizer.isPresent()) {
-                return parent.canonicalizer;
+            if (parent.resolver.isPresent()) {
+                return parent.resolver;
             }
             parent = parent.parent.orElse(null);
         }
@@ -293,8 +293,8 @@ public class Scope
             scopeForFieldReference = findLocally(scope -> scope.getRelationType()
                     .getAllFields().stream()
                     .anyMatch(field -> field.matchesPrefix(QualifiedName.of(identifierChain.getParts().get(0)))
-                            && field.getName().isPresent()
-                            && field.getName().get().equals(identifierChain.getParts().get(1))
+                            && field.matchesName(identifierChain.getOriginalParts().get(1))
+                            //&& field.getName().get().equals(identifierChain.getParts().get(1))
                             && field.getType() instanceof RowType));
         }
 
@@ -436,7 +436,6 @@ public class Scope
     public static final class Builder
     {
         private Optional<Scope> parent = Optional.empty();
-        private Optional<Function<Identifier, String>> canonicalizer = Optional.empty();
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -445,25 +444,10 @@ public class Scope
         public Builder like(Scope other)
         {
             parent = other.parent;
-            canonicalizer = other.canonicalizer;
             queryBoundary = other.queryBoundary;
             relationId = other.relationId;
             relation = other.relation;
             namedQueries.putAll(other.namedQueries);
-            return this;
-        }
-
-        public Builder withCanonicalizer(Function<Identifier, String> canonicalizer)
-        {
-            checkArgument(this.canonicalizer.isEmpty(), "canonicalizer is already set");
-            this.canonicalizer = Optional.of(canonicalizer);
-            return this;
-        }
-
-        public Builder withCanonicalizer(Optional<Function<Identifier, String>> canonicalizer)
-        {
-            checkArgument(this.canonicalizer.isEmpty(), "canonicalizer is already set");
-            this.canonicalizer = canonicalizer;
             return this;
         }
 
@@ -503,7 +487,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, canonicalizer, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

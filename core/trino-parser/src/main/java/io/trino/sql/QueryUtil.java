@@ -162,7 +162,7 @@ public final class QueryUtil
 
     public static Relation aliased(Relation relation, String alias)
     {
-        return new AliasedRelation(relation, identifier(alias), null);
+        return new AliasedRelation(relation, delimitedIdentifier(alias), null);
     }
 
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)

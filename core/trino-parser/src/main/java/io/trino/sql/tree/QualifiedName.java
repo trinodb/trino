@@ -16,6 +16,7 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -23,6 +24,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.isEmpty;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
@@ -175,21 +177,32 @@ public class QualifiedName
         return this.prefix;
     }
 
-    public boolean matchesSuffix(String name)
+    public boolean matchesSuffix(String name, boolean resolved)
     {
         // FIXME: If we want to be able to differentiate between fields that only differ in their case,
-        //        then we must resolve the fields taking case into account?
-        return suffix.equals(name);
+        //        then we must resolve the fields taking case into account if resolved (ie: coming from connector)?
+        return resolved ? suffix.equals(name) : suffix.equalsIgnoreCase(name);
     }
 
     public boolean hasSuffix(QualifiedName suffix)
+    {
+        return hasSuffix(suffix, true);
+    }
+
+    public boolean hasSuffix(QualifiedName suffix, boolean resolved)
     {
         if (parts.size() < suffix.getParts().size()) {
             return false;
         }
 
-        int start = parts.size() - suffix.getParts().size();
-        return getParts().subList(start, parts.size()).equals(suffix.getParts());
+        int size = parts.size();
+        int start =  size - suffix.getParts().size();
+        List<String> subParts = getParts().subList(start, size);
+        if (resolved) {
+            return subParts.equals(suffix.getParts());
+        }
+        return subParts.stream().map(value -> value.toLowerCase(ENGLISH)).toList()
+                .equals(suffix.getParts().stream().map(value -> value.toLowerCase(ENGLISH)).toList());
     }
 
     public String getSuffix()
@@ -223,6 +236,12 @@ public class QualifiedName
     @Override
     public String toString()
     {
-        return name;
+        Iterator<String> values = parts.iterator();
+        Iterator<Identifier> identifiers = originalParts.iterator();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        while (values.hasNext() && identifiers.hasNext()) {
+            builder.add(identifiers.next().isDelimited() ? '"' + values.next() + '"' : values.next());
+        }
+        return String.join(".", builder.build());
     }
 }

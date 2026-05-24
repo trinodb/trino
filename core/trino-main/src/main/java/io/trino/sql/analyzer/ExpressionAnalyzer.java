@@ -2741,7 +2741,6 @@ public class ExpressionAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
                     .withParent(context.getScope())
-                    .withCanonicalizer(context.getScope().getCanonicalizer())
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 
