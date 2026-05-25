@@ -113,7 +113,6 @@ public class Field
         requireNonNull(originColumnName, "originColumnName is null");
 
         this.resolver = resolver;
-        // FIXME: For proper resolution we need to canonicalize relationAlias
         this.relationAlias = relationAlias;
         this.name = name;
         this.type = type;
@@ -203,28 +202,28 @@ public class Field
 
     public boolean matchesName(Identifier identifier)
     {
-        return name.isPresent() && canonicalize(identifier).equals(name.get());
+        return name.map(s -> resolver.map(r -> r.canonicalize(identifier).equals(s))
+                .orElse(identifier.getValue().equalsIgnoreCase(s))).orElse(false);
     }
 
-    public boolean matchesPrefix(Optional<QualifiedName> prefix, boolean resolved)
+    public boolean matchesPrefix(Optional<QualifiedName> prefix)
     {
         return prefix.isEmpty() || matchesPrefix(prefix.get());
     }
 
-    public boolean matchesPrefix(QualifiedName prefix)
+    public boolean matchesPrefix(Identifier identifier)
     {
-        return matchesPrefix(prefix, true);
+        return matchesPrefix(QualifiedName.of(resolver.map(r -> r::canonicalize), identifier), resolver.isPresent());
     }
 
-    public boolean matchesPrefix(QualifiedName prefix, boolean resolved)
+    public boolean matchesPrefix(QualifiedName prefix)
     {
-        // FIXME: We need to canonicalize relationAlias before attempting any resolution.
-        if (relationAlias.isPresent()) {
-            return resolver.map(r -> QualifiedName.of(r::canonicalize, relationAlias.get()))
-                    .orElseGet(relationAlias::get)
-                    .hasSuffix(prefix, resolved);
-        }
-        return false;
+        return matchesPrefix(QualifiedName.of(resolver.map(r -> r::canonicalize), prefix), resolver.isPresent());
+    }
+
+    private boolean matchesPrefix(QualifiedName prefix, boolean resolved)
+    {
+        return relationAlias.isPresent() && relationAlias.get().hasSuffix(prefix, resolved);
     }
 
     public String canonicalize(Identifier identifier)
@@ -280,7 +279,8 @@ public class Field
 
         // FIXME: We need to canonicalize QualifiedName before attempting any resolution.
         name = resolveQualifiedName(resolver, name);
-        return (name.getPrefix().isEmpty() || matchesPrefix(name.getPrefix().get())) && name.matchesSuffix(this.name.get(), resolved);
+        return (name.getPrefix().isEmpty() || matchesPrefix(name.getPrefix().get()))
+                && name.matchesSuffix(this.name.get(), resolver.isPresent());
     }
 
     @Override

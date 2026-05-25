@@ -142,6 +142,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -772,7 +773,6 @@ public class ExpressionAnalyzer
         protected Type visitIdentifier(Identifier node, Context context)
         {
             // System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-            // FIXME: The scope canonicalizer will be used to canonicalize QualifiedName
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
@@ -825,14 +825,15 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "<identifier>.* not allowed in this context");
             }
 
-            Optional<Function<Identifier, String>> canonicalizer = context.getScope().getCanonicalizer();
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
+            // FIXME: scope context resolver will be used to resolve DereferenceExpression
+            Optional<Resolver> resolver = context.getScope().getResolver();
+            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(resolver.map(r -> r::canonicalize), node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.isPatternRecognition()) {
-                    String label = label(canonicalizer, qualifiedName.getOriginalParts().getFirst());
+                    String label = label(resolver.map(r -> r::canonicalize), qualifiedName.getOriginalParts().getFirst());
                     if (context.getPatternRecognitionContext().labels().contains(label)) {
                         // In the context of row pattern matching, the name of row pattern input table cannot be used to qualify column names.
                         // (it can only be accessed in PARTITION BY and ORDER BY clauses of MATCH_RECOGNIZE). Consequentially, if a dereference

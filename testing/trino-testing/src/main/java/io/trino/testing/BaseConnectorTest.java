@@ -3318,7 +3318,7 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN \"y\" int");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, NULL)");
         }
     }
@@ -3336,7 +3336,7 @@ public abstract class BaseConnectorTest
         String tableName;
         try (TestTable table = newTrinoTable("test_rename_column_", "AS SELECT 'some value' x")) {
             tableName = table.getName();
-            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"x\" TO before_y");
+            assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO before_y");
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS before_y TO y");
             assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
             assertQuery("SELECT y FROM " + tableName, "VALUES 'some value'");
@@ -3504,7 +3504,7 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
         try (TestTable table = newTrinoTable("test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+            assertUpdate("ALTER TABLE %s ALTER COLUMN %s SET DATA TYPE bigint".formatted(table.getName(), canonicalize("col")));
 
             assertThat(getColumnType(table.getName(), "col")).isEqualToIgnoringCase("bigint");
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -3528,7 +3528,7 @@ public abstract class BaseConnectorTest
                 continue;
             }
             try (table) {
-                Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
+                Runnable setColumnType = () -> assertUpdate("ALTER TABLE %s ALTER COLUMN %s SET DATA TYPE %s".formatted(table.getName(), canonicalize("col"), setup.newColumnType));
                 if (setup.unsupportedType) {
                     assertThatThrownBy(setColumnType::run)
                             .satisfies(this::verifySetColumnTypeFailurePermissible);
@@ -3536,7 +3536,7 @@ public abstract class BaseConnectorTest
                 }
                 setColumnType.run();
 
-                assertThat(getColumnType(table.getName(), "col")).startsWithIgnoringCase(setup.newColumnType);
+                assertThat(getColumnType(table.getName(), canonicalize("col"))).startsWithIgnoringCase(setup.newColumnType);
                 assertThat(query("SELECT * FROM " + table.getName()))
                         .skippingTypesCheck()
                         .matches("SELECT " + setup.newValueLiteral);
@@ -4418,7 +4418,7 @@ public abstract class BaseConnectorTest
         String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
         assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
         assertThat(getQueryRunner().tableExists(getSession(), canonicalize(validTargetTableName))).isTrue();
-        assertQuery("SELECT \"x\" FROM " + validTargetTableName, "VALUES 123");
+        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
         assertUpdate("DROP TABLE " + validTargetTableName);
 
         if (maxTableRenameLength().isEmpty()) {
@@ -4494,7 +4494,7 @@ public abstract class BaseConnectorTest
         String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + validTargetColumnName + " int");
         assertThat(getQueryRunner().tableExists(getSession(), canonicalize(tableName))).isTrue();
-        assertQuery("SELECT \"x\" FROM " + tableName, "VALUES 123");
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
         assertUpdate("DROP TABLE " + tableName);
 
         if (maxColumnNameLength().isEmpty()) {
@@ -4524,7 +4524,7 @@ public abstract class BaseConnectorTest
                 .orElse(65536 + 5);
 
         String validTargetColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
-        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"x\" TO " + validTargetColumnName);
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN x TO " + validTargetColumnName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 456", 1);
         assertQuery("SELECT " + validTargetColumnName + " FROM " + tableName, "VALUES 123, 456");
         assertThat(query("SHOW STATS FOR " + tableName)).succeeds();
@@ -4637,9 +4637,9 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        // FIXME: CTAS without FROM clause use the Identity canonicalizer
+        // FIXME: CTAS without FROM clause use the target connector canonicalizer
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
-        assertTableColumnNames(canonicalize(tableName), "NaMe", "ReGionKey");
+        assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"), canonicalize("ReGionKey"));
         assertThat(getTableComment(canonicalize(tableName))).isNull();
         assertUpdate("DROP TABLE " + tableName);
 
@@ -4798,7 +4798,7 @@ public abstract class BaseConnectorTest
         try {
             assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES DATE '-0001-01-01'");
-            assertQuery(format("SELECT * FROM %s WHERE \"dt\" = DATE '-0001-01-01'", tableName), "VALUES DATE '-0001-01-01'");
+            assertQuery(format("SELECT * FROM %s WHERE dt = DATE '-0001-01-01'", tableName), "VALUES DATE '-0001-01-01'");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -4825,7 +4825,7 @@ public abstract class BaseConnectorTest
             assertUpdate("DROP TABLE " + tableName);
             return;
         }
-        assertQuery("SELECT \"x\" FROM " + tableName, "VALUES 123");
+        assertQuery("SELECT x FROM " + tableName, "VALUES 123");
 
         try {
             assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
@@ -4835,16 +4835,16 @@ public abstract class BaseConnectorTest
                 throw e;
             }
         }
-        assertQuery("SELECT \"x\" FROM " + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + renamedTable, "VALUES 123");
 
         String testExistsTableName = "test_rename_exists_" + randomNameSuffix();
         assertUpdate("ALTER TABLE IF EXISTS " + renamedTable + " RENAME TO " + testExistsTableName);
-        assertQuery("SELECT \"x\" FROM " + testExistsTableName, "VALUES 123");
+        assertQuery("SELECT x FROM " + testExistsTableName, "VALUES 123");
 
         String uppercaseName = "TEST_RENAME_" + randomNameSuffix(); // Test an upper-case, not delimited identifier
         assertUpdate("ALTER TABLE " + testExistsTableName + " RENAME TO " + uppercaseName);
         assertQuery(
-                "SELECT \"x\" FROM " + uppercaseName, // Ensure select allows for lower-case, not delimited identifier
+                "SELECT x FROM " + uppercaseName, // Ensure select allows for lower-case, not delimited identifier
                 "VALUES 123");
 
         assertUpdate("DROP TABLE " + uppercaseName);
@@ -4924,7 +4924,7 @@ public abstract class BaseConnectorTest
                 throw e;
             }
         }
-        assertQuery("SELECT \"x\" FROM %s.%s".formatted(sourceSchemaName, renamedTable), "VALUES 123");
+        assertQuery("SELECT x FROM %s.%s".formatted(sourceSchemaName, renamedTable), "VALUES 123");
 
         assertUpdate("DROP TABLE " + sourceSchemaName + "." + renamedTable);
         assertUpdate("DROP SCHEMA " + sourceSchemaName);
@@ -5750,7 +5750,7 @@ public abstract class BaseConnectorTest
 
         // FIXME: Alias table t(a, b) must use the targetTable connector canonicalizer (for now it's the Identity canonicalizer)
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
-            assertUpdate("UPDATE %s SET b = 100 WHERE a = 1 AND b = 10".formatted(table.getName()), 1);
+            assertUpdate("UPDATE %s SET \"b\" = 100 WHERE \"a\" = 1 AND \"b\" = 10".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
@@ -5777,7 +5777,7 @@ public abstract class BaseConnectorTest
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 1), (2, 2, 2)", 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1, 1), (2, 2, 2)");
 
-            assertUpdate("UPDATE " + tableName + " SET nullable_col = null WHERE not_null_col = 1", 1);
+            assertUpdate("UPDATE %s SET %s = null WHERE %s = 1".formatted(tableName, canonicalize("nullable_col"), canonicalize("not_null_col")), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (null, 1, 1), (2, 2, 2)");
 
             if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
@@ -5785,7 +5785,7 @@ public abstract class BaseConnectorTest
                 return;
             }
 
-            assertQueryFails("UPDATE " + tableName + " SET not_null_col = TRY(1 / 0) WHERE not_null_col = 2", MODIFYING_ROWS_MESSAGE);
+            assertQueryFails("UPDATE %1$s SET %2$s = TRY(1 / 0) WHERE %2$s = 2".formatted(tableName, canonicalize("not_null_col")), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -6300,7 +6300,7 @@ public abstract class BaseConnectorTest
 
         String tableName = "test_symbol_aliasing" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
-        assertQuery("SELECT \"foo_1\", \"foo_2_4\" FROM " + tableName, "SELECT 1, 2");
+        assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
         assertUpdate("DROP TABLE " + tableName);
     }
 

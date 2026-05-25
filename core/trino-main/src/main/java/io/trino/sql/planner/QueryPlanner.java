@@ -85,7 +85,6 @@ import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -102,6 +101,7 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
@@ -192,7 +192,6 @@ class QueryPlanner
     private final SubqueryPlanner subqueryPlanner;
     private final Optional<TranslationMap> outerContext;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
-    private final Function<Identifier, String> canonicalizer;
 
     QueryPlanner(
             Analysis analysis,
@@ -202,8 +201,7 @@ class QueryPlanner
             PlannerContext plannerContext,
             Optional<TranslationMap> outerContext,
             Session session,
-            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries,
-            Function<Identifier, String> canonicalizer)
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -213,7 +211,6 @@ class QueryPlanner
         requireNonNull(session, "session is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(recursiveSubqueries, "recursiveSubqueries is null");
-        requireNonNull(canonicalizer, "canonicalizer is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -224,7 +221,6 @@ class QueryPlanner
         this.outerContext = outerContext;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
-        this.canonicalizer = canonicalizer;
     }
 
     public RelationPlan plan(Query query)
@@ -592,6 +588,7 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
+        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 
@@ -605,10 +602,10 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
-        // FIXME: We need to take UpdateAssignement.Identifier canonicalized value
+        // FIXME: If we want UPDATE working, we need to take UpdateAssignement.Identifier canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            ColumnHandle handle = nameToHandle.get(canonicalizer.apply(assignment.getName()));
+            ColumnHandle handle = nameToHandle.get(resolver.map(r -> r.canonicalize(assignment.getName())).orElse(assignment.getName().getValue()));
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
                 orderedColumnValuesArray[index] = assignment.getValue();

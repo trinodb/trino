@@ -1702,7 +1702,7 @@ public abstract class BaseJdbcConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
         try (TestTable table = newTrinoTable("test_update_row", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
-            assertQueryFails("UPDATE " + table.getName() + " SET a = a + 1", MODIFYING_ROWS_MESSAGE);
+            assertQueryFails("UPDATE %1$s SET %2$s = %2$s + 1".formatted(table.getName(), canonicalize("a")), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -1718,7 +1718,7 @@ public abstract class BaseJdbcConnectorTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
         try (TestTable table = newTrinoTable("test_update_all", "(a INT, b INT, c INT)", ImmutableList.of("1, 2, 3"))) {
-            assertUpdate("UPDATE " + table.getName() + " SET a = 1, b = 1, c = 2", 1);
+            assertUpdate("UPDATE %s SET %s = 1, %s = 1, %s = 2".formatted(table.getName(), canonicalize("a"), canonicalize("b"), canonicalize("c")), 1);
         }
     }
 
@@ -1737,31 +1737,31 @@ public abstract class BaseJdbcConnectorTest
         try (TestTable table = newTrinoTable("test_row_predicates", "(a INT, b INT, c INT)")) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
-            assertUpdate("UPDATE " + tableName + " SET a = 5 WHERE c = 3", 1);
+            assertUpdate("UPDATE %s SET %s = 5 WHERE %s = 3".formatted(table.getName(), canonicalize("a"), canonicalize("c")), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 2, 3), (11, 12, 13), (21, 22, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET c = 6 WHERE a = 11", 1);
+            assertUpdate("UPDATE %s SET %s = 6 WHERE %s = 11".formatted(table.getName(), canonicalize("c"), canonicalize("a")), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 2, 3), (11, 12, 6), (21, 22, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 44 WHERE b = 22", 1);
+            assertUpdate("UPDATE %1$s SET %2$s = 44 WHERE %2$s = 22".formatted(table.getName(), canonicalize("b")), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 2, 3), (11, 12, 6), (21, 44, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 45 WHERE a > 5", 2);
+            assertUpdate("UPDATE %s SET %s = 45 WHERE %s > 5".formatted(table.getName(), canonicalize("b"), canonicalize("a")), 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 2, 3), (11, 45, 6), (21, 45, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 46 WHERE a < 21", 2);
+            assertUpdate("UPDATE %s SET %s = 46 WHERE %s < 21".formatted(table.getName(), canonicalize("b"), canonicalize("a")), 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 46, 3), (11, 46, 6), (21, 45, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 47 WHERE a != 11", 2);
+            assertUpdate("UPDATE %s SET %s = 47 WHERE %s != 11".formatted(table.getName(), canonicalize("b"), canonicalize("a")), 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 47, 3), (11, 46, 6), (21, 47, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 48 WHERE a IN (5, 11)", 2);
+            assertUpdate("UPDATE %s SET %s = 48 WHERE %s IN (5, 11)".formatted(table.getName(), canonicalize("b"), canonicalize("a")), 2);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 48, 3), (11, 48, 6), (21, 47, 23)");
 
-            assertUpdate("UPDATE " + tableName + " SET b = 49 WHERE a NOT IN (5, 11)", 1);
+            assertUpdate("UPDATE %s SET %s = 49 WHERE %s NOT IN (5, 11)".formatted(table.getName(), canonicalize("b"), canonicalize("a")), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (5, 48, 3), (11, 48, 6), (21, 49, 23)");
 
-            assertQueryFails("UPDATE " + tableName + " SET b = b + 3 WHERE a NOT IN (5, 11)", MODIFYING_ROWS_MESSAGE);
+            assertQueryFails("UPDATE %1$s SET %2$s = %2$s + 3 WHERE %3$s NOT IN (5, 11)".formatted(table.getName(), canonicalize("b"), canonicalize("a")), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -1769,9 +1769,9 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharEqualityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
-                assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", MODIFYING_ROWS_MESSAGE);
+                assertQueryFails("UPDATE %s SET %s = 20 WHERE %s = 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), MODIFYING_ROWS_MESSAGE);
                 return;
             }
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", 1);
@@ -1785,11 +1785,11 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
         try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
-                assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
+                assertQueryFails("UPDATE %s SET %s = 20 WHERE %s != 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
-            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
+            assertUpdate("UPDATE %s SET %s = 20 WHERE %s != 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
         }
     }
@@ -1798,17 +1798,17 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
-                assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", MODIFYING_ROWS_MESSAGE);
-                assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'A'", MODIFYING_ROWS_MESSAGE);
+                assertQueryFails("UPDATE %s SET %s = 20 WHERE %s > 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), MODIFYING_ROWS_MESSAGE);
+                assertQueryFails("UPDATE %s SET %s = 20 WHERE %s < 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
-            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", 1);
+            assertUpdate("UPDATE %s SET %s = 20 WHERE %s > 'A'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
 
-            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'a'", 1);
+            assertUpdate("UPDATE %s SET %s = 20 WHERE %s < 'a'".formatted(table.getName(), canonicalize("col1"), canonicalize("col2")), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (20, 'A', 2)");
         }
     }
@@ -1833,7 +1833,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharEqualityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_equality_predicate", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_equality_predicate", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1848,7 +1848,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharInequalityPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_inequality_predicate", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_inequality_predicate", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1863,7 +1863,7 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_greater_and_lower_predicate", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), "pk")) {
+        try (TestTable table = createTestTableForWrites("test_delete_with_varchar_greater_and_lower_predicate", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), canonicalize("pk"))) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", MODIFYING_ROWS_MESSAGE);

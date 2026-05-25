@@ -64,6 +64,7 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
+            Optional<Resolver> resolver,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -71,12 +72,16 @@ public class Scope
     {
 
         this.parent = requireNonNull(parent, "parent is null");
+        this.resolver = requireNonNull(resolver, "resolver is null");
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
-        //this.resolver = Optional.empty();
-        this.resolver = getRelationResolver();
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+    }
+
+    public Optional<Resolver> getResolver()
+    {
+        return resolver;
     }
 
     private Optional<Resolver> getRelationResolver()
@@ -88,18 +93,10 @@ public class Scope
                     .findFirst();
     }
 
-    public Optional<Resolver> getResolver()
-    {
-        return resolver;
-    }
-
     public String canonicalizerType()
     {
         // FIXME: Here for debugging purpose
-        if (resolver.isPresent()) {
-            return canonicalizerType(resolver.get()::canonicalize);
-        }
-        return "No canonicalizer";
+        return resolver.map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
     }
 
     public int canonicalizerKind()
@@ -138,7 +135,7 @@ public class Scope
 
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(parent, resolver, queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -222,7 +219,7 @@ public class Scope
         return Optional.empty();
     }
 
-    public Optional<Resolver> getLastResolver()
+    public Optional<Resolver> getParentResolver()
     {
         Scope parent = this;
         while (parent != null) {
@@ -292,7 +289,7 @@ public class Scope
         if (length >= 2) {
             scopeForFieldReference = findLocally(scope -> scope.getRelationType()
                     .getAllFields().stream()
-                    .anyMatch(field -> field.matchesPrefix(QualifiedName.of(identifierChain.getParts().get(0)))
+                    .anyMatch(field -> field.matchesPrefix(identifierChain.getOriginalParts().get(0))
                             && field.matchesName(identifierChain.getOriginalParts().get(1))
                             //&& field.getName().get().equals(identifierChain.getParts().get(1))
                             && field.getType() instanceof RowType));
@@ -436,6 +433,7 @@ public class Scope
     public static final class Builder
     {
         private Optional<Scope> parent = Optional.empty();
+        private Optional<Resolver> resolver = Optional.empty();
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -465,6 +463,18 @@ public class Scope
             return this;
         }
 
+        public Builder withResolver(Resolver resolver)
+        {
+            return withResolver(Optional.of(resolver));
+        }
+
+        public Builder withResolver(Optional<Resolver> resolver)
+        {
+            checkArgument(this.resolver.isEmpty(), "resolver is already set");
+            this.resolver = resolver;
+            return this;
+        }
+
         public Builder withOuterQueryParent(Scope parent)
         {
             checkArgument(this.parent.isEmpty(), "parent is already set");
@@ -487,7 +497,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, resolver, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

@@ -14,6 +14,7 @@
 package io.trino.sql.tree;
 
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
@@ -55,9 +56,9 @@ public class Resolver
         return canonicalizerKind;
     }
 
-        public BiFunction<String, Boolean, String> getCanonicalizer()
+    public Function<Identifier, String> getCanonicalizer()
     {
-        return canonicalizer;
+        return identifier -> canonicalizer.apply(identifier.getValue(), identifier.isDelimited());
     }
 
     public String getCatalog()

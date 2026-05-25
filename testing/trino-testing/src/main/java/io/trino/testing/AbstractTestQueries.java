@@ -577,6 +577,6 @@ public abstract class AbstractTestQueries
     public void testUnionAllAboveBroadcastJoin()
     {
         // FIXME: I can't pass this test if the table aliases aren't delimited.
-        assertQuery("SELECT COUNT(*) FROM \"region\" r JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") n ON r.\"regionkey\" = n.\"nationkey\"", "VALUES 10");
+        assertQuery("SELECT COUNT(*) FROM \"region\" \"r\" JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") \"n\" ON \"r\".\"regionkey\" = \"n\".\"nationkey\"", "VALUES 10");
     }
 }

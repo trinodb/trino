@@ -143,6 +143,7 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SetOperation;
@@ -301,13 +302,12 @@ class RelationPlanner
 
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
-        //plannerContext.setCanonicalizer(session, scope.getCanonicalizer());
 
         RelationPlan plan;
         if (namedQuery != null) {
             RelationPlan subPlan;
             if (analysis.isExpandableQuery(namedQuery)) {
-                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, scope::canonicalize)
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                         .planExpand(namedQuery);
             }
             else {
@@ -1871,16 +1871,16 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, canonicalizer)
+        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, canonicalizer)
+        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 

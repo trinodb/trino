@@ -16,7 +16,6 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -42,14 +41,7 @@ public class QualifiedName
     {
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(name, "name is null");
-        return of(canonicalizer.orElse(Identifier::getValue), name);
-    }
-
-    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
-    {
-        requireNonNull(canonicalizer, "canonicalizer is null");
-        requireNonNull(name, "name is null");
-        return new QualifiedName(canonicalizer, name.originalParts, name.originalParts.size() > 2);
+        return canonicalizer.map(function -> of(function, name)).orElse(name);
     }
 
     public static QualifiedName of(Optional<Function<Identifier, String>> canonicalizer, Identifier identifier)
@@ -57,6 +49,13 @@ public class QualifiedName
         requireNonNull(canonicalizer, "canonicalizer is null");
         requireNonNull(identifier, "identifier is null");
         return of(canonicalizer.orElse(Identifier::getValue), identifier);
+    }
+
+    public static QualifiedName of(Function<Identifier, String> canonicalizer, QualifiedName name)
+    {
+        requireNonNull(canonicalizer, "canonicalizer is null");
+        requireNonNull(name, "name is null");
+        return new QualifiedName(canonicalizer, name.originalParts, name.originalParts.size() > 2);
     }
 
     public static QualifiedName of(Function<Identifier, String> canonicalizer, Identifier identifier)

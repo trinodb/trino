@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Resolver;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,7 +36,6 @@ public class RelationType
 {
     private final List<Field> visibleFields;
     private final List<Field> allFields;
-    private final boolean resolved;
 
     private final Map<Field, Integer> fieldIndexes;
 
@@ -55,19 +53,11 @@ public class RelationType
                 .collect(toImmutableList());
 
         int index = 0;
-        ImmutableMap.Builder<Field, Integer> indexBuilder = ImmutableMap.builder();
-        ImmutableList.Builder<Resolver.CanonicalizerKind> resolverBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<Field, Integer> builder = ImmutableMap.builder();
         for (Field field : fields) {
-            indexBuilder.put(field, index++);
-            field.getResolver().ifPresent(r -> resolverBuilder.add(r.getCanonicalizerKind()));
+            builder.put(field, index++);
         }
-        fieldIndexes = indexBuilder.buildOrThrow();
-        resolved = isResolved(resolverBuilder.build(), fields.size());
-    }
-
-    private boolean isResolved(List<Resolver.CanonicalizerKind> resolvers, int size)
-    {
-        return resolvers.size() == size && resolvers.stream().distinct().count() == 1;
+        fieldIndexes = builder.buildOrThrow();
     }
 
     /**
@@ -130,7 +120,7 @@ public class RelationType
     public List<Field> resolveVisibleFieldsWithRelationPrefix(Optional<QualifiedName> prefix)
     {
         return visibleFields.stream()
-                .filter(input -> input.matchesPrefix(prefix, resolved))
+                .filter(input -> input.matchesPrefix(prefix))
                 .collect(toImmutableList());
     }
 
@@ -140,7 +130,7 @@ public class RelationType
     public List<Field> resolveFields(QualifiedName name)
     {
         return allFields.stream()
-                .filter(input -> input.canResolve(name, resolved))
+                .filter(input -> input.canResolve(name))
                 .collect(toImmutableList());
     }
 

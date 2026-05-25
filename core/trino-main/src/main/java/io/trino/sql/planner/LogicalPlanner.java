@@ -97,7 +97,6 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Merge;
@@ -856,8 +855,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
-        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
         WriterTarget target = ((MergeWriterNode) planNode).getTarget();
@@ -874,8 +872,7 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
-        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
         WriterTarget target = ((MergeWriterNode) planNode).getTarget();
@@ -892,8 +889,7 @@ public class LogicalPlanner
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
     {
-        Function<Identifier, String> canonicalizer = analysis.getScope(node)::canonicalize;
-        MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), canonicalizer)
+        MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
