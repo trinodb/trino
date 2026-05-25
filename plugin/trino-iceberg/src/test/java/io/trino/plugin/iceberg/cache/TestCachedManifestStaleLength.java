@@ -25,11 +25,11 @@ import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.filesystem.memory.MemoryFileSystemCacheConfig;
-import org.apache.avro.InvalidAvroMagicException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.file.FileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
@@ -43,24 +43,23 @@ import java.util.UUID;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCachedManifestStaleLength
 {
     @Test
-    public void testStaleDeclaredLengthCausesAvroMagicFailure()
+    public void testStaleDeclaredLengthPreservesAvroFileHeader()
             throws IOException
     {
-        // Reproduces https://github.com/trinodb/trino/issues/25702.
+        // Regression test for https://github.com/trinodb/trino/issues/25702.
         //
         // In production an iceberg manifest list may record a manifest file's
         // length from before the file was rewritten with a larger version,
         // leaving the recorded length smaller than the actual on-storage size.
-        // When a reader opens the file with that stale length,
-        // MemoryFileSystemCache.load calls readTail(staleLength) and caches only
-        // the last staleLength bytes — the cached content begins with bytes from
-        // the middle of the file, not the Avro magic header. Avro's
-        // DataFileReader then throws InvalidAvroMagicException.
+        // When a reader opens the file with that stale length the cache must
+        // still load the full file from position 0, otherwise the Avro magic
+        // header would be missing from the cached content and the reader would
+        // throw InvalidAvroMagicException.
 
         MemoryFileSystem delegate = new MemoryFileSystem();
         MemoryFileSystemCache cache = new MemoryFileSystemCache(new MemoryFileSystemCacheConfig()
@@ -70,38 +69,32 @@ public class TestCachedManifestStaleLength
 
         Location location = Location.of("memory:///stale-length-%s".formatted(UUID.randomUUID()));
 
-        // The file exists on storage in its original (smaller) form.
         byte[] originalContent = "small".getBytes(UTF_8);
         fileSystem.newOutputFile(location).createOrOverwrite(originalContent);
 
-        // The file is rewritten with a larger, valid Avro data file.
         Schema schema = SchemaBuilder.record("Test").namespace("test").fields().requiredString("value").endRecord();
         byte[] avroContent = writeAvroFile(schema, "hello world");
         fileSystem.newOutputFile(location).createOrOverwrite(avroContent);
 
-        // A reader opens the file using the STALE (original, smaller) length.
         TrinoInputFile inputFile = fileSystem.newInputFile(location, originalContent.length);
 
-        // Trigger cache load via readTail(staleLength); the cached entry contains
-        // only the last staleLength bytes of the Avro file, missing the magic
-        // header at the beginning.
+        // Trigger cache load via the stale (smaller) length. The cache must load
+        // the full file from position 0 rather than only the tail.
         try (TrinoInput input = inputFile.newInput()) {
             input.readTail(originalContent.length);
         }
 
-        // Read the cached content and feed it to Avro's DataFileReader, mirroring
-        // what iceberg does when reading a manifest. The magic check fails because
-        // the cache returned the tail of the file, not the start.
         byte[] cachedBytes;
         try (TrinoInputStream stream = inputFile.newStream()) {
             cachedBytes = stream.readAllBytes();
         }
 
-        assertThatThrownBy(() -> DataFileReader.openReader(
+        try (FileReader<GenericRecord> reader = DataFileReader.openReader(
                 new SeekableByteArrayInput(cachedBytes),
-                new GenericDatumReader<GenericRecord>()))
-                .isInstanceOf(InvalidAvroMagicException.class)
-                .hasMessage("Not an Avro data file");
+                new GenericDatumReader<>())) {
+            assertThat(reader.hasNext()).isTrue();
+            assertThat(reader.next().get("value")).hasToString("hello world");
+        }
     }
 
     private static byte[] writeAvroFile(Schema schema, String value)
