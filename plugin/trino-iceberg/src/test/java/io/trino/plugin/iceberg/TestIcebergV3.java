@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.Location;
@@ -26,6 +22,8 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -61,7 +59,6 @@ import org.apache.iceberg.types.Types.GeometryType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -72,15 +69,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getParquetFileMetadata;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
-import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -89,7 +84,6 @@ import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.keycloak.util.JsonSerialization.mapper;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -120,7 +114,12 @@ public class TestIcebergV3
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
+        queryRunner.installPlugin(new TestingIcebergPlugin(
+                dataDirectory,
+                Optional::empty,
+                () -> Optional.of(binder -> newOptionalBinder(binder, EncryptionManagerFactory.class)
+                        .setBinding()
+                        .toInstance(new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient()))))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of(
                 "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                 "iceberg.format-version", "3",
@@ -1250,7 +1249,7 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsEncryptionKeyProperty()
+    void testV3AllowsEncryptionKeyPropertyForReads()
     {
         String tableName = "test_v3_encryption_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format = 'ORC', format_version = 3)");
@@ -1262,63 +1261,10 @@ public class TestIcebergV3
                 .set("encryption.key-id", "test_key")
                 .commit();
 
-        assertQueryFails(
-                "SELECT * FROM " + tableName,
-                ".*Iceberg table encryption is not supported.*");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 1");
 
-        // Also verify INSERT fails with encryption key set
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES 2",
-                ".*Iceberg table encryption is not supported.*");
-
-        // Clean up by removing the property first
-        icebergTable.updateProperties()
-                .remove("encryption.key-id")
-                .commit();
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    void testV3RejectsEncryptionKeysInMetadata()
-            throws Exception
-    {
-        String temp = "tmp_v3_encryption_src_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
-        assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
-        Table tempTable = loadTable(temp);
-
-        String hadoopTableName = "hadoop_v3_encryption_" + randomNameSuffix();
-        Path hadoopTableLocation = Path.of(tempTable.location()).resolveSibling(hadoopTableName);
-
-        // Use HadoopTables to prevent stale caches from direct metadata.json modification
-        Table icebergTable = HADOOP_TABLES.create(
-                new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
-                PartitionSpec.unpartitioned(),
-                SortOrder.unsorted(),
-                ImmutableMap.of(
-                        "format-version", "3",
-                        "write.format.default", "ORC"),
-                hadoopTableLocation.toString());
-
-        icebergTable.newFastAppend()
-                .appendFile(getOnlyElement(SnapshotChanges.builderFor(tempTable).build().addedDataFiles()))
-                .commit();
-
-        // Inject encryption-keys + snapshot key-id into the current metadata.json.
-        injectEncryptionKeysIntoMetadataJson(hadoopTableLocation, "k1");
-
-        String registered = "registered_v3_encryption_" + randomNameSuffix();
-        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
-                .formatted(registered, hadoopTableLocation));
-
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg table encryption is not supported.*");
-
-        // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
-        assertUpdate("DROP TABLE " + temp);
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
     }
 
     @Test
@@ -1604,44 +1550,6 @@ public class TestIcebergV3
             assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1), count_if(id % 10 = 0) FROM " + table.getName()))
                     .matches("VALUES (BIGINT '70', BIGINT '10', BIGINT '0', BIGINT '0')");
         }
-    }
-
-    private void injectEncryptionKeysIntoMetadataJson(Path tableLocation, String keyId)
-            throws IOException
-    {
-        Path metadataFile = Path.of(getLatestMetadataLocation(fileSystemFactory.create(SESSION), tableLocation.toString()));
-
-        JsonMapper jsonMapper = new JsonMapper();
-        ObjectNode root = (ObjectNode) jsonMapper.readTree(metadataFile.toFile());
-
-        // Add "encryption-keys" - any valid base64 is fine for this test; we only care that Iceberg parses it.
-        ObjectNode key = mapper.createObjectNode();
-        key.put("key-id", keyId);
-        key.put("encrypted-key-metadata", "AA==");
-        ArrayNode keys = mapper.createArrayNode();
-        keys.add(key);
-        root.set("encryption-keys", keys);
-
-        // Set current snapshot's "key-id"
-        JsonNode currentSnapshotIdNode = root.get("current-snapshot-id");
-        if (currentSnapshotIdNode != null && currentSnapshotIdNode.isNumber()) {
-            long currentSnapshotId = currentSnapshotIdNode.asLong();
-            ArrayNode snapshots = (ArrayNode) root.get("snapshots");
-            if (snapshots != null) {
-                for (JsonNode snapshotNode : snapshots) {
-                    JsonNode snapshotIdNode = snapshotNode.get("snapshot-id");
-                    if (snapshotIdNode != null && snapshotIdNode.asLong() == currentSnapshotId) {
-                        ((ObjectNode) snapshotNode).put("key-id", keyId);
-                        break;
-                    }
-                }
-            }
-        }
-
-        Files.writeString(metadataFile, mapper.writeValueAsString(root));
-        // delete the crc file, since it is no longer valid
-        Path crc = metadataFile.resolveSibling("." + metadataFile.getFileName() + ".crc");
-        Files.deleteIfExists(crc);
     }
 
     @Test

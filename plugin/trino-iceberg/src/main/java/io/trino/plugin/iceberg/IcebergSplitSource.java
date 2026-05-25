@@ -33,9 +33,11 @@ import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
@@ -68,9 +70,15 @@ import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.encryption.EncryptedInputFile;
+import org.apache.iceberg.encryption.EncryptionManager;
+import org.apache.iceberg.encryption.NativeEncryptionInputFile;
+import org.apache.iceberg.encryption.NativeEncryptionKeyMetadata;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.ScanMetricsResult;
 import org.apache.iceberg.metrics.ScanReport;
@@ -122,6 +130,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -131,7 +140,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
+import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.encryption.EncryptedFiles.encryptedInput;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
+import static org.apache.iceberg.util.ByteBuffers.toByteArray;
 
 public class IcebergSplitSource
         implements ConnectorSplitSource
@@ -142,6 +154,8 @@ public class IcebergSplitSource
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
     private final IcebergTableCredentials tableCredentials;
+    private final FileIO fileIo;
+    private final EncryptionManager encryptionManager;
     private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final OptionalLong maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
@@ -174,7 +188,7 @@ public class IcebergSplitSource
     @GuardedBy("this")
     private CloseableIterator<FileScanTask> fileScanIterator;
     @GuardedBy("this")
-    private Iterator<FileScanTaskWithDomain> fileTasksIterator = emptyIterator();
+    private Iterator<FileScanTaskWithContext> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
     private final Map<Integer, PartitionSpec> specsById;
@@ -183,7 +197,7 @@ public class IcebergSplitSource
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
     @GuardedBy("this")
     @Nullable
-    private Map<StructLikeWrapperWithFieldIdToIndex, Optional<FileScanTaskWithDomain>> scannedFilesByPartition = new HashMap<>();
+    private Map<StructLikeWrapperWithFieldIdToIndex, Optional<FileScanTaskWithContext>> scannedFilesByPartition = new HashMap<>();
     @GuardedBy("this")
     private long outputRowsLowerBound;
     private final SplitAffinityProvider splitAffinityProvider;
@@ -211,6 +225,8 @@ public class IcebergSplitSource
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.tableCredentials = IcebergTableCredentials.forFileIO(icebergTable.io());
+        this.fileIo = requireNonNull(icebergTable.io(), "fileIo is null");
+        this.encryptionManager = requireNonNull(icebergTable.encryption(), "encryptionManager is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.isPresent() ? OptionalLong.of(maxScannedFileSize.orElseThrow().toBytes()) : OptionalLong.empty();
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -322,7 +338,7 @@ public class IcebergSplitSource
                     break;
                 }
 
-                List<FileScanTaskWithDomain> fileScanTasks = processFileScanTask(dynamicFilterPredicate);
+                List<FileScanTaskWithContext> fileScanTasks = processFileScanTask(dynamicFilterPredicate);
                 if (fileScanTasks.isEmpty()) {
                     continue;
                 }
@@ -339,10 +355,10 @@ public class IcebergSplitSource
         return splits;
     }
 
-    private synchronized Iterator<FileScanTaskWithDomain> prepareFileTasksIterator(List<FileScanTaskWithDomain> fileScanTasks)
+    private synchronized Iterator<FileScanTaskWithContext> prepareFileTasksIterator(List<FileScanTaskWithContext> fileScanTasks)
     {
-        ImmutableList.Builder<FileScanTaskWithDomain> scanTaskBuilder = ImmutableList.builder();
-        for (FileScanTaskWithDomain fileScanTaskWithDomain : fileScanTasks) {
+        ImmutableList.Builder<FileScanTaskWithContext> scanTaskBuilder = ImmutableList.builder();
+        for (FileScanTaskWithContext fileScanTaskWithDomain : fileScanTasks) {
             FileScanTask wholeFileTask = fileScanTaskWithDomain.fileScanTask();
             if (recordScannedFiles) {
                 // Equality deletes can be either global (written with an unpartitioned spec) or partition-scoped
@@ -387,11 +403,11 @@ public class IcebergSplitSource
         return pathDomain.isAll() && fileModifiedTimeDomain.isAll();
     }
 
-    private synchronized List<FileScanTaskWithDomain> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    private synchronized List<FileScanTaskWithContext> processFileScanTask(TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         FileScanTask wholeFileTask = fileScanIterator.next();
         boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
-        FileScanTaskWithDomain fileScanTaskWithDomain = createFileScanTaskWithDomain(wholeFileTask, this.predicatedColumnIds);
+        FileScanTaskWithContext fileScanTaskWithDomain = createFileScanTaskWithContext(wholeFileTask, this.predicatedColumnIds);
         if (pruneFileScanTask(fileScanTaskWithDomain, fileHasNoDeletions, dynamicFilterPredicate)) {
             return ImmutableList.of();
         }
@@ -405,14 +421,14 @@ public class IcebergSplitSource
         // We don't know which partition of new spec this file belongs to, so we include all files in OPTIMIZE
         PartitionSpec spec = getFileScanPartitionSpec(wholeFileTask, specsById);
         if (currentSpecId != spec.specId()) {
-            Stream<FileScanTaskWithDomain> allQueuedTasks = scannedFilesByPartition.values().stream()
+            Stream<FileScanTaskWithContext> allQueuedTasks = scannedFilesByPartition.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get);
             scannedFilesByPartition = null;
             return Stream.concat(allQueuedTasks, Stream.of(fileScanTaskWithDomain)).collect(toImmutableList());
         }
         StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, wholeFileTask.file().partition());
-        Optional<FileScanTaskWithDomain> alreadyQueuedFileTask = scannedFilesByPartition.get(structLikeWrapperWithFieldIdToIndex);
+        Optional<FileScanTaskWithContext> alreadyQueuedFileTask = scannedFilesByPartition.get(structLikeWrapperWithFieldIdToIndex);
         if (alreadyQueuedFileTask != null) {
             // Optional.empty() is a marker for partitions where we've seen enough files to avoid skipping them from OPTIMIZE
             if (alreadyQueuedFileTask.isEmpty()) {
@@ -431,7 +447,7 @@ public class IcebergSplitSource
         return ImmutableList.of(fileScanTaskWithDomain);
     }
 
-    private synchronized boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    private synchronized boolean pruneFileScanTask(FileScanTaskWithContext fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
         BaseFileScanTask fileScanTask = (BaseFileScanTask) fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
@@ -586,48 +602,72 @@ public class IcebergSplitSource
         }
     }
 
-    private FileScanTaskWithDomain createFileScanTaskWithDomain(FileScanTask wholeFileTask, Set<Integer> predicatedColumnIds)
+    private FileScanTaskWithContext createFileScanTaskWithContext(FileScanTask wholeFileTask, Set<Integer> predicatedColumnIds)
     {
         verify(predicatedColumnIds != null, "predicatedColumnIds is null");
         List<IcebergColumnHandle> predicatedColumns = wholeFileTask.schema().columns().stream()
                 .filter(column -> predicatedColumnIds.contains(column.fieldId()))
                 .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
-        return new FileScanTaskWithDomain(
+        List<DeleteFile> deleteFiles = wholeFileTask.deletes().stream()
+                .peek(file -> verifyDeletionVectorReferencesDataFile(wholeFileTask, file))
+                .map(file -> DeleteFile.fromIceberg(file, parquetFileDecryptionData(
+                        file.format(),
+                        file.location(),
+                        file.fileSizeInBytes(),
+                        file.keyMetadata(),
+                        fileIo,
+                        encryptionManager)))
+                .collect(toImmutableList());
+        return new FileScanTaskWithContext(
                 wholeFileTask,
                 createFileStatisticsDomain(
                         fieldIdToType,
                         wholeFileTask.file().lowerBounds(),
                         wholeFileTask.file().upperBounds(),
                         wholeFileTask.file().nullValueCounts(),
-                        predicatedColumns));
+                        predicatedColumns),
+                parquetFileDecryptionData(
+                        wholeFileTask.file().format(),
+                        wholeFileTask.file().location(),
+                        wholeFileTask.file().fileSizeInBytes(),
+                        wholeFileTask.file().keyMetadata(),
+                        fileIo,
+                        encryptionManager),
+                deleteFiles);
     }
 
-    private record FileScanTaskWithDomain(FileScanTask fileScanTask, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
+    private record FileScanTaskWithContext(
+            FileScanTask fileScanTask,
+            TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
+            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            List<DeleteFile> deleteFiles)
     {
-        Iterator<FileScanTaskWithDomain> split(long targetSplitSize, boolean mergeAdjacent)
+        Iterator<FileScanTaskWithContext> split(long targetSplitSize, boolean mergeAdjacent)
         {
-            Iterator<FileScanTaskWithDomain> splits = Iterators.transform(
+            Iterator<FileScanTaskWithContext> splits = Iterators.transform(
                     fileScanTask().split(targetSplitSize).iterator(),
-                    task -> new FileScanTaskWithDomain(task, fileStatisticsDomain));
+                    task -> new FileScanTaskWithContext(task, fileStatisticsDomain, parquetFileDecryptionData, deleteFiles));
             if (!mergeAdjacent) {
                 return splits;
             }
-            PeekingIterator<FileScanTaskWithDomain> peekingSplits = Iterators.peekingIterator(splits);
-            ImmutableList.Builder<FileScanTaskWithDomain> merged = ImmutableList.builder();
+            PeekingIterator<FileScanTaskWithContext> peekingSplits = Iterators.peekingIterator(splits);
+            ImmutableList.Builder<FileScanTaskWithContext> merged = ImmutableList.builder();
             while (peekingSplits.hasNext()) {
-                FileScanTaskWithDomain current = peekingSplits.next();
+                FileScanTaskWithContext current = peekingSplits.next();
                 while (peekingSplits.hasNext() && canMerge(current, peekingSplits.peek(), targetSplitSize)) {
-                    current = new FileScanTaskWithDomain(
+                    current = new FileScanTaskWithContext(
                             merge(current, peekingSplits.next()),
-                            fileStatisticsDomain);
+                            fileStatisticsDomain,
+                            parquetFileDecryptionData,
+                            deleteFiles);
                 }
                 merged.add(current);
             }
             return merged.build().iterator();
         }
 
-        private static boolean canMerge(FileScanTaskWithDomain current, FileScanTaskWithDomain next, long targetSplitSize)
+        private static boolean canMerge(FileScanTaskWithContext current, FileScanTaskWithContext next, long targetSplitSize)
         {
             FileScanTask currentTask = current.fileScanTask();
             FileScanTask nextTask = next.fileScanTask();
@@ -637,10 +677,45 @@ public class IcebergSplitSource
         }
 
         @SuppressWarnings("unchecked")
-        private static FileScanTask merge(FileScanTaskWithDomain current, FileScanTaskWithDomain next)
+        private static FileScanTask merge(FileScanTaskWithContext current, FileScanTaskWithContext next)
         {
             return ((MergeableScanTask<FileScanTask>) current.fileScanTask()).merge(next.fileScanTask());
         }
+    }
+
+    @VisibleForTesting
+    public static Optional<ParquetFileDecryptionData> parquetFileDecryptionData(
+            FileFormat fileFormat,
+            String location,
+            long fileSizeInBytes,
+            @Nullable ByteBuffer keyMetadata,
+            FileIO fileIo,
+            EncryptionManager encryptionManager)
+    {
+        requireNonNull(fileFormat, "fileFormat is null");
+        requireNonNull(location, "location is null");
+        requireNonNull(fileIo, "fileIo is null");
+        requireNonNull(encryptionManager, "encryptionManager is null");
+
+        if (keyMetadata == null) {
+            return Optional.empty();
+        }
+
+        if (fileFormat != PARQUET) {
+            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted non-Parquet file is not supported: " + location);
+        }
+
+        EncryptedInputFile encryptedInputFile = encryptedInput(fileIo.newInputFile(location, fileSizeInBytes), keyMetadata.duplicate());
+        InputFile inputFile = encryptionManager.decrypt(encryptedInputFile);
+
+        if (!(inputFile instanceof NativeEncryptionInputFile nativeEncryptionInputFile)) {
+            return Optional.empty();
+        }
+
+        NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
+        ByteBuffer encryptionKey = requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null");
+        ByteBuffer aadPrefix = requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null");
+        return Optional.of(new ParquetFileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
     }
 
     @VisibleForTesting
@@ -779,7 +854,7 @@ public class IcebergSplitSource
     }
 
     @GuardedBy("this")
-    private IcebergSplit toIcebergSplit(FileScanTaskWithDomain taskWithDomain)
+    private IcebergSplit toIcebergSplit(FileScanTaskWithContext taskWithDomain)
     {
         FileScanTask task = taskWithDomain.fileScanTask();
         PartitionSpec partitionSpec = getFileScanPartitionSpec(task, specsById);
@@ -794,15 +869,13 @@ public class IcebergSplitSource
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 partitionSpec.specId(),
                 getPartitionBlockValues(task, partitionSpec, typeManager),
-                task.deletes().stream()
-                        .peek(file -> verifyDeletionVectorReferencesDataFile(task, file))
-                        .map(DeleteFile::fromIceberg)
-                        .collect(toImmutableList()),
+                taskWithDomain.deleteFiles(),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
                 affinityKey,
                 task.file().dataSequenceNumber() == null ? OptionalLong.empty() : OptionalLong.of(task.file().dataSequenceNumber()),
-                task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()));
+                task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()),
+                taskWithDomain.parquetFileDecryptionData());
     }
 
     private static List<Block> getPartitionBlockValues(FileScanTask task, PartitionSpec spec, TypeManager typeManager)
