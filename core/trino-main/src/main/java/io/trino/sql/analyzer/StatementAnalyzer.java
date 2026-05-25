@@ -61,8 +61,19 @@ import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PointerType;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
@@ -2770,22 +2781,22 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, viewFields);
         }
 
-            private List<Field> createViewFields(Table table, QualifiedObjectName name, List<ViewColumn> viewColumns)
-            {
-                return viewColumns.stream()
+        private List<Field> createViewFields(Table table, QualifiedObjectName name, List<ViewColumn> viewColumns)
+        {
+            return viewColumns.stream()
                     .map(column -> Field.newQualified(
-                        table.getName(),
-                        Optional.of(column.name()),
-                        getViewColumnType(column, name, table),
-                        false,
-                        Optional.of(name),
-                        getBranchName(table),
-                        Optional.of(column.name()),
-                        false))
+                            table.getName(),
+                            Optional.of(column.name()),
+                            getViewColumnType(column, name, table),
+                            false,
+                            Optional.of(name),
+                            getBranchName(table),
+                            Optional.of(column.name()),
+                            false))
                     .collect(toImmutableList());
-            }
+        }
 
-            private List<ViewColumn> refreshStaleView(
+        private List<ViewColumn> refreshStaleView(
                 Table table,
                 QualifiedObjectName name,
                 String originalSql,
@@ -2797,30 +2808,30 @@ class StatementAnalyzer
                 Optional<Identity> owner,
                 List<CatalogSchemaName> path,
                 ConnectorViewDefinition.WhenStaleBehavior whenStaleBehavior)
-            {
-                Map<String, String> columnComments = columns.stream()
+        {
+            Map<String, String> columnComments = columns.stream()
                     .filter(viewColumn -> viewColumn.comment().isPresent())
                     .collect(toImmutableMap(ViewColumn::name, viewColumn -> viewColumn.comment().orElseThrow()));
 
-                List<ViewColumn> refreshedColumns = descriptor.getVisibleFields().stream()
+            List<ViewColumn> refreshedColumns = descriptor.getVisibleFields().stream()
                     .map(field -> new ViewColumn(field.getName().orElseThrow(), field.getType().getTypeId(), Optional.ofNullable(columnComments.get(field.getName().orElseThrow()))))
                     .collect(toImmutableList());
 
-                metadata.refreshView(
+            metadata.refreshView(
                     session,
                     name,
                     new ViewDefinition(
-                        originalSql,
-                        catalog,
-                        schema,
-                        refreshedColumns,
-                        comment,
-                        owner,
-                        path,
-                        whenStaleBehavior));
+                            originalSql,
+                            catalog,
+                            schema,
+                            refreshedColumns,
+                            comment,
+                            owner,
+                            path,
+                            whenStaleBehavior));
 
-                return refreshedColumns;
-            }
+            return refreshedColumns;
+        }
 
         private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable)
         {

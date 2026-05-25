@@ -3624,20 +3624,20 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: View 'tpch.s1.v2' is stale or in invalid state: column [a] of type bigint projected from query view at position 0 cannot be coerced to column [a] of type varchar stored in view definition");
     }
 
-        @Test
-        public void testStaleViewWhenStaleRefresh()
-        {
-                analyze("SELECT * FROM v2_refresh");
+    @Test
+    public void testStaleViewWhenStaleRefresh()
+    {
+        analyze("SELECT * FROM v2_refresh");
 
-                transaction(transactionManager, plannerContext.getMetadata(), accessControl)
-                                .singleStatement()
-                                .readUncommitted()
-                                .execute(SETUP_SESSION, session -> {
-                                        ViewDefinition refreshed = plannerContext.getMetadata().getView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2_refresh")).orElseThrow();
-                                        assertThat(refreshed.getColumns()).containsExactly(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()));
-                                        assertThat(refreshed.getWhenStaleBehavior()).isEqualTo(ConnectorViewDefinition.WhenStaleBehavior.REFRESH);
-                                });
-        }
+        transaction(transactionManager, plannerContext.getMetadata(), accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(SETUP_SESSION, session -> {
+                    ViewDefinition refreshed = plannerContext.getMetadata().getView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2_refresh")).orElseThrow();
+                    assertThat(refreshed.getColumns()).containsExactly(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()));
+                    assertThat(refreshed.getWhenStaleBehavior()).isEqualTo(ConnectorViewDefinition.WhenStaleBehavior.REFRESH);
+                });
+    }
 
     @Test
     public void testStoredViewAnalysisScoping()
