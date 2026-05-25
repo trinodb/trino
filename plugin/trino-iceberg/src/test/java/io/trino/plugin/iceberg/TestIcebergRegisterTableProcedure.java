@@ -26,7 +26,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
@@ -503,7 +502,7 @@ public class TestIcebergRegisterTableProcedure
         // create hadoop table
         String hadoopTableName = "hadoop_table_" + randomNameSuffix();
         String hadoopTableLocation = metastoreDir.getPath() + "/" + hadoopTableName;
-        HadoopTables hadoopTables = new HadoopTables(new Configuration(false));
+        HadoopTables hadoopTables = new HadoopTables();
         Schema schema = new Schema(ImmutableList.of(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "name", Types.StringType.get())));

@@ -656,18 +656,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
@@ -773,6 +761,26 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <bannedDependencies>
+                                <!-- HadoopTables depends on hadoop-apache -->
+                                <searchTransitive>false</searchTransitive>
+                                <excludes combine.children="append">
+                                    <exclude>io.trino.hadoop:hadoop-apache</exclude>
+                                </excludes>
+                            </bannedDependencies>
+                            <bannedDependencies>
+                                <excludes combine.children="append">
+                                    <exclude>io.trino.hive:hive-apache</exclude>
+                                </excludes>
+                            </bannedDependencies>
+                        </rules>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-dependency-plugin</artifactId>

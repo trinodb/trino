@@ -30,7 +30,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
@@ -87,7 +86,7 @@ public class TestIcebergV3
         extends AbstractTestQueryFramework
 {
     private static final List<String> ALL_FILE_FORMATS = List.of("PARQUET", "ORC", "AVRO");
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables(new Configuration(false));
+    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
 
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
