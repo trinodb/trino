@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
@@ -53,7 +54,7 @@ public class DeleteManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public Optional<RowPredicate> getDeletePredicate(
+    public Optional<PageFilter> getDeletePageFilter(
             String dataFilePath,
             OptionalLong dataSequenceNumber,
             List<DeleteFile> deleteFiles,
@@ -100,34 +101,30 @@ public class DeleteManager
                         deletePageSourceProvider,
                         typeManager));
 
-        Optional<RowPredicate> positionDeletes = deletionVector
+        Optional<PageFilter> positionDeletes = deletionVector
                 .map(vector -> {
                     int filePositionChannel = IntStream.range(0, readColumns.size())
                             .filter(i -> readColumns.get(i).isRowPositionColumn())
                             .boxed()
                             .collect(onlyElement());
-                    return (page, position) -> {
+                    return PageFilter.of((page, position) -> {
                         long filePosition = BIGINT.getLong(page.getBlock(filePositionChannel), position);
                         return !vector.isRowDeleted(filePosition);
-                    };
+                    });
                 });
 
-        Optional<RowPredicate> equalityDeletes;
-        if (equalityDeleteFiles.isEmpty()) {
-            equalityDeletes = Optional.empty();
-        }
-        else {
+        ImmutableList.Builder<PageFilter> deleteFiltersBuilder = ImmutableList.builder();
+        positionDeletes.ifPresent(deleteFiltersBuilder::add);
+        if (!equalityDeleteFiles.isEmpty()) {
             long splitDataSequenceNumber = dataSequenceNumber.orElseThrow(() ->
                     new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath));
-            equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
-                    .map(filter -> filter.createPredicate(readColumns, splitDataSequenceNumber))
-                    .reduce(RowPredicate::and);
+            createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider)
+                    .stream()
+                    .map(filter -> filter.createPageFilter(readColumns, splitDataSequenceNumber))
+                    .forEach(deleteFiltersBuilder::add);
         }
 
-        if (positionDeletes.isPresent() && equalityDeletes.isPresent()) {
-            return Optional.of(positionDeletes.get().and(equalityDeletes.get()));
-        }
-        return positionDeletes.or(() -> equalityDeletes);
+        return PageFilter.allOf(deleteFiltersBuilder.build());
     }
 
     public long getEstimatedSizeInBytes()
