@@ -95,6 +95,8 @@ public class GcsOutputFile
                 throw handleGcsException(e, "writing file", location);
             }
             catch (Exception finalException) {
+                // close writeChannel only in failure flow. Closing in success flow in is handled by returned
+                // OutputStream.
                 writeChannel.ifPresent(channel -> closeAllSuppress(finalException, channel));
                 throw finalException;
             }
