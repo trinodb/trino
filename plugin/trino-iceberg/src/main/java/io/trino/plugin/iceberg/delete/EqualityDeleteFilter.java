@@ -60,7 +60,7 @@ public final class EqualityDeleteFilter
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
+    public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         StructType fileStructType = structTypeFromHandles(columns.stream()
                 .filter(column -> !isMetadataColumnId(column.getId())) // equality deletes don't apply to metadata columns
@@ -76,13 +76,13 @@ public final class EqualityDeleteFilter
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);
 
-        return (page, position) -> {
+        return PageFilter.of((page, position) -> {
             StructProjection row = projection.wrap(new LazyTrinoRow(types, page, position));
             DataSequenceNumber maxDeleteVersion = deletedRows.get(structLikeWrapper.set(row));
             // clear reference to avoid memory leak
             structLikeWrapper.set(null);
             return maxDeleteVersion == null || maxDeleteVersion.dataSequenceNumber() <= splitDataSequenceNumber;
-        };
+        });
     }
 
     public static EqualityDeleteFilterBuilder builder(Schema deleteSchema)

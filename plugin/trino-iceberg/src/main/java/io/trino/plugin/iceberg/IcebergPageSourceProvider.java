@@ -58,7 +58,7 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.DeletionVector;
-import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.delete.PageFilter;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
@@ -400,8 +400,8 @@ public class IcebergPageSourceProvider
 
         // filter out deleted rows
         if (!deletes.isEmpty()) {
-            Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
-                    .getDeletePredicate(
+            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
+                    .getDeletePageFilter(
                             path,
                             dataSequenceNumber,
                             deletes,
@@ -413,8 +413,8 @@ public class IcebergPageSourceProvider
                             (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
-                    Optional<RowPredicate> rowPredicate = deletePredicate.get();
-                    rowPredicate.ifPresent(predicate -> predicate.applyFilter(page));
+                    Optional<PageFilter> pageFilter = deletePredicate.get();
+                    pageFilter.ifPresent(filter -> filter.applyFilter(page));
                     if (icebergColumns.size() == page.getChannelCount()) {
                         return page;
                     }

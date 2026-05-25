@@ -82,7 +82,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
         SourcePage dataPage = SourcePage.create(new Page(
@@ -101,7 +101,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(BIGINT_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(BIGINT_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, bigintPage(42L));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(BIGINT_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
         SourcePage dataPage = SourcePage.create(new Page(
@@ -126,7 +126,7 @@ class TestEqualityDeleteFilter
                 DELETE_FILE_SEQUENCE_NUMBER,
                 deleteRows);
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
         SourcePage dataPage = SourcePage.create(new Page(
@@ -149,7 +149,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-deleted"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
         SourcePage dataPage = SourcePage.create(new Page(varcharBlock("key-a", "key-b", "key-c")));
@@ -164,7 +164,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPageWithNulls((String) null));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
         SourcePage dataPage = SourcePage.create(new Page(nullableVarcharBlock(null, "some-key")));
@@ -180,7 +180,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 10L, varcharPage("target"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 5L);
 
         SourcePage dataPage = SourcePage.create(new Page(varcharBlock("target", "other")));
@@ -197,7 +197,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 5L, varcharPage("target"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 10L);
 
         SourcePage dataPage = SourcePage.create(new Page(varcharBlock("target", "other")));
@@ -214,7 +214,7 @@ class TestEqualityDeleteFilter
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 5L, varcharPage("target"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 5L);
 
         SourcePage dataPage = SourcePage.create(new Page(varcharBlock("target", "other")));
@@ -232,7 +232,7 @@ class TestEqualityDeleteFilter
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 3L, varcharPage("target"));
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 7L, varcharPage("target"));
 
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 5L);
 
         SourcePage dataPage = SourcePage.create(new Page(varcharBlock("target", "other")));
@@ -248,9 +248,9 @@ class TestEqualityDeleteFilter
     {
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
-        RowPredicate combined = builder.build()
-                .createPredicate(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER)
-                .and((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 30L);
+        PageFilter combined = PageFilter.allOf(ImmutableList.of(
+                builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER),
+                PageFilter.of((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 30L))).orElseThrow();
 
         SourcePage page = SourcePage.create(new Page(
                 varcharBlock("key-1", "key-2", "key-3"),
@@ -266,10 +266,10 @@ class TestEqualityDeleteFilter
     {
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
-        RowPredicate combined = builder.build()
-                .createPredicate(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER)
-                .and((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 20L)
-                .and((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 30L);
+        PageFilter combined = PageFilter.allOf(ImmutableList.of(
+                builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER),
+                PageFilter.of((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 20L),
+                PageFilter.of((page, position) -> BIGINT.getLong(page.getBlock(1), position) != 30L))).orElseThrow();
 
         SourcePage page = SourcePage.create(new Page(
                 varcharBlock("key-1", "key-2", "key-3", "key-4"),
@@ -296,13 +296,15 @@ class TestEqualityDeleteFilter
         Block dictionaryRowPos = DictionaryBlock.create(ids.length, rowPosSource.getUnderlyingValueBlock(), ids);
         SourcePage page = SourcePage.create(new Page(dictionaryKeys, dictionaryRowPos));
 
-        RowPredicate positionDelete = (p, position) -> BIGINT.getLong(p.getBlock(1), position) != 3L;
+        PageFilter positionDelete = PageFilter.of((p, position) -> BIGINT.getLong(p.getBlock(1), position) != 3L);
 
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-2"));
-        RowPredicate equalityDelete = builder.build().createPredicate(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
+        PageFilter equalityDelete = builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
-        positionDelete.and(equalityDelete).applyFilter(page);
+        PageFilter.allOf(ImmutableList.of(positionDelete, equalityDelete))
+                .orElseThrow()
+                .applyFilter(page);
 
         assertThat(page.getPositionCount()).isEqualTo(2);
         assertThat(VARCHAR.getSlice(page.getBlock(0), 0).toStringUtf8()).isEqualTo("key-1");
@@ -329,7 +331,7 @@ class TestEqualityDeleteFilter
         for (int fileIndex = 1; fileIndex <= deleteFileCount; fileIndex++) {
             loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), fileIndex, deleteFilePage);
         }
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 0L);
 
         SourcePage deletedPage = SourcePage.create(new Page(varcharBlock(keys)));
@@ -367,7 +369,7 @@ class TestEqualityDeleteFilter
                 .toArray(String[]::new);
 
         EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA);
-        RowPredicate predicate = builder.build().createPredicate(
+        PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 0L);
 
         try (ListeningExecutorService executor = MoreExecutors.listeningDecorator(
@@ -481,12 +483,12 @@ class TestEqualityDeleteFilter
         SourcePage page = SourcePage.create(new Page(blocks));
 
         // filter i deletes rows [i*rowsPerDelete, (i+1)*rowsPerDelete)
-        RowPredicate composedPredicate = IntStream.range(0, deleteFilterCount).mapToObj(i -> {
+        PageFilter composedPredicate = PageFilter.allOf(IntStream.range(0, deleteFilterCount).mapToObj(i -> {
             long[] deleteValues = IntStream.range(0, rowsPerDelete).mapToLong(row -> (long) i * rowsPerDelete + row).toArray();
             EqualityDeleteFilterBuilder filterBuilder = newBuilder(schemas[i]);
             loadDeleteFile(filterBuilder, ImmutableList.of(columnHandles[i]), DELETE_FILE_SEQUENCE_NUMBER, new Page(bigintBlock(deleteValues)));
-            return filterBuilder.build().createPredicate(readColumns, SPLIT_DATA_SEQUENCE_NUMBER);
-        }).reduce((_, _) -> true, RowPredicate::and);
+            return filterBuilder.build().createPageFilter(readColumns, SPLIT_DATA_SEQUENCE_NUMBER);
+        }).collect(toImmutableList())).orElseThrow();
 
         composedPredicate.applyFilter(page);
 
