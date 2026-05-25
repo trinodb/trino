@@ -262,7 +262,7 @@ implementation is used:
 * - `iceberg.encryption.kms-type`
   - Key Management Service type for
     [Iceberg table encryption](https://iceberg.apache.org/docs/nightly/encryption/).
-    Possible values are `AWS` and `GCP`. Required to read encrypted tables.
+    Possible values are `AWS`, `AZURE`, and `GCP`. Required to read encrypted tables.
     Writing to encrypted tables is not supported.
   -
 * - `iceberg.encryption.plaintext-files-allowed-for-encrypted-tables`

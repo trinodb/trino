@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.encryption;
 public enum KmsType
 {
     AWS("org.apache.iceberg.aws.AwsKeyManagementClient"),
+    AZURE("org.apache.iceberg.azure.keymanagement.AzureKeyManagementClient"),
     GCP("org.apache.iceberg.gcp.GcpKeyManagementClient"),
     /**/;
 

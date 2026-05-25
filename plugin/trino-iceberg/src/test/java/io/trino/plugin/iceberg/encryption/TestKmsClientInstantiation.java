@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestKmsClientInstantiation
 {
     @ParameterizedTest
-    @ValueSource(strings = {"org.apache.iceberg.aws.AwsKeyManagementClient", "org.apache.iceberg.gcp.GcpKeyManagementClient"})
+    @ValueSource(strings = {"org.apache.iceberg.aws.AwsKeyManagementClient", "org.apache.iceberg.azure.keymanagement.AzureKeyManagementClient", "org.apache.iceberg.gcp.GcpKeyManagementClient"})
     void testKmsClientClassCanBeLoaded(String kmsImpl)
             throws Exception
     {
