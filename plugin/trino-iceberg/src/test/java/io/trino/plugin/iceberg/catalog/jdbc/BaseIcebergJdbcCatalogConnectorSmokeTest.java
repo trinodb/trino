@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.Namespace;
@@ -101,7 +100,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
                         .put(PROPERTY_PREFIX + "schema-version", SchemaVersion.V1.toString())
                         .put(WAREHOUSE_LOCATION, warehouseLocation.getAbsolutePath())
                         .buildOrThrow(),
-                new Configuration(false));
+                null);
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()

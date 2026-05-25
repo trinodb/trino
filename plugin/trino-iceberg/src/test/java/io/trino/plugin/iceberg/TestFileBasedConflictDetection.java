@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -51,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestFileBasedConflictDetection
 {
-    private static final HadoopTables HADOOP_TABLES = new HadoopTables(new Configuration(false));
+    private static final HadoopTables HADOOP_TABLES = new HadoopTables();
     private static final String COLUMN_1_NAME = "col1";
     private static final ColumnIdentity COLUMN_1_IDENTITY = new ColumnIdentity(1, COLUMN_1_NAME, PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle COLUMN_1_HANDLE = IcebergColumnHandle.optional(COLUMN_1_IDENTITY).columnType(INTEGER).build();
