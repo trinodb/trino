@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -24,8 +25,11 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -33,6 +37,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class ConfluentSchemaRegistryConfig
 {
     private Set<HostAddress> confluentSchemaRegistryUrls = ImmutableSet.of();
+    private List<String> confluentSchemaRegistryUrlStrings = ImmutableList.of();
     private int confluentSchemaRegistryClientCacheSize = 1000;
     private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
     private Duration confluentSubjectsCacheRefreshInterval = new Duration(1, SECONDS);
@@ -47,10 +52,24 @@ public class ConfluentSchemaRegistryConfig
     @ConfigDescription("The url of the Confluent Schema Registry")
     public ConfluentSchemaRegistryConfig setConfluentSchemaRegistryUrls(Set<String> confluentSchemaRegistryUrls)
     {
-        this.confluentSchemaRegistryUrls = confluentSchemaRegistryUrls.stream()
+        if (confluentSchemaRegistryUrls == null) {
+            this.confluentSchemaRegistryUrls = ImmutableSet.of();
+            this.confluentSchemaRegistryUrlStrings = ImmutableList.of();
+            return this;
+        }
+        List<String> trimmed = confluentSchemaRegistryUrls.stream()
+                .flatMap(url -> url == null || url.isBlank() ? Stream.empty() : Stream.of(url.trim()))
+                .collect(toImmutableList());
+        this.confluentSchemaRegistryUrls = trimmed.stream()
                 .map(ConfluentSchemaRegistryConfig::toHostAddress)
                 .collect(toImmutableSet());
+        this.confluentSchemaRegistryUrlStrings = trimmed;
         return this;
+    }
+
+    public List<String> getConfluentSchemaRegistryUrlStrings()
+    {
+        return confluentSchemaRegistryUrlStrings;
     }
 
     @Min(1)

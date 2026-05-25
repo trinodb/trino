@@ -113,9 +113,11 @@ public class ConfluentModule
         requireNonNull(schemaProviders, "schemaProviders is null");
         requireNonNull(propertiesProviders, "propertiesProviders is null");
 
-        List<String> baseUrl = confluentConfig.getConfluentSchemaRegistryUrls().stream()
-                .map(HostAddress::getHostText)
-                .collect(toImmutableList());
+        List<String> baseUrl = confluentConfig.getConfluentSchemaRegistryUrlStrings().isEmpty()
+                ? confluentConfig.getConfluentSchemaRegistryUrls().stream()
+                        .map(ConfluentModule::hostAddressToUrlString)
+                        .collect(toImmutableList())
+                : confluentConfig.getConfluentSchemaRegistryUrlStrings();
 
         Map<String, ?> schemaRegistryClientProperties = propertiesProviders.stream()
                 .map(SchemaRegistryClientPropertiesProvider::getSchemaRegistryClientProperties)
@@ -129,6 +131,14 @@ public class ConfluentModule
                         ImmutableList.copyOf(schemaProviders),
                         schemaRegistryClientProperties),
                 classLoader);
+    }
+
+    private static final int DEFAULT_SCHEMA_REGISTRY_PORT = 8081;
+
+    private static String hostAddressToUrlString(HostAddress address)
+    {
+        int port = address.hasPort() ? address.getPort() : DEFAULT_SCHEMA_REGISTRY_PORT;
+        return "http://" + address.getHostText() + ":" + port;
     }
 
     private class ConfluentDecoderModule
