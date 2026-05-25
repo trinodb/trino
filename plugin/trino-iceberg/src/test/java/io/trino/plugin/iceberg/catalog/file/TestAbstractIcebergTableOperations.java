@@ -17,6 +17,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import org.apache.iceberg.io.InputFile;
 import org.junit.jupiter.api.Test;
@@ -61,7 +63,8 @@ public class TestAbstractIcebergTableOperations
                 "test-database",
                 "test-table",
                 Optional.of("test-owner"),
-                Optional.empty())
+                Optional.empty(),
+                new DefaultEncryptionManagerFactory(new IcebergEncryptionConfig()))
         {
             // Without this, we'd have to create a table that's never accessed anyway, because we're simulating S3 errors.
             @Override

@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 
 public final class FilesTableSplitSource
         implements ConnectorSplitSource
@@ -78,7 +79,8 @@ public final class FilesTableSplitSource
                         metadataSchemaJson,
                         partitionSpecsByIdJson,
                         partitionColumnType,
-                        boundsColumnType));
+                        boundsColumnType,
+                        Optional.ofNullable(icebergTable.properties().get(ENCRYPTION_TABLE_KEY))));
             }
         }
 
