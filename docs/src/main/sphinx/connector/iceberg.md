@@ -259,6 +259,18 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.encryption.kms-type`
+  - Key Management Service type for
+    [Iceberg table encryption](https://iceberg.apache.org/docs/nightly/encryption/).
+    Possible values are `AWS` and `GCP`. Required to read encrypted tables.
+    Writing to encrypted tables is not supported.
+  -
+* - `iceberg.encryption.plaintext-files-allowed-for-encrypted-tables`
+  - Allow reading unencrypted files in tables with encryption enabled. When set
+    to `false`, an error is raised if a file with encryption key metadata is not
+    actually encrypted. The equivalent catalog session property is
+    `plaintext_files_allowed_for_encrypted_tables`.
+  - `false`
 :::
 
 (iceberg-fte-support)=

@@ -23,6 +23,8 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -67,6 +69,7 @@ import java.util.UUID;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -110,7 +113,12 @@ public class TestIcebergV3
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
+        queryRunner.installPlugin(new TestingIcebergPlugin(
+                dataDirectory,
+                Optional::empty,
+                () -> Optional.of(binder -> newOptionalBinder(binder, EncryptionManagerFactory.class)
+                        .setBinding()
+                        .toInstance(new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient()))))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of(
                 "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                 "iceberg.format-version", "3",
@@ -1240,7 +1248,7 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsEncryptionKeyProperty()
+    void testV3AllowsEncryptionKeyPropertyForReads()
     {
         String tableName = "test_v3_encryption_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format = 'ORC', format_version = 3)");
@@ -1252,24 +1260,14 @@ public class TestIcebergV3
                 .set("encryption.key-id", "test_key")
                 .commit();
 
-        assertQueryFails(
-                "SELECT * FROM " + tableName,
-                ".*Iceberg table encryption is not supported.*");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES 1");
 
-        // Also verify INSERT fails with encryption key set
-        assertQueryFails(
-                "INSERT INTO " + tableName + " VALUES 2",
-                ".*Iceberg table encryption is not supported.*");
-
-        // Clean up by removing the property first
-        icebergTable.updateProperties()
-                .remove("encryption.key-id")
-                .commit();
         assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
-    void testV3RejectsEncryptionKeysInMetadata()
+    void testV3AllowsEncryptionKeysInMetadataForReads()
             throws Exception
     {
         String temp = "tmp_v3_encryption_src_" + randomNameSuffix();
@@ -1301,14 +1299,14 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg table encryption is not supported.*");
+        assertThat(query("SELECT * FROM " + registered))
+                .matches("VALUES 1");
 
-        // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
+        assertUpdate("DROP TABLE " + registered);
         assertUpdate("DROP TABLE " + temp);
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        if (Files.exists(hadoopTableLocation)) {
+            deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        }
     }
 
     @Test

@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.inject.Module;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Level;
@@ -100,6 +101,7 @@ public final class IcebergQueryRunner
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
         private Optional<SchemaInitializer> schemaInitializer = Optional.of(SchemaInitializer.builder().build());
         private boolean tpcdsCatalogEnabled;
+        private Optional<Module> additionalOverrideModule = Optional.empty();
 
         protected Builder()
         {
@@ -160,6 +162,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder setAdditionalOverrideModule(Module additionalOverrideModule)
+        {
+            this.additionalOverrideModule = Optional.of(requireNonNull(additionalOverrideModule, "additionalOverrideModule is null"));
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -180,7 +188,7 @@ public final class IcebergQueryRunner
                 }
 
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
+                queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional::empty, () -> additionalOverrideModule));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
 
