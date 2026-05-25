@@ -998,7 +998,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            //System.out.println("StatementAnalyzer.createTableAsSelect() 1");
+            //System.out.println.println("StatementAnalyzer.createTableAsSelect() 1");
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), plannerContext);
             String catalogName = targetTable.catalogName();
@@ -1129,6 +1129,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
+            //System.out.println.println("StatementAnalyzer.visitCreateView() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName(), plannerContext);
             Resolver resolver = plannerContext.getResolver(session, viewName.catalogName());
 
@@ -1140,7 +1141,7 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
             // FIXME We need to inject the current canonicalizer in the outerQueryScope
-            Scope queryScope = analyzer.analyze(node.getQuery());
+            Scope queryScope = analyzer.analyze(createScope(resolver), node.getQuery());
 
             accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
@@ -1156,6 +1157,7 @@ class StatementAnalyzer
                             .map(this::createOutputColumn)
                             .collect(toImmutableList())));
 
+            //System.out.println.println("StatementAnalyzer.visitCreateView() end scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             return createAndAssignScope(node, scope);
         }
 
@@ -1676,7 +1678,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
-            //System.out.println("StatementAnalyzer.visitQuery() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+            //System.out.println.println("StatementAnalyzer.visitQuery() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // In case of simple select with no table we set as last resolver the SYSTEM_CANONICALIZER
             // and if the query has a FROM clause when the visitTable will override the last resolver.
             for (FunctionSpecification function : node.getFunctions()) {
@@ -1726,14 +1728,16 @@ class StatementAnalyzer
                             .collect(toImmutableList()));
 
             // FIXME: We propagate the canonicalizer used for the possible query that called this one.
+            //        If we want the test: BaseConnectorTest::testMergeDeleteWithCTAS working,
+            //        it is necessary to return the received scope if the queryBodyScope is empty.
             Scope queryScope = Scope.builder()
                     .withParent(withScope)
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
-                    .withResolver(queryBodyScope.getResolver())
+                    .withResolver(queryBodyScope.getResolver().or(() -> scope.flatMap(Scope::getResolver)))
                     .build();
 
             analysis.setScope(node, queryScope);
-            //System.out.println("StatementAnalyzer.visitQuery() end queryScope resolver: " + queryScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitQuery() end queryScope resolver: " + queryScope.canonicalizerType());
             return queryScope;
         }
 
@@ -2426,12 +2430,14 @@ class StatementAnalyzer
         @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
-            //System.out.println("StatementAnalyzer.visitTable() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+            //System.out.println.println("StatementAnalyzer.visitTable() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // is this a reference to a WITH query?
             if (table.getName().getPrefix().isEmpty()) {
+                //System.out.println.println("StatementAnalyzer.visitTable() 2");
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
                     analysis.setRelationName(table, table.getName());
+                    //System.out.println.println("StatementAnalyzer.visitTable() 3");
                     return createScopeForCommonTableExpression(table, scope, withQuery.get());
                 }
                 // is this a recursive reference in expandable WITH query? If so, there's base scope recorded.
@@ -2444,6 +2450,7 @@ class StatementAnalyzer
                             .build();
                     analysis.setScope(table, resultScope);
                     analysis.setRelationName(table, table.getName());
+                    //System.out.println.println("StatementAnalyzer.visitTable() 4");
                     return resultScope;
                 }
             }
@@ -2481,6 +2488,7 @@ class StatementAnalyzer
             Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
+                //System.out.println.println("StatementAnalyzer.visitTable() 5");
                 return createScopeForView(table, name, scope, optionalView.get(), resolver);
             }
 
@@ -2540,7 +2548,7 @@ class StatementAnalyzer
                 analysis.setRowIdField(table, reference);
             }
 
-            //System.out.println("StatementAnalyzer.visitTable() end tableScope resolver: " + tableScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitTable() end tableScope resolver: " + tableScope.canonicalizerType());
             return tableScope;
         }
 
@@ -2807,7 +2815,7 @@ class StatementAnalyzer
             // are implicitly coercible to the declared view types.
             List<Field> viewFields = columns.stream()
                     .map(column -> Field.newQualified(
-                            table.getName(),
+                            QualifiedName.of(resolver::canonicalize, table.getName()),
                             Optional.of(column.name()),
                             getViewColumnType(column, name, table),
                             false,
@@ -2845,7 +2853,7 @@ class StatementAnalyzer
             analyzeFiltersAndMasks(table, name, new RelationType(viewFields), accessControlScope);
             analysis.registerTable(table, freshStorageTable, name, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.of(originalSql));
             viewFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
-            return createAndAssignScope(table, scope, viewFields);
+            return createAndAssignScope(table, scope, Optional.of(resolver), viewFields);
         }
 
         private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable, Resolver resolver)
@@ -3143,11 +3151,11 @@ class StatementAnalyzer
         @Override
         protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
-            //System.out.println("StatementAnalyzer.visitAliasedRelation() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+            //System.out.println.println("StatementAnalyzer.visitAliasedRelation() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // FIXME: AliasedRelation are now canonicalized
             analysis.addAliased(relation.getRelation());
             Scope relationScope = process(relation.getRelation(), scope);
-            //System.out.println("StatementAnalyzer.visitAliasedRelation() 2 relationScope resolver: " + relationScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitAliasedRelation() 2 relationScope resolver: " + relationScope.canonicalizerType());
             analysis.setRelationName(relation, QualifiedName.of(relation.getAlias()));
             RelationType relationType = relationScope.getRelationType();
 
@@ -3189,7 +3197,7 @@ class StatementAnalyzer
                     (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
             // FIXME: To have AbstractTestQueries::testUnionAllAboveBroadcastJoin
             //        working, we need to propagate resolver.
-            //System.out.println("StatementAnalyzer.visitAliasedRelation() end relationScope resolver: " + relationScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitAliasedRelation() end relationScope resolver: " + relationScope.canonicalizerType());
             return createAndAssignScope(relation, scope, relationScope.getResolver(), descriptor);
         }
 
@@ -3348,9 +3356,11 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            // FIXME: In addition to the RelationType, we also retrieve the resolver used, if any.
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
+            // FIXME: StatementAnalyzer::visitQuery receive the inner scope canonicalizer to use without FROM clause
+            Scope queryScope = analyzer.analyze(createInnerScope(scope), node.getQuery(), scope.orElseThrow());
+            // FIXME: In addition to the RelationType, we also retrieve the resolver used, if any.
+            //        If we want the test: BaseConnectorTest::testMergeDeleteWithCTAS working, it is necessary to return the received scope.
             return createAndAssignScope(node, scope, queryScope.getResolver(), queryScope.getRelationType());
         }
 
@@ -3358,12 +3368,12 @@ class StatementAnalyzer
         protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
             // FIXME: Now visitQuerySpecification will receive scope with
-            //System.out.println("StatementAnalyzer.visitQuerySpecification() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+            //System.out.println.println("StatementAnalyzer.visitQuerySpecification() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             //       to pass down to analyzeFrom
 
             Scope sourceScope = analyzeFrom(node, scope);
-            //System.out.println("StatementAnalyzer.visitQuerySpecification() 2 sourceScope resolver: " + sourceScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitQuerySpecification() 2 sourceScope resolver: " + sourceScope.canonicalizerType());
 
             analyzeWindowDefinitions(node, sourceScope);
             resolveFunctionCallAndMeasureWindows(node);
@@ -3449,7 +3459,7 @@ class StatementAnalyzer
                 verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.orElseThrow());
             }
 
-            //System.out.println("StatementAnalyzer.visitQuerySpecification() end outputScope resolver: " + outputScope.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitQuerySpecification() end outputScope resolver: " + outputScope.canonicalizerType());
             return outputScope;
         }
 
@@ -3617,7 +3627,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
-            //System.out.println("StatementAnalyzer.visitJoin() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
+            //System.out.println.println("StatementAnalyzer.visitJoin() 1 scope resolver: " + scope.map(Scope::canonicalizerType).orElse("No scope"));
             JoinCriteria criteria = node.getCriteria().orElse(null);
             if (criteria instanceof NaturalJoin) {
                 throw semanticException(NOT_SUPPORTED, node, "Natural join not supported");
@@ -3678,7 +3688,7 @@ class StatementAnalyzer
 
             if (criteria instanceof JoinUsing joinUsing) {
                 Scope output = analyzeJoinUsing(node, joinUsing.getColumns(), scope, left, right);
-                //System.out.println("StatementAnalyzer.visitJoin() 2 output resolver: " + output.canonicalizerType());
+                //System.out.println.println("StatementAnalyzer.visitJoin() 2 output resolver: " + output.canonicalizerType());
                 return output;
             }
 
@@ -3708,7 +3718,7 @@ class StatementAnalyzer
             else {
                 throw new UnsupportedOperationException("Unsupported join criteria: " + criteria.getClass().getName());
             }
-            //System.out.println("StatementAnalyzer.visitJoin() end output resolver: " + output.canonicalizerType());
+            //System.out.println.println("StatementAnalyzer.visitJoin() end output resolver: " + output.canonicalizerType());
             return output;
         }
 
@@ -3756,11 +3766,9 @@ class StatementAnalyzer
             Map<String, ColumnSchema> columns = allColumns.stream()
                     .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
-            //System.out.println("StatementAnalyzer.visitUpdate() 1 columns: " + String.join(", ", allColumns.stream().map(ColumnSchema::getName).toList()));
             // FIXME: the UpdateAssignment.Identifier will be canonicalized.
             for (UpdateAssignment assignment : update.getAssignments()) {
                 String columnName = resolver.canonicalize(assignment.getName());
-                //System.out.println("StatementAnalyzer.visitUpdate() 2 columnName: " + columnName);
                 if (!columns.containsKey(columnName)) {
                     throw semanticException(COLUMN_NOT_FOUND, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
                 }
@@ -6362,6 +6370,14 @@ class StatementAnalyzer
 
             analysis.setScope(node, scope);
             return scope;
+        }
+
+        private Optional<Scope> createInnerScope(Optional<Scope> scope)
+        {
+            return scope.map(s -> Scope.builder()
+                    .withOuterQueryParent(s)
+                    .withResolver(s.getResolver())
+                    .build());
         }
 
         private Scope createScope(Optional<Scope> parentScope)

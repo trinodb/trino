@@ -2093,7 +2093,7 @@ public abstract class BaseConnectorTest
         String viewName = "test_view_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'abcdefg' a", 1);
-        assertUpdate("CREATE VIEW " + viewName + " AS SELECT \"a\" FROM " + tableName);
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT a FROM " + tableName);
 
         assertQuery("SELECT * FROM " + viewName, "VALUES 'abcdefg'");
 
@@ -2187,8 +2187,8 @@ public abstract class BaseConnectorTest
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
                 .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                        .row("x", "bigint", "", "")
-                        .row("y", "varchar(3)", "", "")
+                        .row(canonicalize("x"), "bigint", "", "")
+                        .row(canonicalize("y"), "varchar(3)", "", "")
                         .build());
 
         // test SHOW CREATE VIEW
@@ -2969,7 +2969,7 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_ADD_FIELD)) {
             try (TestTable table = newTrinoTable("test_add_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
-                        "ALTER TABLE " + table.getName() + " ADD COLUMN \"col\".\"y\" integer",
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN col.y integer",
                         "This connector does not support adding fields");
             }
             return;
@@ -2981,7 +2981,7 @@ public abstract class BaseConnectorTest
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer), c integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10), NULL) AS row(a integer, b row(x integer), c integer))");
 
             // Add a nested field
@@ -3396,7 +3396,7 @@ public abstract class BaseConnectorTest
         if (!hasBehavior(SUPPORTS_RENAME_FIELD)) {
             try (TestTable table = newTrinoTable("test_rename_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
                 assertQueryFails(
-                        "ALTER TABLE " + table.getName() + " RENAME COLUMN \"col\".\"x\" TO x_renamed",
+                        "ALTER TABLE " + table.getName() + " RENAME COLUMN col.x TO x_renamed",
                         "This connector does not support renaming fields");
             }
             return;
@@ -3906,7 +3906,7 @@ public abstract class BaseConnectorTest
         String tableDefinition = "AS SELECT CAST(map(array[row(1)], array[2]) AS map(row(field integer), integer)) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
             try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN \"col\".\"key\".\"field\" SET DATA TYPE bigint", ".*does not support.*");
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint", ".*does not support.*");
             }
             return;
         }
@@ -3930,7 +3930,7 @@ public abstract class BaseConnectorTest
         String tableDefinition = "AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) AS col";
         if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_MAP)) {
             try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN \"col\".\"value\".\"field\" SET DATA TYPE bigint", ".*does not support.*");
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint", ".*does not support.*");
             }
             return;
         }
@@ -4894,7 +4894,7 @@ public abstract class BaseConnectorTest
         }
 
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertQuery("SELECT \"x\" FROM " + schemaName + "." + renamedTable, "VALUES 123");
+        assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
         assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
         assertUpdate("DROP SCHEMA " + schemaName);
@@ -7023,7 +7023,7 @@ public abstract class BaseConnectorTest
                         (4, 'd', 'dd')
                 ) AS t (id, name, value)
                 """;
-        createTableForWrites(createTableSql, target, Optional.of("id"), OptionalInt.of(4));
+        createTableForWrites(createTableSql, target, Optional.of(canonicalize("id")), OptionalInt.of(4));
         assertUpdate(createTableSql.formatted(source), 4);
 
         assertQuery("SELECT COUNT(*) FROM " + target, "VALUES 4");

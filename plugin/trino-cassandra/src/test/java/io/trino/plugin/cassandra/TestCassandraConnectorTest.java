@@ -1689,9 +1689,9 @@ public class TestCassandraConnectorTest
             return;
         }
 
-        // FIXME: CTAS without FROM clause use the Identity canonicalizer
+        // FIXME: CTAS without FROM clause use the target connector canonicalizer
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT 'Name 1' NaMe, 'Region 1' ReGionKey", 1L);
-        assertTableColumnNames(canonicalize(tableName), "NaMe","ReGionKey");
+        assertTableColumnNames(canonicalize(tableName), canonicalize("NaMe"),canonicalize("ReGionKey"));
         assertThat(getTableComment(canonicalize(tableName))).isNull();
         assertUpdate("DROP TABLE " + tableName);
 
