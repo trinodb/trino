@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.spi;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;

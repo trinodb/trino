@@ -15,10 +15,10 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.array.UpdateMemory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.Page;

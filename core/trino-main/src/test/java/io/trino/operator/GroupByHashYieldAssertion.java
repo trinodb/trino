@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.array.AppendOnlyVariableWidthData;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.memory.MemoryPool;

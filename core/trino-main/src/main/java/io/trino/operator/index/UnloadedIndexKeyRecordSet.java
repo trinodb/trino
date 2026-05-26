@@ -36,8 +36,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.array.UpdateMemory.NOOP;
 import static io.trino.operator.GroupByHash.createGroupByHash;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 

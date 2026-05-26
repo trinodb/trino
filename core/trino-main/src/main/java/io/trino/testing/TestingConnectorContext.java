@@ -22,6 +22,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.spi.FlatHashStrategyFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
@@ -44,7 +45,8 @@ public final class TestingConnectorContext
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())));
+    private final FlatHashStrategyCompiler flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
+    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(flatHashStrategyCompiler);
 
     public TestingConnectorContext()
     {
@@ -108,5 +110,11 @@ public final class TestingConnectorContext
     public FunctionBundleFactory getFunctionBundleFactory()
     {
         return new InternalFunctionBundleFactory();
+    }
+
+    @Override
+    public FlatHashStrategyFactory getFlatHashStrategyFactory()
+    {
+        return flatHashStrategyCompiler::getFlatHashStrategy;
     }
 }

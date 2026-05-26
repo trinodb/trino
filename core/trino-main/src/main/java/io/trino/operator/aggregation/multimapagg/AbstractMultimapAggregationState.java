@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.base.Throwables;
-import io.trino.operator.AppendOnlyVariableWidthData;
+import io.trino.array.AppendOnlyVariableWidthData;
 import io.trino.operator.aggregation.arrayagg.FlatArrayBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -37,8 +37,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
-import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
+import static io.trino.array.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.array.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.Math.clamp;
 import static java.lang.Math.multiplyExact;

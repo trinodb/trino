@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.array;
 
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -31,7 +31,7 @@ import static java.lang.Math.max;
 import static java.util.Objects.checkIndex;
 
 /**
- * Variation of {@link VariableWidthData} that does not support {@link VariableWidthData#free}. As a result of that
+ * Variation of VariableWidthData that does not support free. As a result of that
  * limitation, the embedded variable width data pointer only needs to encode the chunk index and chunk offset but not
  * the variable width length. This reduces the number of bytes required in each fixed size record by 4.
  */
@@ -46,7 +46,7 @@ public final class AppendOnlyVariableWidthData
     public static final int POINTER_SIZE = Integer.BYTES + Integer.BYTES;
 
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    private static final byte[] EMPTY_CHUNK = VariableWidthData.EMPTY_CHUNK;
+    private static final byte[] EMPTY_CHUNK = new byte[0];
 
     private final ObjectArrayList<byte[]> chunks = new ObjectArrayList<>();
     private int openChunkOffset;

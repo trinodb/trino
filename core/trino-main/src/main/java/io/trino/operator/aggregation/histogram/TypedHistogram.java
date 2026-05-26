@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.histogram;
 
 import com.google.common.base.Throwables;
-import io.trino.operator.AppendOnlyVariableWidthData;
+import io.trino.array.AppendOnlyVariableWidthData;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -31,8 +31,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
-import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
+import static io.trino.array.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.array.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.clamp;

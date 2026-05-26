@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.spi.FlatHashStrategy;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;

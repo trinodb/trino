@@ -20,8 +20,8 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.array.UpdateMemory.NOOP;
 import static io.trino.operator.GroupByHash.shouldCacheHashValue;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByHashPageIndexer

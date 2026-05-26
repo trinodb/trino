@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.array.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -23,8 +24,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.array.UpdateMemory.NOOP;
 import static io.trino.operator.PageAssertions.assertPageEquals;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;

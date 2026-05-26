@@ -435,6 +435,7 @@ public class PlanTester
                 noop(),
                 transactionManager,
                 typeManager,
+                hashStrategyCompiler,
                 nodeSchedulerConfig,
                 optimizerConfig,
                 secretsResolver));

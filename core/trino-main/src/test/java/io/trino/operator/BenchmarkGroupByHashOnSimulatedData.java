@@ -54,12 +54,12 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.array.UpdateMemory.NOOP;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1K_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1M_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_2_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.WorkType.GET_GROUPS;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static java.util.Objects.requireNonNull;
 
 /**

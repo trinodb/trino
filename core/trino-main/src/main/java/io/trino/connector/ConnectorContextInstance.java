@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.FlatHashStrategyFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -38,6 +39,7 @@ public class ConnectorContextInstance
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final FunctionBundleFactory functionBundleFactory;
+    private final FlatHashStrategyFactory flatHashStrategyFactory;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -48,7 +50,8 @@ public class ConnectorContextInstance
             MetadataProvider metadataProvider,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
-            FunctionBundleFactory functionBundleFactory)
+            FunctionBundleFactory functionBundleFactory,
+            FlatHashStrategyFactory flatHashStrategyFactory)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -59,6 +62,7 @@ public class ConnectorContextInstance
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.functionBundleFactory = requireNonNull(functionBundleFactory, "functionBundleFactory is null");
+        this.flatHashStrategyFactory = requireNonNull(flatHashStrategyFactory, "flatHashStrategyFactory is null");
     }
 
     @Override
@@ -113,5 +117,11 @@ public class ConnectorContextInstance
     public FunctionBundleFactory getFunctionBundleFactory()
     {
         return functionBundleFactory;
+    }
+
+    @Override
+    public FlatHashStrategyFactory getFlatHashStrategyFactory()
+    {
+        return flatHashStrategyFactory;
     }
 }

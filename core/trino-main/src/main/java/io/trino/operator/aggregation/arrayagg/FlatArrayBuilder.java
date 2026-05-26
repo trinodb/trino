@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import com.google.common.base.Throwables;
-import io.trino.operator.AppendOnlyVariableWidthData;
+import io.trino.array.AppendOnlyVariableWidthData;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
@@ -30,8 +30,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
-import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
+import static io.trino.array.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.array.AppendOnlyVariableWidthData.getChunkOffset;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.checkIndex;

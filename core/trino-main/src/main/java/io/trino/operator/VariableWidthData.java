@@ -35,10 +35,10 @@ import static java.lang.Math.subtractExact;
 import static java.util.Objects.checkIndex;
 
 /**
- * A related implementation of {@link VariableWidthData} exists in {@link AppendOnlyVariableWidthData} which reduces
- * the size of each variable width pointer at the cost of not supporting {@link VariableWidthData#free}. If your data
- * structure does not need to support moving variable width data after insertion, that implementation will consume
- * less memory and should be used instead.
+ * A related implementation of {@link VariableWidthData} exists in {@link io.trino.array.AppendOnlyVariableWidthData}.
+ * It reduces the size of each variable width pointer at the cost of not supporting {@link VariableWidthData#free}.
+ * If your data structure does not need to support moving variable width data after insertion,
+ * that implementation will consume less memory and should be used instead.
  */
 public final class VariableWidthData
 {

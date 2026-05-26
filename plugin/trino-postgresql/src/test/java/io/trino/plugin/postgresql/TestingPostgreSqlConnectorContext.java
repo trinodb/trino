@@ -26,6 +26,7 @@ import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.plugin.geospatial.GeometryType;
+import io.trino.spi.FlatHashStrategyFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -46,12 +47,14 @@ public class TestingPostgreSqlConnectorContext
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion("testversion");
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
+    private final FlatHashStrategyCompiler flatHashStrategyCompiler;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
 
     public TestingPostgreSqlConnectorContext()
     {
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())));
+        flatHashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators()));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(flatHashStrategyCompiler);
         nodeManager = new DefaultNodeManager(CURRENT_NODE, TestingInternalNodeManager.createDefault(), true);
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
@@ -104,5 +107,11 @@ public class TestingPostgreSqlConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public FlatHashStrategyFactory getFlatHashStrategyFactory()
+    {
+        return flatHashStrategyCompiler::getFlatHashStrategy;
     }
 }
