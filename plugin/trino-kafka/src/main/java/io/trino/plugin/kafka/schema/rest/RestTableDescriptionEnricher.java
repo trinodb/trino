@@ -36,7 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
 import static java.util.Objects.requireNonNull;
 
 /**

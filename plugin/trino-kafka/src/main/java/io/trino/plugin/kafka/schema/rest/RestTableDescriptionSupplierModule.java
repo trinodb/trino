@@ -28,7 +28,6 @@ import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig;
 import io.trino.plugin.kafka.schema.file.FileReadContentSchemaProvider;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 /**
@@ -74,10 +73,9 @@ public class RestTableDescriptionSupplierModule
         install(new EncoderModule());
 
         configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
-        install(conditionalModule(
-                ProtobufAnySupportConfig.class,
-                ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
-                new FileDescriptorProviderModule()));
+        if (buildConfigObject(ProtobufAnySupportConfig.class).isProtobufAnySupportEnabled()) {
+            install(new FileDescriptorProviderModule());
+        }
     }
 
     private static class FileDescriptorProviderModule
