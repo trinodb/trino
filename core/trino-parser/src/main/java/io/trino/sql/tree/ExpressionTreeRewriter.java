@@ -418,13 +418,22 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            Expression operand = rewrite(node.getOperand(), context.get());
             Expression result = rewrite(node.getResult(), context.get());
 
-            if (operand != node.getOperand() || result != node.getResult()) {
-                return new WhenClause(node.getLocation().orElseThrow(), operand, result);
-            }
-            return node;
+            return switch (node.getMatch()) {
+                case WhenClause.Operand operand -> {
+                    Expression rewritten = rewrite(operand.expression(), context.get());
+                    yield rewritten != operand.expression() || result != node.getResult()
+                            ? new WhenClause(node.getLocation().orElseThrow(), rewritten, result)
+                            : node;
+                }
+                case WhenClause.Partial partial -> {
+                    Predicate rewritten = rewritePredicate(partial.predicate(), context);
+                    yield rewritten != partial.predicate() || result != node.getResult()
+                            ? new WhenClause(node.getLocation().orElseThrow(), rewritten, result)
+                            : node;
+                }
+            };
         }
 
         @Override
