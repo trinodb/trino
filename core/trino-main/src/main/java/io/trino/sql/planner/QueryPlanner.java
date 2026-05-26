@@ -588,7 +588,7 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
-        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
+        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(node);
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 
@@ -602,7 +602,7 @@ class QueryPlanner
         }
         Map<String, ColumnHandle> nameToHandle = nameToHandleBuilder.buildOrThrow();
 
-        // FIXME: If we want UPDATE working, we need to take UpdateAssignement.Identifier canonicalized value
+        // FIXME: If we want UPDATE working, we need to take UpdateAssignment::getName as canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
             ColumnHandle handle = nameToHandle.get(canonicalizer.apply(assignment.getName()));

@@ -47,12 +47,18 @@ public class Field
 
     public static Field newUnqualified(Optional<String> name, Type type)
     {
+        return newUnqualified(name, type, Optional.empty());
+    }
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<Resolver> resolver)
+    {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(resolver, "resolver is null");
 
         return builder()
                 .name(name)
                 .type(type)
+                .resolver(resolver)
                 .build();
     }
 

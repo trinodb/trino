@@ -22,6 +22,11 @@ import static java.util.Objects.requireNonNull;
 public class Resolver
 {
     public static final Function<Identifier, String> DEFAULT_CANONICALIZER = Identifier::getValue;
+    public static final CanonicalizerKind getCanonicalizerKind(Function<Identifier, String> canonicalizer)
+    {
+        return getCanonicalizerKind(canonicalizer.apply(new Identifier("Xy", false)));
+    }
+
     private final String catalog;
     private final BiFunction<String, Boolean, String> canonicalizer;
     private final BiFunction<String, IdentifierKind, String> comparator;
@@ -42,13 +47,18 @@ public class Resolver
         this.canonicalizerKind = getCanonicalizerKind(canonicalizer);
     }
 
-    private CanonicalizerKind getCanonicalizerKind(BiFunction<String, Boolean, String> canonicalizer)
+    private static CanonicalizerKind getCanonicalizerKind(BiFunction<String, Boolean, String> canonicalizer)
     {
-        return switch (canonicalizer.apply("Xy", false)){
+        return getCanonicalizerKind(canonicalizer.apply("Xy", false));
+    }
+
+    private static CanonicalizerKind getCanonicalizerKind(String value)
+    {
+        return switch (value){
             case "Xy" -> CanonicalizerKind.IDENTITY;
             case "xy" -> CanonicalizerKind.LOWER_CASE;
             case "XY" -> CanonicalizerKind.UPPER_CASE;
-            default -> throw new IllegalStateException("Unexpected value: " + canonicalizer.apply("Xy", false));
+            default -> throw new IllegalStateException("Unexpected value: " + value);
         };
     }
 

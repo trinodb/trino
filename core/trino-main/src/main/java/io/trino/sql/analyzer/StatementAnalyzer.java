@@ -398,7 +398,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
-import static io.trino.sql.QueryUtil.delimitedIdentifier;
 import static io.trino.sql.analyzer.AggregationAnalyzer.containsAggregation;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
@@ -996,6 +995,7 @@ class StatementAnalyzer
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName(), plannerContext);
             String catalogName = targetTable.catalogName();
             Resolver resolver = plannerContext.getResolver(session, catalogName);
+            plannerContext.setResolver(session, resolver);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
@@ -1039,7 +1039,6 @@ class StatementAnalyzer
             // analyze the query that creates the table
             // FIXME: We need to keep the current resolver to the StatementAnalyzer::visitQuery because
             //        if the SELECT query is without FROM clause we use the targetTable canonicalizer
-            plannerContext.setResolver(session, resolver);
             Scope queryScope = analyze(node.getQuery(), Optional.empty(), false);
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
@@ -2812,7 +2811,7 @@ class StatementAnalyzer
                 }
 
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table, resolver);
                 analysis.unregisterTableForView();
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
@@ -3681,6 +3680,7 @@ class StatementAnalyzer
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
             Resolver resolver = plannerContext.getResolver(session, originalName.catalogName());
+            plannerContext.setResolver(update, resolver);
             //plannerContext.setResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, originalName)) {
@@ -4384,10 +4384,10 @@ class StatementAnalyzer
             }
 
             // FIXME: In order to be correctly resolved, the Field must hold the correct canonicalizer
+            Optional<Resolver> resolver = plannerContext.getResolver(session);
             List<Field> fields = commonSuperType.getFields().stream()
-                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
+                    .map(field -> Field.newUnqualified(field.getName(), field.getType(), resolver))
                     .collect(toImmutableList());
-
             return createAndAssignScope(node, scope, fields);
         }
 
@@ -5442,7 +5442,8 @@ class StatementAnalyzer
                 Optional<String> schema,
                 Optional<Identity> owner,
                 List<CatalogSchemaName> path,
-                Table node)
+                Table node,
+                Resolver resolver)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
@@ -5472,7 +5473,8 @@ class StatementAnalyzer
                         .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
                 // FIXME We need to inject the current canonicalizer in an innerScope
                 Scope queryScope = analyzer.analyze(query);
-                return queryScope.getRelationType().withAlias(delimitedIdentifier(name.objectName()), null);
+                Identifier view = new Identifier(name.objectName(), resolver.predicate(name.objectName()));
+                return queryScope.getRelationType().withAlias(view, null);
             }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());

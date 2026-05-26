@@ -772,7 +772,6 @@ public class ExpressionAnalyzer
         protected Type visitIdentifier(Identifier node, Context context)
         {
             // System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
-            System.out.println("ExpressionAnalyzer.visitIdentifier() scope fileds: " + context.getScope().getFields());
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
