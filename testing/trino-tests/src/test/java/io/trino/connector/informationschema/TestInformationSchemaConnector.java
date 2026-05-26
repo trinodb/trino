@@ -165,40 +165,35 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1'",
                 "VALUES 1",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 16)
                         .add("ConnectorMetadata.listSchemaNames")
                         .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1' AND schema_name IN ('test_schema1', 'test_schema2')",
                 "VALUES 1",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 19)
                         .add("ConnectorMetadata.listSchemaNames")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables",
                 "VALUES (3008, 3008)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 40)
                         .add("ConnectorMetadata.getRelationTypes")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                         .build());
@@ -206,8 +201,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 60)
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema2)")
                         .build());
@@ -221,8 +215,7 @@ public class TestInformationSchemaConnector
                                 .collect(joining(",", "(", ")")),
                 "VALUES (3000, 3000)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.getRelationTypes")
                         .build());
         assertMetadataCalls(
@@ -234,8 +227,7 @@ public class TestInformationSchemaConnector
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 4)
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table1)", 4)
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema3_empty, table=test_table1)")
@@ -257,8 +249,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
                 "VALUES (2, 2)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                         .add("ConnectorMetadata.getRelationTypes(schema=test_schema2)")
@@ -278,8 +269,7 @@ public class TestInformationSchemaConnector
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table2)", 4)
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 4)
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table2)", 4)
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 60)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table2)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table2)")
@@ -318,8 +308,7 @@ public class TestInformationSchemaConnector
                 "VALUES 100",
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 82)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
@@ -330,16 +319,14 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'",
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 60)
                         .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 104)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
@@ -350,8 +337,7 @@ public class TestInformationSchemaConnector
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 104)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
@@ -362,15 +348,13 @@ public class TestInformationSchemaConnector
                 "VALUES 1",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 38)
                         .build());
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1000)",
                 "VALUES 1000",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 38)
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.streamRelationColumns(schema=test_schema1)")
                         .build());
@@ -380,8 +364,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = '' AND table_name = ''",
                 "VALUES (0, 0)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 60)
                         .build());
 
         // Empty table schema
@@ -389,8 +372,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = ''",
                 "VALUES (0, 0)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .add("ConnectorMetadata.supportsMixedCase")
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .build());
 
         // Empty table name
@@ -398,8 +380,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_name = ''",
                 "VALUES (0, 0)",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 50)
                         .add("ConnectorMetadata.listSchemaNames")
                         .build());
 
@@ -408,8 +389,7 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
                 "VALUES 1000",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.canonicalize", 2)
-                        .addCopies("ConnectorMetadata.supportsMixedCase", 5)
+                        .addCopies("ConnectorMetadata.canonicalize", 40)
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.listTables(schema=test_schema1)")
                         // view-related methods such as listViews not being called

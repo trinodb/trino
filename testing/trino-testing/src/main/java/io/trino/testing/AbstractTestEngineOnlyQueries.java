@@ -2938,24 +2938,26 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testWithNestedSubqueries()
     {
-        assertQuery("" +
-                "WITH a AS (\n" +
-                "  WITH aa AS (SELECT 123 x FROM \"orders\" LIMIT 1)\n" +
-                "  SELECT x y FROM aa\n" +
-                "), b AS (\n" +
-                "  WITH bb AS (\n" +
-                "    WITH bbb AS (SELECT y FROM a)\n" +
-                "    SELECT bbb.* FROM bbb\n" +
-                "  )\n" +
-                "  SELECT y z FROM bb\n" +
-                ")\n" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  WITH q AS (SELECT z w FROM b)\n" +
-                "  SELECT j.*, k.*\n" +
-                "  FROM a j\n" +
-                "  JOIN q k ON (j.y = k.w)\n" +
-                ") t", "" +
+        assertQuery(
+                """
+                WITH a AS (
+                  WITH aa AS (SELECT 123 "x" FROM "orders" LIMIT 1)
+                  SELECT x y FROM aa
+                ), b AS (
+                  WITH bb AS (
+                    WITH bbb AS (SELECT y FROM a)
+                    SELECT bbb.* FROM bbb
+                  )
+                  SELECT y z FROM bb
+                )
+                SELECT *
+                FROM (
+                  WITH q AS (SELECT z w FROM b)
+                  SELECT j.*, k.*
+                  FROM a j
+                  JOIN q k ON (j.y = k.w)
+                )\
+                """,
                 "SELECT 123, 123 FROM \"orders\" LIMIT 1");
     }
 
@@ -3378,7 +3380,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
-        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
+        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: A");
     }
 
     @Test
@@ -3806,8 +3808,7 @@ public abstract class AbstractTestEngineOnlyQueries
         // alias/table name shadowing
         assertQuery("SELECT(SELECT \"region\".* FROM (VALUES 1) \"region\") FROM \"region\"", "SELECT 1 FROM \"region\"");
 
-        // FIXME: I can't get this test to work.
-        //assertQuery("SELECT(SELECT r.* FROM (VALUES '1') r) FROM \"region\" r", "SELECT 1 FROM \"region\"");
+        assertQuery("SELECT(SELECT r.* FROM (VALUES '1') r) FROM \"region\" r", "SELECT 1 FROM \"region\"");
 
         // EXISTS subquery
         assertQuery("SELECT EXISTS(SELECT t.* FROM \"region\") FROM \"nation\" t", "SELECT true FROM \"nation\"");
@@ -3822,8 +3823,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM \"region\" r, LATERAL (SELECT r.* LIMIT 0)", "SELECT *, * FROM \"region\" LIMIT 0");
         assertQuery("SELECT * FROM \"region\" r, LATERAL (SELECT r.* WHERE true)", "SELECT *, * FROM \"region\"");
 
-        // FIXME: I can't get this test to work with: SELECT *, * FROM "region"
-        assertQuery("SELECT \"region\".* FROM \"region\", LATERAL (SELECT \"region\".*) \"region\"", "SELECT * FROM \"region\"");
+        assertQuery("SELECT \"region\".* FROM \"region\", LATERAL (SELECT \"region\".*) \"region\"", "SELECT *, * FROM \"region\"");
 
         assertQueryFails("SELECT * FROM \"region\" r, LATERAL (SELECT r.* WHERE false)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertQueryFails("SELECT * FROM \"region\" r, LATERAL (SELECT r.* WHERE r.\"name\" = 'ASIA')", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);

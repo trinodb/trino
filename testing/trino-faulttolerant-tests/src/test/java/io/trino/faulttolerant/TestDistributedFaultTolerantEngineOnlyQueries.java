@@ -83,14 +83,14 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
                 """
                 WITH
                 t1 AS (
-                    SELECT NULL AS address_id FROM %s i1
+                    SELECT NULL AS "address_id" FROM %s i1
                         INNER JOIN %s i2 ON i1.id = i2.id),
                 t2 AS (
-                    SELECT id AS address_id FROM %s
+                    SELECT id AS "address_id" FROM %s
                     UNION
                     SELECT * FROM t1)
                 SELECT * FROM t2
-                    INNER JOIN %s i ON i.id = t2.address_id
+                    INNER JOIN %s i ON i.id = "t2"."address_id"
                 """.formatted(tableName, tableName, tableName, tableName));
 
         assertUpdate("DROP TABLE " + tableName);

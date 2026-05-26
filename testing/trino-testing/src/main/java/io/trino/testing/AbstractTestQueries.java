@@ -26,6 +26,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.BaseConnectorTest.skipTestUnless;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.tpch.TpchTable.NATION;
@@ -352,6 +353,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithSubquery()
     {
+        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
+
         String unDelimitedJoinQuery = """
                 SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
                 JOIN orders b \
@@ -378,6 +381,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinRequiredDelimiterWithSubquery()
     {
+        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
+
         String unDelimitedJoinQuery = """
                         SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a \
                         JOIN tpch.tiny.orders b \
@@ -416,15 +421,17 @@ public abstract class AbstractTestQueries
             assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
                     .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         }
-        //else {
-        //    assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-        //            .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-        //}
+        else {
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
+                    .hasMessage("line 1:52: Table '%s.%s.ORDERS' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
+        }
     }
 
     @Test
     public void testJoinRequiredDelimiter()
     {
+        skipTestUnless(computeActual("SHOW CATALOGS").getOnlyColumnAsSet().contains("tpch"));
+
         String unDelimitedJoinQuery = "SELECT n.name, r.name FROM nation n LEFT JOIN tpch.tiny.region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1";
         String fullDelimitedJoinQuery = """
                         SELECT "n"."name", "r"."name" FROM "nation" "n" LEFT JOIN tpch.tiny.region r ON "n"."regionkey" = "r"."regionkey" ORDER BY "n"."name" LIMIT 1\
@@ -451,10 +458,10 @@ public abstract class AbstractTestQueries
             assertThat(getQueryRunner().execute(getSession(), unDelimitedJoinQuery).getMaterializedRows())
                     .isEqualTo(getQueryRunner().execute(getSession(), resultQuery).getMaterializedRows());
         }
-        //else {
-        //    assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
-        //            .hasMessage("line 1:28: Table '%s.%s.NATION' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
-        //}
+        else {
+            assertThatThrownBy(() -> getQueryRunner().execute(getSession(), unDelimitedJoinQuery))
+                    .hasMessage("line 1:28: Table '%s.%s.NATION' does not exist".formatted(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow()));
+        }
     }
 
     @Test
@@ -576,7 +583,6 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnionAllAboveBroadcastJoin()
     {
-        // FIXME: I can't pass this test if the table aliases aren't delimited.
-        assertQuery("SELECT COUNT(*) FROM \"region\" \"r\" JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") \"n\" ON \"r\".\"regionkey\" = \"n\".\"nationkey\"", "VALUES 10");
+        assertQuery("SELECT COUNT(*) FROM \"region\" r JOIN (SELECT \"nationkey\" FROM \"nation\" UNION ALL SELECT \"nationkey\" as \"key\" FROM \"nation\") n ON r.\"regionkey\" = n.\"nationkey\"", "VALUES 10");
     }
 }
