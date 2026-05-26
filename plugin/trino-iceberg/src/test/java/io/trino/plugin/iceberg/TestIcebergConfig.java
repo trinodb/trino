@@ -89,6 +89,7 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
                 .setBucketExecutionEnabled(true)
+                .setEqualityDeletesBlocksHashEnabled(true)
                 .setParquetFooterCacheType(NONE)
                 .setParquetFooterCacheMemoryMaxSize(DataSize.of(10, MEGABYTE)));
     }
@@ -137,6 +138,7 @@ public class TestIcebergConfig
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
+                .put("iceberg.equality-deletes-blocks-hash-enabled", "false")
                 .put("iceberg.parquet-footer-cache.type", "MEMORY")
                 .put("iceberg.parquet-footer-cache.memory.max-size", "42MB")
                 .buildOrThrow();
@@ -183,6 +185,7 @@ public class TestIcebergConfig
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
                 .setBucketExecutionEnabled(false)
+                .setEqualityDeletesBlocksHashEnabled(false)
                 .setParquetFooterCacheType(MEMORY)
                 .setParquetFooterCacheMemoryMaxSize(DataSize.of(42, MEGABYTE));
 

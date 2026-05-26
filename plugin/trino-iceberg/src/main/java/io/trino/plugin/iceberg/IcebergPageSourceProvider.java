@@ -63,6 +63,7 @@ import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -240,6 +241,7 @@ public class IcebergPageSourceProvider
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
     private final ParquetFooterCache parquetFooterCache;
+    private final Optional<BlocksHashFactory> blocksHashFactory;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -251,7 +253,8 @@ public class IcebergPageSourceProvider
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager,
-            ParquetFooterCache parquetFooterCache)
+            ParquetFooterCache parquetFooterCache,
+            Optional<BlocksHashFactory> blocksHashFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -260,7 +263,8 @@ public class IcebergPageSourceProvider
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
-        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
+        this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
+        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory);
     }
 
     @Override
@@ -455,7 +459,7 @@ public class IcebergPageSourceProvider
                         })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
