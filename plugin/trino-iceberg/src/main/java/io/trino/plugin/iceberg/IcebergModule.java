@@ -99,12 +99,6 @@ public class IcebergModule
 
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
-        // iceberg-arrow's vectorized parquet reader does not support DELTA_LENGTH_BYTE_ARRAY
-        // encoded byte arrays in iceberg <= 1.10.x; default to PLAIN until apache/iceberg#15362
-        // (in iceberg >= 1.11) is on the classpath. Users can re-enable per catalog by setting
-        // parquet.writer.delta-length-byte-array-encoding-enabled=true.
-        configBinder(binder).bindConfigDefaults(ParquetWriterConfig.class, config ->
-                config.setDeltaLengthByteArrayEncodingEnabled(false));
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
