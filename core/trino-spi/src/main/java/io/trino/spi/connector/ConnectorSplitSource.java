@@ -37,9 +37,8 @@ public interface ConnectorSplitSource
      * In other words, each split source supports at most one outstanding batch request.
      * Implementations are not required to support concurrent invocations of this method.
      * <p>
-     * The returned future may complete with an empty batch when no splits are currently
-     * available. This does not necessarily mean the split source is finished unless the
-     * returned batch has {@code noMoreSplits} set.
+     * The returned future may complete with an empty list when no splits are currently
+     * available. This does not mean the split source is finished; check {@link #isFinished()}.
      * <p>
      * The {@link #close()} method may be called concurrently while a batch request is
      * outstanding.
@@ -47,10 +46,19 @@ public interface ConnectorSplitSource
      * preferably fail the request, such as by returning an exceptionally completed
      * future. Since close may race with a batch request, it is also acceptable to return
      * a normal batch result.
+     * {@code dynamicFilterSnapshot} contains a snapshot of the engine's dynamic filter state captured
+     * immediately before this call. The engine waits up to
+     * {@link #getRequestedDynamicFilterWaitTimeoutMillis()} before the <em>first</em> call;
+     * subsequent calls receive the current state without additional waiting.
      */
+    default CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
+    {
+        return getNextBatch(maxSize).thenApply(ConnectorSplitBatch::getSplits);
+    }
+
     default CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
-        throw new UnsupportedOperationException();
+        return getNextBatch(maxSize, DynamicFilterSnapshot.EMPTY).thenApply(splits -> new ConnectorSplitBatch(splits, isFinished()));
     }
 
     @Override
@@ -69,6 +77,20 @@ public interface ConnectorSplitSource
     default Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return Optional.empty();
+    }
+
+    /**
+     * Hints to the engine the maximum time in milliseconds to wait for dynamic filters to be
+     * collected before the first call to {@link #getNextBatch(int, DynamicFilterSnapshot)}.
+     * The engine may wait up to this timeout, or until the dynamic filter is fully resolved,
+     * whichever comes first.
+     * <p>
+     * The engine reads this value once when the split source is constructed; it is treated as
+     * fixed for the lifetime of the source (per table scan).
+     */
+    default long getRequestedDynamicFilterWaitTimeoutMillis()
+    {
+        return 0;
     }
 
     /**
