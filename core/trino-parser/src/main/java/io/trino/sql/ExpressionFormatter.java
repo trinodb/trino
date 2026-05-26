@@ -745,7 +745,11 @@ public final class ExpressionFormatter
         @Override
         protected String visitWhenClause(WhenClause node, Void context)
         {
-            return "WHEN " + process(node.getOperand(), context) + " THEN " + process(node.getResult(), context);
+            String match = switch (node.getMatch()) {
+                case WhenClause.Operand operand -> process(operand.expression(), context);
+                case WhenClause.Partial partial -> process(partial.predicate(), context);
+            };
+            return "WHEN " + match + " THEN " + process(node.getResult(), context);
         }
 
         @Override

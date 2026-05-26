@@ -214,6 +214,7 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -4212,7 +4213,7 @@ class StatementAnalyzer
 
         private NearestAnalysis analyzeNearestMatch(Nearest node, Scope nearestScope, Scope leftScope)
         {
-            if (!(node.getMatch() instanceof io.trino.sql.tree.Predicated predicated) || !(predicated.getPredicate() instanceof ComparisonPredicate comparison)) {
+            if (!(node.getMatch() instanceof Predicated predicated) || !(predicated.getPredicate() instanceof ComparisonPredicate comparison)) {
                 throw semanticException(NOT_SUPPORTED, node.getMatch(), "NEAREST MATCH clause must be a comparison expression");
             }
             Expression left = predicated.getValue();
