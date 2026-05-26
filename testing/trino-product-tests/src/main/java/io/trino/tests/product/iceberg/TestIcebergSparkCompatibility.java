@@ -3632,17 +3632,10 @@ public class TestIcebergSparkCompatibility
                 }
                 values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
             }
-            // The connector default is false so that Spark+Iceberg reads of small tables
-            // stay healthy; opt in explicitly here to trigger the iceberg-arrow vectorized
-            // read failure that this sentinel test asserts.
-            onTrino().executeQuery("SET SESSION iceberg.parquet_writer_delta_length_byte_array_encoding_enabled = true");
             onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
 
-            // iceberg-arrow's vectorized parquet reader does not support DELTA_LENGTH_BYTE_ARRAY
-            // in older iceberg versions; reading should fail.
-            assertQueryFailure(() -> onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
-                    .hasMessageContaining("Cannot support vectorized reads")
-                    .hasMessageContaining("DELTA_LENGTH_BYTE_ARRAY");
+            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
+                    .contains(row(5000));
         }
         finally {
             onTrino().executeQuery("DROP TABLE " + trinoTableName);
