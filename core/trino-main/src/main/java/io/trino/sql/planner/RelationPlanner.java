@@ -1871,7 +1871,6 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
@@ -1879,7 +1878,6 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
         return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }

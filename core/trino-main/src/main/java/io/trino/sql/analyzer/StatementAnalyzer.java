@@ -756,7 +756,6 @@ class StatementAnalyzer
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, name.catalogName());
             MaterializedViewDefinition view = metadata.getMaterializedView(session, name)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name));
 
@@ -886,7 +885,6 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, originalName.catalogName());
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
@@ -951,7 +949,6 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, tableName.catalogName());
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
@@ -1345,7 +1342,6 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
-            Resolver resolver = plannerContext.getResolver(session, originalName.catalogName());
             String procedureName = node.getProcedureName().getCanonicalValue();
 
             if (metadata.isMaterializedView(session, originalName)) {

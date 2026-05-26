@@ -180,7 +180,7 @@ public class Field
 
     public boolean isDelimited()
     {
-        return name.map(n -> resolver.map(r -> r.predicate(n))
+        return name.map(s -> resolver.map(r -> r.predicate(s))
                 .orElse(false))
                 .orElse(false);
     }
