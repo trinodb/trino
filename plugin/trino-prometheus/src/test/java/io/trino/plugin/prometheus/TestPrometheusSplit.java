@@ -15,6 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
@@ -22,7 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -134,9 +135,9 @@ public class TestPrometheusSplit
                 null,
                 session,
                 newTableHandle("default", table.name()),
-                (DynamicFilter) null,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
-        PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
+        PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null).get(0);
         String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
                 config.getMaxQueryRangeDuration().toMillis() +
@@ -162,9 +163,9 @@ public class TestPrometheusSplit
                 null,
                 session,
                 newTableHandle("default", table.name()),
-                (DynamicFilter) null,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
-        PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
+        PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null).get(0);
         String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
                 config.getMaxQueryRangeDuration().toMillis() +
@@ -190,9 +191,9 @@ public class TestPrometheusSplit
                 null,
                 session,
                 newTableHandle("default", table.name()),
-                (DynamicFilter) null,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
-        List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits();
+        List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null);
         int lastSplitIndex = splits.size() - 1;
         PrometheusSplit lastSplit = (PrometheusSplit) splits.get(lastSplitIndex);
         String queryInSplit = URI.create(lastSplit.getUri()).getQuery();
@@ -219,11 +220,11 @@ public class TestPrometheusSplit
                 null,
                 session,
                 newTableHandle("default", table.name()),
-                (DynamicFilter) null,
+                ImmutableSet.of(),
                 Constraint.alwaysTrue());
-        PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
+        PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(1, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null).get(0);
         Map<String, String> paramsMap1 = parse(URI.create(split1.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
-        PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
+        PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(1, new DynamicFilterSnapshot(TupleDomain.all(), true)).getNow(null).get(0);
         Map<String, String> paramsMap2 = parse(URI.create(split2.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         assertThat(paramsMap1).containsEntry("query", "up[1d]");
         assertThat(paramsMap2).containsEntry("query", "up[1d]");
