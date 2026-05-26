@@ -2981,7 +2981,7 @@ public abstract class BaseConnectorTest
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer), c integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10), NULL) AS row(a integer, b row(x integer), c integer))");
 
             // Add a nested field
@@ -5750,7 +5750,7 @@ public abstract class BaseConnectorTest
 
         // FIXME: Alias table t(a, b) must use the targetTable connector canonicalizer (for now it's the Identity canonicalizer)
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM (VALUES (1, 10), (1, 20), (2, 10)) AS t(a, b)")) {
-            assertUpdate("UPDATE %s SET \"b\" = 100 WHERE \"a\" = 1 AND \"b\" = 10".formatted(table.getName()), 1);
+            assertUpdate("UPDATE %s SET b = 100 WHERE a = 1 AND b = 10".formatted(table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
@@ -6782,27 +6782,27 @@ public abstract class BaseConnectorTest
         setup.run();
 
         // without pushdown, i.e. test read data mapping
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE rand() = 42 OR \"value\" IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE rand() = 42 OR \"value\" IS NOT NULL", "VALUES 'sample value', 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE rand() = 42 OR \"value\" = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE rand() = 42 OR \"value\" = " + highValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
 
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NOT NULL", "VALUES 'sample value', 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" = " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" != " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" <= " + sampleValueLiteral, "VALUES 'sample value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" > " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
 
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL OR \"value\" = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL OR \"value\" != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL OR \"value\" <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL OR \"value\" > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" IS NULL OR \"value\" <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
 
         // complex condition, one that cannot be represented with a TupleDomain
-        assertQuery("SELECT \"row_id\" FROM " + tableName + " WHERE \"value\" = " + sampleValueLiteral + " OR \"another_column\" = " + sampleValueLiteral, "VALUES 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral + " OR another_column = " + sampleValueLiteral, "VALUES 'sample value'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
