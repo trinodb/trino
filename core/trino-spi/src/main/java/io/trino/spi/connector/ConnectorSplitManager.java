@@ -15,8 +15,28 @@ package io.trino.spi.connector;
 
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
+import java.util.Set;
+
 public interface ConnectorSplitManager
 {
+    /**
+     * Returns splits for a table scan.
+     * <p>
+     * {@code dynamicFilterColumns} is the static set of columns the dynamic filter will cover.
+     * Connectors may use this to make planning-time decisions (e.g. which column statistics to
+     * read). The per-batch resolved predicate arrives separately via
+     * {@link ConnectorSplitSource#getNextBatch(int, DynamicFilterSnapshot)}.
+     */
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Set<ColumnHandle> dynamicFilterColumns,
+            Constraint constraint)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
