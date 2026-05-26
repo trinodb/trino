@@ -226,6 +226,30 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>getNextBatch(int) replaced by getNextBatch(int, DynamicFilterSnapshot) returning List — dynamic filter predicate is now delivered per-batch and ConnectorSplitBatch wrapper removed</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>getNextBatch(int) replaced by getNextBatch(int, DynamicFilterSnapshot) returning List</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.ConnectorSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>ConnectorSplitBatch wrapper removed — getNextBatch now returns List&lt;ConnectorSplit&gt; directly</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int)</old>
+                                    <new>method java.util.concurrent.CompletableFuture&lt;java.util.List&lt;io.trino.spi.connector.ConnectorSplit&gt;&gt; io.trino.spi.connector.FixedSplitSource::getNextBatch(int, io.trino.spi.connector.DynamicFilterSnapshot)</new>
+                                    <justification>ConnectorSplitBatch wrapper removed — getNextBatch now returns List&lt;ConnectorSplit&gt; directly</justification>
+                                </item>
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>

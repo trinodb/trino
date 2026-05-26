@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -55,7 +56,8 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(ConnectorPageSourceProvider.class, ClassLoaderSafeConnectorPageSourceProvider.class);
         testClassLoaderSafe(ConnectorSplitManager.class, ClassLoaderSafeConnectorSplitManager.class);
         testClassLoaderSafe(ConnectorNodePartitioningProvider.class, ClassLoaderSafeNodePartitioningProvider.class);
-        testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class);
+        testClassLoaderSafe(ConnectorSplitSource.class, ClassLoaderSafeConnectorSplitSource.class, ImmutableSet.of(
+                ConnectorSplitSource.class.getMethod("getNextBatch", int.class)));
         testClassLoaderSafe(SystemTable.class, ClassLoaderSafeSystemTable.class);
         testClassLoaderSafe(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);

@@ -13,26 +13,32 @@
  */
 package io.trino.split;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Split;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.metrics.Metrics;
+import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Adapts {@link ConnectorSplitSource} to {@link SplitSource} interface.
@@ -48,6 +54,9 @@ public class ConnectorAwareSplitSource
 {
     private final CatalogHandle catalogHandle;
     private final String sourceToString;
+    private final DynamicFilter dynamicFilter;
+    private final long dynamicFilteringWaitTimeoutMillis;
+    private final Stopwatch dynamicFilterWaitStopwatch;
 
     @Nullable
     private ConnectorSplitSource source;
@@ -55,11 +64,14 @@ public class ConnectorAwareSplitSource
     private Optional<Optional<List<Object>>> tableExecuteSplitsInfo = Optional.empty();
     private Metrics metrics = Metrics.EMPTY;
 
-    public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source, DynamicFilter dynamicFilter)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.source = requireNonNull(source, "source is null");
         this.sourceToString = source.toString();
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.dynamicFilteringWaitTimeoutMillis = source.getRequestedDynamicFilterWaitTimeoutMillis();
+        this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
     }
 
     @Override
@@ -72,14 +84,23 @@ public class ConnectorAwareSplitSource
     public ListenableFuture<SplitBatch> getNextBatch(int maxSize)
     {
         checkState(source != null, "Already finished or closed");
-        ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(maxSize));
-        return Futures.transform(nextBatch, splitBatch -> {
-            List<ConnectorSplit> connectorSplits = splitBatch.getSplits();
+        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        if (dynamicFilter.isAwaitable() && timeLeft > 0) {
+            CompletableFuture<SplitBatch> emptyBatch = dynamicFilter.isBlocked()
+                    .thenApply(_ -> new SplitBatch(ImmutableList.of(), false))
+                    .completeOnTimeout(new SplitBatch(ImmutableList.of(), false), timeLeft, MILLISECONDS);
+            return toListenableFuture(emptyBatch);
+        }
+        boolean isComplete = dynamicFilter.isComplete();
+        TupleDomain<ColumnHandle> currentPredicate = dynamicFilter.getCurrentPredicate();
+        ListenableFuture<List<ConnectorSplit>> nextBatch = toListenableFuture(
+                source.getNextBatch(maxSize, new DynamicFilterSnapshot(currentPredicate, isComplete)));
+        return Futures.transform(nextBatch, connectorSplits -> {
             ImmutableList.Builder<Split> result = ImmutableList.builderWithExpectedSize(connectorSplits.size());
             for (ConnectorSplit connectorSplit : connectorSplits) {
                 result.add(new Split(catalogHandle, connectorSplit));
             }
-            boolean noMoreSplits = splitBatch.isNoMoreSplits();
+            boolean noMoreSplits = source.isFinished();
             if (noMoreSplits) {
                 finished = true;
                 tableExecuteSplitsInfo = Optional.of(source.getTableExecuteSplitsInfo());
