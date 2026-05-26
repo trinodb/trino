@@ -59,10 +59,6 @@ public class EvaluateMatch
             return Optional.empty();
         }
 
-        if (constantOperand.value() == null) {
-            return Optional.of(defaultValue);
-        }
-
         for (MatchClause clause : clauses) {
             Lambda lambda = clause.lambda();
             Bind bind = clause.bind();

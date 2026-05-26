@@ -658,7 +658,21 @@ class AggregationAnalyzer
             }
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
+                switch (whenClause.getMatch()) {
+                    case WhenClause.Operand operand -> {
+                        if (!process(operand.expression(), context)) {
+                            return false;
+                        }
+                    }
+                    case WhenClause.Partial partial -> {
+                        for (Node child : partial.predicate().getChildren()) {
+                            if (child instanceof Expression expression && !process(expression, context)) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                if (!process(whenClause.getResult(), context)) {
                     return false;
                 }
             }
@@ -670,7 +684,8 @@ class AggregationAnalyzer
         protected Boolean visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
+                Expression condition = ((WhenClause.Operand) whenClause.getMatch()).expression();
+                if (!process(condition, context) || !process(whenClause.getResult(), context)) {
                     return false;
                 }
             }

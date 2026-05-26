@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Expression;
@@ -252,6 +253,18 @@ public class TestExpressionFormatter
                                 new CallArgument(location, Optional.empty(), new LongLiteral(location, "5")),
                                 new CallArgument(location, Optional.of(new Identifier("pad")), new StringLiteral("-")))),
                 "(x).pad(5, pad => '-')");
+    }
+
+    @Test
+    public void testExtendedCase()
+    {
+        // SQL:2023 F262: a simple-CASE WHEN clause may carry a predicate fragment. Formatting one
+        // must render the fragment — visitWhenClause previously threw on WhenClause.getOperand().
+        Expression extendedCase = new SqlParser().createExpression(
+                "CASE x WHEN > 100 THEN 'big' WHEN BETWEEN 1 AND 10 THEN 'small' WHEN IS NULL THEN 'unknown' ELSE 'other' END");
+        assertThat(expression(ExpressionFormatter.formatExpression(extendedCase)))
+                .ignoringLocation()
+                .isEqualTo(extendedCase);
     }
 
     private static Row createRow(String... fieldNames)

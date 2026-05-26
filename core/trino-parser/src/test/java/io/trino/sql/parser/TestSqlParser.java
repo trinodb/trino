@@ -62,6 +62,7 @@ import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
+import io.trino.sql.tree.DistinctFromPredicate;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
@@ -102,6 +103,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.GroupingSets;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.IntervalField;
@@ -126,6 +128,7 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
@@ -1622,6 +1625,35 @@ public class TestSqlParser
                                         new BooleanLiteral(location(1, 21), "true"),
                                         new LongLiteral(location(1, 31), "2"))),
                         Optional.of(new LongLiteral(location(1, 38), "3"))));
+    }
+
+    @Test
+    public void testExtendedCase()
+    {
+        // SQL:2023 F262: predicate-fragment WHEN operands. We don't pin source locations here —
+        // the SimpleCaseExpression shape (operand + WhenClause partials) is what we're verifying.
+        SimpleCaseExpression parsed = (SimpleCaseExpression) createExpression(
+                "CASE x WHEN > 5 THEN 'big' WHEN BETWEEN 1 AND 4 THEN 'small' WHEN IN (0) THEN 'zero' WHEN IS NULL THEN 'unk' WHEN LIKE 'a%' THEN 'a' WHEN IS DISTINCT FROM 7 THEN 'not7' ELSE 'other' END");
+        assertThat(parsed.getOperand()).isInstanceOf(Identifier.class);
+        assertThat(parsed.getWhenClauses()).hasSize(6);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(0).getMatch()).predicate()).isInstanceOf(ComparisonPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(1).getMatch()).predicate()).isInstanceOf(BetweenPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(2).getMatch()).predicate()).isInstanceOf(InPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(3).getMatch()).predicate()).isInstanceOf(IsNullPredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(4).getMatch()).predicate()).isInstanceOf(LikePredicate.class);
+        assertThat(((WhenClause.Partial) parsed.getWhenClauses().get(5).getMatch()).predicate()).isInstanceOf(DistinctFromPredicate.class);
+        // Negated forms parse too.
+        SimpleCaseExpression negated = (SimpleCaseExpression) createExpression("CASE x WHEN NOT BETWEEN 1 AND 4 THEN 'a' WHEN NOT IN (0) THEN 'b' WHEN NOT LIKE 'p' THEN 'c' WHEN IS NOT NULL THEN 'd' WHEN IS NOT DISTINCT FROM 1 THEN 'e' END");
+        assertThat(((BetweenPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(0).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((InPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(1).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((LikePredicate) ((WhenClause.Partial) negated.getWhenClauses().get(2).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((IsNullPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(3).getMatch()).predicate()).isNegated()).isTrue();
+        assertThat(((DistinctFromPredicate) ((WhenClause.Partial) negated.getWhenClauses().get(4).getMatch()).predicate()).isNegated()).isTrue();
+        // Bare-equality WHENs still parse alongside predicate-fragment WHENs in the same CASE.
+        SimpleCaseExpression mixed = (SimpleCaseExpression) createExpression("CASE x WHEN > 5 THEN 'big' WHEN 0 THEN 'zero' END");
+        assertThat(mixed.getWhenClauses().get(0).getMatch()).isInstanceOf(WhenClause.Partial.class);
+        assertThat(mixed.getWhenClauses().get(1).getMatch()).isInstanceOf(WhenClause.Operand.class);
+        assertThat(((WhenClause.Operand) mixed.getWhenClauses().get(1).getMatch()).expression()).isInstanceOf(LongLiteral.class);
     }
 
     @Test

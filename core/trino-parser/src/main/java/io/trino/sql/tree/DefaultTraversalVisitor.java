@@ -175,7 +175,7 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitWhenClause(WhenClause node, C context)
     {
-        process(node.getOperand(), context);
+        process(node.getMatch().node(), context);
         process(node.getResult(), context);
 
         return null;

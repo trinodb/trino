@@ -154,10 +154,6 @@ public class IrExpressionEvaluator
         Expression operand = expression.operand();
         Object value = evaluate(operand, session, bindings);
 
-        if (value == null) {
-            return evaluate(expression.defaultValue(), session, bindings);
-        }
-
         for (MatchClause clause : expression.clauses()) {
             Lambda lambda = clause.lambda();
             Bind bind = clause.bind();
