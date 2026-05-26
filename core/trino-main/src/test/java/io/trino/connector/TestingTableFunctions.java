@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
@@ -1229,7 +1230,11 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split)
             {
                 return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).value(), (ConstantFunctionSplit) split);
             }
@@ -1329,7 +1334,11 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+            public TableFunctionSplitProcessor getSplitProcessor(
+                    ConnectorSession session,
+                    ConnectorTableFunctionHandle handle,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    ConnectorSplit split)
             {
                 return new EmptySourceFunctionProcessor();
             }
