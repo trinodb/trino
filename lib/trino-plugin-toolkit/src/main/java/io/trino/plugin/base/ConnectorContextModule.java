@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
@@ -57,5 +58,6 @@ public class ConnectorContextModule
         binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+        binder.bind(BlocksHashFactory.class).toInstance(context.getBlocksHashFactory());
     }
 }
