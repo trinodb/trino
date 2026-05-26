@@ -26,7 +26,9 @@ import io.trino.metadata.InternalFunctionBundleFactory;
 import io.trino.metadata.Metadata;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
+import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.security.AccessControl;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
@@ -67,6 +69,7 @@ public class DefaultCatalogFactory
     private final OpenTelemetry openTelemetry;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
+    private final BlocksHashFactory blocksHashFactory;
 
     private final boolean schedulerIncludeCoordinator;
     private final int maxPrefetchedInformationSchemaPrefixes;
@@ -86,6 +89,7 @@ public class DefaultCatalogFactory
             OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
             TypeManager typeManager,
+            FlatHashStrategyCompiler flatHashStrategyCompiler,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
             SecretsResolver secretsResolver)
@@ -100,6 +104,7 @@ public class DefaultCatalogFactory
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blocksHashFactory = requireNonNull(flatHashStrategyCompiler, "flatHashStrategyCompiler is null").createBlocksHashFactory();
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
@@ -194,7 +199,8 @@ public class DefaultCatalogFactory
                 new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
                 pageIndexerFactory,
-                new InternalFunctionBundleFactory());
+                new InternalFunctionBundleFactory(),
+                blocksHashFactory);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName
