@@ -2996,7 +2996,7 @@ class AstBuilder
         return new SimpleCaseExpression(
                 getLocation(context),
                 (Expression) visit(context.operand),
-                visit(context.whenClause(), WhenClause.class),
+                visit(context.simpleWhenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }
 
@@ -3005,12 +3005,21 @@ class AstBuilder
     {
         return new SearchedCaseExpression(
                 getLocation(context),
-                visit(context.whenClause(), WhenClause.class),
+                visit(context.searchedWhenClause(), WhenClause.class),
                 visitIfPresent(context.elseExpression, Expression.class));
     }
 
     @Override
-    public Node visitWhenClause(SqlBaseParser.WhenClauseContext context)
+    public Node visitSimpleWhenClause(SqlBaseParser.SimpleWhenClauseContext context)
+    {
+        if (context.partial != null) {
+            return new WhenClause(getLocation(context), (Predicate) visit(context.partial), (Expression) visit(context.result));
+        }
+        return new WhenClause(getLocation(context), (Expression) visit(context.condition), (Expression) visit(context.result));
+    }
+
+    @Override
+    public Node visitSearchedWhenClause(SqlBaseParser.SearchedWhenClauseContext context)
     {
         return new WhenClause(getLocation(context), (Expression) visit(context.condition), (Expression) visit(context.result));
     }
