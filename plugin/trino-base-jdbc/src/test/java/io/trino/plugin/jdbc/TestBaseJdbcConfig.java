@@ -28,6 +28,9 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.airlift.units.Duration.ZERO;
+import static io.trino.plugin.jdbc.BaseJdbcConfig.DEFAULT_STATISTICS_CACHE_TTL;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +46,7 @@ public class TestBaseJdbcConfig
                 .setMetadataCacheTtl(ZERO)
                 .setSchemaNamesCacheTtl(null)
                 .setTableNamesCacheTtl(null)
-                .setStatisticsCacheTtl(null)
+                .setStatisticsCacheTtl(DEFAULT_STATISTICS_CACHE_TTL)
                 .setCacheMissing(false)
                 .setCacheMaximumSize(10000));
     }
@@ -78,6 +81,27 @@ public class TestBaseJdbcConfig
     }
 
     @Test
+    public void testStatsCacheTtl()
+    {
+        // enabled by default
+        assertThat(new BaseJdbcConfig().getStatisticsCacheTtl()).isEqualTo(DEFAULT_STATISTICS_CACHE_TTL);
+
+        // takes higher of the DEFAULT_STATISTICS_CACHE_TTL or metadataCacheTtl if not set explicitly
+        assertThat(new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1, SECONDS))
+                .getStatisticsCacheTtl()).isEqualTo(DEFAULT_STATISTICS_CACHE_TTL);
+        assertThat(new BaseJdbcConfig()
+                .setMetadataCacheTtl(new Duration(1111, DAYS))
+                .getStatisticsCacheTtl()).isEqualTo(new Duration(1111, DAYS));
+
+        // explicit configuration is honored
+        assertThat(new BaseJdbcConfig()
+                .setStatisticsCacheTtl(new Duration(135, MILLISECONDS))
+                .setMetadataCacheTtl(new Duration(1111, DAYS))
+                .getStatisticsCacheTtl()).isEqualTo(new Duration(135, MILLISECONDS));
+    }
+
+    @Test
     public void testConnectionUrlIsValid()
     {
         assertThatThrownBy(() -> buildConfig(ImmutableMap.of("connection-url", "jdbc:")))
@@ -107,12 +131,10 @@ public class TestBaseJdbcConfig
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setMetadataCacheTtl(new Duration(1, SECONDS)));
 
-        assertFailsValidation(
-                new BaseJdbcConfig()
-                        .setCacheMaximumSize(5000),
-                "cacheMaximumSizeConsistent",
-                "metadata.cache-ttl or metadata.statistics.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set",
-                AssertTrue.class);
+        // Statistics cache is enabled by default, so setting only cache-maximum-size is valid
+        assertValidates(new BaseJdbcConfig()
+                .setConnectionUrl("jdbc:h2:mem:config")
+                .setCacheMaximumSize(5000));
 
         assertFailsValidation(
                 new BaseJdbcConfig()
