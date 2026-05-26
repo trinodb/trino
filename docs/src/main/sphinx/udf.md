@@ -7,7 +7,6 @@ value, similar to [built-in functions](/functions).
 More details are available in the following sections:
 
 ```{toctree}
-:titlesonly: true
 :maxdepth: 1
 
 udf/introduction
