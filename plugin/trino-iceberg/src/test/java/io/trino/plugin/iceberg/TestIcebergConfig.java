@@ -86,7 +86,10 @@ public class TestIcebergConfig
                 .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(4, HOURS))
                 .setObjectStoreLayoutEnabled(false)
                 .setMetadataParallelism(8)
-                .setBucketExecutionEnabled(true));
+                .setBucketExecutionEnabled(true)
+                .setSchemaPrefixRedirectRules(ImmutableList.of())
+                .setDefaultRedirectCatalog(null)
+                .setDefaultRedirectExcludedPrefixes(ImmutableList.of()));
     }
 
     @Test
@@ -133,6 +136,9 @@ public class TestIcebergConfig
                 .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
                 .put("iceberg.bucket-execution", "false")
+                .put("iceberg.schema-prefix-redirect-rules", "egdp_prod_=egdp_prod,egdp_test_=egdp_test")
+                .put("iceberg.default-redirect-catalog", "default_catalog")
+                .put("iceberg.default-redirect-excluded-prefixes", "bexg_,vrbo_")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -176,7 +182,10 @@ public class TestIcebergConfig
                 .setMaterializedViewRefreshSnapshotRetentionPeriod(new Duration(1, HOURS))
                 .setObjectStoreLayoutEnabled(true)
                 .setMetadataParallelism(10)
-                .setBucketExecutionEnabled(false);
+                .setBucketExecutionEnabled(false)
+                .setSchemaPrefixRedirectRules(ImmutableList.of("egdp_prod_=egdp_prod", "egdp_test_=egdp_test"))
+                .setDefaultRedirectCatalog("default_catalog")
+                .setDefaultRedirectExcludedPrefixes(ImmutableList.of("bexg_", "vrbo_"));
 
         assertFullMapping(properties, expected);
     }

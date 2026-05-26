@@ -26,6 +26,8 @@ import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -52,6 +54,9 @@ public class IcebergMetadataFactory
     private final DeletionVectorWriter deletionVectorWriter;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
+    private final Map<String, String> schemaPrefixRedirectRules;
+    private final Optional<String> defaultRedirectCatalog;
+    private final List<String> defaultRedirectExcludedPrefixes;
 
     @Inject
     public IcebergMetadataFactory(
@@ -96,6 +101,9 @@ public class IcebergMetadataFactory
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
         this.materializedViewRefreshMaxSnapshotsToExpire = config.getMaterializedViewRefreshMaxSnapshotsToExpire();
         this.materializedViewRefreshSnapshotRetentionPeriod = config.getMaterializedViewRefreshSnapshotRetentionPeriod();
+        this.schemaPrefixRedirectRules = config.getSchemaPrefixRedirectRules();
+        this.defaultRedirectCatalog = config.getDefaultRedirectCatalog();
+        this.defaultRedirectExcludedPrefixes = config.getDefaultRedirectExcludedPrefixes();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -116,6 +124,9 @@ public class IcebergMetadataFactory
                 icebergPlanningExecutor,
                 icebergFileDeleteExecutor,
                 materializedViewRefreshMaxSnapshotsToExpire,
-                materializedViewRefreshSnapshotRetentionPeriod);
+                materializedViewRefreshSnapshotRetentionPeriod,
+                schemaPrefixRedirectRules,
+                defaultRedirectCatalog,
+                defaultRedirectExcludedPrefixes);
     }
 }
