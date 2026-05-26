@@ -34,7 +34,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
@@ -113,7 +112,7 @@ public class DeltaLakeSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle handle,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) handle;
@@ -126,11 +125,10 @@ public class DeltaLakeSplitManager
 
         DeltaLakeSplitSource splitSource = new DeltaLakeSplitSource(
                 deltaLakeTableHandle.getSchemaTableName(),
-                getSplits(transaction, deltaLakeTableHandle, session, deltaLakeTableHandle.getMaxScannedFileSize(), dynamicFilter.getColumnsCovered(), constraint),
+                getSplits(transaction, deltaLakeTableHandle, session, deltaLakeTableHandle.getMaxScannedFileSize(), dynamicFilterColumns, constraint),
                 executor,
                 maxSplitsPerSecond,
                 maxOutstandingSplits,
-                dynamicFilter,
                 getDynamicFilteringWaitTimeout(session),
                 deltaLakeTableHandle.isRecordScannedFiles());
 
