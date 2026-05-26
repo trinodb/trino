@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
 
@@ -47,11 +48,13 @@ import static java.util.concurrent.Future.State.SUCCESS;
 public class DeleteManager
 {
     private final TypeManager typeManager;
+    private final Optional<BlocksHashFactory> blocksHashFactory;
     private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
-    public DeleteManager(TypeManager typeManager)
+    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
     }
 
     public Optional<PageFilter> getDeletePageFilter(
@@ -139,7 +142,7 @@ public class DeleteManager
         DeletionVector read(DeleteFile deleteFile);
     }
 
-    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private List<DeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
             return List.of();
@@ -157,7 +160,15 @@ public class DeleteManager
                     .collect(toImmutableList());
 
             // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
-            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
+            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> {
+                if (blocksHashFactory.isPresent()) {
+                    List<Type> deleteTypes = deleteColumns.stream()
+                            .map(IcebergColumnHandle::getType)
+                            .collect(toImmutableList());
+                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get());
+                }
+                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns));
+            });
             deleteFilters.add(builder);
 
             ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);

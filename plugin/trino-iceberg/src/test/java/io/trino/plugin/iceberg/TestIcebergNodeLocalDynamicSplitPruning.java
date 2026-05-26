@@ -23,6 +23,8 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.orc.OrcWriteValidation;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
@@ -35,6 +37,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.BlockBuilder;
@@ -49,6 +52,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -568,6 +572,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             DynamicFilter dynamicFilter)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
+        BlocksHashFactory blocksHashFactory = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
                 new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
                 FILE_IO_FACTORY,
@@ -575,7 +580,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
                 TESTING_TYPE_MANAGER,
-                ParquetFooterCache.noop());
+                ParquetFooterCache.noop(),
+                blocksHashFactory,
+                icebergConfig);
         return factory.createPageSourceProvider().createPageSource(
                 transaction,
                 getSession(icebergConfig),
