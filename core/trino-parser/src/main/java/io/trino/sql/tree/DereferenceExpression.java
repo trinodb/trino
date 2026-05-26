@@ -83,12 +83,12 @@ public class DereferenceExpression
         return field;
     }
 
-    public static QualifiedName getQualifiedName(Function<Identifier, String> canonicalizer, DereferenceExpression expression)
+    public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
-        return getQualifiedName(Optional.of(canonicalizer), expression);
+        return getQualifiedName(Resolver.DEFAULT_CANONICALIZER, expression);
     }
 
-    public static QualifiedName getQualifiedName(Optional<Function<Identifier, String>> canonicalizer, DereferenceExpression expression)
+    public static QualifiedName getQualifiedName(Function<Identifier, String> canonicalizer, DereferenceExpression expression)
     {
         if (!expression.field.isPresent()) {
             return null;

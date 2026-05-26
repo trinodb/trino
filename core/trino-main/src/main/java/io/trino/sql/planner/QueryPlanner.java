@@ -85,6 +85,7 @@ import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -101,7 +102,6 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
-import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
@@ -588,7 +588,7 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
-        Optional<Resolver> resolver = analysis.getScope(node).getResolver();
+        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 
@@ -605,7 +605,7 @@ class QueryPlanner
         // FIXME: If we want UPDATE working, we need to take UpdateAssignement.Identifier canonicalized value
         io.trino.sql.tree.Expression[] orderedColumnValuesArray = new io.trino.sql.tree.Expression[updatedColumnHandles.size()];
         node.getAssignments().forEach(assignment -> {
-            ColumnHandle handle = nameToHandle.get(resolver.map(r -> r.canonicalize(assignment.getName())).orElse(assignment.getName().getValue()));
+            ColumnHandle handle = nameToHandle.get(canonicalizer.apply(assignment.getName()));
             int index = updatedColumnHandles.indexOf(handle);
             if (index >= 0) {
                 orderedColumnValuesArray[index] = assignment.getValue();

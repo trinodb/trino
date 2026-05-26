@@ -23,7 +23,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.Set;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,30 +31,28 @@ public final class NamesExtractor
     private NamesExtractor() {}
 
     // to extract qualified name with prefix
-    public static Set<QualifiedName> extractNames(Function<Identifier, String> canonicalizer, Expression expression, Set<NodeRef<Expression>> columnReferences)
+    public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(canonicalizer, columnReferences, true).process(expression, builder);
+        new QualifiedNameBuilderVisitor(columnReferences, true).process(expression, builder);
         return builder.build();
     }
 
-    public static Set<QualifiedName> extractNamesNoSubqueries(Function<Identifier, String> canonicalizer, Expression expression, Set<NodeRef<Expression>> columnReferences)
+    public static Set<QualifiedName> extractNamesNoSubqueries(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(canonicalizer, columnReferences, false).process(expression, builder);
+        new QualifiedNameBuilderVisitor(columnReferences, false).process(expression, builder);
         return builder.build();
     }
 
     private static class QualifiedNameBuilderVisitor
             extends DefaultTraversalVisitor<ImmutableSet.Builder<QualifiedName>>
     {
-        private final Function<Identifier, String> canonicalizer;
         private final Set<NodeRef<Expression>> columnReferences;
         private final boolean recurseIntoSubqueries;
 
-        private QualifiedNameBuilderVisitor(Function<Identifier, String> canonicalizer, Set<NodeRef<Expression>> columnReferences, boolean recurseIntoSubqueries)
+        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences, boolean recurseIntoSubqueries)
         {
-            this.canonicalizer = canonicalizer;
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
             this.recurseIntoSubqueries = recurseIntoSubqueries;
         }
@@ -64,7 +61,7 @@ public final class NamesExtractor
         protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableSet.Builder<QualifiedName> builder)
         {
             if (columnReferences.contains(NodeRef.<Expression>of(node))) {
-                builder.add(DereferenceExpression.getQualifiedName(canonicalizer, node));
+                builder.add(DereferenceExpression.getQualifiedName(node));
             }
             else {
                 process(node.getBase(), builder);
@@ -75,7 +72,7 @@ public final class NamesExtractor
         @Override
         protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<QualifiedName> builder)
         {
-            builder.add(QualifiedName.of(canonicalizer, node));
+            builder.add(QualifiedName.of(node));
             return null;
         }
 

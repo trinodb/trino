@@ -143,7 +143,6 @@ import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
-import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SetOperation;
@@ -956,7 +955,7 @@ class RelationPlanner
                     continue;
                 }
 
-                Set<QualifiedName> dependencies = NamesExtractor.extractNames(scope::canonicalize, conjunct, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = NamesExtractor.extractNames(conjunct, analysis.getColumnReferences());
 
                 if (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve)) {
                     // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
@@ -967,8 +966,8 @@ class RelationPlanner
                     io.trino.sql.tree.Expression firstExpression = comparisonExpression.getLeft();
                     io.trino.sql.tree.Expression secondExpression = comparisonExpression.getRight();
                     ComparisonExpression.Operator comparisonOperator = comparisonExpression.getOperator();
-                    Set<QualifiedName> firstDependencies = NamesExtractor.extractNames(scope::canonicalize, firstExpression, analysis.getColumnReferences());
-                    Set<QualifiedName> secondDependencies = NamesExtractor.extractNames(scope::canonicalize, secondExpression, analysis.getColumnReferences());
+                    Set<QualifiedName> firstDependencies = NamesExtractor.extractNames(firstExpression, analysis.getColumnReferences());
+                    Set<QualifiedName> secondDependencies = NamesExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
                     if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
@@ -1035,7 +1034,7 @@ class RelationPlanner
 
         if (type != INNER) {
             for (io.trino.sql.tree.Expression complexExpression : complexJoinExpressions) {
-                Set<QualifiedName> dependencies = NamesExtractor.extractNamesNoSubqueries(scope::canonicalize, complexExpression, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = NamesExtractor.extractNamesNoSubqueries(complexExpression, analysis.getColumnReferences());
 
                 // This is for handling uncorreled subqueries. Correlated subqueries are not currently supported and are dealt with
                 // during analysis.
@@ -1283,7 +1282,7 @@ class RelationPlanner
         PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
         Analysis.SubqueryAnalysis subqueries = analysis.getSubqueries(nearest);
         for (io.trino.sql.tree.Expression predicate : predicates) {
-            Set<QualifiedName> dependencies = NamesExtractor.extractNamesNoSubqueries(leftPlan.getScope()::canonicalize, predicate, analysis.getColumnReferences());
+            Set<QualifiedName> dependencies = NamesExtractor.extractNamesNoSubqueries(predicate, analysis.getColumnReferences());
             if (dependencies.stream().allMatch(leftPlan.getScope().getRelationType()::canResolve)) {
                 leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, predicate, subqueries);
             }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -156,13 +157,13 @@ public class RelationType
     /**
      * Creates a new tuple descriptor with the relation, and, optionally, the columns aliased.
      */
-    public RelationType withAlias(String relationAlias, List<String> columnAliases)
+    public RelationType withAlias(Identifier relationAlias, List<Identifier> columnAliases)
     {
         if (columnAliases != null) {
             checkArgument(columnAliases.size() == visibleFields.size(),
                     "Column alias list has %s entries but '%s' has %s columns available",
                     columnAliases.size(),
-                    relationAlias,
+                    relationAlias.getValue(),
                     visibleFields.size());
         }
 
@@ -172,7 +173,7 @@ public class RelationType
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
                 fieldsBuilder.add(Field.newQualified(
-                        QualifiedName.of(relationAlias),
+                        QualifiedName.of(field::canonicalize, relationAlias),
                         columnAlias,
                         field.getType(),
                         field.isHidden(),
@@ -184,10 +185,10 @@ public class RelationType
             }
             else if (!field.isHidden()) {
                 // hidden fields are not exposed when there are column aliases
-                columnAlias = Optional.of(columnAliases.get(aliasIndex));
+                columnAlias = Optional.of(field.canonicalize(columnAliases.get(aliasIndex)));
                 aliasIndex++;
                 fieldsBuilder.add(Field.newQualified(
-                        QualifiedName.of(relationAlias),
+                        QualifiedName.of(field::canonicalize, relationAlias),
                         columnAlias,
                         field.getType(),
                         false,

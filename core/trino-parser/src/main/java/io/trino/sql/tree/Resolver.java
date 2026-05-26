@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Resolver
 {
+    public static final Function<Identifier, String> DEFAULT_CANONICALIZER = Identifier::getValue;
     private final String catalog;
     private final BiFunction<String, Boolean, String> canonicalizer;
     private final BiFunction<String, IdentifierKind, String> comparator;

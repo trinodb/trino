@@ -158,18 +158,23 @@ public class PlannerContext
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
     }
 
+    public void setResolver(Session session, Resolver resolver)
+    {
+        resolverManager.setResolver(session.getQueryId().id(), resolver);
+    }
+
     public Optional<Resolver> getResolver(Session session)
     {
-        return resolverManager.getResolver(session, metadata::getResolver);
+        return resolverManager.getResolver(session.getQueryId().id());
     }
 
-    public void setCanonicalizer(Session session, Optional<Function<Identifier, String>> canonicalizer)
+    public Function<Identifier, String> getDefaultCanonicalizer(Session session)
     {
-        resolverManager.setCanonicalizer(session, canonicalizer);
+        return getDefaultCanonicalizer(getResolver(session));
     }
 
-    public Optional<Function<Identifier, String>> getCanonicalizer(Session session)
+    public Function<Identifier, String> getDefaultCanonicalizer(Optional<Resolver> resolver)
     {
-        return resolverManager.getCanonicalizer(session);
+        return resolver.map(Resolver::getCanonicalizer).orElse(Resolver.DEFAULT_CANONICALIZER);
     }
 }

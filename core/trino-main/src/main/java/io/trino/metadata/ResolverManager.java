@@ -15,7 +15,6 @@ package io.trino.metadata;
 
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Resolver;
 
 import java.util.ArrayList;
@@ -25,13 +24,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 
 public class ResolverManager
 {
     private final Map<String, Resolver> resolvers = new ConcurrentHashMap<>();
     private final Map<String, List<String>> queries = new ConcurrentHashMap<>();
-    private final Map<String, Optional<Function<Identifier, String>>> canonicalizers = new ConcurrentHashMap<>();
+    private final Map<String, Resolver> resolver = new ConcurrentHashMap<>();
 
     public ResolverManager() {}
 
@@ -103,13 +101,13 @@ public class ResolverManager
         }
     }
 
-    public void setCanonicalizer(Session session, Optional<Function<Identifier, String>> canonicalizer)
+    public void setResolver(String queryId, Resolver resolver)
     {
-        canonicalizers.put(session.getQueryId().id(), canonicalizer);
+        this.resolver.put(queryId, resolver);
     }
 
-    public Optional<Function<Identifier, String>> getCanonicalizer(Session session)
+    public Optional<Resolver> getResolver(String queryId)
     {
-        return canonicalizers.getOrDefault(session.getQueryId().id(), Optional.empty());
+        return Optional.ofNullable(this.resolver.get(queryId));
     }
 }

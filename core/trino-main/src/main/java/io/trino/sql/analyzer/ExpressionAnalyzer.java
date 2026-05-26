@@ -142,7 +142,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.RangeQuantifier;
-import io.trino.sql.tree.Resolver;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -773,6 +772,7 @@ public class ExpressionAnalyzer
         protected Type visitIdentifier(Identifier node, Context context)
         {
             // System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
+            System.out.println("ExpressionAnalyzer.visitIdentifier() scope fileds: " + context.getScope().getFields());
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
@@ -826,14 +826,14 @@ public class ExpressionAnalyzer
             }
 
             // FIXME: scope context resolver will be used to resolve DereferenceExpression
-            Optional<Resolver> resolver = context.getScope().getResolver();
-            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(resolver.map(r -> r::canonicalize), node);
+            Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
+            QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
             // If this Dereference looks like column reference, try match it to column first.
             if (qualifiedName != null) {
                 // In the context of row pattern matching, fields are optionally prefixed with labels. Labels are irrelevant during type analysis.
                 if (context.isPatternRecognition()) {
-                    String label = label(resolver.map(r -> r::canonicalize), qualifiedName.getOriginalParts().getFirst());
+                    String label = label(canonicalizer, qualifiedName.getOriginalParts().getFirst());
                     if (context.getPatternRecognitionContext().labels().contains(label)) {
                         // In the context of row pattern matching, the name of row pattern input table cannot be used to qualify column names.
                         // (it can only be accessed in PARTITION BY and ORDER BY clauses of MATCH_RECOGNIZE). Consequentially, if a dereference
@@ -881,7 +881,7 @@ public class ExpressionAnalyzer
 
             Identifier field = node.getField().orElseThrow();
             // FIXME: field will bee compared case insensitive
-            String fieldName = context.getScope().canonicalize(field);
+            String fieldName = field.getCanonicalValue();
 
             boolean foundFieldName = false;
             Type rowFieldType = null;
@@ -1984,7 +1984,7 @@ public class ExpressionAnalyzer
                         // to resolve `count(label.*)` correctly, we should skip the argument, like for `count(*)`
                         // process the argument but do not include it in the list
                         DereferenceExpression allRowsDereference = (DereferenceExpression) argument;
-                        String label = label(context.getScope()::canonicalize, (Identifier) allRowsDereference.getBase());
+                        String label = label((Identifier) allRowsDereference.getBase());
                         if (!context.getPatternRecognitionContext().labels().contains(label)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, allRowsDereference.getBase(), "%s is not a primary pattern variable or subset name", label);
                         }
@@ -2026,7 +2026,7 @@ public class ExpressionAnalyzer
                 if (!(argument instanceof Identifier identifier)) {
                     throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                 }
-                label = Optional.of(label(context.getScope()::canonicalize, identifier));
+                label = Optional.of(label(identifier));
                 if (!context.getPatternRecognitionContext().labels().contains(label.get())) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
                 }
@@ -2643,7 +2643,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Optional<Function<Identifier, String>> canonicalizer = context.getScope().getCanonicalizer();
+                Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);
@@ -2742,7 +2742,6 @@ public class ExpressionAnalyzer
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
             Scope subqueryScope = Scope.builder()
                     .withParent(context.getScope())
-                    .withResolver(context.getScope().getResolver())
                     .build();
             Scope queryScope = analyzer.analyze(node.getQuery(), subqueryScope);
 

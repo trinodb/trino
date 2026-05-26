@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -46,7 +45,6 @@ import static java.util.Objects.requireNonNull;
 public class Scope
 {
     private final Optional<Scope> parent;
-    private final Optional<Resolver> resolver;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
@@ -64,7 +62,6 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
-            Optional<Resolver> resolver,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -72,16 +69,10 @@ public class Scope
     {
 
         this.parent = requireNonNull(parent, "parent is null");
-        this.resolver = requireNonNull(resolver, "resolver is null");
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
-    }
-
-    public Optional<Resolver> getResolver()
-    {
-        return resolver;
     }
 
     private Optional<Resolver> getRelationResolver()
@@ -96,11 +87,12 @@ public class Scope
     public String canonicalizerType()
     {
         // FIXME: Here for debugging purpose
-        return resolver.map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
+        return getRelationResolver().map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
     }
 
     public int canonicalizerKind()
     {
+        Optional<Resolver> resolver = getRelationResolver();
         if (resolver.isPresent()) {
             String value = resolver.get().canonicalize(new Identifier("Xy", false));
             return switch (value) {
@@ -113,17 +105,6 @@ public class Scope
         return 3;
     }
 
-    private String canonicalizerType(Function<Identifier, String> canonicalizer)
-    {
-        String value = canonicalizer.apply(new Identifier("Xy", false));
-        return switch (value) {
-            case "Xy" -> "Identity";
-            case "xy" -> "LowerCase";
-            case "XY" -> "UpperCase";
-            default -> "Unknow";
-        };
-   }
-
     public String getFields()
     {
         List<String> fields = relation.getAllFields().stream()
@@ -135,7 +116,7 @@ public class Scope
 
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, resolver, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -201,34 +182,6 @@ public class Scope
     {
         return relation.getAllFields().stream().anyMatch(field -> field.getResolver().isEmpty())
                 && relation.getAllFields().stream().anyMatch(field -> field.getResolver().isPresent());
-    }
-
-    public String canonicalize(Identifier identifier)
-    {
-        return resolver.map(r -> r.canonicalize(identifier))
-                .orElse(identifier.getValue());
-    }
-
-    public boolean incompatibleCanonicalizer(Scope other)
-    {
-        return (canonicalizerKind() & other.canonicalizerKind()) == 0;
-    }
-
-    public Optional<Function<Identifier, String>> getCanonicalizer()
-    {
-        return Optional.empty();
-    }
-
-    public Optional<Resolver> getParentResolver()
-    {
-        Scope parent = this;
-        while (parent != null) {
-            if (parent.resolver.isPresent()) {
-                return parent.resolver;
-            }
-            parent = parent.parent.orElse(null);
-        }
-        return Optional.empty();
     }
 
     /**
@@ -433,7 +386,6 @@ public class Scope
     public static final class Builder
     {
         private Optional<Scope> parent = Optional.empty();
-        private Optional<Resolver> resolver = Optional.empty();
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -463,18 +415,6 @@ public class Scope
             return this;
         }
 
-        public Builder withResolver(Resolver resolver)
-        {
-            return withResolver(Optional.of(resolver));
-        }
-
-        public Builder withResolver(Optional<Resolver> resolver)
-        {
-            checkArgument(this.resolver.isEmpty(), "resolver is already set");
-            this.resolver = resolver;
-            return this;
-        }
-
         public Builder withOuterQueryParent(Scope parent)
         {
             checkArgument(this.parent.isEmpty(), "parent is already set");
@@ -497,7 +437,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, resolver, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

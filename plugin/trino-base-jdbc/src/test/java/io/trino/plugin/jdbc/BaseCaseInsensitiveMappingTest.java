@@ -362,13 +362,6 @@ public abstract class BaseCaseInsensitiveMappingTest
         return () -> onRemoteDatabase().execute("DROP TABLE " + quotedName);
     }
 
-    protected String quoted(String name)
-    {
-        String identifierQuote = "\"";
-        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
-        return identifierQuote + name + identifierQuote;
-    }
-
     private AutoCloseable withTable(String remoteTableName, String definition)
     {
         return withTable(getSession().getSchema().orElseThrow(), remoteTableName, definition);
