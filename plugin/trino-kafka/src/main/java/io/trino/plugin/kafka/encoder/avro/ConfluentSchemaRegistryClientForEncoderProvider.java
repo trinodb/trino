@@ -50,8 +50,8 @@ public class ConfluentSchemaRegistryClientForEncoderProvider
     {
         List<String> urls = config.getConfluentSchemaRegistryUrlStrings().isEmpty()
                 ? config.getConfluentSchemaRegistryUrls().stream()
-                        .map(ConfluentSchemaRegistryClientForEncoderProvider::hostAddressToUrlString)
-                        .collect(toImmutableList())
+                  .map(ConfluentSchemaRegistryClientForEncoderProvider::hostAddressToUrlString)
+                  .collect(toImmutableList())
                 : config.getConfluentSchemaRegistryUrlStrings();
 
         return new CachedSchemaRegistryClient(

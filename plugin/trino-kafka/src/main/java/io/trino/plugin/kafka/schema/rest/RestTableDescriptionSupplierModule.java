@@ -74,7 +74,8 @@ public class RestTableDescriptionSupplierModule
         install(new EncoderModule());
 
         configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
-        install(conditionalModule(ProtobufAnySupportConfig.class,
+        install(conditionalModule(
+                ProtobufAnySupportConfig.class,
                 ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
                 new FileDescriptorProviderModule()));
     }

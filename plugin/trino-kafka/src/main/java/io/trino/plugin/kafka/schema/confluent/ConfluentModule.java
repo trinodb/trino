@@ -115,8 +115,8 @@ public class ConfluentModule
 
         List<String> baseUrl = confluentConfig.getConfluentSchemaRegistryUrlStrings().isEmpty()
                 ? confluentConfig.getConfluentSchemaRegistryUrls().stream()
-                        .map(ConfluentModule::hostAddressToUrlString)
-                        .collect(toImmutableList())
+                  .map(ConfluentModule::hostAddressToUrlString)
+                  .collect(toImmutableList())
                 : confluentConfig.getConfluentSchemaRegistryUrlStrings();
 
         Map<String, ?> schemaRegistryClientProperties = propertiesProviders.stream()
