@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.system.files;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Table;
@@ -63,7 +64,7 @@ public final class FilesTableSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         TableScan scan = icebergTable.newScan();
         snapshotId.ifPresent(scan::useSnapshot);
@@ -82,7 +83,7 @@ public final class FilesTableSplitSource
         }
 
         finished = true;
-        return completedFuture(new ConnectorSplitBatch(splits, true));
+        return completedFuture(splits);
     }
 
     @Override
