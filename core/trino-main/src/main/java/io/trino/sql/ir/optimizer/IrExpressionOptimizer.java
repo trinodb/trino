@@ -29,6 +29,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -56,6 +57,7 @@ import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
+import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
@@ -98,6 +100,7 @@ public class IrExpressionOptimizer
                 new EvaluateRow(),
                 new EvaluateBind(),
                 new EvaluateFieldReference(),
+                new InlineTrivialLet(),
                 new SimplifyComplementaryLogicalTerms(context),
                 new EvaluateIsNull(context),
                 new EvaluateComparison(context),
@@ -142,6 +145,7 @@ public class IrExpressionOptimizer
                 new EvaluateRow(),
                 new EvaluateBind(),
                 new EvaluateFieldReference(),
+                new InlineTrivialLet(),
                 new EvaluateIsNull(context),
                 new EvaluateComparison(context),
                 new EvaluateCast(context),
@@ -219,6 +223,13 @@ public class IrExpressionOptimizer
                 Optional<Expression> lambda = process(bind.function(), session, bindings);
                 yield values.isPresent() || lambda.isPresent() ?
                         Optional.of(new Bind(values.orElse(bind.values()), (Lambda) lambda.orElse(bind.function()))) :
+                        Optional.empty();
+            }
+            case Let let -> {
+                Optional<Expression> value = process(let.value(), session, bindings);
+                Optional<Expression> body = process(let.body(), session, bindings);
+                yield value.isPresent() || body.isPresent() ?
+                        Optional.of(new Let(let.name(), value.orElse(let.value()), body.orElse(let.body()))) :
                         Optional.empty();
             }
             case Match e -> {
