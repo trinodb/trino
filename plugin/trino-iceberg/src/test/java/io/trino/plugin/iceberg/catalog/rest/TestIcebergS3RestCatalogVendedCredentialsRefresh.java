@@ -83,7 +83,7 @@ final class TestIcebergS3RestCatalogVendedCredentialsRefresh
                         .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
                         .put(AwsClientProperties.REFRESH_CREDENTIALS_ENABLED, "true")
                         .put(AwsClientProperties.REFRESH_CREDENTIALS_ENDPOINT, restServerUri + "/credentials")
-                        .put("s3.session-token-expires-at-ms", Long.toString(sessionTokenExpirationTime.get().toEpochMilli()));
+                        .put(S3FileIOProperties.SESSION_TOKEN_EXPIRES_AT_MS, Long.toString(sessionTokenExpirationTime.get().toEpochMilli()));
                 return builder.buildOrThrow();
             }
         };
@@ -105,7 +105,7 @@ final class TestIcebergS3RestCatalogVendedCredentialsRefresh
                         .put(S3FileIOProperties.SECRET_ACCESS_KEY, sessionCredentials.secretAccessKey())
                         .put(S3FileIOProperties.SESSION_TOKEN, sessionCredentials.sessionToken())
                         .put(AwsClientProperties.REFRESH_CREDENTIALS_ENABLED, "true")
-                        .put("s3.session-token-expires-at-ms", Long.toString(sessionCredentials.expiration().toEpochMilli()));
+                        .put(S3FileIOProperties.SESSION_TOKEN_EXPIRES_AT_MS, Long.toString(sessionCredentials.expiration().toEpochMilli()));
                 return builder.buildOrThrow();
             }
         };
