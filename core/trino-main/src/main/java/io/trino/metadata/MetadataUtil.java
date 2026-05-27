@@ -170,7 +170,12 @@ public final class MetadataUtil
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext)
     {
-        return createQualifiedObjectName(session, plannerContext, getQualifiedObjectIdentifiers(session, node, name, plannerContext));
+        return createQualifiedObjectName(session, node, name, plannerContext, Optional.empty());
+    }
+
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, PlannerContext plannerContext, Optional<Function<Identifier, String>> canonicalizer)
+    {
+        return createQualifiedObjectName(session, plannerContext, getQualifiedObjectIdentifiers(session, node, name, plannerContext), canonicalizer);
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, PlannerContext plannerContext, List<Identifier> identifiers)

@@ -1707,9 +1707,6 @@ class StatementAnalyzer
                             .map(expression -> new SelectExpression(expression, Optional.empty()))
                             .collect(toImmutableList()));
 
-            // FIXME: We propagate the canonicalizer used for the possible query that called this one.
-            //        If we want the test: BaseConnectorTest::testMergeDeleteWithCTAS working,
-            //        it is necessary to return the received scope if the queryBodyScope is empty.
             Scope queryScope = Scope.builder()
                     .withParent(withScope)
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
@@ -5081,8 +5078,7 @@ class StatementAnalyzer
                     }
 
                     // FIXME: Field must be build imperatively from a canonicalized identifier!!!
-                    //        sourceScope now permit to retrieve the right canonicalizer
-                    Optional<String> fieldName = field.map(canonicalizer::apply);
+                    Optional<String> fieldName = field.map(canonicalizer);
                     Field newField = Field.newUnqualified(fieldName, analysis.getType(expression), resolver, originTable, originBranch, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                     if (originTable.isPresent()) {
                         analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.orElseThrow())));
