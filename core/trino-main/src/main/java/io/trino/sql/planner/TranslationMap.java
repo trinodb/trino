@@ -110,6 +110,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
@@ -130,6 +131,7 @@ import io.trino.sql.tree.WhenClause.Partial;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.ArrayList;
@@ -662,6 +664,7 @@ public class TranslationMap
             }
             case LikePredicate predicate -> translateLike(value, predicate);
             case MatchPredicate _ -> throw new IllegalStateException("MATCH predicate should have been planned by SubqueryPlanner");
+            case OverlapsPredicate predicate -> translateOverlaps(value, predicate);
             case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
         };
     }
@@ -1141,6 +1144,109 @@ public class TranslationMap
                     .build();
             default -> throw new IllegalArgumentException("Unexpected type: " + valueType);
         };
+    }
+
+    private io.trino.sql.ir.Expression translateOverlaps(io.trino.sql.ir.Expression left, OverlapsPredicate predicate)
+    {
+        io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
+
+        RowType rowType = (RowType) left.type();
+        Type startType = rowType.getFields().get(0).getType();
+        Type secondType = rowType.getFields().get(1).getType();
+        boolean intervalEnd = secondType.equals(IntervalDayTimeType.INTERVAL_DAY_TIME) || secondType.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH);
+
+        Type endType = intervalEnd
+                ? plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)).signature().getReturnType()
+                : secondType;
+        Type comparisonType = startType.equals(endType)
+                ? startType
+                : new TypeCoercion(plannerContext.getTypeManager()::getType).getCommonSuperType(startType, endType).orElseThrow();
+
+        Symbol leftSymbol = new Symbol(rowType, "$overlaps_left");
+        Symbol rightSymbol = new Symbol(rowType, "$overlaps_right");
+        Endpoints period1 = endpoints(new Reference(rowType, leftSymbol.name()), intervalEnd, startType, secondType, endType, comparisonType);
+        Endpoints period2 = endpoints(new Reference(rowType, rightSymbol.name()), intervalEnd, startType, secondType, endType, comparisonType);
+
+        // Order each period's endpoints into a lower bound s and an upper bound t, binding each so the
+        // operands are evaluated once. The ordering is null-asymmetric: when one endpoint is null, s is
+        // the *known* endpoint and only t can be null — unlike least/greatest, which return null on any
+        // null argument. The overlap test below relies on that asymmetry to still yield a definite
+        // result when a single bound is null.
+        Symbol s1 = new Symbol(comparisonType, "$overlaps_s1");
+        Symbol t1 = new Symbol(comparisonType, "$overlaps_t1");
+        Symbol s2 = new Symbol(comparisonType, "$overlaps_s2");
+        Symbol t2 = new Symbol(comparisonType, "$overlaps_t2");
+
+        Reference rs1 = new Reference(comparisonType, s1.name());
+        Reference rt1 = new Reference(comparisonType, t1.name());
+        Reference rs2 = new Reference(comparisonType, s2.name());
+        Reference rt2 = new Reference(comparisonType, t2.name());
+
+        // Two periods overlap when they share at least one instant. This is the SQL specification's
+        // expansion, with (s1, t1) and (s2, t2) the ordered lower/upper bounds of the two periods; it
+        // is shaped to preserve the null handling described above, so a single null bound still yields
+        // a definite true/false rather than null:
+        //     (s1 > s2 AND NOT (s1 >= t2 AND t1 >= t2))
+        //  OR (s2 > s1 AND NOT (s2 >= t1 AND t2 >= t1))
+        //  OR (s1 = s2 AND (t1 <> t2 OR t1 = t2))
+        io.trino.sql.ir.Expression formula = new Logical(Logical.Operator.OR, ImmutableList.of(
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        comparison(plannerContext.getMetadata(), GREATER_THAN, rs1, rs2),
+                        not(plannerContext.getMetadata(), new Logical(Logical.Operator.AND, ImmutableList.of(
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, rs1, rt2),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, rt1, rt2)))))),
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        comparison(plannerContext.getMetadata(), GREATER_THAN, rs2, rs1),
+                        not(plannerContext.getMetadata(), new Logical(Logical.Operator.AND, ImmutableList.of(
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, rs2, rt1),
+                                comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, rt2, rt1)))))),
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        comparison(plannerContext.getMetadata(), EQUAL, rs1, rs2),
+                        new Logical(Logical.Operator.OR, ImmutableList.of(
+                                comparison(plannerContext.getMetadata(), NOT_EQUAL, rt1, rt2),
+                                comparison(plannerContext.getMetadata(), EQUAL, rt1, rt2)))))));
+
+        return new Let(leftSymbol, left,
+                new Let(rightSymbol, right,
+                        new Let(s1, lowerBound(period1),
+                                new Let(t1, upperBound(period1),
+                                        new Let(s2,
+                                                lowerBound(period2),
+                                                new Let(t2, upperBound(period2), formula))))));
+    }
+
+    // Lower bound s of a period: the smaller endpoint, or — when the start is null — the known end, so
+    // null is pushed onto the upper bound instead of swallowing both.
+    private io.trino.sql.ir.Expression lowerBound(Endpoints period)
+    {
+        return ifExpression(reversedOrNullStart(period), period.end(), period.start());
+    }
+
+    // Upper bound t of a period: the larger endpoint, or the null/start endpoint when swapped.
+    private io.trino.sql.ir.Expression upperBound(Endpoints period)
+    {
+        return ifExpression(reversedOrNullStart(period), period.start(), period.end());
+    }
+
+    private io.trino.sql.ir.Expression reversedOrNullStart(Endpoints period)
+    {
+        return new Logical(Logical.Operator.OR, ImmutableList.of(
+                new IsNull(period.start()),
+                comparison(plannerContext.getMetadata(), LESS_THAN, period.end(), period.start())));
+    }
+
+    private record Endpoints(io.trino.sql.ir.Expression start, io.trino.sql.ir.Expression end) {}
+
+    private Endpoints endpoints(io.trino.sql.ir.Expression row, boolean intervalEnd, Type startType, Type secondType, Type endType, Type comparisonType)
+    {
+        io.trino.sql.ir.Expression startRaw = new FieldReference(row, 0);
+        io.trino.sql.ir.Expression second = new FieldReference(row, 1);
+        io.trino.sql.ir.Expression endRaw = intervalEnd
+                ? new Call(plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)), ImmutableList.of(startRaw, second))
+                : second;
+        io.trino.sql.ir.Expression start = startType.equals(comparisonType) ? startRaw : new io.trino.sql.ir.Cast(startRaw, comparisonType);
+        io.trino.sql.ir.Expression end = endType.equals(comparisonType) ? endRaw : new io.trino.sql.ir.Cast(endRaw, comparisonType);
+        return new Endpoints(start, end);
     }
 
     private io.trino.sql.ir.Expression translate(Format node)
