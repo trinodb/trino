@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -44,7 +45,6 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TYPE_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_VERSION_ID;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -133,7 +133,7 @@ public class TableChangesFunctionProcessor
                 split.fileSize(),
                 split.fileRecordCount(),
                 split.fileFormat(),
-                getFileIoProperties(tableCredentials),
+                tableCredentials.map(IcebergTableCredentials.class::cast).get(),
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson));

@@ -846,6 +846,7 @@
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
+                                <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
@@ -917,6 +918,7 @@
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
+                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>

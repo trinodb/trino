@@ -14,11 +14,14 @@
 package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.iceberg.IcebergStorageCredentials;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogFileSystem;
 import io.trino.spi.TrinoException;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
@@ -27,7 +30,9 @@ import org.apache.iceberg.ManifestListFile;
 import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.io.StorageCredential;
 import org.apache.iceberg.io.SupportsBulkOperations;
+import org.apache.iceberg.io.SupportsStorageCredentials;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -46,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class ForwardingFileIo
-        implements SupportsBulkOperations
+        implements SupportsBulkOperations, SupportsStorageCredentials
 {
     private static final int DELETE_BATCH_SIZE = 1000;
     private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
@@ -55,6 +60,8 @@ public class ForwardingFileIo
     private final Map<String, String> properties;
     private final boolean useFileSizeFromMetadata;
     private final ExecutorService deleteExecutor;
+
+    private List<StorageCredential> credentials = ImmutableList.of();
 
     @VisibleForTesting
     public ForwardingFileIo(TrinoFileSystem fileSystem, boolean useFileSizeFromMetadata)
@@ -68,6 +75,23 @@ public class ForwardingFileIo
         this.deleteExecutor = requireNonNull(deleteExecutor, "executorService is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+    }
+
+    @Override
+    public void setCredentials(List<StorageCredential> credentials)
+    {
+        this.credentials = ImmutableList.copyOf(credentials);
+        if (fileSystem instanceof IcebergRestCatalogFileSystem icebergRestCatalogFileSystem) {
+            icebergRestCatalogFileSystem.setCredentials(credentials.stream()
+                    .map(credential -> new IcebergStorageCredentials(credential.prefix(), credential.config()))
+                    .collect(toImmutableList()));
+        }
+    }
+
+    @Override
+    public List<StorageCredential> credentials()
+    {
+        return ImmutableList.copyOf(credentials);
     }
 
     @Override

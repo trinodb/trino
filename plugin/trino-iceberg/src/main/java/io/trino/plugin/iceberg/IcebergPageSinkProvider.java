@@ -49,7 +49,6 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Maps.transformValues;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
 
@@ -93,7 +92,7 @@ public class IcebergPageSinkProvider
     {
         verify(tableCredentials.isPresent(), "tableCredentials must be present");
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) outputTableHandle;
-        return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
+        return createPageSink(session, tableHandle, tableCredentials.map(IcebergTableCredentials.class::cast).get());
     }
 
     @Override
@@ -101,16 +100,16 @@ public class IcebergPageSinkProvider
     {
         verify(tableCredentials.isPresent(), "tableCredentials must be present");
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) insertTableHandle;
-        return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
+        return createPageSink(session, tableHandle, tableCredentials.map(IcebergTableCredentials.class::cast).get());
     }
 
-    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Map<String, String> fileIoProperties)
+    private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, IcebergTableCredentials tableCredentials)
     {
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
-        return createPageSink(session, tableHandle, schema, fileIoProperties);
+        return createPageSink(session, tableHandle, schema, tableCredentials);
     }
 
-    private IcebergPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Schema schema, Map<String, String> fileIoProperties)
+    private IcebergPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Schema schema, IcebergTableCredentials tableCredentials)
     {
         String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
@@ -121,7 +120,7 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session.getIdentity(), fileIoProperties),
+                fileSystemFactory.create(session.getIdentity(), tableCredentials),
                 tableHandle.partitionColumns(),
                 jsonCodec,
                 session,
@@ -157,7 +156,7 @@ public class IcebergPageSinkProvider
                         locationProvider,
                         fileWriterFactory,
                         pageIndexerFactory,
-                        fileSystemFactory.create(session.getIdentity(), getFileIoProperties(tableCredentials)),
+                        fileSystemFactory.create(session.getIdentity(), tableCredentials.map(IcebergTableCredentials.class::cast).get()),
                         optimizeHandle.partitionColumns(),
                         jsonCodec,
                         session,
@@ -185,7 +184,6 @@ public class IcebergPageSinkProvider
         verify(tableCredentials.isPresent(), "tableCredentials is empty");
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
-        Map<String, String> fileIoProperties = getFileIoProperties(tableCredentials);
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
@@ -202,13 +200,14 @@ public class IcebergPageSinkProvider
         else {
             outputSchema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         }
-        ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, fileIoProperties);
+        IcebergTableCredentials icebergTableCredentials = tableCredentials.map(IcebergTableCredentials.class::cast).get();
+        ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, icebergTableCredentials);
 
         return new IcebergMergeSink(
                 formatVersion,
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session.getIdentity(), fileIoProperties),
+                fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
                 jsonCodec,
                 session,
                 tableHandle.fileFormat(),
