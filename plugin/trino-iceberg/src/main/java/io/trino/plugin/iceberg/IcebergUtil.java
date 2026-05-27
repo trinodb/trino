@@ -39,7 +39,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
@@ -1385,13 +1384,5 @@ public final class IcebergUtil
         catch (NotFoundException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
         }
-    }
-
-    public static Map<String, String> getFileIoProperties(Optional<ConnectorTableCredentials> tableCredentials)
-    {
-        if (tableCredentials.isPresent()) {
-            return ((IcebergTableCredentials) tableCredentials.get()).fileIoProperties();
-        }
-        return ImmutableMap.of();
     }
 }

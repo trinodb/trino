@@ -581,7 +581,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 getSession(icebergConfig),
                 split,
                 tableHandle.connectorHandle(),
-                Optional.of(new IcebergTableCredentials(ImmutableMap.of())),
+                Optional.of(new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of())),
                 columns,
                 dynamicFilter);
     }

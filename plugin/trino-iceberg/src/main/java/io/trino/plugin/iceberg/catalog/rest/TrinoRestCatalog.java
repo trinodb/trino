@@ -29,6 +29,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
@@ -518,7 +519,7 @@ public class TrinoRestCatalog
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), table.io().properties()), schemaTableName, table.location());
+        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), schemaTableName, table.location());
     }
 
     private static void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
