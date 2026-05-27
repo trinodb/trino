@@ -917,6 +917,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitAtLocal(AtLocal node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitGroupBy(GroupBy node, C context)
     {
         return visitNode(node, context);

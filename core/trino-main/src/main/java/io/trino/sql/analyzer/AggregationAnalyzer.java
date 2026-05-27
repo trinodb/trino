@@ -25,6 +25,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
@@ -234,6 +235,12 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitAtTimeZone(AtTimeZone node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
+        protected Boolean visitAtLocal(AtLocal node, Void context)
         {
             return process(node.getValue(), context);
         }
