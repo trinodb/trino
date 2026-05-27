@@ -179,6 +179,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitAtLocal(AtLocal node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteAtLocal(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+
+            if (value != node.getValue()) {
+                return new AtLocal(node.getLocation().orElseThrow(), value);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitSubscriptExpression(SubscriptExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

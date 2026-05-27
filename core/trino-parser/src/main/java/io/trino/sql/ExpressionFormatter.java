@@ -21,6 +21,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
@@ -189,6 +190,12 @@ public final class ExpressionFormatter
             return process(node.getValue(), context) +
                     " AT TIME ZONE " +
                     process(node.getTimeZone(), context);
+        }
+
+        @Override
+        protected String visitAtLocal(AtLocal node, Void context)
+        {
+            return process(node.getValue(), context) + " AT LOCAL";
         }
 
         @Override

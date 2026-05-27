@@ -25,6 +25,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
@@ -5365,6 +5366,14 @@ public class TestSqlParser
         assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
                 simpleQuery(selectList(
                         new AtTimeZone(new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles")))));
+    }
+
+    @Test
+    public void testAtLocal()
+    {
+        assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT LOCAL",
+                simpleQuery(selectList(
+                        new AtLocal(new NodeLocation(1, 41), new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC")))));
     }
 
     @Test

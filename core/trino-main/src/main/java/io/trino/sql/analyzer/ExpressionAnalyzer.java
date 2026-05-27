@@ -73,6 +73,7 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -2353,6 +2354,20 @@ public class ExpressionAnalyzer
             else if (valueType instanceof TimestampType timestampType) {
                 resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
             }
+
+            return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitAtLocal(AtLocal node, Context context)
+        {
+            Type valueType = process(node.getValue(), context);
+            Type resultType = switch (valueType) {
+                case TimeType type -> createTimeWithTimeZoneType(type.getPrecision());
+                case TimestampType type -> createTimestampWithTimeZoneType(type.getPrecision());
+                case TimeWithTimeZoneType _, TimestampWithTimeZoneType _ -> valueType;
+                default -> throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            };
 
             return setExpressionType(node, resultType);
         }
