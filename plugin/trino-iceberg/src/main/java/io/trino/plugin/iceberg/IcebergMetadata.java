@@ -1472,7 +1472,9 @@ public class IcebergMetadata
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            // When tableLocation is null, we treat the catalog as an S3 Tables catalogs in newCreateTableTransaction,
+            // so also ignore this check for such catalogs (see testCreateTableInNamespaceWithoutLocation)
+            if (!isS3Tables(location.toString()) && tableLocation != null) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
