@@ -1471,8 +1471,7 @@ public class IcebergMetadata
         }
         Location location = Location.of(transaction.table().location());
         try {
-            // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            if (!isTableLocationGeneratedByTheCatalog(tableLocation, location)) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
@@ -4458,5 +4457,11 @@ public class IcebergMetadata
         if (formatVersion < 3 && defaultValuePresent) {
             throw new TrinoException(NOT_SUPPORTED, "Default column values are not supported for Iceberg table format version < 3");
         }
+    }
+
+    private static boolean isTableLocationGeneratedByTheCatalog(String targetLocation, Location finalLocation)
+    {
+        return targetLocation == null ||
+                isS3Tables(finalLocation.toString()); // S3 Tables internally assigns a unique location for each table too
     }
 }
