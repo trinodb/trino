@@ -39,6 +39,32 @@ SELECT timestamp '2012-10-31 01:00 UTC' AT LOCAL;
 -- 2012-10-30 18:00:00.000 America/Los_Angeles  (session zone)
 ```
 
+## OVERLAPS
+
+The `OVERLAPS` predicate tests whether two periods of time share any instant.
+Each operand is a row value of two elements:
+
+* The first element is the period's start point, a datetime value.
+* The second element is either the period's end point (a datetime value) or
+  the period's length (an interval value, in which case the end is computed
+  as `start + interval`).
+
+```
+SELECT (DATE '2020-01-01', DATE '2020-06-01') OVERLAPS (DATE '2020-05-01', DATE '2020-12-31');
+-- true
+
+SELECT (DATE '2020-01-01', DATE '2020-03-01') OVERLAPS (DATE '2020-05-01', DATE '2020-07-01');
+-- false
+
+SELECT (DATE '2020-01-01', INTERVAL '5' MONTH) OVERLAPS (DATE '2020-05-01', INTERVAL '7' MONTH);
+-- true
+```
+
+If the start and end of an operand are given in reverse, they are normalized
+before evaluation. The half-open semantics mean that periods which touch only
+at a boundary (one period's end equal to the other's start) do not overlap;
+however, two periods that share the same start point always overlap.
+
 ## Date and time functions
 
 :::{data} current_date

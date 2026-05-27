@@ -51,6 +51,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -112,6 +113,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicate;
 import io.trino.sql.tree.Predicated;
@@ -131,6 +133,7 @@ import io.trino.sql.tree.WhenClause.Partial;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
+import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.Arrays;
@@ -628,6 +631,7 @@ public class TranslationMap
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), isNull) : isNull;
             }
             case LikePredicate predicate -> translateLike(value, predicate);
+            case OverlapsPredicate predicate -> translateOverlaps(value, predicate);
             case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
         };
     }
@@ -1063,6 +1067,73 @@ public class TranslationMap
                     .build();
             default -> throw new IllegalArgumentException("Unexpected type: " + valueType);
         };
+    }
+
+    private io.trino.sql.ir.Expression translateOverlaps(io.trino.sql.ir.Expression left, OverlapsPredicate predicate)
+    {
+        io.trino.sql.ir.Expression right = translateExpression(predicate.getRight());
+
+        RowType rowType = (RowType) left.type();
+        Type startType = rowType.getFields().get(0).getType();
+        Type secondType = rowType.getFields().get(1).getType();
+        boolean intervalEnd = secondType.equals(IntervalDayTimeType.INTERVAL_DAY_TIME) || secondType.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH);
+
+        Type endType = intervalEnd
+                ? plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)).signature().getReturnType()
+                : secondType;
+        Type comparisonType = startType.equals(endType)
+                ? startType
+                : new TypeCoercion(plannerContext.getTypeManager()::getType).getCommonSuperType(startType, endType).orElseThrow();
+
+        Symbol leftSymbol = new Symbol(rowType, "$overlaps_left");
+        Symbol rightSymbol = new Symbol(rowType, "$overlaps_right");
+        Endpoints period1 = endpoints(new Reference(rowType, leftSymbol.name()), intervalEnd, startType, secondType, endType, comparisonType);
+        Endpoints period2 = endpoints(new Reference(rowType, rightSymbol.name()), intervalEnd, startType, secondType, endType, comparisonType);
+
+        io.trino.sql.ir.Expression s1 = least(period1.start(), period1.end(), comparisonType);
+        io.trino.sql.ir.Expression e1 = greatest(period1.start(), period1.end(), comparisonType);
+        io.trino.sql.ir.Expression s2 = least(period2.start(), period2.end(), comparisonType);
+        io.trino.sql.ir.Expression e2 = greatest(period2.start(), period2.end(), comparisonType);
+
+        io.trino.sql.ir.Expression formula = new Logical(Logical.Operator.OR, ImmutableList.of(
+                new Comparison(EQUAL, s1, s2),
+                new Logical(Logical.Operator.AND, ImmutableList.of(
+                        new Comparison(LESS_THAN, s1, e2),
+                        new Comparison(LESS_THAN, s2, e1)))));
+
+        return new Let(leftSymbol, left, new Let(rightSymbol, right, formula));
+    }
+
+    private record Endpoints(io.trino.sql.ir.Expression start, io.trino.sql.ir.Expression end) {}
+
+    private Endpoints endpoints(io.trino.sql.ir.Expression row, boolean intervalEnd, Type startType, Type secondType, Type endType, Type comparisonType)
+    {
+        io.trino.sql.ir.Expression startRaw = new FieldReference(row, 0);
+        io.trino.sql.ir.Expression second = new FieldReference(row, 1);
+        io.trino.sql.ir.Expression endRaw = intervalEnd
+                ? new Call(plannerContext.getMetadata().resolveOperator(OperatorType.ADD, ImmutableList.of(startType, secondType)), ImmutableList.of(startRaw, second))
+                : second;
+        io.trino.sql.ir.Expression start = startType.equals(comparisonType) ? startRaw : new io.trino.sql.ir.Cast(startRaw, comparisonType);
+        io.trino.sql.ir.Expression end = endType.equals(comparisonType) ? endRaw : new io.trino.sql.ir.Cast(endRaw, comparisonType);
+        return new Endpoints(start, end);
+    }
+
+    private io.trino.sql.ir.Expression least(io.trino.sql.ir.Expression a, io.trino.sql.ir.Expression b, Type type)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("least")
+                .addArgument(type, a)
+                .addArgument(type, b)
+                .build();
+    }
+
+    private io.trino.sql.ir.Expression greatest(io.trino.sql.ir.Expression a, io.trino.sql.ir.Expression b, Type type)
+    {
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("greatest")
+                .addArgument(type, a)
+                .addArgument(type, b)
+                .build();
     }
 
     private io.trino.sql.ir.Expression translate(Format node)
