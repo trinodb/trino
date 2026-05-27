@@ -308,6 +308,10 @@ public final class ExpressionTreeRewriter<C>
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());
                     yield subquery == predicate.getSubquery() ? predicate : new MatchPredicate(predicate.getLocation().orElseThrow(), predicate.isUnique(), predicate.getType(), subquery);
                 }
+                case OverlapsPredicate predicate -> {
+                    Expression right = rewrite(predicate.getRight(), context.get());
+                    yield right == predicate.getRight() ? predicate : new OverlapsPredicate(predicate.getLocation().orElseThrow(), right);
+                }
                 case QuantifiedComparisonPredicate predicate -> {
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());
                     yield subquery == predicate.getSubquery() ? predicate : new QuantifiedComparisonPredicate(predicate.getLocation().orElseThrow(), predicate.getOperator(), predicate.getQuantifier(), subquery);

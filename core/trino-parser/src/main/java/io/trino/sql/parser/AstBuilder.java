@@ -205,6 +205,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Overlay;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
@@ -2344,6 +2345,14 @@ class AstBuilder
     public Node visitDistinctFrom(SqlBaseParser.DistinctFromContext context)
     {
         return new DistinctFromPredicate(getLocation(context), context.NOT() != null, (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitOverlaps(SqlBaseParser.OverlapsContext context)
+    {
+        return new OverlapsPredicate(
+                getLocation(context.OVERLAPS()),
+                (Expression) visit(context.right));
     }
 
     @Override
