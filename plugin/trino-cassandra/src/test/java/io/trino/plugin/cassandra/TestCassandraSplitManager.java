@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.AfterAll;
@@ -95,7 +96,7 @@ final class TestCassandraSplitManager
 
         CassandraTableHandle tableHandle = new CassandraTableHandle(
                 new CassandraNamedRelationHandle(KEYSPACE, tableName, Optional.of(partitions.build()), ""));
-        try (ConnectorSplitSource splitSource = splitManager.getSplits(null, null, tableHandle, null, null)) {
+        try (ConnectorSplitSource splitSource = splitManager.getSplits(null, null, tableHandle, DynamicFilter.EMPTY, null)) {
             List<ConnectorSplit> splits = splitSource.getNextBatch(100).get().getSplits();
             assertThat(splits).hasSize(2);
             assertThat(((CassandraSplit) splits.get(0)).partitionId()).isEqualTo("\"partition_key\" in (0,1)");
