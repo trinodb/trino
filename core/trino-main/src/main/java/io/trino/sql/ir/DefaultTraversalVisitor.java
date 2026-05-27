@@ -146,6 +146,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitLet(Let node, C context)
+    {
+        process(node.value(), context);
+        process(node.body(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitCase(Case node, C context)
     {
         for (WhenClause clause : node.whenClauses()) {

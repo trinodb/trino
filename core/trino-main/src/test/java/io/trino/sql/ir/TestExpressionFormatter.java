@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir;
 
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -45,6 +46,16 @@ public class TestExpressionFormatter
                 // process(..) have reasonable defaults
                 IrVisitor.class.getMethod("process", Expression.class),
                 IrVisitor.class.getMethod("process", Expression.class, Object.class /*context*/)));
+    }
+
+    @Test
+    public void testLet()
+    {
+        assertFormattedExpression(
+                new Let(new Symbol(BIGINT, "x"),
+                        new Constant(BIGINT, 1L),
+                        new Reference(BIGINT, "x")),
+                "Let(x::[bigint] = bigint '1', x)");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)
