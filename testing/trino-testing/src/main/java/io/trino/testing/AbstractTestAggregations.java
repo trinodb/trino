@@ -73,7 +73,7 @@ public abstract class AbstractTestAggregations
     public void testCountWithIsNullPredicate()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NULL",
+                "SELECT COUNT(*) FROM \"orders\" WHERE NULLIF(\"orderstatus\", 'F') IS NULL",
                 "SELECT COUNT(*) FROM \"orders\" WHERE \"orderstatus\" = 'F' ");
     }
 
@@ -81,7 +81,7 @@ public abstract class AbstractTestAggregations
     public void testCountWithIsNotNullPredicate()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM orders WHERE NULLIF(orderstatus, 'F') IS NOT NULL",
+                "SELECT COUNT(*) FROM \"orders\" WHERE NULLIF(\"orderstatus\", 'F') IS NOT NULL",
                 "SELECT COUNT(*) FROM \"orders\" WHERE \"orderstatus\" <> 'F' ");
     }
 
@@ -119,7 +119,7 @@ public abstract class AbstractTestAggregations
     public void testAggregationUsingOuterTableSymbols()
     {
         assertQuery(
-                "SELECT max_by(r.regionkey, n.nationkey) FROM (SELECT DISTINCT regionkey FROM region) r LEFT JOIN nation n ON n.regionkey = r.regionkey GROUP BY r.regionkey",
+                "SELECT max_by(r.\"regionkey\", n.\"nationkey\") FROM (SELECT DISTINCT \"regionkey\" FROM \"region\") r LEFT JOIN \"nation\" n ON n.\"regionkey\" = r.\"regionkey\" GROUP BY r.\"regionkey\"",
                 "VALUES 0, 1, 2, 3, 4");
     }
 
@@ -141,7 +141,7 @@ public abstract class AbstractTestAggregations
     public void testCountWithCoalescePredicate()
     {
         assertQuery(
-                "SELECT COUNT(*) FROM orders WHERE COALESCE(NULLIF(orderstatus, 'F'), 'bar') = 'bar'",
+                "SELECT COUNT(*) FROM \"orders\" WHERE COALESCE(NULLIF(\"orderstatus\", 'F'), 'bar') = 'bar'",
                 "SELECT COUNT(*) FROM \"orders\" WHERE \"orderstatus\" = 'F'");
     }
 
@@ -190,13 +190,13 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByArray()
     {
-        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[custkey] col, COUNT(*) count FROM orders GROUP BY 1 ORDER BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\" ORDER BY \"custkey\"");
+        assertQuery("SELECT col[1], count FROM (SELECT ARRAY[\"custkey\"] col, COUNT(*) count FROM \"orders\" GROUP BY 1 ORDER BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\" ORDER BY \"custkey\"");
     }
 
     @Test
     public void testGroupByMap()
     {
-        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[custkey]) col, COUNT(*) count FROM orders GROUP BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\"");
+        assertQuery("SELECT col[1], count FROM (SELECT MAP(ARRAY[1], ARRAY[\"custkey\"]) col, COUNT(*) count FROM \"orders\" GROUP BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\"");
     }
 
     @Test
@@ -208,7 +208,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByRow()
     {
-        assertQuery("SELECT col.col1, count FROM (SELECT CAST(row(custkey, custkey) AS row(col0 bigint, col1 bigint)) col, COUNT(*) count FROM orders GROUP BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\"");
+        assertQuery("SELECT col.col1, count FROM (SELECT CAST(row(\"custkey\", \"custkey\") AS row(col0 bigint, col1 bigint)) col, COUNT(*) count FROM \"orders\" GROUP BY 1)", "SELECT \"custkey\", COUNT(*) FROM \"orders\" GROUP BY \"custkey\"");
     }
 
     @Test
@@ -248,7 +248,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testCountDistinct()
     {
-        assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT \"custkey\" + 1 FROM \"orders\") t");
+        assertQuery("SELECT COUNT(DISTINCT \"custkey\" + 1) FROM \"orders\"", "SELECT COUNT(*) FROM (SELECT DISTINCT \"custkey\" + 1 FROM \"orders\") t");
     }
 
     @Test
@@ -359,7 +359,7 @@ public abstract class AbstractTestAggregations
     public void testMultipleDistinct()
     {
         assertQuery(
-                "SELECT COUNT(DISTINCT custkey), SUM(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(DISTINCT \"custkey\"), SUM(DISTINCT \"custkey\") FROM \"orders\"",
                 "SELECT COUNT(*), SUM(\"custkey\") FROM (SELECT DISTINCT \"custkey\" FROM \"orders\") t");
     }
 
@@ -367,11 +367,11 @@ public abstract class AbstractTestAggregations
     public void testComplexDistinct()
     {
         assertQuery(
-                "SELECT COUNT(DISTINCT custkey), " +
-                        "SUM(DISTINCT custkey), " +
-                        "SUM(DISTINCT custkey + 1.0E0), " +
-                        "AVG(DISTINCT custkey), " +
-                        "VARIANCE(DISTINCT custkey) FROM orders",
+                "SELECT COUNT(DISTINCT \"custkey\"), " +
+                        "SUM(DISTINCT \"custkey\"), " +
+                        "SUM(DISTINCT \"custkey\" + 1.0E0), " +
+                        "AVG(DISTINCT \"custkey\"), " +
+                        "VARIANCE(DISTINCT \"custkey\") FROM \"orders\"",
                 "SELECT COUNT(*), " +
                         "SUM(\"custkey\"), " +
                         "SUM(\"custkey\" + 1.0), " +
@@ -473,7 +473,7 @@ public abstract class AbstractTestAggregations
                         "FROM (SELECT count(*) FILTER (WHERE true) AS b)",
                 "SELECT 1");
 
-        assertQuery("SELECT count(1) FILTER (WHERE orderstatus = 'O') FROM orders", "SELECT count(*) FROM \"orders\" WHERE \"orderstatus\" = 'O'");
+        assertQuery("SELECT count(1) FILTER (WHERE \"orderstatus\" = 'O') FROM \"orders\"", "SELECT count(*) FROM \"orders\" WHERE \"orderstatus\" = 'O'");
 
         // filter out all rows
         assertQuery("SELECT sum(x) FILTER (WHERE y > 5) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT null");
@@ -702,7 +702,7 @@ public abstract class AbstractTestAggregations
     public void testGroupByIf()
     {
         assertQuery(
-                "SELECT IF(orderkey between 1 and 5, 'orders', 'others'), sum(totalprice) FROM orders GROUP BY 1",
+                "SELECT IF(\"orderkey\" between 1 and 5, 'orders', 'others'), sum(\"totalprice\") FROM \"orders\" GROUP BY 1",
                 "SELECT CASE WHEN \"orderkey\" BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(\"totalprice\")\n" +
                         "FROM \"orders\"\n" +
                         "GROUP BY CASE WHEN \"orderkey\" BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END");
@@ -891,128 +891,128 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT approx_distinct(NULL, 0.023)", "SELECT 0");
 
         // test date
-        assertQuery("SELECT approx_distinct(orderdate) FROM orders", "SELECT 2443");
-        assertQuery("SELECT approx_distinct(orderdate, 0.023) FROM orders", "SELECT 2443");
+        assertQuery("SELECT approx_distinct(\"orderdate\") FROM \"orders\"", "SELECT 2443");
+        assertQuery("SELECT approx_distinct(\"orderdate\", 0.023) FROM \"orders\"", "SELECT 2443");
 
         // test timestamp
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2379");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2379");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP)) FROM \"orders\"", "SELECT 2379");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP), 0.023) FROM \"orders\"", "SELECT 2379");
 
         // test timestamp(9) (long representation)
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9))) FROM orders", "SELECT 2393");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9)), 0.023) FROM orders", "SELECT 2393");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP(9))) FROM \"orders\"", "SELECT 2393");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP(9)), 0.023) FROM \"orders\"", "SELECT 2393");
 
         // test timestamp with time zone
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders", "SELECT 2347");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE), 0.023) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP WITH TIME ZONE)) FROM \"orders\"", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP WITH TIME ZONE), 0.023) FROM \"orders\"", "SELECT 2347");
 
         // test timestamp(9) with time zone (long representation)
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9) WITH TIME ZONE)) FROM orders", "SELECT 2322");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP(9) WITH TIME ZONE), 0.023) FROM orders", "SELECT 2322");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP(9) WITH TIME ZONE)) FROM \"orders\"", "SELECT 2322");
+        assertQuery("SELECT approx_distinct(CAST(\"orderdate\" AS TIMESTAMP(9) WITH TIME ZONE), 0.023) FROM \"orders\"", "SELECT 2322");
 
         // test time
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME)) FROM orders", "SELECT 1005");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME), 0.023) FROM orders", "SELECT 1005");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME)) FROM \"orders\"", "SELECT 1005");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME), 0.023) FROM \"orders\"", "SELECT 1005");
 
         // test time(9) (long representation)
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(9))) FROM orders", "SELECT 1005");
-        assertQuery("SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(9)), 0.023) FROM orders", "SELECT 1005");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME(9))) FROM \"orders\"", "SELECT 1005");
+        assertQuery("SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME(9)), 0.023) FROM \"orders\"", "SELECT 1005");
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("+08:35"))
                 .build();
 
         // test time with time zone
-        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE)) FROM orders", "SELECT 1013");
-        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME WITH TIME ZONE), 0.023) FROM orders", "SELECT 1013");
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME WITH TIME ZONE)) FROM \"orders\"", "SELECT 1013");
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME WITH TIME ZONE), 0.023) FROM \"orders\"", "SELECT 1013");
 
         // test time(12) with time zone (long representation)
-        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(12) WITH TIME ZONE)) FROM orders", "SELECT 969");
-        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(custkey) AS TIME(12) WITH TIME ZONE), 0.023) FROM orders", "SELECT 969");
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME(12) WITH TIME ZONE)) FROM \"orders\"", "SELECT 969");
+        assertQuery(session, "SELECT approx_distinct(CAST(from_unixtime(\"custkey\") AS TIME(12) WITH TIME ZONE), 0.023) FROM \"orders\"", "SELECT 969");
 
         // test short decimal
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0))) FROM orders", "SELECT 990");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(18, 0)), 0.023) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DECIMAL(18, 0))) FROM \"orders\"", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DECIMAL(18, 0)), 0.023) FROM \"orders\"", "SELECT 990");
 
         // test long decimal
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20))) FROM orders", "SELECT 988");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DECIMAL(25, 20)), 0.023) FROM orders", "SELECT 988");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DECIMAL(25, 20))) FROM \"orders\"", "SELECT 988");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DECIMAL(25, 20)), 0.023) FROM \"orders\"", "SELECT 988");
 
         // test real
-        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL)) FROM orders", "SELECT 1006");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS REAL), 0.023) FROM orders", "SELECT 1006");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS REAL)) FROM \"orders\"", "SELECT 1006");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS REAL), 0.023) FROM \"orders\"", "SELECT 1006");
 
         // test bigint
-        assertQuery("SELECT approx_distinct(custkey) FROM orders", "SELECT 990");
-        assertQuery("SELECT approx_distinct(custkey, 0.023) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(\"custkey\") FROM \"orders\"", "SELECT 990");
+        assertQuery("SELECT approx_distinct(\"custkey\", 0.023) FROM \"orders\"", "SELECT 990");
 
         // test integer
-        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER)) FROM orders", "SELECT 990");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS INTEGER), 0.023) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS INTEGER)) FROM \"orders\"", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS INTEGER), 0.023) FROM \"orders\"", "SELECT 990");
 
         // test smallint
-        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT)) FROM orders", "SELECT 990");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS SMALLINT), 0.023) FROM orders", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS SMALLINT)) FROM \"orders\"", "SELECT 990");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS SMALLINT), 0.023) FROM \"orders\"", "SELECT 990");
 
         // test tinyint
-        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT)) FROM orders", "SELECT 128");
-        assertQuery("SELECT approx_distinct(CAST((custkey % 128) AS TINYINT), 0.023) FROM orders", "SELECT 128");
+        assertQuery("SELECT approx_distinct(CAST((\"custkey\" % 128) AS TINYINT)) FROM \"orders\"", "SELECT 128");
+        assertQuery("SELECT approx_distinct(CAST((\"custkey\" % 128) AS TINYINT), 0.023) FROM \"orders\"", "SELECT 128");
 
         // test double
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE)) FROM orders", "SELECT 1014");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS DOUBLE), 0.023) FROM orders", "SELECT 1014");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DOUBLE)) FROM \"orders\"", "SELECT 1014");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS DOUBLE), 0.023) FROM \"orders\"", "SELECT 1014");
 
         // test varchar
-        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR)) FROM orders", "SELECT 1036");
-        assertQuery("SELECT approx_distinct(CAST(custkey AS VARCHAR), 0.023) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS VARCHAR)) FROM \"orders\"", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(\"custkey\" AS VARCHAR), 0.023) FROM \"orders\"", "SELECT 1036");
 
         // test char
-        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20))) FROM orders", "SELECT 1036");
-        assertQuery("SELECT approx_distinct(CAST(CAST(custkey AS VARCHAR) AS CHAR(20)), 0.023) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(CAST(\"custkey\" AS VARCHAR) AS CHAR(20))) FROM \"orders\"", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(CAST(CAST(\"custkey\" AS VARCHAR) AS CHAR(20)), 0.023) FROM \"orders\"", "SELECT 1036");
 
         // test varbinary
-        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR))) FROM orders", "SELECT 1036");
-        assertQuery("SELECT approx_distinct(to_utf8(CAST(custkey AS VARCHAR)), 0.023) FROM orders", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(to_utf8(CAST(\"custkey\" AS VARCHAR))) FROM \"orders\"", "SELECT 1036");
+        assertQuery("SELECT approx_distinct(to_utf8(CAST(\"custkey\" AS VARCHAR)), 0.023) FROM \"orders\"", "SELECT 1036");
     }
 
     @Test
     public void testSumDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(\"comment\") FROM \"orders\"", "SELECT sum(length(\"comment\")) FROM \"orders\"");
 
         // char
         // Trino removes trailing whitespaces when casting to CHAR.
         // Hard code the expected data size since there is no easy to way to compute it in H2.
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(\"comment\" AS CHAR(1000))) FROM \"orders\"", "SELECT 725468");
 
         // varbinary
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(\"comment\" AS VARBINARY)) FROM \"orders\"", "SELECT sum(length(\"comment\")) FROM \"orders\"");
 
         // array
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment]) FROM orders", "SELECT sum(length(\"comment\")) FROM \"orders\"");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[comment, comment]) FROM orders", "SELECT 2 * sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[\"comment\"]) FROM \"orders\"", "SELECT sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ARRAY[\"comment\", \"comment\"]) FROM \"orders\"", "SELECT 2 * sum(length(\"comment\")) FROM \"orders\"");
 
         // map
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[comment])) FROM orders", "SELECT 4 * count(*) + sum(length(\"comment\")) FROM \"orders\"");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[comment, comment])) FROM orders", "SELECT 2 * 4 * count(*) + 2 * sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1], ARRAY[\"comment\"])) FROM \"orders\"", "SELECT 4 * count(*) + sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(map(ARRAY[1, 2], ARRAY[\"comment\", \"comment\"])) FROM \"orders\"", "SELECT 2 * 4 * count(*) + 2 * sum(length(\"comment\")) FROM \"orders\"");
 
         // row
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment)) FROM orders", "SELECT sum(length(\"comment\")) FROM \"orders\"");
-        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(comment, comment)) FROM orders", "SELECT 2 * sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(\"comment\")) FROM \"orders\"", "SELECT sum(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(ROW(\"comment\", \"comment\")) FROM \"orders\"", "SELECT 2 * sum(length(\"comment\")) FROM \"orders\"");
     }
 
     @Test
     public void testMaxDataSizeForStats()
     {
         // varchar
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(comment) FROM orders", "SELECT max(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(\"comment\") FROM \"orders\"", "SELECT max(length(\"comment\")) FROM \"orders\"");
 
         // char
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT max(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(\"comment\" AS CHAR(1000))) FROM \"orders\"", "SELECT max(length(\"comment\")) FROM \"orders\"");
 
         // varbinary
-        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(comment AS VARBINARY)) FROM orders", "SELECT max(length(\"comment\")) FROM \"orders\"");
+        assertQuery("SELECT \"$internal$max_data_size_for_stats\"(CAST(\"comment\" AS VARBINARY)) FROM \"orders\"", "SELECT max(length(\"comment\")) FROM \"orders\"");
 
         // $internal$max_data_size_for_stats is not needed for array, map and row
     }
@@ -1020,7 +1020,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproximateCountDistinctGroupBy()
     {
-        MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
+        MaterializedResult actual = computeActual("SELECT \"orderstatus\", approx_distinct(\"custkey\") FROM \"orders\" GROUP BY \"orderstatus\"");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
@@ -1033,7 +1033,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testApproximateCountDistinctGroupByWithStandardError()
     {
-        MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
+        MaterializedResult actual = computeActual("SELECT \"orderstatus\", approx_distinct(\"custkey\", 0.023) FROM \"orders\" GROUP BY \"orderstatus\"");
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
@@ -1098,7 +1098,7 @@ public abstract class AbstractTestAggregations
     public void testGroupByCount()
     {
         assertQuery(
-                "SELECT orderstatus, COUNT(*) FROM orders GROUP BY orderstatus",
+                "SELECT \"orderstatus\", COUNT(*) FROM \"orders\" GROUP BY \"orderstatus\"",
                 "SELECT \"orderstatus\", CAST(COUNT(*) AS INTEGER) FROM \"orders\" GROUP BY \"orderstatus\"");
     }
 
@@ -1112,7 +1112,7 @@ public abstract class AbstractTestAggregations
     public void testGroupByWithAlias()
     {
         assertQuery(
-                "SELECT orderdate x, COUNT(*) FROM orders GROUP BY orderdate",
+                "SELECT \"orderdate\" x, COUNT(*) FROM \"orders\" GROUP BY \"orderdate\"",
                 "SELECT \"orderdate\" x, CAST(COUNT(*) AS INTEGER) FROM \"orders\" GROUP BY \"orderdate\"");
     }
 
@@ -1131,7 +1131,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByEmptyGroupingSet()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY ()",
+        assertQuery("SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY ()",
                 "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
 
@@ -1145,9 +1145,9 @@ public abstract class AbstractTestAggregations
     public void testSingleGroupingSet()
     {
         assertQuery(
-                "SELECT linenumber, SUM(CAST(quantity AS BIGINT)) " +
-                        "FROM lineitem " +
-                        "GROUP BY GROUPING SETS (linenumber)",
+                "SELECT \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) " +
+                        "FROM \"lineitem\" " +
+                        "GROUP BY GROUPING SETS (\"linenumber\")",
                 "SELECT \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) " +
                         "FROM \"lineitem\" " +
                         "GROUP BY \"linenumber\"");
@@ -1156,7 +1156,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSets()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"suppkey\"");
     }
@@ -1165,10 +1165,10 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsNoInput()
     {
         assertQuery(
-                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
-                        "FROM lineitem " +
-                        "WHERE quantity < 0 " +
-                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
+                        "FROM \"lineitem\" " +
+                        "WHERE \"quantity\" < 0 " +
+                        "GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
                         "FROM \"lineitem\" " +
                         "WHERE \"quantity\" < 0 " +
@@ -1184,10 +1184,10 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithGlobalAggregationNoInput()
     {
         assertQuery(
-                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
-                        "FROM lineitem " +
-                        "WHERE quantity < 0 " +
-                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey), ())",
+                "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
+                        "FROM \"lineitem\" " +
+                        "WHERE \"quantity\" < 0 " +
+                        "GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"), ())",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
                         "FROM \"lineitem\" " +
                         "WHERE \"quantity\" < 0 " +
@@ -1206,7 +1206,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithSingleDistinct()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"suppkey\"");
     }
@@ -1214,7 +1214,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsWithMultipleDistinct()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)), COUNT(DISTINCT \"linestatus\") FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)), COUNT(DISTINCT \"linestatus\") FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)), COUNT(DISTINCT \"linestatus\") FROM \"lineitem\" GROUP BY \"suppkey\"");
     }
@@ -1223,10 +1223,10 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithMultipleDistinctNoInput()
     {
         assertQuery(
-                "SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
-                        "FROM lineitem " +
-                        "WHERE quantity < 0 " +
-                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)), COUNT(DISTINCT \"linestatus\") " +
+                        "FROM \"lineitem\" " +
+                        "WHERE \"quantity\" < 0 " +
+                        "GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), (\"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(DISTINCT CAST(\"quantity\" AS BIGINT)), COUNT(DISTINCT \"linestatus\") " +
                         "FROM \"lineitem\" " +
                         "WHERE \"quantity\" < 0 " +
@@ -1241,7 +1241,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsGrandTotalSet()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), ())",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1249,7 +1249,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsRepeatedSetsAll()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((), (\"linenumber\", \"suppkey\"), (), (\"linenumber\", \"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" UNION ALL " +
                         "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
@@ -1260,10 +1260,10 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsRepeatedSetsAllNoInput()
     {
         assertQuery(
-                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
-                        "FROM lineitem " +
-                        "WHERE quantity < 0 " +
-                        "GROUP BY GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+                "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
+                        "FROM \"lineitem\" " +
+                        "WHERE \"quantity\" < 0 " +
+                        "GROUP BY GROUPING SETS ((), (\"linenumber\", \"suppkey\"), (), (\"linenumber\", \"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) " +
                         "FROM \"lineitem\" " +
                         "WHERE \"quantity\" < 0 " +
@@ -1286,7 +1286,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsRepeatedSetsDistinct()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY DISTINCT GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY DISTINCT GROUPING SETS ((), (\"linenumber\", \"suppkey\"), (), (\"linenumber\", \"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1294,7 +1294,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsGrandTotalSetFirst()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((), (linenumber), (linenumber, suppkey))",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((), (\"linenumber\"), (\"linenumber\", \"suppkey\"))",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT \"linenumber\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
@@ -1303,14 +1303,14 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsOnlyGrandTotalSet()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS (())",
+        assertQuery("SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS (())",
                 "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
 
     @Test
     public void testGroupingSetsMultipleGrandTotalSets()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((), ())",
+        assertQuery("SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((), ())",
                 "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" UNION ALL " +
                         "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1318,7 +1318,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsMultipleGrandTotalSetsNoInput()
     {
-        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY GROUPING SETS ((), ())",
+        assertQuery("SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 GROUP BY GROUPING SETS ((), ())",
                 "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 UNION ALL " +
                         "SELECT SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0");
     }
@@ -1327,8 +1327,8 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsAliasedGroupingColumns()
     {
         assertQuery(
-                "SELECT lna, lnb, SUM(quantity) " +
-                        "FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) " +
+                "SELECT lna, lnb, SUM(\"quantity\") " +
+                        "FROM (SELECT \"linenumber\" lna, \"linenumber\" lnb, CAST(\"quantity\" AS BIGINT) \"quantity\" FROM \"lineitem\") " +
                         "GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())",
                 "SELECT \"linenumber\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT \"linenumber\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
@@ -1357,8 +1357,8 @@ public abstract class AbstractTestAggregations
     {
         assertQuery(
                 "SELECT COUNT_IF(x IS NULL) FROM (" +
-                        "SELECT x, y, COUNT(z) FROM (SELECT CAST(lineitem.orderkey AS BIGINT) x, lineitem.linestatus y, SUM(lineitem.quantity) z FROM lineitem " +
-                        "JOIN orders ON lineitem.orderkey = orders.orderkey GROUP BY 1, 2) GROUP BY GROUPING SETS ((x, y), ()))",
+                        "SELECT x, y, COUNT(z) FROM (SELECT CAST(\"lineitem\".\"orderkey\" AS BIGINT) x, \"lineitem\".\"linestatus\" y, SUM(\"lineitem\".\"quantity\") z FROM \"lineitem\" " +
+                        "JOIN \"orders\" ON \"lineitem\".\"orderkey\" = \"orders\".\"orderkey\" GROUP BY 1, 2) GROUP BY GROUPING SETS ((x, y), ()))",
                 "SELECT 1");
     }
 
@@ -1367,15 +1367,15 @@ public abstract class AbstractTestAggregations
     {
         assertQuery(
                 "SELECT * FROM (" +
-                        "SELECT COALESCE(orderpriority, 'ALL'), COALESCE(shippriority, -1) sp FROM (" +
-                        "SELECT orderpriority, shippriority, COUNT(1) FROM orders GROUP BY GROUPING SETS ((orderpriority), (shippriority)))) WHERE sp=-1",
+                        "SELECT COALESCE(\"orderpriority\", 'ALL'), COALESCE(\"shippriority\", -1) sp FROM (" +
+                        "SELECT \"orderpriority\", \"shippriority\", COUNT(1) FROM \"orders\" GROUP BY GROUPING SETS ((\"orderpriority\"), (\"shippriority\")))) WHERE sp=-1",
                 "SELECT \"orderpriority\", -1 FROM \"orders\" GROUP BY \"orderpriority\"");
     }
 
     @Test
     public void testGroupingSetsAggregateOnGroupedColumn()
     {
-        assertQuery("SELECT orderpriority, COUNT(orderpriority) FROM orders GROUP BY ROLLUP (orderpriority)",
+        assertQuery("SELECT \"orderpriority\", COUNT(\"orderpriority\") FROM \"orders\" GROUP BY ROLLUP (\"orderpriority\")",
                 "SELECT \"orderpriority\", COUNT(\"orderpriority\") FROM \"orders\" GROUP BY \"orderpriority\" UNION " +
                         "SELECT NULL, COUNT(\"orderpriority\") FROM \"orders\"");
     }
@@ -1383,7 +1383,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsMultipleAggregatesOnGroupedColumn()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(suppkey), COUNT(linenumber), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(\"suppkey\"), COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), ())",
                 "SELECT \"linenumber\", \"suppkey\", SUM(\"suppkey\"), COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, NULL, SUM(\"suppkey\"), COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1391,7 +1391,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsMultipleAggregatesOnUngroupedColumn()
     {
-        assertQuery("SELECT linenumber, suppkey, COUNT(CAST(quantity AS BIGINT)), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", COUNT(CAST(\"quantity\" AS BIGINT)), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), ())",
                 "SELECT \"linenumber\", \"suppkey\", COUNT(CAST(\"quantity\" AS BIGINT)), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, NULL, COUNT(CAST(\"quantity\" AS BIGINT)), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1399,7 +1399,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingSetsMultipleAggregatesWithGroupedColumns()
     {
-        assertQuery("SELECT linenumber, suppkey, COUNT(linenumber), SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), ())",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY GROUPING SETS ((\"linenumber\", \"suppkey\"), ())",
                 "SELECT \"linenumber\", \"suppkey\", COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION " +
                         "SELECT NULL, NULL, COUNT(\"linenumber\"), SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
     }
@@ -1408,9 +1408,9 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithSingleDistinctAndUnion()
     {
         assertQuery(
-                "SELECT suppkey, COUNT(DISTINCT linenumber) FROM " +
-                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
-                        "GROUP BY GROUPING SETS ((suppkey), ())",
+                "SELECT \"suppkey\", COUNT(DISTINCT \"linenumber\") FROM " +
+                        "(SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 0 UNION ALL SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((\"suppkey\"), ())",
                 "SELECT \"suppkey\", COUNT(DISTINCT \"linenumber\") FROM \"lineitem\" GROUP BY \"suppkey\" UNION ALL " +
                         "SELECT NULL, COUNT(DISTINCT \"linenumber\") FROM \"lineitem\"");
     }
@@ -1419,9 +1419,9 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithSingleDistinctAndUnionGroupedArguments()
     {
         assertQuery(
-                "SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
-                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
-                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT \"linenumber\", COUNT(DISTINCT \"linenumber\") FROM " +
+                        "(SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 0 UNION ALL SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((\"linenumber\"), ())",
                 "SELECT DISTINCT \"linenumber\", 1 FROM \"lineitem\" UNION ALL " +
                         "SELECT NULL, COUNT(DISTINCT \"linenumber\") FROM \"lineitem\"");
     }
@@ -1430,9 +1430,9 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithMultipleDistinctAndUnion()
     {
         assertQuery(
-                "SELECT linenumber, COUNT(DISTINCT linenumber), SUM(DISTINCT suppkey) FROM " +
-                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
-                        "GROUP BY GROUPING SETS ((linenumber), ())",
+                "SELECT \"linenumber\", COUNT(DISTINCT \"linenumber\"), SUM(DISTINCT \"suppkey\") FROM " +
+                        "(SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 0 UNION ALL SELECT * FROM \"lineitem\" WHERE \"linenumber\"%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((\"linenumber\"), ())",
                 "SELECT \"linenumber\", 1, SUM(DISTINCT \"suppkey\") FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT NULL, COUNT(DISTINCT \"linenumber\"), SUM(DISTINCT \"suppkey\") FROM \"lineitem\"");
     }
@@ -1440,7 +1440,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testRollup()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY ROLLUP (linenumber, suppkey)",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY ROLLUP (\"linenumber\", \"suppkey\")",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT \"linenumber\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\"");
@@ -1449,7 +1449,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testCube()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY CUBE (linenumber, suppkey)",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY CUBE (\"linenumber\", \"suppkey\")",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT \"linenumber\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT NULL, \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"suppkey\" UNION ALL " +
@@ -1459,7 +1459,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testCubeNoInput()
     {
-        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY CUBE (linenumber, suppkey)",
+        assertQuery("SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 GROUP BY CUBE (\"linenumber\", \"suppkey\")",
                 "SELECT \"linenumber\", \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 GROUP BY \"linenumber\", \"suppkey\" UNION ALL " +
                         "SELECT \"linenumber\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 GROUP BY \"linenumber\" UNION ALL " +
                         "SELECT NULL, \"suppkey\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" WHERE \"quantity\" < 0 GROUP BY \"suppkey\" UNION ALL " +
@@ -1469,7 +1469,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingCombinationsAll()
     {
-        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY orderkey, partkey, ROLLUP (suppkey, linenumber), CUBE (linenumber)",
+        assertQuery("SELECT \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"partkey\", ROLLUP (\"suppkey\", \"linenumber\"), CUBE (\"linenumber\")",
                 "SELECT \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"suppkey\", \"linenumber\" UNION ALL " +
                         "SELECT \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\" UNION ALL " +
                         "SELECT \"orderkey\", \"partkey\", NULL, \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"partkey\", \"linenumber\" UNION ALL " +
@@ -1481,7 +1481,7 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupingCombinationsDistinct()
     {
-        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY DISTINCT orderkey, partkey, ROLLUP (suppkey, linenumber), CUBE (linenumber)",
+        assertQuery("SELECT \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY DISTINCT \"orderkey\", \"partkey\", ROLLUP (\"suppkey\", \"linenumber\"), CUBE (\"linenumber\")",
                 "SELECT \"orderkey\", \"partkey\", \"suppkey\", \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"suppkey\", \"linenumber\" UNION ALL " +
                         "SELECT \"orderkey\", \"partkey\", NULL, \"linenumber\", SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"partkey\", \"linenumber\" UNION ALL " +
                         "SELECT \"orderkey\", \"partkey\", \"suppkey\", NULL, SUM(CAST(\"quantity\" AS BIGINT)) FROM \"lineitem\" GROUP BY \"orderkey\", \"partkey\", \"suppkey\" UNION ALL " +
@@ -1492,10 +1492,10 @@ public abstract class AbstractTestAggregations
     public void testOrderedAggregations()
     {
         assertQuery(
-                "SELECT orderpriority, custkey, array_agg(orderstatus ORDER BY orderstatus) FILTER (WHERE custkey > 500)" +
-                        "FROM orders " +
-                        "WHERE orderkey IN (1, 2, 3, 4, 5) " +
-                        "GROUP BY GROUPING SETS ((), (orderpriority), (orderpriority, custkey))",
+                "SELECT \"orderpriority\", \"custkey\", array_agg(\"orderstatus\" ORDER BY \"orderstatus\") FILTER (WHERE \"custkey\" > 500)" +
+                        "FROM \"orders\" " +
+                        "WHERE \"orderkey\" IN (1, 2, 3, 4, 5) " +
+                        "GROUP BY GROUPING SETS ((), (\"orderpriority\"), (\"orderpriority\", \"custkey\"))",
                 "VALUES " +
                         "(NULL, NULL , ARRAY['F', 'O', 'O'])," +
                         "('5-LOW', NULL , ARRAY['F', 'O'])," +
@@ -1517,7 +1517,7 @@ public abstract class AbstractTestAggregations
     public void testGroupingSetsWithDefaultValue()
     {
         assertQuery(
-                "SELECT orderkey, COUNT(DISTINCT k) FROM (SELECT orderkey, 1 k FROM orders) GROUP BY GROUPING SETS ((), orderkey) HAVING orderkey IS NULL",
+                "SELECT \"orderkey\", COUNT(DISTINCT k) FROM (SELECT \"orderkey\", 1 k FROM \"orders\") GROUP BY GROUPING SETS ((), \"orderkey\") HAVING \"orderkey\" IS NULL",
                 "VALUES (null, 1)");
     }
 

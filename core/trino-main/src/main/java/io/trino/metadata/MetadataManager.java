@@ -3136,7 +3136,7 @@ public final class MetadataManager
             if (catalogMetadata.isEmpty()) {
                 // FIXME: need to throw exception here...
                 System.out.println("MetadataManager.getCanonicalizer() ERROR ************************************************");
-                canonicalizer = Canonicalizer.LOWERCASE_CANONICALIZER;
+                canonicalizer = Canonicalizer.IDENTITY_CANONICALIZER;
             }
             else {
                 ConnectorMetadata metadata = catalogMetadata.get().getMetadata(session);

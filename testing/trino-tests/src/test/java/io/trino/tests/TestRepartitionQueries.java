@@ -19,6 +19,7 @@ import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class TestRepartitionQueries
         extends AbstractTestQueryFramework
@@ -30,64 +31,70 @@ public class TestRepartitionQueries
         return TpchQueryRunner.builder().build();
     }
 
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value.toLowerCase(ENGLISH);
+    }
+
     @Test
     public void testBoolean()
     {
-        testRepartitioning("CASE WHEN mod(custkey + nationkey, 11) = 0 THEN FALSE ELSE TRUE END");
+        testRepartitioning("CASE WHEN mod(\"custkey\" + \"nationkey\", 11) = 0 THEN FALSE ELSE TRUE END");
     }
 
     @Test
     public void testSmallInt()
     {
-        testRepartitioning("CAST(custkey AS SMALLINT)");
+        testRepartitioning("CAST(\"custkey\" AS SMALLINT)");
     }
 
     @Test
     public void testInteger()
     {
-        testRepartitioning("CAST(custkey AS INTEGER)");
+        testRepartitioning("CAST(\"custkey\" AS INTEGER)");
     }
 
     @Test
     public void testBigInt()
     {
-        testRepartitioning("CAST(custkey AS BIGINT)");
+        testRepartitioning("CAST(\"custkey\" AS BIGINT)");
     }
 
     @Test
     public void testIpAddress()
     {
         testRepartitioning(
-                "CAST (FORMAT('%s.%s.%s.%s', custkey % 255, nationkey % 255, nationkey, nationkey) as ipaddress)",
+                "CAST (FORMAT('%s.%s.%s.%s', \"custkey\" % 255, \"nationkey\" % 255, \"nationkey\", \"nationkey\") as ipaddress)",
                 "CAST (column_under_test as VARCHAR)",
-                "custkey % 255 || '.' || nationkey % 255 || '.' || nationkey || '.' || nationkey");
+                "\"custkey\" % 255 || '.' || \"nationkey\" % 255 || '.' || \"nationkey\" || '.' || \"nationkey\"");
     }
 
     @Test
     public void testBigintWithNulls()
     {
-        testRepartitioning("CASE WHEN mod(custkey + nationkey, 11) = 0 THEN NULL ELSE custkey END");
+        testRepartitioning("CASE WHEN mod(\"custkey\" + \"nationkey\", 11) = 0 THEN NULL ELSE \"custkey\" END");
     }
 
     @Test
     public void testVarchar()
     {
-        testRepartitioning("comment");
+        testRepartitioning("\"comment\"");
     }
 
     @Test
     public void testArrayOfBigInt()
     {
-        testRepartitioning("ARRAY[custkey, nationkey, nationkey * 2]");
+        testRepartitioning("ARRAY[\"custkey\", \"nationkey\", \"nationkey\" * 2]");
     }
 
     @Test
     public void testArrayOfArray()
     {
         testRepartitioning(
-                "ARRAY[ARRAY[custkey, nationkey], ARRAY[nationkey * 2]]",
+                "ARRAY[ARRAY[\"custkey\", \"nationkey\"], ARRAY[\"nationkey\" * 2]]",
                 "array_join(column_under_test[1], ',') || ',' ||  array_join(column_under_test[2], ',')",
-                "custkey || ',' || nationkey || ',' || nationkey * 2");
+                "\"custkey\" || ',' || \"nationkey\" || ',' || \"nationkey\" * 2");
     }
 
     @Test
@@ -96,9 +103,9 @@ public class TestRepartitionQueries
         testRepartitioning(
                 "CAST(" +
                         "    ROW (" +
-                        "        custkey," +
-                        "        name," +
-                        "        acctbal" +
+                        "        \"custkey\"," +
+                        "        \"name\"," +
+                        "        \"acctbal\"" +
                         "    ) AS ROW(" +
                         "        l_custkey BIGINT," +
                         "        l_name VARCHAR(25)," +
@@ -106,7 +113,7 @@ public class TestRepartitionQueries
                         "    )" +
                         ")",
                 "FORMAT('%s%s%s', column_under_test.l_custkey, column_under_test.l_name, column_under_test.l_acctbal)",
-                "custkey || name || acctbal");
+                "\"custkey\" || \"name\" || \"acctbal\"");
     }
 
     @Test
@@ -114,20 +121,20 @@ public class TestRepartitionQueries
     {
         testRepartitioning(
                 "CAST (" +
-                        "CASE WHEN mod(custkey + nationkey, 11) = 0 THEN NULL ELSE ROW (custkey, name) END " +
+                        "CASE WHEN mod(\"custkey\" + \"nationkey\", 11) = 0 THEN NULL ELSE ROW (\"custkey\", \"name\") END " +
                         "AS ROW(l_custkey BIGINT, l_name VARCHAR(25))" +
                         ")",
                 "CASE WHEN column_under_test IS NULL THEN '' ELSE FORMAT('%s%s', column_under_test.l_custkey, column_under_test.l_name) END",
-                "CASE WHEN mod(custkey + nationkey, 11) = 0 THEN '' ELSE custkey || name END");
+                "CASE WHEN mod(\"custkey\" + \"nationkey\", 11) = 0 THEN '' ELSE \"custkey\" || \"name\" END");
     }
 
     @Test
     public void testMaps()
     {
         testRepartitioning(
-                "MAP(ARRAY[1, 2], ARRAY[custkey, nationkey])",
+                "MAP(ARRAY[1, 2], ARRAY[\"custkey\", \"nationkey\"])",
                 "array_join(map_values(column_under_test), ',')",
-                "custkey || ',' || nationkey");
+                "\"custkey\" || ',' || \"nationkey\"");
     }
 
     private void testRepartitioning(String columnExpression)
@@ -143,18 +150,18 @@ public class TestRepartitionQueries
         assertQuery(format(
                         "WITH custkey_ex AS (" +
                                 "  SELECT" +
-                                "    custkey," +
-                                "    nationkey," +
+                                "    \"custkey\"," +
+                                "    \"nationkey\"," +
                                 "    %s AS column_under_test" +
-                                "  FROM customer" +
+                                "  FROM \"customer\"" +
                                 ")" +
                                 "SELECT %s FROM (" +
                                 "  SELECT c.column_under_test " +
-                                "  FROM custkey_ex c, nation n " +
-                                "  WHERE c.nationkey = n.nationkey" +
+                                "  FROM custkey_ex c, \"nation\" n " +
+                                "  WHERE c.\"nationkey\" = n.\"nationkey\"" +
                                 ")",
                         columnExpression,
                         columnProjection),
-                format("SELECT %s AS column_under_test FROM customer", actualColumnExpression));
+                format("SELECT %s AS column_under_test FROM \"customer\"", actualColumnExpression));
     }
 }

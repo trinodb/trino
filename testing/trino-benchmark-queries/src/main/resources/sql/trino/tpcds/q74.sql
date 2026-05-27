@@ -1,16 +1,16 @@
 WITH
-  year_total AS (
+  "year_total" AS (
    SELECT
      "c_customer_id" "customer_id"
    , "c_first_name" "customer_first_name"
    , "c_last_name" "customer_last_name"
-   , "d_year" "YEAR"
+   , "d_year" "year"
    , "sum"("ss_net_paid") "year_total"
    , 's' "sale_type"
    FROM
-     ${database}.${schema}.customer
-   , ${database}.${schema}.store_sales
-   , ${database}.${schema}.date_dim
+     ${database}.${schema}."customer"
+   , ${database}.${schema}."store_sales"
+   , ${database}.${schema}."date_dim"
    WHERE ("c_customer_sk" = "ss_customer_sk")
       AND ("ss_sold_date_sk" = "d_date_sk")
       AND ("d_year" IN (2001   , (2001 + 1)))
@@ -19,13 +19,13 @@ UNION ALL    SELECT
      "c_customer_id" "customer_id"
    , "c_first_name" "customer_first_name"
    , "c_last_name" "customer_last_name"
-   , "d_year" "YEAR"
+   , "d_year" "year"
    , "sum"("ws_net_paid") "year_total"
    , 'w' "sale_type"
    FROM
-     ${database}.${schema}.customer
-   , ${database}.${schema}.web_sales
-   , ${database}.${schema}.date_dim
+     ${database}.${schema}."customer"
+   , ${database}.${schema}."web_sales"
+   , ${database}.${schema}."date_dim"
    WHERE ("c_customer_sk" = "ws_bill_customer_sk")
       AND ("ws_sold_date_sk" = "d_date_sk")
       AND ("d_year" IN (2001   , (2001 + 1)))

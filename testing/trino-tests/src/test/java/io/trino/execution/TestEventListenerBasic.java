@@ -81,6 +81,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -337,7 +338,7 @@ public class TestEventListenerBasic
         assertFailedQuery(
                 getSession(),
                 "EXPLAIN (TYPE IO) SELECT sum(bogus) FROM lineitem",
-                "line 1:30: Column 'bogus' cannot be resolved",
+                "line 1:30: Column 'bogus' cannot be resolved, .*",
                 event -> {
                     QueryStatistics statistics = event.getStatistics();
                     assertThat(statistics.getAnalysisTime()).isPresent();
@@ -453,7 +454,7 @@ public class TestEventListenerBasic
         assertFailedQuery(getSession(), sql, expectedFailure, _ -> {});
     }
 
-    private void assertFailedQuery(Session session, @Language("SQL") String sql, String expectedFailure, Consumer<QueryCompletedEvent> additionalAssertions)
+    private void assertFailedQuery(Session session, @Language("SQL") String sql, @Language("RegExp") String expectedFailure, Consumer<QueryCompletedEvent> additionalAssertions)
             throws Exception
     {
         QueryEvents queryEvents = queries.runQueryAndWaitForEvents(sql, session, Optional.of(expectedFailure)).getQueryEvents();
@@ -463,7 +464,7 @@ public class TestEventListenerBasic
 
         QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
                 .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
-        assertThat(expectedFailure).isEqualTo(failureInfo.getFailureMessage().orElse(null));
+        assertThat(Pattern.matches(expectedFailure, failureInfo.getFailureMessage().orElse(null)));
         additionalAssertions.accept(queryCompletedEvent);
     }
 

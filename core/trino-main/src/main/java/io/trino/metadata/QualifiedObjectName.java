@@ -21,6 +21,7 @@ import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -124,5 +125,26 @@ public record QualifiedObjectName(String catalogName, String schemaName, String 
             return name;
         }
         return "\"" + name.replace("\"", "\"\"") + "\"";
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalogName, schemaName, objectName);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        QualifiedObjectName other = (QualifiedObjectName) obj;
+        return Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.objectName, other.objectName);
     }
 }
