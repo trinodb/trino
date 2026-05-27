@@ -35,6 +35,13 @@ public class ResolverManager
     private final Map<String, List<String>> queries = new ConcurrentHashMap<>();
     private final Map<String, Resolver> resolver = new ConcurrentHashMap<>();
     private final Map<NodeRef<Update>, Function<Identifier, String>> canonicalizer = new ConcurrentHashMap<>();
+    private final Resolver withResolver = new Resolver(
+            "WITH",
+            (value, _) -> value,
+            (value, _) -> value,
+            value -> !Identifier.isValidIdentifier(value));
+
+    private Optional<String> withQueryId = Optional.empty();
 
     public ResolverManager() {}
 
@@ -111,8 +118,24 @@ public class ResolverManager
         this.resolver.put(queryId, resolver);
     }
 
+    public Resolver getWithResolver(String queryId)
+    {
+        withQueryId = Optional.of(queryId);
+        return withResolver;
+    }
+
+    public void endUsingWithResolver(String queryId)
+    {
+        if (withQueryId.isPresent() && withQueryId.get().equals(queryId)) {
+            withQueryId = Optional.empty();
+        }
+    }
+
     public Optional<Resolver> getResolver(String queryId)
     {
+        if (withQueryId.isPresent() && withQueryId.get().equals(queryId)) {
+            return Optional.of(withResolver);
+        }
         return Optional.ofNullable(this.resolver.get(queryId));
     }
 
@@ -121,8 +144,8 @@ public class ResolverManager
         this.canonicalizer.put(node, resolver.getCanonicalizer());
     }
 
-    public Function<Identifier, String> getCanonicalizer(NodeRef<Update> node)
+    public Optional<Function<Identifier, String>> getCanonicalizer(NodeRef<Update> node)
     {
-        return this.canonicalizer.get(node);
+        return Optional.ofNullable(this.canonicalizer.get(node));
     }
 }

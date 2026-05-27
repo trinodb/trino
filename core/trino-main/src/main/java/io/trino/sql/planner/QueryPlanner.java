@@ -588,7 +588,7 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
-        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(node);
+        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(node).orElseThrow();
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 

@@ -170,12 +170,22 @@ public class PlannerContext
         resolverManager.setCanonicalizer(NodeRef.of(node), resolver);
     }
 
+    public Resolver getWithResolver(Session session)
+    {
+        return resolverManager.getWithResolver(session.getQueryId().id());
+    }
+
+    public void endUsingWithResolver(Session session)
+    {
+        resolverManager.endUsingWithResolver(session.getQueryId().id());
+    }
+
     public Optional<Resolver> getResolver(Session session)
     {
         return resolverManager.getResolver(session.getQueryId().id());
     }
 
-    public Function<Identifier, String> getDefaultCanonicalizer(Update node)
+    public Optional<Function<Identifier, String>> getDefaultCanonicalizer(Update node)
     {
         return resolverManager.getCanonicalizer(NodeRef.of(node));
     }

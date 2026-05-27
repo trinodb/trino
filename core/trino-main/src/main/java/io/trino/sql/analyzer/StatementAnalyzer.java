@@ -3342,7 +3342,7 @@ class StatementAnalyzer
             GroupingSetAnalysis groupByAnalysis = analyzeGroupBy(node, sourceScope, outputExpressions);
             analyzeHaving(node, sourceScope);
 
-            // FIXME: We use the last canonicalizer set in this query
+            // FIXME: In computeAndAssignOutputScope we need to create Field with the last canonicalizer set in this query
             Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope, plannerContext.getResolver(session));
 
             List<Expression> orderByExpressions = emptyList();
@@ -5781,8 +5781,13 @@ class StatementAnalyzer
             With with = node.getWith().get();
             Scope.Builder withScopeBuilder = scopeBuilder(scope);
 
-             for (WithQuery withQuery : with.getQueries()) {
-                String name = withQuery.getName().getValue();
+            // FIXME: For WITH clause we use the WITH resolver (ie: Identity canonicalizer)
+            //        and this for inner subquery to.
+            Resolver resolver = plannerContext.getWithResolver(session);
+
+            for (WithQuery withQuery : with.getQueries()) {
+
+                String name = resolver.canonicalize(withQuery.getName());
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw semanticException(DUPLICATE_NAMED_QUERY, withQuery, "WITH query name '%s' specified more than once", name);
                 }
@@ -5813,7 +5818,7 @@ class StatementAnalyzer
 
                     // check if all or none of the columns are explicitly alias
                     if (withQuery.getColumnNames().isPresent()) {
-                        validateColumnAliases(withQuery.getColumnNames().get(), analysis.getOutputDescriptor(query).getVisibleFieldCount(), plannerContext.getDefaultCanonicalizer(session));
+                        validateColumnAliases(withQuery.getColumnNames().get(), analysis.getOutputDescriptor(query).getVisibleFieldCount(), resolver.getCanonicalizer());
                     }
 
                     withScopeBuilder.withNamedQuery(name, withQuery);
@@ -5821,6 +5826,7 @@ class StatementAnalyzer
             }
             Scope withScope = withScopeBuilder.build();
             analysis.setScope(with, withScope);
+            plannerContext.endUsingWithResolver(session);
             return withScope;
         }
 
