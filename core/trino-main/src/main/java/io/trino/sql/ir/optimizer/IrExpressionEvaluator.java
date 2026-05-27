@@ -40,6 +40,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -106,12 +107,21 @@ public class IrExpressionEvaluator
             case In e -> evaluateInternal(e, session, bindings);
             case IsNull e -> evaluateInternal(e, session, bindings);
             case Lambda e -> makeLambdaInvoker(session, e);
+            case Let e -> evaluateInternal(e, session, bindings);
             case Logical e -> evaluateInternal(e, session, bindings);
             case NullIf e -> evaluateInternal(e, session, bindings);
             case Reference reference -> bindings.get(reference.name());
             case Row e -> evaluateInternal(e, session, bindings);
             case Match e -> evaluateInternal(e, session, bindings);
         };
+    }
+
+    private Object evaluateInternal(Let let, Session session, Map<String, Object> assignments)
+    {
+        Object boundValue = evaluate(let.value(), session, assignments);
+        Map<String, Object> extended = new HashMap<>(assignments);
+        extended.put(let.name().name(), boundValue);
+        return evaluate(let.body(), session, extended);
     }
 
     private Object evaluateInternal(Bind bind, Session session, Map<String, Object> assignments)
