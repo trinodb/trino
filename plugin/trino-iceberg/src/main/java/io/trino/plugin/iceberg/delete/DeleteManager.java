@@ -85,7 +85,7 @@ public class DeleteManager
                     }
                 }
                 case EQUALITY_DELETES -> equalityDeleteFiles.add(deleteFile);
-                case DATA -> throw new VerifyException("DATA is not delete file type");
+                case DATA, DATA_MANIFEST, DELETE_MANIFEST -> throw new VerifyException("DATA is not delete file type");
             }
         }
 

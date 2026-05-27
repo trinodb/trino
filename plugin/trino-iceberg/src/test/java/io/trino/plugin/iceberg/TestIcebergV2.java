@@ -1141,12 +1141,12 @@ public class TestIcebergV2
                                (0,
                                 'PARQUET',
                                 25L,
-                                JSON '{"1":137,"2":216,"3":91,"4":801}',
+                                JSON '{"1":137,"2":190,"3":91,"4":773}',
                                 JSON '{"1":25,"2":25,"3":25,"4":25}',
                                 jSON '{"1":0,"2":0,"3":0,"4":0}',
                                 jSON '{}',
-                                JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
-                                JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
+                                JSON '{"1":0,"2":"ALGERIA","3":0,"4":" haggle. careful"}',
+                                JSON '{"1":24,"2":"VIETNAM","3":4,"4":"y final packaget"}',
                                 null,
                                 ARRAY[4L],
                                 null,
@@ -1163,8 +1163,8 @@ public class TestIcebergV2
                                 JSON '{"1":5,"2":3,"3":2}',
                                 JSON '{"1":0,"2":2}',
                                 JSON '{"4":1}',
-                                JSON '{"1":"0"}',
-                                JSON '{"1":"4"}',
+                                JSON '{"1":0,"2":null,"3":null,"4":null}',
+                                JSON '{"1":4,"2":null,"3":null,"4":null}',
                                 X'54 72 69 6e 6f',
                                 ARRAY[4L],
                                 null,
@@ -1181,8 +1181,8 @@ public class TestIcebergV2
                                 JSON '{"3":1}',
                                 JSON '{"3":0}',
                                 JSON '{}',
-                                JSON '{"3":"1"}',
-                                JSON '{"3":"1"}',
+                                JSON '{"1":null,"2":null,"3":1,"4":null}',
+                                JSON '{"1":null,"2":null,"3":1,"4":null}',
                                 null,
                                 ARRAY[4],
                                 ARRAY[3],
@@ -1779,6 +1779,45 @@ public class TestIcebergV2
         assertThat(query("SHOW STATS FOR " + table))
                 .skippingTypesCheck()
                 .matches(expectedStats);
+
+        catalog.dropTable(SESSION, schemaTableName);
+    }
+
+    @Test // regression test for https://github.com/trinodb/trino/issues/20511
+    void testRequiredField()
+    {
+        testRequiredField(true);
+        testRequiredField(false);
+    }
+
+    private void testRequiredField(boolean projectionPushdown)
+    {
+        Session projectionPushdownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "projection_pushdown_enabled", Boolean.toString(projectionPushdown))
+                .build();
+
+        String table = "test_required_field" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(
+                                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                                Types.NestedField.optional(2, "struct", Types.StructType.of(
+                                        Types.NestedField.required(3, "field", Types.IntegerType.get())))),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        assertUpdate("INSERT INTO " + table + " VALUES (1, row(10)), (2, NULL)", 2);
+
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NOT NULL"))
+                .matches("VALUES 1");
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NULL"))
+                .matches("VALUES 2");
 
         catalog.dropTable(SESSION, schemaTableName);
     }

@@ -52,6 +52,7 @@ import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
@@ -68,6 +69,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -234,6 +236,39 @@ public class TestHiveProjectionPushdownIntoTableScan
                                                                         .withProjectedColumns(ImmutableSet.of(column1Handle))::equals,
                                                                 TupleDomain.all(),
                                                                 ImmutableMap.of("s_expr_1", column1Handle::equals))))))));
+    }
+
+    @Test
+    public void testProjectionPushdownInsideLambda()
+    {
+        String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
+        QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s AS " +
+                        "SELECT ARRAY[1, 2, 3] items, " +
+                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
+                        "WHERE false",
+                testTable));
+
+        Session session = getPlanTester().getDefaultSession();
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
+
+        HiveColumnHandle items = (HiveColumnHandle) columns.get("items");
+        HiveColumnHandle payload = (HiveColumnHandle) columns.get("payload");
+        HiveColumnHandle captured = createProjectedColumnHandle(payload, ImmutableList.of(0));
+
+        assertPlan(
+                "SELECT transform(items, x -> x + payload.captured) result FROM " + testTable,
+                anyTree(
+                        tableScan(
+                                table -> ((HiveTableHandle) table).getProjectedColumns().equals(ImmutableSet.of(items, captured)),
+                                TupleDomain.all(),
+                                ImmutableMap.of("items", equalTo(items), "payload#captured", equalTo(captured)))));
     }
 
     @AfterAll

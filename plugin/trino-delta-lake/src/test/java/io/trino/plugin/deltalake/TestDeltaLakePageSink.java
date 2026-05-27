@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -193,6 +194,7 @@ public class TestDeltaLakePageSink
                 new FileFormatDataSourceStats(),
                 deltaLakeConfig,
                 new ParquetReaderConfig(),
+                new ParquetWriterConfig(),
                 TESTING_TYPE_MANAGER,
                 new NodeVersion("test-version"));
 

@@ -21,6 +21,7 @@ import io.trino.operator.TestingSourcePage;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Case;
@@ -37,7 +38,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

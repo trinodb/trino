@@ -71,6 +71,54 @@ public class TestStaticMethodCall
         }
     }
 
+    @ScalarFunction("array_method")
+    @StaticMethod(StandardTypes.ARRAY)
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayMethod()
+    {
+        return 1L;
+    }
+
+    @ScalarFunction("row_method")
+    @StaticMethod(StandardTypes.ROW)
+    @SqlType(StandardTypes.BIGINT)
+    public static long rowMethod()
+    {
+        return 2L;
+    }
+
+    @ScalarFunction("map_method")
+    @StaticMethod(StandardTypes.MAP)
+    @SqlType(StandardTypes.BIGINT)
+    public static long mapMethod()
+    {
+        return 3L;
+    }
+
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.ARRAY)
+    @SqlType(StandardTypes.BIGINT)
+    public static long arrayToken()
+    {
+        return 10L;
+    }
+
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.ROW)
+    @SqlType(StandardTypes.BIGINT)
+    public static long rowToken()
+    {
+        return 20L;
+    }
+
+    @ScalarFunction("token")
+    @StaticMethod(StandardTypes.MAP)
+    @SqlType(StandardTypes.BIGINT)
+    public static long mapToken()
+    {
+        return 30L;
+    }
+
     @Test
     public void testBasic()
     {
@@ -109,6 +157,26 @@ public class TestStaticMethodCall
         // The plain `parse('42')` form must NOT resolve to bigint::parse.
         assertTrinoExceptionThrownBy(() -> assertions.expression("parse('42')").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
+    }
+
+    @Test
+    public void testParametricBaseReceiver()
+    {
+        // Parametric base types (array, row, map) that have no default instantiation
+        // must still resolve as static method receivers — only the base name matters.
+        assertThat(assertions.expression("array::array_method()")).matches("BIGINT '1'");
+        assertThat(assertions.expression("row::row_method()")).matches("BIGINT '2'");
+        assertThat(assertions.expression("map::map_method()")).matches("BIGINT '3'");
+    }
+
+    @Test
+    public void testSameMethodNameOnDifferentReceivers()
+    {
+        // Three identically-signed static methods registered on distinct receiver
+        // types must coexist in the same function bundle and dispatch by receiver.
+        assertThat(assertions.expression("array::token()")).matches("BIGINT '10'");
+        assertThat(assertions.expression("row::token()")).matches("BIGINT '20'");
+        assertThat(assertions.expression("map::token()")).matches("BIGINT '30'");
     }
 
     @Test

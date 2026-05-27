@@ -18,7 +18,8 @@
         <airstyle.rewriteUnusedLambdaParameters>false</airstyle.rewriteUnusedLambdaParameters>
         <checkstyle.violation.ignore>UnusedLambdaParameterShouldBeUnnamed,UseEnhancedSwitch</checkstyle.violation.ignore>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>4.1.0</dep.jline.version>
+        <!-- TODO upgrade once https://github.com/jline/jline3/issues/1879 has been addressed -->
+        <dep.jline.version>4.0.15</dep.jline.version>
     </properties>
 
     <dependencies>

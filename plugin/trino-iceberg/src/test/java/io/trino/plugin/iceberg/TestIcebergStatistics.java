@@ -66,8 +66,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name', 583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name', 513.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)""";
 
         if (collectOnStatsOnWrites) {
@@ -80,8 +80,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, null, 0, null, '0', '24'),
                       ('regionkey', null, null, 0, null, '0', '4'),
-                      ('comment', 2162.0, null, 0, null, null, null),
-                      ('name', 583.0, null, 0, null, null, null),
+                      ('comment', 2087.0, null, 0, null, null, null),
+                      ('name', 513.0, null, 0, null, null, null),
                       (null, null, null, null, 25, null, null)""");
         }
 
@@ -99,8 +99,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 4325.0, 25, 0, null, null, null),
-                  ('name', 1166.0, 25, 0, null, null, null),
+                  ('comment', 4174.0, 25, 0, null, null, null),
+                  ('name', 1026.0, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)""";
         assertUpdate("ANALYZE " + tableName);
         assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterFirstInsert);
@@ -112,8 +112,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 6463.0, 50, 0, null, null, null),
-                  ('name', 1768.0, 50, 0, null, null, null),
+                  ('comment', 6247.0, 50, 0, null, null, null),
+                  ('name', 1536.0, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
 
@@ -128,8 +128,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 6463.0, 25, 0, null, null, null),
-                      ('name', 1768.0, 25, 0, null, null, null),
+                      ('comment', 6247.0, 25, 0, null, null, null),
+                      ('name', 1536.0, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
         }
@@ -200,8 +200,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 3507.0, 25, 0, null, null, null),
-                  ('name', 1182.0, 25, 0, null, null, null),
+                  ('comment', 3639.0, 25, 0, null, null, null),
+                  ('name', 1212.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """;
 
@@ -215,8 +215,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, null, 0, null, '0', '24'),
                       ('regionkey', null, null, 0, null, '0', '4'),
-                      ('comment', 3507.0, null, 0, null, null, null),
-                      ('name', 1182.0, null, 0, null, null, null),
+                      ('comment', 3639.0, null, 0, null, null, null),
+                      ('name', 1212.0, null, 0, null, null, null),
                       (null, null, null, null, 25, null, null)
                     """);
         }
@@ -234,8 +234,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 7014.0, 25, 0, null, null, null),
-                  ('name', 2365.0, 25, 0, null, null, null),
+                  ('comment', 7279.0, 25, 0, null, null, null),
+                  ('name', 2424.0, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -246,8 +246,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 10493.999999999998, 50, 0, null, null, null),
-                  ('name', 3564.0000000000005, 50, 0, null, null, null),
+                  ('comment', 10891.0, 50, 0, null, null, null),
+                  ('name', 3635.9999999999995, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
 
@@ -262,8 +262,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 10493.999999999998, 25, 0, null, null, null),
-                      ('name', 3564.0000000000005, 25, 0, null, null, null),
+                      ('comment', 10891.0, 25, 0, null, null, null),
+                      ('name', 3635.9999999999995, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
         }
@@ -317,8 +317,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name', 583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name', 513.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """);
 
@@ -349,7 +349,7 @@ public class TestIcebergStatistics
                           ('name', %s, 7, 0, null, null, null),
                           (null, null, null, null, 7, null, null)
                         """
-                        .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0")
+                        .formatted(partitioned ? "1360.0" : "963.0000000000001", partitioned ? "496.0" : "275.0")
                         :
                         """
                         VALUES
@@ -359,7 +359,7 @@ public class TestIcebergStatistics
                           ('name', %s, null, 0, null, null, null),
                           (null, null, null, null, 7, null, null)
                         """
-                        .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0"));
+                        .formatted(partitioned ? "1360.0" : "963.0000000000001", partitioned ? "496.0" : "275.0"));
 
         assertUpdate(withStatsOnWrite(getSession(), true), "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation WHERE nationkey >= 12 OR regionkey >= 3", 18);
         assertQuery(
@@ -374,7 +374,7 @@ public class TestIcebergStatistics
                           ('name', %s, 25, 0, null, null, null),
                           (null, null, null, null, 25, null, null)
                         """
-                        .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0")
+                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0")
                         :
                         """
                         VALUES
@@ -384,7 +384,7 @@ public class TestIcebergStatistics
                           ('name', %s, null, 0, null, null, null),
                           (null, null, null, null, 25, null, null)
                         """
-                        .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0"));
+                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -423,7 +423,7 @@ public class TestIcebergStatistics
                   ('name', %f, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """
-                        .formatted(partitioned ? 3507.0 : 2162.0, partitioned ? 1182.0 : 583));
+                        .formatted(partitioned ? 3639.0 : 2087.0, partitioned ? 1212.0 : 513));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -557,8 +557,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name', 583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name', 513.0, null, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """);
 
@@ -573,8 +573,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 4441.0, null, 0, null, null, null),
-                  ('name', 1193.0, null, 0, null, null, null),
+                  ('comment', 4293.0, null, 0, null, null, null),
+                  ('name', 1069.0, null, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -589,8 +589,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 4441.0, 50, 0, null, null, null),
-                  ('name', 1193.0, 50, 0, null, null, null),
+                  ('comment', 4293.0, 50, 0, null, null, null),
+                  ('name', 1069.0, 50, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -604,8 +604,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '74'),
                   ('regionkey', null, 10, 0, null, '0', '14'),
-                  ('comment', 6701.0, 50, 0, null, null, null),
-                  ('name', 1803.0, 50, 0, null, null, null),
+                  ('comment', 6482.0, 50, 0, null, null, null),
+                  ('name', 1625.0, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -617,8 +617,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 75, 0, null, '0', '74'),
                   ('regionkey', null, 15, 0, null, '0', '14'),
-                  ('comment', 6701.0, 50, 0, null, null, null), -- result of previous analyze
-                  ('name', 1803.0, 50, 0, null, null, null), -- result of previous analyze
+                  ('comment', 6482.0, 50, 0, null, null, null), -- result of previous analyze
+                  ('name', 1625.0, 50, 0, null, null, null), -- result of previous analyze
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -630,8 +630,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 75, 0, null, '0', '74'),
                   ('regionkey', null, 15, 0, null, '0', '14'),
-                  ('comment', 6701.0, 75, 0, null, null, null),
-                  ('name', 1803.0, 75, 0, null, null, null),
+                  ('comment', 6482.0, 75, 0, null, null, null),
+                  ('name', 1625.0, 75, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -676,8 +676,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, null, 0, null, '0', '24'),
                   ('regionkey', null, null, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name',  583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name',  513.0, null, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """;
         String extendedStats =
@@ -685,8 +685,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """;
 
@@ -717,8 +717,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, null, 0, null, '0', '24'),
                   ('regionkey', null, null, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name',  583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name',  513.0, null, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 
@@ -788,8 +788,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2448.0, 25, 0, null, null, null),
-                  ('name',  704.0, 25, 0, null, null, null),
+                  ('comment', 2389.0, 25, 0, null, null, null),
+                  ('name',  637.0, 25, 0, null, null, null),
                   (null,  null, null, null, 26, null, null)
                 """);
 
@@ -801,8 +801,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 
@@ -828,8 +828,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 

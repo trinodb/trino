@@ -541,6 +541,10 @@ public final class IcebergUtil
                     .map(field -> NestedField.from(field).withName(nestedField.name() + "." + field.name()).build());
         }
 
+        if (type.isVariantType()) {
+            return Stream.empty();
+        }
+
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
@@ -596,7 +600,7 @@ public final class IcebergUtil
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }
 
-    private static String quotedName(String name)
+    public static String quotedName(String name)
     {
         if (SIMPLE_NAME.matcher(name).matches()) {
             return name;

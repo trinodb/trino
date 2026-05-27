@@ -40,6 +40,7 @@ import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTra
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -114,7 +115,8 @@ public class PushPredicateIntoTableScan
                 pruneWithPredicateExpression,
                 context.getSession(),
                 plannerContext,
-                context.getStatsProvider());
+                context.getStatsProvider(),
+                context.getSymbolAllocator());
 
         if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
@@ -147,7 +149,8 @@ public class PushPredicateIntoTableScan
             boolean pruneWithPredicateExpression,
             Session session,
             PlannerContext plannerContext,
-            StatsProvider statsProvider)
+            StatsProvider statsProvider,
+            SymbolAllocator symbolAllocator)
     {
         if (!isAllowPushdownIntoConnectors(session)) {
             return Optional.empty();
@@ -259,6 +262,7 @@ public class PushPredicateIntoTableScan
             Map<String, Symbol> variableMappings = assignments.values().stream()
                     .collect(toImmutableMap(Symbol::name, Function.identity()));
             Expression translatedExpression = ConnectorExpressionTranslator.translate(session, remainingConnectorExpression.get(), plannerContext, variableMappings);
+            translatedExpression = LambdaCaptureDesugaringRewriter.rewrite(translatedExpression, symbolAllocator);
             // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
             // by ensuring expression is optimized.
             translatedExpression = plannerContext.getExpressionOptimizer().process(translatedExpression, session, ImmutableMap.of()).orElse(translatedExpression);

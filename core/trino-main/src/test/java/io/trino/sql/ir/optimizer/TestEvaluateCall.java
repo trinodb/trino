@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -26,7 +27,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

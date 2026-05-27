@@ -542,8 +542,8 @@ public abstract class BaseIcebergSystemTables
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
                         "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('lower_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
+                        "('upper_bounds', 'row(\"1\" bigint, \"2\" date)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')," +
@@ -628,7 +628,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varchar",
                 "VALUES 'alice', 'bob'",
-                "{\"x\":{\"column_size\":" + columnSize(48) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
+                "{\"x\":{\"column_size\":" + columnSize(50) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":\"alice\",\"upper_bound\":\"bob\"}}");
         testFilesTableReadableMetrics(
                 "uuid",
                 "VALUES UUID '09e1efb9-9e87-465e-abaf-0c67f4841114', UUID '0f2ef2b3-3c5a-4834-ba91-61be53ff8fbb'",
@@ -636,7 +636,7 @@ public abstract class BaseIcebergSystemTables
         testFilesTableReadableMetrics(
                 "varbinary",
                 "VALUES x'12', x'34'",
-                "{\"x\":{\"column_size\":" + columnSize(42) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
+                "{\"x\":{\"column_size\":" + columnSize(44) + ",\"value_count\":2,\"null_value_count\":0,\"nan_value_count\":null,\"lower_bound\":" + value("\"12\"", null) + ",\"upper_bound\":" + value("\"34\"", null) + "}}");
         testFilesTableReadableMetrics(
                 "row(y int)",
                 "SELECT (CAST(ROW(123) AS ROW(y int)))",

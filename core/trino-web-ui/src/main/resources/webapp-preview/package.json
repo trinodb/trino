@@ -22,15 +22,15 @@
     "@emotion/styled": "^11.14.1",
     "@fontsource/roboto": "^5.2.10",
     "@monaco-editor/react": "^4.7.0",
-    "@mui/icons-material": "^7.3.9",
-    "@mui/material": "^7.3.9",
+    "@mui/icons-material": "^7.3.11",
+    "@mui/material": "^7.3.11",
     "@mui/x-charts": "^8.28.2",
     "@xyflow/react": "^12.10.2",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "lodash": "^4.17.23",
-    "react": "^19.1.4",
+    "react": "^19.2.6",
     "react-calendar-timeline": "^0.30.0-beta.4",
-    "react-dom": "^19.2.5",
+    "react-dom": "^19.2.6",
     "react-router-dom": "^7.14.2",
     "sass": "^1.99.0",
     "zustand": "^5.0.13"
@@ -42,7 +42,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.59.2",
-    "@typescript-eslint/parser": "^8.56.0",
+    "@typescript-eslint/parser": "^8.59.4",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
@@ -52,7 +52,7 @@
     "prettier": "^3.8.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.2",
-    "vite": "^7.3.2"
+    "vite": "^7.3.3"
   },
   "overrides": {
     "refractor": {

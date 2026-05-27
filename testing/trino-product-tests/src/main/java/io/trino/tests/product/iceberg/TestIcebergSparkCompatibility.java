@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -3604,6 +3605,41 @@ public class TestIcebergSparkCompatibility
         assertSparkBloomFilterTableSelectResult(sparkTableName);
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, description = "Sentinel: asserts iceberg-arrow's vectorized parquet reader fails on DELTA_LENGTH_BYTE_ARRAY pages. When iceberg-arrow gains support, this assertion fails, signaling that the Iceberg connector should flip parquet.writer.delta-length-byte-array-encoding-enabled to true by default.")
+    public void testTrinoSparkParquetDeltaLengthByteArrayCompatibility()
+    {
+        String baseTableName = "test_trino_spark_iceberg_delta_length_compat_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (format = 'PARQUET')",
+                trinoTableName));
+        try {
+            // Force DELTA_LENGTH_BYTE_ARRAY fallback with high-cardinality UUID-derived
+            // values. The dictionary writer falls back at first-page flush via the compression
+            // ratio check (random UUIDs offer no dictionary compression); 5000 rows is
+            // comfortably above the empirical threshold pinned by
+            // TestParquetWriter#testDeltaLengthByteArrayFallbackIsWritten.
+            StringBuilder values = new StringBuilder();
+            for (int i = 0; i < 5000; i++) {
+                String uuid = UUID.randomUUID().toString();
+                if (i > 0) {
+                    values.append(", ");
+                }
+                values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
+            }
+            onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
+
+            assertThat(onSpark().executeQuery(format("SELECT count(DISTINCT str) FROM %s", sparkTableName)))
+                    .contains(row(5000));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE " + trinoTableName);
+        }
     }
 
     private static void assertTrinoBloomFilterTableSelectResult(String trinoTable)

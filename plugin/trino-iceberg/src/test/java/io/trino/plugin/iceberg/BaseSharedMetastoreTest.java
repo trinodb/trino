@@ -235,6 +235,46 @@ public abstract class BaseSharedMetastoreTest
     }
 
     @Test
+    public void testRedirectedIcebergViewWithTableSuffix()
+    {
+        String tableName = "test_redirected_view_" + randomNameSuffix();
+        String viewName = tableName + "$view";
+
+        try {
+            assertUpdate("CREATE TABLE iceberg.%s.%s AS SELECT * FROM nation".formatted(testSchema, tableName), 25);
+            assertUpdate("CREATE VIEW iceberg.%s.\"%s\" AS SELECT nationkey, name FROM iceberg.%s.%s WHERE nationkey < 3".formatted(testSchema, viewName, testSchema, tableName));
+
+            assertThat(query("SELECT * FROM hive_with_redirections.%s.\"%s\"".formatted(testSchema, viewName)))
+                    .matches("SELECT * FROM iceberg.%s.\"%s\"".formatted(testSchema, viewName));
+            assertThat(query("DESCRIBE hive_with_redirections.%s.\"%s\"".formatted(testSchema, viewName)))
+                    .matches("DESCRIBE iceberg.%s.\"%s\"".formatted(testSchema, viewName));
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS iceberg.%s.\"%s\"".formatted(testSchema, viewName));
+            assertUpdate("DROP TABLE IF EXISTS iceberg.%s.%s".formatted(testSchema, tableName));
+        }
+    }
+
+    @Test
+    public void testRedirectedIcebergTableSuffixStillFallsThroughWhenTargetIsNotView()
+    {
+        String tableName = "test_redirected_non_view_suffix_" + randomNameSuffix();
+        String invalidName = tableName + "$invalid";
+
+        try {
+            assertUpdate("CREATE TABLE iceberg.%s.%s AS SELECT * FROM nation".formatted(testSchema, tableName), 25);
+
+            assertThat(query("SELECT * FROM hive_with_redirections.%s.\"%s\"".formatted(testSchema, invalidName)))
+                    .failure()
+                    .hasMessageContaining("Table 'hive_with_redirections.%s.\"%s\"' redirected to 'iceberg.%s.\"%s\"'".formatted(testSchema, invalidName, testSchema, invalidName))
+                    .hasMessageContaining("but the target table 'iceberg.%s.\"%s\"' does not exist".formatted(testSchema, invalidName));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS iceberg.%s.%s".formatted(testSchema, tableName));
+        }
+    }
+
+    @Test
     public void testMigrateTable()
     {
         String tableName = "test_migrate_" + randomNameSuffix();
@@ -264,6 +304,13 @@ public abstract class BaseSharedMetastoreTest
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'test')");
 
         assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
+    public void testSelectRedirectedIcebergPartitionsView()
+    {
+        assertThat(query("SELECT record_count FROM hive_with_redirections." + tpchSchema + ".\"nation$partitions\""))
+                .matches("SELECT record_count FROM iceberg." + tpchSchema + ".\"nation$partitions\"");
     }
 
     private long getLatestSnapshotId(String schema)

@@ -364,7 +364,7 @@ public class IcebergSplitSource
                                 }
                                 yield isUnconstrainedPathAndTimeDomain();
                             }
-                            case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
+                            case DATA, DATA_MANIFEST, DELETE_MANIFEST -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
                         })
                         .collect(toImmutableList());
                 scannedFiles.add(new DataFileWithDeleteFiles(wholeFileTask.file(), fullyAppliedDeletes));

@@ -45,6 +45,14 @@ public interface TypeManager
     }
 
     /**
+     * Returns whether `name` is a known type base.
+     *
+     * Unlike `getType`, this returns true for parametric bases (e.g. `array`, `row`,
+     * `map`) that cannot be instantiated without parameters.
+     */
+    boolean isTypeRegistered(String name);
+
+    /**
      * Gets the cache for type operators.
      */
     TypeOperators getTypeOperators();

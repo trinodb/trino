@@ -42,6 +42,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
@@ -162,7 +163,6 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -771,7 +771,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, Context context)
         {
-            // System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
+            //System.out.println("ExpressionAnalyzer.visitIdentifier() stacktrace: " + Arrays.toString(Thread.currentThread().getStackTrace()).replace(',', '\n'));
             ResolvedField resolvedField = context.getScope().resolveField(node, node);
 
             if (context.isPatternRecognition()) {
@@ -1606,17 +1606,10 @@ public class ExpressionAnalyzer
         protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
         {
             QualifiedName receiver = node.getType();
-            if (receiver.getParts().size() != 1) {
+            if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
             TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
-            Type receiverType;
-            try {
-                receiverType = plannerContext.getTypeManager().getType(receiverSignature);
-            }
-            catch (TypeNotFoundException e) {
-                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
-            }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
 
@@ -1624,7 +1617,7 @@ public class ExpressionAnalyzer
             try {
                 function = functionResolver.resolveStaticMethod(
                         session,
-                        receiverType.getTypeSignature(),
+                        receiverSignature,
                         QualifiedName.of(node.getMethod().getValue()),
                         argumentTypes,
                         accessControl);
@@ -3126,6 +3119,16 @@ public class ExpressionAnalyzer
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
+            }
+
+            // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
+            // OMIT QUOTES would require emitting a bare unquoted scalar, which is not valid JSON; the spec
+            // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
+            // QUOTES parameter). On trunk the only reachable JSON-effective return type is an explicit
+            // RETURNING JSON — analyzeJsonPathInvocation's getInputFunction rejects JSON-typed inputs, so
+            // the SR 1 "JSON-typed input with no RETURNING" branch can't be exercised today.
+            if (quotesBehavior.filter(behavior -> behavior == JsonQuery.QuotesBehavior.OMIT).isPresent() && JSON.equals(returnedType)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
             }
             JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 

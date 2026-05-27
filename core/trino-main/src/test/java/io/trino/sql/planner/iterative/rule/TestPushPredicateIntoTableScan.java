@@ -34,19 +34,28 @@ import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -55,12 +64,15 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
@@ -69,8 +81,10 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushPredicateIntoTableScan
@@ -78,6 +92,9 @@ public class TestPushPredicateIntoTableScan
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction MODULO_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(BIGINT, BIGINT));
+    private static final ArrayType BIGINT_ARRAY = new ArrayType(BIGINT);
+    private static final FunctionType BIGINT_TO_BOOLEAN = new FunctionType(ImmutableList.of(BIGINT), BOOLEAN);
+    private static final ResolvedFunction ANY_MATCH_BIGINT = FUNCTIONS.resolveFunction("any_match", fromTypes(BIGINT_ARRAY, BIGINT_TO_BOOLEAN));
 
     private static final String MOCK_CATALOG = "mock_catalog";
     private static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
@@ -86,6 +103,8 @@ public class TestPushPredicateIntoTableScan
             new MockConnectorTableHandle(new SchemaTableName("schema", "partitioned_to_unpartitioned"));
     private static final ConnectorTableHandle CONNECTOR_UNPARTITIONED_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName("schema", "unpartitioned"));
+    private static final ConnectorTableHandle CONNECTOR_LAMBDA_TABLE_HANDLE =
+            new MockConnectorTableHandle(new SchemaTableName("schema", "lambda"));
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
 
@@ -345,6 +364,31 @@ public class TestPushPredicateIntoTableScan
     }
 
     @Test
+    public void testPushPredicateWithRemainingLambda()
+    {
+        Session session = Session.builder(tester().getSession())
+                .setCatalog(MOCK_CATALOG)
+                .build();
+        ColumnHandle arrayColumn = new MockConnectorColumnHandle("array_col", BIGINT_ARRAY);
+        ColumnHandle captureColumn = new MockConnectorColumnHandle("capture_col", BIGINT);
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(session)
+                .on(p -> {
+                    Symbol array = p.symbol("array_col", BIGINT_ARRAY);
+                    Symbol capture = p.symbol("capture_col", BIGINT);
+                    return p.filter(
+                            anyMatch(Comparison.Operator.GREATER_THAN_OR_EQUAL),
+                            p.tableScan(
+                                    mockTableHandle(CONNECTOR_LAMBDA_TABLE_HANDLE),
+                                    ImmutableList.of(array, capture),
+                                    ImmutableMap.of(array, arrayColumn, capture, captureColumn)));
+                })
+                .matches(node(FilterNode.class, tableScan("lambda"))
+                        .with(FilterNode.class, filter -> filter.getPredicate().equals(desugaredAnyMatch(Comparison.Operator.GREATER_THAN))));
+    }
+
+    @Test
     public void testPartitioningChanged()
     {
         Session session = Session.builder(tester().getSession())
@@ -407,11 +451,63 @@ public class TestPushPredicateIntoTableScan
                 .matches(values(ImmutableList.of("A"), ImmutableList.of()));
     }
 
+    private static Expression anyMatch(Comparison.Operator operator)
+    {
+        Symbol lambdaCapture = new Symbol(BIGINT, "capture");
+        Symbol lambdaArgument = new Symbol(BIGINT, "x");
+        return new Call(
+                ANY_MATCH_BIGINT,
+                ImmutableList.of(
+                        new Reference(BIGINT_ARRAY, "array_col"),
+                        new Bind(
+                                ImmutableList.of(new Reference(BIGINT, "capture_col")),
+                                new io.trino.sql.ir.Lambda(
+                                        ImmutableList.of(lambdaCapture, lambdaArgument),
+                                        new Comparison(operator, lambdaArgument.toSymbolReference(), lambdaCapture.toSymbolReference())))));
+    }
+
+    private static Expression desugaredAnyMatch(Comparison.Operator operator)
+    {
+        Symbol lambdaCapture = new Symbol(BIGINT, "capture_col_0");
+        Symbol lambdaArgument = new Symbol(BIGINT, "x");
+        return new Call(
+                ANY_MATCH_BIGINT,
+                ImmutableList.of(
+                        new Reference(BIGINT_ARRAY, "array_col"),
+                        new Bind(
+                                ImmutableList.of(new Reference(BIGINT, "capture_col")),
+                                new io.trino.sql.ir.Lambda(
+                                        ImmutableList.of(lambdaCapture, lambdaArgument),
+                                        new Comparison(operator, lambdaArgument.toSymbolReference(), lambdaCapture.toSymbolReference())))));
+    }
+
+    private static ConnectorExpression connectorAnyMatch(FunctionName comparison)
+    {
+        ConnectorExpression lambdaBody = new io.trino.spi.expression.Call(
+                BOOLEAN,
+                comparison,
+                ImmutableList.of(new Variable("x", BIGINT), new Variable("capture_col", BIGINT)));
+        return new io.trino.spi.expression.Call(
+                BOOLEAN,
+                new FunctionName("any_match"),
+                ImmutableList.of(
+                        new Variable("array_col", BIGINT_ARRAY),
+                        new io.trino.spi.expression.Lambda(BIGINT_TO_BOOLEAN, ImmutableList.of(new Variable("x", BIGINT)), lambdaBody)));
+    }
+
     public static MockConnectorFactory createMockFactory()
     {
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
         builder
                 .withApplyFilter((_, tableHandle, constraint) -> {
+                    if (tableHandle.equals(CONNECTOR_LAMBDA_TABLE_HANDLE)) {
+                        assertThat(constraint.getExpression()).isEqualTo(connectorAnyMatch(GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME));
+                        return Optional.of(new ConstraintApplicationResult<>(
+                                CONNECTOR_LAMBDA_TABLE_HANDLE,
+                                TupleDomain.all(),
+                                connectorAnyMatch(GREATER_THAN_OPERATOR_FUNCTION_NAME),
+                                false));
+                    }
                     if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
                         return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all(), constraint.getExpression(), false));
                     }

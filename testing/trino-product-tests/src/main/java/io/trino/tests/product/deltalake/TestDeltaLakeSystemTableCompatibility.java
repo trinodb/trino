@@ -49,7 +49,7 @@ public class TestDeltaLakeSystemTableCompatibility
                 row("Test_Key", "Test_Mixed_Case"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
-            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\"");
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\" WHERE key != 'location'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
             assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());
@@ -79,7 +79,7 @@ public class TestDeltaLakeSystemTableCompatibility
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
-            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\"");
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\" WHERE key LIKE 'delta%'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
             assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());

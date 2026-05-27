@@ -69,6 +69,7 @@ public class ParquetFileWriterFactory
     private final NodeVersion nodeVersion;
     private final TypeManager typeManager;
     private final DateTimeZone parquetTimeZone;
+    private final boolean useDeltaLengthByteArrayEncoding;
     private final FileFormatDataSourceStats readStats;
 
     @Inject
@@ -77,12 +78,14 @@ public class ParquetFileWriterFactory
             NodeVersion nodeVersion,
             TypeManager typeManager,
             HiveConfig hiveConfig,
+            ParquetWriterConfig parquetWriterConfig,
             FileFormatDataSourceStats readStats)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.parquetTimeZone = hiveConfig.getParquetDateTimeZone();
+        this.useDeltaLengthByteArrayEncoding = parquetWriterConfig.isDeltaLengthByteArrayEncodingEnabled();
         this.readStats = requireNonNull(readStats, "readStats is null");
     }
 
@@ -109,6 +112,7 @@ public class ParquetFileWriterFactory
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .setBloomFilterColumns(getParquetBloomFilterColumns(schema))
+                .setUseDeltaLengthByteArrayEncoding(useDeltaLengthByteArrayEncoding)
                 .build();
 
         List<String> fileColumnNames = getColumnNames(schema);

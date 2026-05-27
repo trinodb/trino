@@ -20,6 +20,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -35,6 +36,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -429,6 +431,46 @@ public class TestDeltaLakeInsertCompatibility
                 {"ZSTD"},
                 {"GZIP"},
         };
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoCreatedTableWithDeltaLengthByteArrayCompatibility()
+    {
+        String tableName = "test_dl_delta_length_byte_array_compat_" + randomNameSuffix();
+        String trinoTableName = "delta.default." + tableName;
+        String location = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (id INTEGER, str VARCHAR, bin VARBINARY) WITH (location = '%s')",
+                trinoTableName,
+                location));
+
+        try {
+            // Force DELTA_LENGTH_BYTE_ARRAY fallback by inserting 5000 high-cardinality
+            // UUID-derived rows. The dictionary writer falls back at first-page flush via the
+            // compression ratio check (random UUIDs offer no dictionary compression);
+            // 5000 rows is comfortably above the empirical threshold pinned by
+            // TestParquetWriter#testDeltaLengthByteArrayFallbackIsWritten.
+            StringBuilder values = new StringBuilder();
+            for (int i = 0; i < 5000; i++) {
+                String uuid = UUID.randomUUID().toString();
+                if (i > 0) {
+                    values.append(", ");
+                }
+                values.append(format("(%d, '%s', X'%s')", i, uuid, uuid.replace("-", "")));
+            }
+            onTrino().executeQuery(format("INSERT INTO %s VALUES %s", trinoTableName, values));
+
+            assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName))
+                    .containsOnly(row(5000L));
+            assertThat(onDelta().executeQuery("SELECT count(DISTINCT str) FROM default." + tableName))
+                    .containsOnly(row(5000L));
+            assertThat(onDelta().executeQuery("SELECT count(DISTINCT bin) FROM default." + tableName))
+                    .containsOnly(row(5000L));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})

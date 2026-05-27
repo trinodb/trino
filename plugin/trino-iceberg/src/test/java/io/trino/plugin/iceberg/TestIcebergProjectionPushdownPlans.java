@@ -247,4 +247,41 @@ public class TestIcebergProjectionPushdownPlans
                                                                         TupleDomain.all(),
                                                                         ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))))))));
     }
+
+    @Test
+    public void testProjectionPushdownInsideLambda()
+    {
+        String testTable = "test_lambda_projection_pushdown" + randomNameSuffix();
+        QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s AS " +
+                        "SELECT ARRAY[1, 2, 3] items, " +
+                        "CAST(row(10, 20) AS row(captured bigint, skipped bigint)) payload " +
+                        "WHERE false",
+                testTable));
+
+        Session session = getPlanTester().getDefaultSession();
+
+        Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
+        assertThat(tableHandle).as("expected the table handle to be present").isPresent();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
+
+        IcebergColumnHandle items = (IcebergColumnHandle) columns.get("items");
+        IcebergColumnHandle payload = (IcebergColumnHandle) columns.get("payload");
+
+        IcebergColumnHandle captured = IcebergColumnHandle.optional(payload.getColumnIdentity())
+                .fieldType(payload.getType(), BIGINT)
+                .path(payload.getColumnIdentity().getChildren().get(0).getId())
+                .build();
+
+        assertPlan(
+                "SELECT transform(items, x -> x + payload.captured) result FROM " + testTable,
+                anyTree(
+                        tableScan(
+                                table -> ((IcebergTableHandle) table).getProjectedColumns().equals(ImmutableSet.of(items, captured)),
+                                TupleDomain.all(),
+                                ImmutableMap.of("items", equalTo(items), "payload_captured", equalTo(captured)))));
+    }
 }

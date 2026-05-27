@@ -2056,6 +2056,19 @@ public final class MetadataManager
     }
 
     @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<ViewDefinition> view = getView(session, targetViewName);
+
+        if (targetViewName.equals(viewName)) {
+            return RedirectionAwareView.noRedirection(view);
+        }
+
+        return new RedirectionAwareView(view, Optional.of(targetViewName));
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();

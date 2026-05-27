@@ -41,9 +41,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.type.FunctionType;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;

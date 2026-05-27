@@ -35,8 +35,9 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -103,7 +104,7 @@ public abstract class TarDownloadingJdkProvider
                                     fullName,
                                     downloadUri,
                                     targetDownloadPath,
-                                    new EveryNthPercentProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), 5));
+                                    new PeriodicProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), Duration.ofSeconds(5)));
                             log.info("Downloaded %s to %s", fullName, targetDownloadPath);
                         }
 
@@ -229,30 +230,30 @@ public abstract class TarDownloadingJdkProvider
         }
     }
 
-    private static class EveryNthPercentProgress
+    private static class PeriodicProgress
             implements Consumer<Integer>
     {
-        private final AtomicInteger currentProgress = new AtomicInteger(0);
+        private final AtomicLong nextLogNanos;
         private final Consumer<Integer> delegate;
-        private final int n;
+        private final long intervalNanos;
 
-        public EveryNthPercentProgress(Consumer<Integer> delegate, int n)
+        public PeriodicProgress(Consumer<Integer> delegate, Duration interval)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
-            this.n = n;
+            this.intervalNanos = interval.toNanos();
+            this.nextLogNanos = new AtomicLong(System.nanoTime() + intervalNanos);
         }
 
         @Override
         public void accept(Integer percent)
         {
-            int currentBand = currentProgress.get() / n;
-            int band = percent / n;
-
-            if (band == currentBand) {
+            long now = System.nanoTime();
+            long nextLog = nextLogNanos.get();
+            if (now < nextLog) {
                 return;
             }
 
-            if (currentProgress.compareAndSet(currentBand * n, band * n)) {
+            if (nextLogNanos.compareAndSet(nextLog, now + intervalNanos)) {
                 delegate.accept(percent);
             }
         }

@@ -36,13 +36,14 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.BIT_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
-import static io.trino.parquet.reader.TestingColumnReader.PLAIN_WRITER;
+import static io.trino.parquet.reader.TestingValuesWriters.getValuesWriter;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -127,7 +128,7 @@ public class TestFlatColumnReader
     private static PageReader getSimplePageReaderMock(ParquetEncoding encoding)
             throws IOException
     {
-        ValuesWriter writer = PLAIN_WRITER.apply(1);
+        ValuesWriter writer = getValuesWriter(PLAIN, INT32, OptionalInt.empty());
         writer.writeInteger(42);
         byte[] valueBytes = writer.getBytes().toByteArray();
         List<DataPage> pages = ImmutableList.of(new DataPageV1(
