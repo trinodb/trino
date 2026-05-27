@@ -580,6 +580,7 @@ predicate[ParserRuleContext value]
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
+    | OVERLAPS right=valueExpression                                      #overlaps
     ;
 
 valueExpression
@@ -1272,6 +1273,7 @@ OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
+OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';

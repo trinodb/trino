@@ -86,6 +86,7 @@ import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
@@ -614,6 +615,12 @@ public final class ExpressionFormatter
         {
             return (node.isNegated() ? "NOT LIKE " : "LIKE ") + process(node.getPattern(), context)
                     + node.getEscape().map(escape -> " ESCAPE " + process(escape, context)).orElse("");
+        }
+
+        @Override
+        protected String visitOverlapsPredicate(OverlapsPredicate node, Void context)
+        {
+            return "OVERLAPS " + process(node.getRight(), context);
         }
 
         @Override

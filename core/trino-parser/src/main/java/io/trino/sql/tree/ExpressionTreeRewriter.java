@@ -303,6 +303,10 @@ public final class ExpressionTreeRewriter<C>
                             ? predicate
                             : new LikePredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), pattern, rewrittenEscape);
                 }
+                case OverlapsPredicate predicate -> {
+                    Expression right = rewrite(predicate.getRight(), context.get());
+                    yield right == predicate.getRight() ? predicate : new OverlapsPredicate(predicate.getLocation().orElseThrow(), right);
+                }
                 case QuantifiedComparisonPredicate predicate -> {
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());
                     yield subquery == predicate.getSubquery() ? predicate : new QuantifiedComparisonPredicate(predicate.getLocation().orElseThrow(), predicate.getOperator(), predicate.getQuantifier(), subquery);

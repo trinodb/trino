@@ -218,6 +218,7 @@ public class TestSqlKeywords
                         "OUTPUT",
                         "OVER",
                         "OVERFLOW",
+                        "OVERLAPS",
                         "PARTITION",
                         "PARTITIONS",
                         "PASSING",

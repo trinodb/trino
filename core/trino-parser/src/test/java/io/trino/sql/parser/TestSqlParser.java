@@ -151,6 +151,7 @@ import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.OverlapsPredicate;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -5449,6 +5450,27 @@ public class TestSqlParser
         assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT LOCAL",
                 simpleQuery(selectList(
                         new AtLocal(new NodeLocation(1, 41), new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC")))));
+    }
+
+    @Test
+    public void testOverlaps()
+    {
+        GenericLiteral start1 = new GenericLiteral(location(1, 2), "DATE", "2020-01-01");
+        GenericLiteral end1 = new GenericLiteral(location(1, 21), "DATE", "2020-06-01");
+        GenericLiteral start2 = new GenericLiteral(location(1, 50), "DATE", "2020-05-01");
+        GenericLiteral end2 = new GenericLiteral(location(1, 69), "DATE", "2020-12-31");
+
+        assertThat(expression("(DATE '2020-01-01', DATE '2020-06-01') OVERLAPS (DATE '2020-05-01', DATE '2020-12-31')"))
+                .isEqualTo(new Predicated(
+                        location(1, 40),
+                        new Row(location(1, 1), ImmutableList.of(
+                                new Row.Field(location(1, 2), Optional.empty(), start1),
+                                new Row.Field(location(1, 21), Optional.empty(), end1))),
+                        new OverlapsPredicate(
+                                location(1, 40),
+                                new Row(location(1, 49), ImmutableList.of(
+                                        new Row.Field(location(1, 50), Optional.empty(), start2),
+                                        new Row.Field(location(1, 69), Optional.empty(), end2))))));
     }
 
     @Test

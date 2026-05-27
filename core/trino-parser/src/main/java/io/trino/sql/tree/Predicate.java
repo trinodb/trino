@@ -27,6 +27,7 @@ public abstract sealed class Predicate
                 InPredicate,
                 IsNullPredicate,
                 LikePredicate,
+                OverlapsPredicate,
                 QuantifiedComparisonPredicate
 {
     protected Predicate(NodeLocation location)
