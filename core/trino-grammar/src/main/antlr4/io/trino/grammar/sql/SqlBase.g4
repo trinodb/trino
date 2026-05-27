@@ -589,6 +589,7 @@ predicate[ParserRuleContext value]
     | IS NOT? truthValue=(TRUE | FALSE | UNKNOWN)                         #booleanTest
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     | MATCH UNIQUE? matchType=(SIMPLE | PARTIAL | FULL)? '(' query ')'    #match
+    | OVERLAPS right=valueExpression                                      #overlaps
     ;
 
 valueExpression
@@ -1292,6 +1293,7 @@ OVER: 'OVER';
 OVERFLOW: 'OVERFLOW';
 OVERLAY: 'OVERLAY';
 PARTIAL: 'PARTIAL';
+OVERLAPS: 'OVERLAPS';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
 PASSING: 'PASSING';
