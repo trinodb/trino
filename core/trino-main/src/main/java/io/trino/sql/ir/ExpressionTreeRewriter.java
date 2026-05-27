@@ -385,6 +385,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitLet(Let node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteLet(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.value(), context.get());
+            Expression body = rewrite(node.body(), context.get());
+
+            if (value != node.value() || body != node.body()) {
+                return new Let(node.name(), value, body);
+            }
+            return node;
+        }
+
+        @Override
         public Expression visitIn(In node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

@@ -160,6 +160,15 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitLet(Let node, Void context)
+        {
+            return "Let(%s = %s, %s)".formatted(
+                    node.name(),
+                    process(node.value(), context),
+                    process(node.body(), context));
+        }
+
+        @Override
         protected String visitLogical(Logical node, Void context)
         {
             return "(" +

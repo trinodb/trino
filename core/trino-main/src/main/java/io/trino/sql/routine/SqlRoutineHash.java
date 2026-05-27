@@ -37,6 +37,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.NullIf;
@@ -255,6 +256,12 @@ public final class SqlRoutineHash
                         hashType(symbol.type());
                     });
                     hashExpression(lambda.body());
+                }
+                case Let let -> {
+                    hashString(let.name().name());
+                    hashType(let.name().type());
+                    hashExpression(let.value());
+                    hashExpression(let.body());
                 }
                 case FieldReference fieldRef -> {
                     hasher.putInt(fieldRef.field());
