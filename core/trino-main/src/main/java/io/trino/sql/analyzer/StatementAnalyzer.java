@@ -3828,7 +3828,7 @@ class StatementAnalyzer
 
             // FIXME: If we want functional UPDATE statements, then it is necessary to make the resolver
             //        available to the QueryPlanner::plan(Update node) with the scope as holder.
-            return createAndAssignScope(update, scope, newUnqualified("rows", BIGINT));
+            return createAndAssignScope(update, scope, resolver, newUnqualified("rows", BIGINT));
         }
 
         @Override
@@ -6296,6 +6296,11 @@ class StatementAnalyzer
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Field... fields)
         {
             return createAndAssignScope(node, parentScope, new RelationType(fields));
+        }
+
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Resolver resolver, Field... fields)
+        {
+            return createAndAssignScope(node, parentScope, Optional.of(resolver), new RelationType(fields));
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields)

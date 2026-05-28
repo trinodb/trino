@@ -87,6 +87,9 @@ public class Scope
             if (scope.resolver.isPresent()) {
                 return scope.resolver;
             }
+            if (scope.queryBoundary) {
+                return Optional.empty();
+            }
             parent = scope.parent;
         }
         return Optional.empty();
