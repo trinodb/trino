@@ -23,6 +23,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -138,6 +139,6 @@ class TestRemoveRedundantLogicalTerms
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantLogicalTerms().apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantLogicalTerms().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

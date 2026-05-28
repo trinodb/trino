@@ -24,6 +24,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -57,7 +58,7 @@ public class SimplifyComplementaryLogicalTerms
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Logical(Logical.Operator operator, List<Expression> terms))) {
             return Optional.empty();

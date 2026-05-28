@@ -23,6 +23,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -101,12 +102,13 @@ public class TestInlineTrivialLet
                                 new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 0L)),
                                 new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 5L))))),
                 testSession(),
+                new SymbolAllocator(),
                 ImmutableMap.of()))
                 .isEqualTo(Optional.of(TRUE));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new InlineTrivialLet().apply(expression, testSession(), ImmutableMap.of());
+        return new InlineTrivialLet().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

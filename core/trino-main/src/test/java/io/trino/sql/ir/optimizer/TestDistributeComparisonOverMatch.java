@@ -24,6 +24,7 @@ import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -134,7 +135,7 @@ public class TestDistributeComparisonOverMatch
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DistributeComparisonOverMatch().apply(expression, testSession(), ImmutableMap.of());
+        return new DistributeComparisonOverMatch().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)
