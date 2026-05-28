@@ -14,9 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.operator.join.SortedPositionLinks;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
@@ -32,7 +30,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 import static java.util.Comparator.comparing;
@@ -62,10 +59,10 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter, Metadata metadata)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
     {
         List<Expression> filterConjuncts = IrUtils.extractConjuncts(filter);
-        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols, metadata);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
                 .filter(DeterminismEvaluator::isDeterministic)
@@ -94,12 +91,10 @@ public final class SortExpressionExtractor
             extends IrVisitor<List<SortExpressionContext>, Void>
     {
         private final Set<Symbol> buildSymbols;
-        private final Metadata metadata;
 
-        public SortExpressionVisitor(Set<Symbol> buildSymbols, Metadata metadata)
+        public SortExpressionVisitor(Set<Symbol> buildSymbols)
         {
             this.buildSymbols = buildSymbols;
-            this.metadata = metadata;
         }
 
         @Override
@@ -134,16 +129,6 @@ public final class SortExpressionExtractor
                 }
                 default -> List.of();
             };
-        }
-
-        @Override
-        protected List<SortExpressionContext> visitBetween(Between node, Void context)
-        {
-            // Handle both side of BETWEEN as `GREATER_THAN_OR_EQUAL` expression and `LESS_THAN_OR_EQUAL` expression.
-            return ImmutableList.<SortExpressionContext>builder()
-                    .addAll(extractSortExpression(GREATER_THAN_OR_EQUAL, node.value(), node.min(), comparison(metadata, GREATER_THAN_OR_EQUAL, node.value(), node.min())))
-                    .addAll(extractSortExpression(LESS_THAN_OR_EQUAL, node.value(), node.max(), comparison(metadata, LESS_THAN_OR_EQUAL, node.value(), node.max())))
-                    .build();
         }
     }
 

@@ -665,9 +665,9 @@ public class TestFilterStatsCalculator
 
         // Right side open, cut on open side
         assertExpression(between(new Reference(DOUBLE, "rightOpen"), new Constant(DOUBLE, -10.0), new Constant(DOUBLE, 10.0)))
-                .outputRowsCount(180.0)
+                .outputRowsCount(112.5)
                 .symbolStats("rightOpen", DOUBLE, symbolStats ->
-                        symbolStats.distinctValuesCount(10.0)
+                        symbolStats.distinctValuesCount(6.25)
                                 .lowValue(-10.0)
                                 .highValue(10.0)
                                 .nullsFraction(0.0));

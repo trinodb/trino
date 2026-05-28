@@ -349,7 +349,7 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals(
                 between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)),
-                ifExpression(not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(INTEGER, "unbound_value"))), FALSE));
+                between(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 3L), new Constant(INTEGER, 0L)));
     }
 
     @Test

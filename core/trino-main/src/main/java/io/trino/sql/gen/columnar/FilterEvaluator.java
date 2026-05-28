@@ -13,22 +13,18 @@
  */
 package io.trino.sql.gen.columnar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 
@@ -39,11 +35,9 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
-import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEvaluator;
 import static io.trino.sql.gen.columnar.DynamicPageFilter.DynamicFilterEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
-import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.type.UnknownType.UNKNOWN;
 
@@ -96,7 +90,6 @@ public sealed interface FilterEvaluator
             case IsNull isNull -> createIsNullExpressionEvaluator(compiler, isNull, layout);
             case Logical logical when logical.operator() == Logical.Operator.AND -> createAndExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled);
             case Logical logical when logical.operator() == Logical.Operator.OR -> createOrExpressionEvaluator(compiler, logical, layout, filterReorderingEnabled);
-            case Between between -> createBetweenEvaluator(compiler, between, layout, filterReorderingEnabled);
             case In in -> createInExpressionEvaluator(compiler, in, layout);
             default -> Optional.empty();
         };
@@ -113,34 +106,6 @@ public sealed interface FilterEvaluator
     static boolean isReorderingSafe(PlannerContext plannerContext, List<Expression> terms)
     {
         return terms.stream().noneMatch(term -> mayFail(plannerContext, term));
-    }
-
-    private static Optional<Supplier<FilterEvaluator>> createBetweenEvaluator(ColumnarFilterCompiler compiler, Between between, Map<Symbol, Integer> layout, boolean filterReorderingEnabled)
-    {
-        // Between requires evaluate once semantic for the value being tested
-        // Until we can pre-project it into a temporary variable, we apply columnar evaluation only on Reference
-        Expression valueExpression = between.value();
-        if (!(valueExpression instanceof Reference)) {
-            return Optional.empty();
-        }
-
-        // When the min and max arguments of a BETWEEN expression are both constants, evaluating them inline is cheaper than AND-ing subexpressions
-        if (between.min() instanceof Constant && between.max() instanceof Constant) {
-            Optional<Supplier<ColumnarFilter>> compiledFilter = compiler.generateFilter(between, layout);
-            return compiledFilter.map(filterSupplier -> () -> createDictionaryAwareEvaluator(filterSupplier.get()));
-        }
-        ResolvedFunction lessThanOrEqual = compiler.getMetadata().resolveOperator(
-                LESS_THAN_OR_EQUAL,
-                ImmutableList.of(valueExpression.type(), valueExpression.type()));
-        return createAndExpressionEvaluator(
-                compiler,
-                new Logical(
-                        Logical.Operator.AND,
-                        ImmutableList.of(
-                                call(lessThanOrEqual, between.min(), valueExpression),
-                                call(lessThanOrEqual, valueExpression, between.max()))),
-                layout,
-                filterReorderingEnabled);
     }
 
     private static Optional<Supplier<FilterEvaluator>> createInExpressionEvaluator(ColumnarFilterCompiler compiler, In in, Map<Symbol, Integer> layout)

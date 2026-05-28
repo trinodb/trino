@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -37,7 +36,6 @@ import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
-import io.trino.sql.ir.optimizer.rule.DesugarBetween;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
 import io.trino.sql.ir.optimizer.rule.EvaluateArray;
@@ -111,12 +109,11 @@ public class IrExpressionOptimizer
                 new EvaluateCase(),
                 new EvaluateCall(context),
                 new EvaluateIn(context),
-                new DesugarBetween(context),
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantMatchClauses(context),
                 new RemoveRedundantCaseClauses(),
                 new RemoveRedundantInItems(context),
-                new SimplifyContinuousInValues(),
+                new SimplifyContinuousInValues(context),
                 new SimplifyRedundantCast(),
                 new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
@@ -155,7 +152,6 @@ public class IrExpressionOptimizer
                 new EvaluateCase(),
                 new EvaluateCall(context),
                 new EvaluateIn(context),
-                new DesugarBetween(context),
                 new EvaluateLogical()));
     }
 
@@ -194,14 +190,6 @@ public class IrExpressionOptimizer
             case Call call -> process(call.arguments(), session, symbolAllocator, bindings).map(arguments -> new Call(call.function(), arguments));
             case Array array -> process(array.elements(), session, symbolAllocator, bindings).map(elements -> new Array(array.elementType(), elements));
             case Row row -> process(row.items(), session, symbolAllocator, bindings).map(fields -> new Row(fields, row.type()));
-            case Between between -> {
-                Optional<Expression> value = process(between.value(), session, symbolAllocator, bindings);
-                Optional<Expression> min = process(between.min(), session, symbolAllocator, bindings);
-                Optional<Expression> max = process(between.max(), session, symbolAllocator, bindings);
-                yield value.isPresent() || min.isPresent() || max.isPresent() ?
-                        Optional.of(new Between(value.orElse(between.value()), min.orElse(between.min()), max.orElse(between.max()))) :
-                        Optional.empty();
-            }
             case Coalesce coalesce -> process(coalesce.operands(), session, symbolAllocator, bindings).map(operands -> new Coalesce(operands));
             case FieldReference reference -> process(reference.base(), session, symbolAllocator, bindings).map(base -> new FieldReference(base, reference.field()));
             case NullIf nullIf -> {

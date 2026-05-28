@@ -52,6 +52,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.TestingIr.between;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -197,6 +198,6 @@ public class TestSimplifyContinuousInValues
 
     private static Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyContinuousInValues().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
+        return new SimplifyContinuousInValues(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

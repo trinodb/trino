@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
@@ -63,6 +62,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -223,13 +223,23 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield falseIfNotNull(argument);
                     }
-                    yield between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit));
+                    yield between(
+                            plannerContext.getMetadata(),
+                            symbolAllocator,
+                            argument,
+                            new Constant(rightType, rangeLow),
+                            new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case NOT_EQUAL -> {
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield not(plannerContext.getMetadata(), between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield not(plannerContext.getMetadata(), between(
+                            plannerContext.getMetadata(),
+                            symbolAllocator,
+                            argument,
+                            new Constant(rightType, rangeLow),
+                            new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit))));
                 }
                 case IDENTICAL -> {
                     if (!rightValueAtRangeLow) {
@@ -237,7 +247,12 @@ public class UnwrapDateTruncInComparison
                     }
                     yield and(
                             not(plannerContext.getMetadata(), new IsNull(argument)),
-                            between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                            between(
+                                    plannerContext.getMetadata(),
+                                    symbolAllocator,
+                                    argument,
+                                    new Constant(rightType, rangeLow),
+                                    new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit))));
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
@@ -299,14 +314,6 @@ public class UnwrapDateTruncInComparison
                 return new LongTimestamp(endInclusiveMicros, toIntExact(PICOSECONDS_PER_MICROSECOND - scaleFactor(timestampType.getPrecision(), 12)));
             }
             throw new UnsupportedOperationException("Unsupported type: " + type);
-        }
-
-        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
-        {
-            return new Between(
-                    argument,
-                    new Constant(type, minInclusive),
-                    new Constant(type, maxInclusive));
         }
 
         private int compare(Type type, Object first, Object second)

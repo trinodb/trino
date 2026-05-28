@@ -13,6 +13,8 @@
  */
 package io.trino.sql.ir;
 
+import io.trino.sql.planner.SymbolAllocator;
+
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 
 /// Test helpers for building IR expressions whose construction needs a function resolver.
@@ -30,9 +32,11 @@ public final class TestingIr
         return IrExpressions.comparison(PLANNER_CONTEXT.getMetadata(), operator, left, right);
     }
 
-    /// Builds the IR form of a `value BETWEEN min AND max` predicate.
+    /// Builds the desugared IR form of a `value BETWEEN min AND max` predicate (see
+    /// {@link IrExpressions#between}), resolving comparison operators against the shared testing
+    /// planner context.
     public static Expression between(Expression value, Expression min, Expression max)
     {
-        return new Between(value, min, max);
+        return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), value, min, max);
     }
 }

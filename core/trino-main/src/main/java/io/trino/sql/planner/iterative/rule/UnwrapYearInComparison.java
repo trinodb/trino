@@ -23,7 +23,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
@@ -50,6 +49,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -209,11 +209,26 @@ public class UnwrapYearInComparison
 
             int year = toIntExact((Long) rightValue);
             return Optional.of(switch (operator) {
-                case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
-                case NOT_EQUAL -> not(metadata, between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
+                case EQUAL -> between(
+                        metadata,
+                        symbolAllocator,
+                        argument,
+                        new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
+                        new Constant(argumentType, calculateRangeEndInclusive(year, argumentType)));
+                case NOT_EQUAL -> not(metadata, between(
+                        metadata,
+                        symbolAllocator,
+                        argument,
+                        new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
+                        new Constant(argumentType, calculateRangeEndInclusive(year, argumentType))));
                 case IDENTICAL -> and(
                         not(metadata, new IsNull(argument)),
-                        between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
+                        between(
+                                metadata,
+                                symbolAllocator,
+                                argument,
+                                new Constant(argumentType, calculateRangeStartInclusive(year, argumentType)),
+                                new Constant(argumentType, calculateRangeEndInclusive(year, argumentType))));
                 case LESS_THAN -> {
                     Object value = calculateRangeStartInclusive(year, argumentType);
                     yield comparison(metadata, LESS_THAN, argument, new Constant(argumentType, value));
@@ -231,14 +246,6 @@ public class UnwrapYearInComparison
                     yield comparison(metadata, GREATER_THAN_OR_EQUAL, argument, new Constant(argumentType, value));
                 }
             });
-        }
-
-        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
-        {
-            return new Between(
-                    argument,
-                    new Constant(type, minInclusive),
-                    new Constant(type, maxInclusive));
         }
     }
 

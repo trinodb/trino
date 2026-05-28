@@ -37,7 +37,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -699,23 +698,6 @@ public final class ConnectorExpressionTranslator
         {
             return process(comparison.left(), context).flatMap(left -> process(comparison.right(), context).map(right ->
                     new io.trino.spi.expression.Call(type, functionNameForComparisonOperator(comparison.operator()), ImmutableList.of(left, right))));
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitBetween(Between node, Context context)
-        {
-            if (!isComplexExpressionPushdown(session)) {
-                return Optional.empty();
-            }
-            return process(node.value(), context).flatMap(value ->
-                    process(node.min(), context).flatMap(min ->
-                            process(node.max(), context).map(max ->
-                                    new io.trino.spi.expression.Call(
-                                            BOOLEAN,
-                                            AND_FUNCTION_NAME,
-                                            ImmutableList.of(
-                                                    new io.trino.spi.expression.Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)),
-                                                    new io.trino.spi.expression.Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
         protected Optional<ConnectorExpression> translateNegation(Call node, Context context)

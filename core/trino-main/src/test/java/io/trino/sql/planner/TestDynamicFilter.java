@@ -241,35 +241,53 @@ public class TestDynamicFilter
                                         exchange(
                                                 tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))));
 
+        // The AND-of-comparisons surface now lets each side of the BETWEEN turn into its own
+        // dynamic filter: the build-side computed bound (`partkey - 1`) is projected to a symbol
+        // on the right side of the join and consumed as a DF on the left.
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey - 1",
                 anyTree(filter(
-                        between(new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_ORDERKEY"), new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 1L)))),
+                        between(new Reference(BIGINT, "O_ORDERKEY"),
+                                new Reference(BIGINT, "L_ORDERKEY"),
+                                new Reference(BIGINT, "PARTKEY_MINUS_1")),
                         join(INNER, builder -> builder
-                                .addDynamicFilter("DF", "L_ORDERKEY")
+                                .addDynamicFilter("DF_ORDERKEY", "L_ORDERKEY")
+                                .addDynamicFilter("DF_PARTKEY_MINUS_1", "PARTKEY_MINUS_1")
                                 .left(
                                         filter(
                                                 TRUE,
                                                 dynamicFilters -> dynamicFilters
-                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").operator(GREATER_THAN_OR_EQUAL)),
+                                                        .addConsumer(consumer -> consumer.alias("DF_ORDERKEY").expression(BIGINT, "O_ORDERKEY").operator(GREATER_THAN_OR_EQUAL))
+                                                        .addConsumer(consumer -> consumer.alias("DF_PARTKEY_MINUS_1").expression(BIGINT, "O_ORDERKEY").operator(LESS_THAN_OR_EQUAL)),
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
-                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))));
+                                                project(
+                                                        ImmutableMap.of("PARTKEY_MINUS_1", expression(new Call(SUBTRACT_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_PARTKEY"), new Constant(BIGINT, 1L))))),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))))));
 
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey + 1 AND l.partkey",
                 anyTree(filter(
-                        between(new Reference(BIGINT, "O_ORDERKEY"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 1L))), new Reference(BIGINT, "L_PARTKEY")),
+                        // The simpler (bare-column) comparison appears first in the AND in this
+                        // case because the right-side projection of `orderkey + 1` is introduced
+                        // after `l.partkey`.
+                        new Logical(Logical.Operator.AND, ImmutableList.of(
+                                comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "L_PARTKEY")),
+                                comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "O_ORDERKEY"), new Reference(BIGINT, "ORDERKEY_PLUS_1")))),
                         join(INNER, builder -> builder
-                                .addDynamicFilter("DF", "L_PARTKEY")
+                                .addDynamicFilter("DF_ORDERKEY_PLUS_1", "ORDERKEY_PLUS_1")
+                                .addDynamicFilter("DF_PARTKEY", "L_PARTKEY")
                                 .left(
                                         filter(
                                                 TRUE,
                                                 dynamicFilters -> dynamicFilters
-                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_ORDERKEY").operator(LESS_THAN_OR_EQUAL)),
+                                                        .addConsumer(consumer -> consumer.alias("DF_PARTKEY").expression(BIGINT, "O_ORDERKEY").operator(LESS_THAN_OR_EQUAL))
+                                                        .addConsumer(consumer -> consumer.alias("DF_ORDERKEY_PLUS_1").expression(BIGINT, "O_ORDERKEY").operator(GREATER_THAN_OR_EQUAL)),
                                                 tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
                                 .right(
                                         exchange(
-                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))));
+                                                project(
+                                                        ImmutableMap.of("ORDERKEY_PLUS_1", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_ORDERKEY"), new Constant(BIGINT, 1L))))),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))))));
     }
 
     @Test

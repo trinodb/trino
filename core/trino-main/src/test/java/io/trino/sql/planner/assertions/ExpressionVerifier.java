@@ -14,7 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -167,18 +166,6 @@ public final class ExpressionVerifier
 
         return process(actual.value(), expected.value()) &&
                 process(actual.valueList(), expected.valueList());
-    }
-
-    @Override
-    protected Boolean visitBetween(Between actual, Expression expectedExpression)
-    {
-        if (!(expectedExpression instanceof Between expected)) {
-            return false;
-        }
-
-        return process(actual.value(), expected.value()) &&
-                process(actual.min(), expected.min()) &&
-                process(actual.max(), expected.max());
     }
 
     @Override
