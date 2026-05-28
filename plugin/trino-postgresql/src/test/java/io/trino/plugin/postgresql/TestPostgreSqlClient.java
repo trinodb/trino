@@ -49,6 +49,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
@@ -70,6 +71,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static java.lang.String.format;
@@ -342,6 +344,44 @@ public class TestPostgreSqlClient
 
         assertThat(converted.expression()).isEqualTo("-(\"c_bigint\")");
         assertThat(converted.parameters()).isEqualTo(List.of());
+    }
+
+    @Test
+    public void testConvertBetween()
+    {
+        // -c_bigint BETWEEN 1 AND 10 — a non-trivial value produces the Let-wrapped form, which
+        // reaches the connector as a single `$between` and is pushed only for numeric operands
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                between(
+                                        FUNCTIONS.getMetadata(),
+                                        new SymbolAllocator(),
+                                        new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "c_bigint_symbol"))),
+                                        new Constant(BIGINT, 1L),
+                                        new Constant(BIGINT, 10L))),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("(-(\"c_bigint\")) BETWEEN (?) AND (?)");
+        assertThat(converted.parameters()).isEqualTo(List.of(
+                new QueryParameter(BIGINT, Optional.of(1L)),
+                new QueryParameter(BIGINT, Optional.of(10L))));
+
+        // Ordering comparisons over collatable types must not be pushed down without an explicit
+        // collation; the `$between` type gate refuses non-numeric operands
+        assertThat(JDBC_CLIENT.convertPredicate(
+                SESSION,
+                translateToConnectorExpression(
+                        between(
+                                FUNCTIONS.getMetadata(),
+                                new SymbolAllocator(),
+                                new Coalesce(
+                                        new Reference(VARCHAR, "a_varchar_symbol"),
+                                        new Reference(VARCHAR, "b_varchar_symbol")),
+                                new Constant(VARCHAR, utf8Slice("A")),
+                                new Constant(VARCHAR, utf8Slice("Z")))),
+                ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN2)))
+                .isEmpty();
     }
 
     @Test

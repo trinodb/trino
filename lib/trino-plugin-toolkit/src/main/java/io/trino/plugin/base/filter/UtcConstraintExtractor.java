@@ -46,6 +46,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractDisjuncts;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -55,6 +56,7 @@ import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCT
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -143,6 +145,20 @@ public final class UtcConstraintExtractor
 
     private static Optional<TupleDomain<ColumnHandle>> toTupleDomain(Call call, Map<String, ColumnHandle> assignments)
     {
+        if (BETWEEN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 3) {
+            // value BETWEEN min AND max <=> value >= min AND value <= max. Decompose and reuse the
+            // comparison handling below (e.g. cast / date_trunc / year unwrapping for the value).
+            ConnectorExpression value = call.getArguments().get(0);
+            ConnectorExpression min = call.getArguments().get(1);
+            ConnectorExpression max = call.getArguments().get(2);
+            Optional<TupleDomain<ColumnHandle>> low = toTupleDomain(new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, min)), assignments);
+            Optional<TupleDomain<ColumnHandle>> high = toTupleDomain(new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)), assignments);
+            if (low.isPresent() && high.isPresent()) {
+                return Optional.of(low.get().intersect(high.get()));
+            }
+            return Optional.empty();
+        }
+
         if (call.getArguments().size() == 2) {
             ConnectorExpression firstArgument = call.getArguments().get(0);
             ConnectorExpression secondArgument = call.getArguments().get(1);
