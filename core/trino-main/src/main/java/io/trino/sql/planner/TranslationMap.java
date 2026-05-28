@@ -41,7 +41,6 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
@@ -163,6 +162,7 @@ import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -593,7 +593,7 @@ public class TranslationMap
     {
         return switch (clause) {
             case BetweenPredicate predicate -> {
-                io.trino.sql.ir.Expression between = new Between(value, translateExpression(predicate.getMin()), translateExpression(predicate.getMax()));
+                io.trino.sql.ir.Expression between = between(symbolAllocator, value, translateExpression(predicate.getMin()), translateExpression(predicate.getMax()));
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), between) : between;
             }
             case ComparisonPredicate predicate -> {

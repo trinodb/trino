@@ -32,7 +32,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -344,12 +343,6 @@ public class ExpressionBytecodeCompiler
         protected BytecodeNode visitNullIf(NullIf node, Context context)
         {
             return new NullIfCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
-        }
-
-        @Override
-        protected BytecodeNode visitBetween(Between node, Context context)
-        {
-            return new BetweenCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

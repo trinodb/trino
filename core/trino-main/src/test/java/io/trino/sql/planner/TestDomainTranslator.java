@@ -24,7 +24,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -33,6 +32,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
 import io.trino.type.LikePatternType;
@@ -53,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -160,6 +162,32 @@ public class TestDomainTranslator
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
         assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
         assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
+    }
+
+    @Test
+    public void testLet()
+    {
+        // The bound value is inlined for extraction, so a Let over a column yields its full domain
+        assertPredicateTranslates(
+                new Let(new Symbol(BIGINT, "v"),
+                        C_BIGINT.toSymbolReference(),
+                        and(
+                                greaterThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(1L)),
+                                lessThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(10L)))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 10L, true)), false)),
+                TRUE);
+
+        // When no domain can be extracted, the original Let is the remainder, so the residual
+        // predicate still evaluates the bound value exactly once
+        Expression let = new Let(
+                new Symbol(BIGINT, "v"),
+                new Call(
+                        functionResolution.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+                        ImmutableList.of(C_BIGINT.toSymbolReference(), C_BIGINT_1.toSymbolReference())),
+                and(
+                        greaterThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(1L)),
+                        lessThanOrEqual(new Reference(BIGINT, "v"), bigintLiteral(10L))));
+        assertPredicateTranslates(let, TupleDomain.all(), let);
     }
 
     @Test
@@ -1652,9 +1680,9 @@ public class TestDomainTranslator
         return in(symbol.toSymbolReference(), symbol.type(), values);
     }
 
-    private static Between between(Symbol symbol, Expression min, Expression max)
+    private static Expression between(Symbol symbol, Expression min, Expression max)
     {
-        return new Between(symbol.toSymbolReference(), min, max);
+        return IrExpressions.between(new SymbolAllocator(), symbol.toSymbolReference(), min, max);
     }
 
     private static Expression isNotNull(Expression expression)
@@ -1673,9 +1701,9 @@ public class TestDomainTranslator
                         .collect(toImmutableList()));
     }
 
-    private static Between between(Expression expression, Expression min, Expression max)
+    private static Expression between(Expression expression, Expression min, Expression max)
     {
-        return new Between(expression, min, max);
+        return IrExpressions.between(new SymbolAllocator(), expression, min, max);
     }
 
     private static Comparison equal(Expression left, Expression right)

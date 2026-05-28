@@ -23,13 +23,13 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.SymbolAllocator;
@@ -207,9 +207,10 @@ public class UnwrapYearInComparison
             };
         }
 
-        private Between between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
+        private Expression between(Expression argument, Type type, Object minInclusive, Object maxInclusive)
         {
-            return new Between(
+            return IrExpressions.between(
+                    symbolAllocator,
                     argument,
                     new Constant(type, minInclusive),
                     new Constant(type, maxInclusive));

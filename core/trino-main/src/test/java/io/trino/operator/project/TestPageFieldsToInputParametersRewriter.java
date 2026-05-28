@@ -23,7 +23,6 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -41,6 +40,7 @@ import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -91,7 +91,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new In(new Reference(BIGINT, "bigint0"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Comparison(EQUAL, call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L)), new Constant(BIGINT, 0L))), 1);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Between(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L), new Constant(BIGINT, 10L))), 1);
+        verifyEagerlyLoadedColumns(builder.buildExpression(IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 1L), new Constant(BIGINT, 10L))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Reference(BIGINT, "bigint0"))), constantNull(BIGINT))), 1);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Match(new Reference(BIGINT, "bigint0"), ImmutableList.of(equalityClause(new Constant(BIGINT, 1L), new Constant(BIGINT, 1L))), call(NEGATION_BIGINT, new Reference(BIGINT, "bigint0")))), 1);
         // A clause whose predicate is a Bind (capture-desugared lambda) exposes its input channels
@@ -117,7 +117,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(new Coalesce(call(ROUND, new Reference(BIGINT, "bigint0")), new Reference(BIGINT, "bigint1"))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));
         verifyEagerlyLoadedColumns(builder.buildExpression(new Logical(OR, ImmutableList.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L)), new Comparison(GREATER_THAN, new Reference(BIGINT, "bigint1"), new Constant(BIGINT, 0L))))), 2, ImmutableSet.of(0));
-        verifyEagerlyLoadedColumns(builder.buildExpression(new Between(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L), new Reference(BIGINT, "bigint1"))), 2, ImmutableSet.of(0));
+        verifyEagerlyLoadedColumns(builder.buildExpression(IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 0L), new Reference(BIGINT, "bigint1"))), 2, ImmutableSet.of(0));
 
         builder = RowExpressionBuilder.create()
                 .addSymbol("array_bigint0", new ArrayType(BIGINT))

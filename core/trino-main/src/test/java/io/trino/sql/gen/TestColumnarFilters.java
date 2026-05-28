@@ -51,7 +51,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -60,6 +59,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.testing.TestingSession;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
@@ -91,6 +91,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.testing.DataProviders.cartesianProduct;
@@ -328,7 +329,8 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         // col BETWEEN constantA AND constantB
-        Expression betweenFilter = new Between(
+        Expression betweenFilter = between(
+                new SymbolAllocator(),
                 new Reference(INTEGER, COL_INT_A),
                 new Constant(INTEGER, CONSTANT - 5),
                 new Constant(INTEGER, CONSTANT + 5));
@@ -336,7 +338,8 @@ public class TestColumnarFilters
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND constant
-        betweenFilter = new Between(
+        betweenFilter = between(
+                new SymbolAllocator(),
                 new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Constant(INTEGER, CONSTANT + 5));
@@ -344,7 +347,8 @@ public class TestColumnarFilters
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND colC
-        betweenFilter = new Between(
+        betweenFilter = between(
+                new SymbolAllocator(),
                 new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_C));
