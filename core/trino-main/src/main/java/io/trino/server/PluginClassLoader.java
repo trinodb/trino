@@ -32,19 +32,26 @@ public class PluginClassLoader
     private final String pluginName;
     private final ClassLoader spiClassLoader;
     private final List<String> spiPackages;
+    private final List<String> spiPackagesExcluded;
     private final List<String> spiResources;
+    private final List<String> spiResourcesExcluded;
 
     public PluginClassLoader(
             String pluginName,
             List<URL> urls,
             ClassLoader spiClassLoader,
-            List<String> spiPackages)
+            List<String> spiPackages,
+            List<String> spiPackagesExcluded)
     {
         this(pluginName,
                 urls,
                 spiClassLoader,
                 spiPackages,
+                spiPackagesExcluded,
                 spiPackages.stream()
+                        .map(PluginClassLoader::classNameToResource)
+                        .collect(toImmutableList()),
+                spiPackagesExcluded.stream()
                         .map(PluginClassLoader::classNameToResource)
                         .collect(toImmutableList()));
     }
@@ -54,20 +61,24 @@ public class PluginClassLoader
             List<URL> urls,
             ClassLoader spiClassLoader,
             Iterable<String> spiPackages,
-            Iterable<String> spiResources)
+            Iterable<String> spiPackagesExcluded,
+            Iterable<String> spiResources,
+            Iterable<String> spiResourcesExcluded)
     {
         // plugins should not have access to the system (application) class loader
         super(urls.toArray(new URL[0]), getPlatformClassLoader());
         this.pluginName = requireNonNull(pluginName, "pluginName is null");
         this.spiClassLoader = requireNonNull(spiClassLoader, "spiClassLoader is null");
         this.spiPackages = ImmutableList.copyOf(spiPackages);
+        this.spiPackagesExcluded = ImmutableList.copyOf(spiPackagesExcluded);
         this.spiResources = ImmutableList.copyOf(spiResources);
+        this.spiResourcesExcluded = ImmutableList.copyOf(spiResourcesExcluded);
     }
 
     public PluginClassLoader withUrl(URL url)
     {
         List<URL> urls = ImmutableList.<URL>builder().add(getURLs()).add(url).build();
-        return new PluginClassLoader(pluginName, urls, spiClassLoader, spiPackages, spiResources);
+        return new PluginClassLoader(pluginName, urls, spiClassLoader, spiPackages, spiPackagesExcluded, spiResources, spiResourcesExcluded);
     }
 
     public String getId()
@@ -161,14 +172,12 @@ public class PluginClassLoader
 
     private boolean isSpiClass(String name)
     {
-        // todo maybe make this more precise and only match base package
-        return spiPackages.stream().anyMatch(name::startsWith);
+        return spiPackages.stream().anyMatch(name::startsWith) && spiPackagesExcluded.stream().noneMatch(name::startsWith);
     }
 
     private boolean isSpiResource(String name)
     {
-        // todo maybe make this more precise and only match base package
-        return spiResources.stream().anyMatch(name::startsWith);
+        return spiResources.stream().anyMatch(name::startsWith) && spiResourcesExcluded.stream().noneMatch(name::startsWith);
     }
 
     private static String classNameToResource(String className)
