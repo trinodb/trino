@@ -492,6 +492,24 @@ public final class IcebergUtil
                 .build();
     }
 
+    public static Map<Integer, IcebergColumnHandle> buildColumnHandleIndex(Map<Integer, Schema> schemas, TypeManager typeManager)
+    {
+        ImmutableMap.Builder<Integer, IcebergColumnHandle> index = ImmutableMap.builder();
+        Schema.indexFields(schemas.values()).forEach((fieldId, field) -> {
+            try {
+                index.put(fieldId, getColumnHandle(field, typeManager));
+            }
+            catch (TrinoException e) {
+                if (!e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    throw e;
+                }
+                // Skip fields with unsupported types (e.g. geometry, geography);
+                // SELECT on those columns will still fail at projection time
+            }
+        });
+        return index.buildOrThrow();
+    }
+
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
         return structTypeFromHandles(columns).asSchema();

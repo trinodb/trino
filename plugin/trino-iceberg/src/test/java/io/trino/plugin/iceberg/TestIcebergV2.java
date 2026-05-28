@@ -647,6 +647,71 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeleteWithDroppedTopLevelColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_delete_dropped_top_level_col_", "(id BIGINT, col_to_delete BIGINT, other_col VARCHAR)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 20, 'b')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 10, 'c')", 1);
+            Table icebergTable = loadTable(tableName);
+
+            // Write equality delete targeting col_to_delete = 10 BEFORE dropping the column
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("col_to_delete", 10L),
+                    Optional.of(ImmutableList.of("col_to_delete")));
+
+            // Drop the column that was used in the equality delete
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN col_to_delete");
+
+            // Query should succeed and return only the row where col_to_delete was 20 (not deleted)
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '2', VARCHAR 'b')");
+        }
+    }
+
+    @Test
+    public void testEqualityDeleteWithDroppedNestedColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_delete_dropped_nested_col_", "(id BIGINT, root ROW(nested BIGINT, nested_other BIGINT))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10, 100))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, row(10, 300))", 1);
+            Table icebergTable = loadTable(tableName);
+
+            // Write equality delete targeting root.nested = 10 BEFORE dropping the nested field
+            List<String> deleteFileColumns = ImmutableList.of("root.nested");
+            Schema deleteRowSchema = icebergTable.schema().select(deleteFileColumns);
+            List<Integer> equalityFieldIds = deleteFileColumns.stream()
+                    .map(name -> deleteRowSchema.findField(name).fieldId())
+                    .collect(toImmutableList());
+            Types.StructType nestedStructType = (Types.StructType) deleteRowSchema.findField("root").type();
+            Record nestedStruct = GenericRecord.create(nestedStructType);
+            nestedStruct.setField("nested", 10L);
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("root", nestedStruct),
+                    deleteRowSchema,
+                    equalityFieldIds);
+
+            // Drop the nested field that was used in the equality delete
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN root.nested");
+
+            // Query should succeed and return only the row where root.nested was 20 (not deleted)
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '2', CAST(row(200) AS ROW(nested_other BIGINT)))");
+        }
+    }
+
+    @Test
     public void testOptimizingWholeTableRemovesEqualityDeletes()
             throws Exception
     {
