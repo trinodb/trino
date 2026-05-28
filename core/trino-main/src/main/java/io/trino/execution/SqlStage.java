@@ -471,7 +471,7 @@ public final class SqlStage
         {
             TableWriterNode.MergeTarget target = node.getTarget();
             extract(builder, node, metadata.getTableCredentials(session, target.getHandle().catalogHandle(), target.getHandle().connectorHandle()));
-            return null;
+            return super.visitMergeWriter(node, context);
         }
 
         @Override
@@ -479,7 +479,7 @@ public final class SqlStage
         {
             TableWriterNode.TableExecuteTarget target = node.getTarget();
             extract(builder, node, metadata.getTableCredentials(session, target.getExecuteHandle().catalogHandle(), target.getExecuteHandle().connectorHandle()));
-            return null;
+            return super.visitTableExecute(node, context);
         }
 
         @Override
@@ -493,7 +493,7 @@ public final class SqlStage
                 case TableWriterNode.InsertTarget insertTarget -> extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
                 default -> throw new IllegalArgumentException("Unsupported table writer node: " + node.getClass().getSimpleName());
             }
-            return null;
+            return super.visitTableWriter(node, context);
         }
 
         @Override
@@ -501,7 +501,7 @@ public final class SqlStage
         {
             TableHandle table = node.getTable();
             extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
-            return null;
+            return super.visitTableScan(node, context);
         }
 
         @Override
@@ -509,7 +509,7 @@ public final class SqlStage
         {
             TableFunctionHandle handle = node.getHandle();
             extract(builder, node, metadata.getTableCredentials(session, handle.catalogHandle(), handle.functionHandle()));
-            return null;
+            return super.visitTableFunctionProcessor(node, context);
         }
 
         private static void extract(ImmutableMap.Builder<PlanNodeId, ConnectorTableCredentials> builder, PlanNode node, Optional<ConnectorTableCredentials> credentials)
