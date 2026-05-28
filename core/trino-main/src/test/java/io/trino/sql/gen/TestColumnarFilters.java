@@ -337,16 +337,14 @@ public class TestColumnarFilters
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND constant
-        betweenFilter = between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Constant(INTEGER, CONSTANT + 5));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);
         verifyFilter(inputPages, betweenFilter);
 
         // colA BETWEEN colB AND colC
-        betweenFilter = between(
-                new Reference(INTEGER, COL_INT_A),
+        betweenFilter = between(new Reference(INTEGER, COL_INT_A),
                 new Reference(INTEGER, COL_INT_B),
                 new Reference(INTEGER, COL_INT_C));
         assertThatColumnarFilterEvaluationIsSupported(betweenFilter);

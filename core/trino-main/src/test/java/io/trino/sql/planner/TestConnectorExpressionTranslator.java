@@ -74,7 +74,6 @@ import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTI
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.MODULO_FUNCTION_NAME;
@@ -385,8 +384,7 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
-                between(
-                        new Reference(DOUBLE, "double_symbol_1"),
+                between(new Reference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),
                 new io.trino.spi.expression.Call(
@@ -395,10 +393,10 @@ public class TestConnectorExpressionTranslator
                         List.of(
                                 new io.trino.spi.expression.Call(
                                         BOOLEAN,
-                                        GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
+                                        LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,
                                         List.of(
-                                                new Variable("double_symbol_1", DOUBLE),
-                                                new io.trino.spi.expression.Constant(1.2d, DOUBLE))),
+                                                new io.trino.spi.expression.Constant(1.2d, DOUBLE),
+                                                new Variable("double_symbol_1", DOUBLE))),
                                 new io.trino.spi.expression.Call(
                                         BOOLEAN,
                                         LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME,

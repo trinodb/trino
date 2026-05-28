@@ -138,27 +138,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitBetween(Between node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteBetween(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression value = rewrite(node.value(), context.get());
-            Expression min = rewrite(node.min(), context.get());
-            Expression max = rewrite(node.max(), context.get());
-
-            if (value != node.value() || min != node.min() || max != node.max()) {
-                return new Between(value, min, max);
-            }
-
-            return node;
-        }
-
-        @Override
         public Expression visitLogical(Logical node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

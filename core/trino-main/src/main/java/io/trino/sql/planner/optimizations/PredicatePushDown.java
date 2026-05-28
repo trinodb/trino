@@ -25,7 +25,6 @@ import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
@@ -74,7 +73,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -612,7 +610,6 @@ public class PredicatePushDown
                                     .map(clause -> new DynamicFilterExpression(
                                             EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference())),
                             joinFilterClauses.stream()
-                                    .flatMap(this::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> switch (matchComparison(expression)) {
                                         case Comparison.Identical(Expression left, Expression right) -> new DynamicFilterExpression(EQUAL, left, right, true);
@@ -664,16 +661,6 @@ public class PredicatePushDown
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
             return new DynamicFiltersResult(buildSymbolToDynamicFilter.inverse(), predicates);
-        }
-
-        private Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
-        {
-            if (clause instanceof Between between) {
-                return Stream.of(
-                        comparison(metadata, GREATER_THAN_OR_EQUAL, between.value(), between.min()),
-                        comparison(metadata, LESS_THAN_OR_EQUAL, between.value(), between.max()));
-            }
-            return Stream.of(clause);
         }
 
         private record DynamicFilterExpression(ComparisonOperator operator, Expression left, Expression right, boolean nullAllowed)

@@ -47,16 +47,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitBetween(Between node, C context)
-    {
-        process(node.value(), context);
-        process(node.min(), context);
-        process(node.max(), context);
-
-        return null;
-    }
-
-    @Override
     protected Void visitCoalesce(Coalesce node, C context)
     {
         for (Expression operand : node.operands()) {

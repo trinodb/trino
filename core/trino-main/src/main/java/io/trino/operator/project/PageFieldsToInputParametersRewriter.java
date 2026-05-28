@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
@@ -169,16 +168,6 @@ public final class PageFieldsToInputParametersRewriter
                 process(clause.result(), false);
             }
             process(node.defaultValue(), false);
-            return null;
-        }
-
-        @Override
-        protected Void visitBetween(Between node, Boolean unconditionallyEvaluated)
-        {
-            // Value and min are unconditional; max is conditional on the second comparison
-            process(node.value(), unconditionallyEvaluated);
-            process(node.min(), unconditionallyEvaluated);
-            process(node.max(), false);
             return null;
         }
 

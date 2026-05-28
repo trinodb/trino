@@ -17,12 +17,16 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
@@ -34,12 +38,14 @@ import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
-import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -51,6 +57,8 @@ public class TestIrExpressions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(VARCHAR));
     private static final ResolvedFunction SPLIT_PART = FUNCTIONS.resolveFunction("split_part", fromTypes(VARCHAR, VARCHAR, BIGINT));
+    private static final ResolvedFunction NEGATION_BIGINT = new TestingFunctionResolution().resolveOperator(NEGATION, ImmutableList.of(BIGINT));
+    private static final ResolvedFunction RANDOM = new TestingFunctionResolution().resolveFunction("random", fromTypes());
 
     @Test
     public void testMayBeNullConstantsAndReferences()
@@ -119,23 +127,52 @@ public class TestIrExpressions
         Constant right = new Constant(BIGINT, 1L);
 
         // Operators with a dedicated operator function keep their operands as-is.
-        assertThat(matchComparison(comparison(metadata, EQUAL, left, right))).isEqualTo(new Comparison.Equal(left, right));
-        assertThat(matchComparison(comparison(metadata, LESS_THAN, left, right))).isEqualTo(new Comparison.LessThan(left, right));
-        assertThat(matchComparison(comparison(metadata, LESS_THAN_OR_EQUAL, left, right))).isEqualTo(new Comparison.LessThanOrEqual(left, right));
-        assertThat(matchComparison(comparison(metadata, IDENTICAL, left, right))).isEqualTo(new Comparison.Identical(left, right));
+        assertThat(matchComparison(comparison(EQUAL, left, right))).isEqualTo(new Comparison.Equal(left, right));
+        assertThat(matchComparison(comparison(LESS_THAN, left, right))).isEqualTo(new Comparison.LessThan(left, right));
+        assertThat(matchComparison(comparison(LESS_THAN_OR_EQUAL, left, right))).isEqualTo(new Comparison.LessThanOrEqual(left, right));
+        assertThat(matchComparison(comparison(IDENTICAL, left, right))).isEqualTo(new Comparison.Identical(left, right));
 
         // NOT_EQUAL is canonicalized to $not of EQUAL, and decoded back to NOT_EQUAL.
-        assertThat(matchComparison(comparison(metadata, NOT_EQUAL, left, right))).isEqualTo(new Comparison.NotEqual(left, right));
+        assertThat(matchComparison(comparison(NOT_EQUAL, left, right))).isEqualTo(new Comparison.NotEqual(left, right));
 
         // Greater-than is canonicalized to less-than with flipped operands.
-        assertThat(comparison(metadata, GREATER_THAN, left, right)).isEqualTo(comparison(metadata, LESS_THAN, right, left));
-        assertThat(matchComparison(comparison(metadata, GREATER_THAN, left, right))).isEqualTo(new Comparison.LessThan(right, left));
-        assertThat(comparison(metadata, GREATER_THAN_OR_EQUAL, left, right)).isEqualTo(comparison(metadata, LESS_THAN_OR_EQUAL, right, left));
-        assertThat(matchComparison(comparison(metadata, GREATER_THAN_OR_EQUAL, left, right))).isEqualTo(new Comparison.LessThanOrEqual(right, left));
+        assertThat(comparison(GREATER_THAN, left, right)).isEqualTo(comparison(LESS_THAN, right, left));
+        assertThat(matchComparison(comparison(GREATER_THAN, left, right))).isEqualTo(new Comparison.LessThan(right, left));
+        assertThat(comparison(GREATER_THAN_OR_EQUAL, left, right)).isEqualTo(comparison(LESS_THAN_OR_EQUAL, right, left));
+        assertThat(matchComparison(comparison(GREATER_THAN_OR_EQUAL, left, right))).isEqualTo(new Comparison.LessThanOrEqual(right, left));
 
         // Non-comparison expressions decode to null.
         assertThat(matchComparison(new Reference(BIGINT, "x"))).isNull();
         assertThat(matchComparison(not(metadata, TRUE))).isNull();
         assertThat(matchComparison(new Call(LENGTH, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hello")))))).isNull();
+    }
+
+    @Test
+    public void testAsBetween()
+    {
+        // Round-trips the factory's trivial-value form
+        assertThat(matchBetween(between(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                .isEqualTo(new Between(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+
+        // Round-trips the factory's Let-wrapped form
+        Expression value = new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "x")));
+        assertThat(matchBetween(between(value, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                .isEqualTo(new Between(value, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+
+        // The bound symbol must not escape through min/max
+        assertThat(matchBetween(new Let(
+                new Symbol(BIGINT, "s"),
+                value,
+                new Logical(AND, ImmutableList.of(
+                        comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "s"), new Reference(BIGINT, "s")),
+                        comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "s"), new Constant(BIGINT, 10L)))))))
+                .isNull();
+
+        // A non-deterministic value evaluated independently in each conjunct is not a BETWEEN
+        Expression random = new Call(RANDOM, ImmutableList.of());
+        assertThat(matchBetween(new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.1)),
+                comparison(LESS_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.2))))))
+                .isNull();
     }
 }

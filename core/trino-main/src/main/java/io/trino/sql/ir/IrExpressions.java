@@ -34,6 +34,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.type.TypeCoercion;
 import jakarta.annotation.Nullable;
 
@@ -58,6 +60,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 public final class IrExpressions
 {
@@ -202,6 +208,67 @@ public final class IrExpressions
         }
     }
 
+    /// Lower a BETWEEN to `value >= min AND value <= max`, wrapping `value` in a [Let] when it is
+    /// non-trivial so the operand is evaluated exactly once.
+    public static Expression between(Metadata metadata, SymbolAllocator allocator, Expression value, Expression min, Expression max)
+    {
+        // Inline trivial values directly so the result stays a plain AND of comparisons.
+        if (value instanceof Reference || value instanceof Constant) {
+            return new Logical(AND, ImmutableList.of(
+                    comparison(metadata, GREATER_THAN_OR_EQUAL, value, min),
+                    comparison(metadata, LESS_THAN_OR_EQUAL, value, max)));
+        }
+        Symbol bound = allocator.newSymbol("between", value.type());
+        Reference reference = new Reference(value.type(), bound.name());
+        return new Let(bound, value, new Logical(AND, ImmutableList.of(
+                comparison(metadata, GREATER_THAN_OR_EQUAL, reference, min),
+                comparison(metadata, LESS_THAN_OR_EQUAL, reference, max))));
+    }
+
+    /// Recognize a BETWEEN-shape as produced by [#between]. `between` builds `min <= value AND
+    /// value <= max` (greater-than forms are canonicalized to flipped `LessThanOrEqual`), in either
+    /// the trivial-value form or a `Let`-wrapped form binding `value` to a fresh symbol.
+    @Nullable
+    public static Between matchBetween(Expression expression)
+    {
+        if (expression instanceof Let(Symbol bound, Expression value, Expression body)) {
+            // The bound symbol must not leak through min/max: a pattern consumer sees only the
+            // extracted parts, where such a reference would be unbound.
+            if (matchAndRange(body) instanceof Between bounds
+                    && bounds.value() instanceof Reference ref && ref.name().equals(bound.name())
+                    && !SymbolsExtractor.extractUnique(bounds.min()).contains(bound)
+                    && !SymbolsExtractor.extractUnique(bounds.max()).contains(bound)) {
+                return new Between(value, bounds.min(), bounds.max());
+            }
+            return null;
+        }
+        return matchAndRange(expression);
+    }
+
+    @Nullable
+    private static Between matchAndRange(Expression expression)
+    {
+        if (!(expression instanceof Logical logical) || logical.operator() != AND || logical.terms().size() != 2) {
+            return null;
+        }
+        Comparison first = matchComparison(logical.terms().get(0));
+        Comparison second = matchComparison(logical.terms().get(1));
+        if (first == null || second == null) {
+            return null;
+        }
+        // Canonical shape is `min <= value AND value <= max`: both conjuncts are LessThanOrEqual
+        // sharing the `value` operand. Collapsing the two independent evaluations of `value` into
+        // the pattern's single occurrence is only sound when `value` is deterministic.
+        if (first.operator() == LESS_THAN_OR_EQUAL && second.operator() == LESS_THAN_OR_EQUAL
+                && first.right().equals(second.left()) && isDeterministic(first.right())) {
+            return new Between(first.right(), first.left(), second.right());
+        }
+        return null;
+    }
+
+    /// View of a `value BETWEEN min AND max` predicate as produced by [#between].
+    public record Between(Expression value, Expression min, Expression max) {}
+
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), constantNull(trueCase.type()));
@@ -266,7 +333,6 @@ public final class IrExpressions
             case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
 
             // These expressions may return null based on their operands
-            case Between e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || mayBeNull(plannerContext, e.min(), referencesMayBeNull) || mayBeNull(plannerContext, e.max(), referencesMayBeNull);
             case Call e -> switch (matchComparison(e)) {
                 case null -> mayBeNull(plannerContext, e.function(), e.arguments(), referencesMayBeNull);
                 // IDENTICAL is null-safe; other comparisons return null only when one of their operands is null.
@@ -324,7 +390,6 @@ public final class IrExpressions
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
-            case Between e -> mayFail(plannerContext, e) || mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> switch (matchComparison(e)) {
                 case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
                 case Comparison comparison -> mayFail(plannerContext, comparison) || mayFail(plannerContext, comparison.left()) || mayFail(plannerContext, comparison.right());
@@ -355,14 +420,6 @@ public final class IrExpressions
             case LESS_THAN, GREATER_THAN -> !typeOperators.getLessThanOperatorHandle(operandType, convention).isNeverFails();
             case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
         };
-    }
-
-    private static boolean mayFail(PlannerContext plannerContext, Between between)
-    {
-        TypeOperators typeOperators = plannerContext.getTypeOperators();
-        Type operandType = between.value().type();
-        InvocationConvention convention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
-        return !typeOperators.getLessThanOrEqualOperatorHandle(operandType, convention).isNeverFails();
     }
 
     // TODO: record "safety" (can the cast fail at runtime) in Cast node

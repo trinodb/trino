@@ -2904,7 +2904,7 @@ public class LocalExecutionPlanner
                             buildLayout));
 
             Optional<SortExpressionContext> sortExpressionContext = node.getFilter()
-                    .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter, metadata));
+                    .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter));
 
             OptionalInt sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
