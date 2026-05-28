@@ -43,12 +43,10 @@ import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -81,14 +79,12 @@ public class IrExpressionEvaluator
     }
 
     private final InterpretedFunctionInvoker functionInvoker;
-    private final TypeCoercion typeCoercion;
     private final Metadata metadata;
 
     public IrExpressionEvaluator(PlannerContext context)
     {
         metadata = context.getMetadata();
         functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
-        typeCoercion = new TypeCoercion(context.getTypeManager()::getType);
     }
 
     public Object evaluate(Expression expression, Session session, Map<String, Object> bindings)
@@ -107,7 +103,6 @@ public class IrExpressionEvaluator
             case Lambda e -> makeLambdaInvoker(session, e);
             case Let e -> evaluateInternal(e, session, bindings);
             case Logical e -> evaluateInternal(e, session, bindings);
-            case NullIf e -> evaluateInternal(e, session, bindings);
             case Reference reference -> bindings.get(reference.name());
             case Row e -> evaluateInternal(e, session, bindings);
             case Match e -> evaluateInternal(e, session, bindings);
@@ -192,27 +187,6 @@ public class IrExpressionEvaluator
                         evaluate(expression.items().get(i), session, bindings));
             }
         });
-    }
-
-    private Object evaluateInternal(NullIf expression, Session session, Map<String, Object> bindings)
-    {
-        ConnectorSession connectorSession = session.toConnectorSession();
-
-        Object first = evaluate(expression.first(), session, bindings);
-        Object second = evaluate(expression.second(), session, bindings);
-
-        Type commonType = typeCoercion.getCommonSuperType(expression.first().type(), expression.second().type()).orElseThrow();
-
-        // cast(first as <common type>) == cast(second as <common type>)
-        boolean equal = Boolean.TRUE.equals(
-                functionInvoker.invoke(
-                        metadata.resolveOperator(EQUAL, ImmutableList.of(commonType, commonType)),
-                        connectorSession,
-                        ImmutableList.of(
-                                functionInvoker.invoke(metadata.getCoercion(expression.first().type(), commonType), connectorSession, ImmutableList.of(first)),
-                                functionInvoker.invoke(metadata.getCoercion(expression.second().type(), commonType), connectorSession, ImmutableList.of(second)))));
-
-        return equal ? null : first;
     }
 
     private Object evaluateInternal(Logical expression, Session session, Map<String, Object> bindings)

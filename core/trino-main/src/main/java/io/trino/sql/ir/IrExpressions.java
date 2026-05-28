@@ -269,6 +269,85 @@ public final class IrExpressions
     /// View of a `value BETWEEN min AND max` predicate as produced by [#between].
     public record Between(Expression value, Expression min, Expression max) {}
 
+    /// Lower a NULLIF to `if(first = second) then null else first`, wrapping `first` in a [Let]
+    /// when it is non-trivial so the operand is evaluated exactly once. Defaults the comparison
+    /// type to `first.type()` — see the overload below for the mixed-type case.
+    public static Expression nullIf(Metadata metadata, SymbolAllocator allocator, Expression first, Expression second)
+    {
+        return nullIf(metadata, allocator, first, second, first.type());
+    }
+
+    /// Same as [#nullIf(Metadata,SymbolAllocator,Expression,Expression)] but performs the equality at
+    /// `comparisonType`, casting `first` and `second` as needed. The returned value keeps
+    /// `first`'s type, matching SQL `NULLIF` semantics; the cast is applied only for the
+    /// comparison.
+    public static Expression nullIf(Metadata metadata, SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
+    {
+        Expression secondForComparison = second.type().equals(comparisonType) ? second : new Cast(second, comparisonType);
+        // Inline trivial values directly so the result stays a plain Case expression.
+        if (first instanceof Reference || first instanceof Constant) {
+            Expression firstForComparison = first.type().equals(comparisonType) ? first : new Cast(first, comparisonType);
+            return ifExpression(
+                    comparison(metadata, EQUAL, firstForComparison, secondForComparison),
+                    constantNull(first.type()),
+                    first);
+        }
+        Symbol bound = allocator.newSymbol("nullif", first.type());
+        Reference reference = new Reference(first.type(), bound.name());
+        Expression referenceForComparison = first.type().equals(comparisonType) ? reference : new Cast(reference, comparisonType);
+        return new Let(bound, first, ifExpression(
+                comparison(metadata, EQUAL, referenceForComparison, secondForComparison),
+                constantNull(first.type()),
+                reference));
+    }
+
+    /// Recognize a NULLIF-shape as produced by [#nullIf] in either the trivial-value form
+    /// (`if(first = second) then null else first`) or the Let-wrapped form
+    /// (`Let(s, first, if(s = second) then null else s)`).
+    @Nullable
+    public static NullIf matchNullIf(Expression expression)
+    {
+        if (expression instanceof Let(Symbol bound, Expression first, Expression body)) {
+            // The bound symbol must not leak through second: a pattern consumer sees only the
+            // extracted parts, where such a reference would be unbound.
+            if (matchIfFirstEqualsSecond(body) instanceof NullIf match
+                    && match.first() instanceof Reference ref && ref.name().equals(bound.name())
+                    && !SymbolsExtractor.extractUnique(match.second()).contains(bound)) {
+                return new NullIf(first, match.second());
+            }
+            return null;
+        }
+        return matchIfFirstEqualsSecond(expression);
+    }
+
+    @Nullable
+    private static NullIf matchIfFirstEqualsSecond(Expression expression)
+    {
+        if (!(expression instanceof Case caseExpression) || caseExpression.whenClauses().size() != 1) {
+            return null;
+        }
+        WhenClause when = caseExpression.whenClauses().get(0);
+        if (!(matchComparison(when.getOperand()) instanceof Comparison.Equal(Expression left, Expression right))) {
+            return null;
+        }
+        if (!isConstantNull(when.getResult())) {
+            return null;
+        }
+        if (!caseExpression.defaultValue().equals(left)) {
+            return null;
+        }
+        // The first operand occurs in both the condition and the default: collapsing the two
+        // independent evaluations into the pattern's single occurrence is only sound when it is
+        // deterministic.
+        if (!isDeterministic(left)) {
+            return null;
+        }
+        return new NullIf(left, right);
+    }
+
+    /// View of a `NULLIF(first, second)` predicate as produced by [#nullIf].
+    public record NullIf(Expression first, Expression second) {}
+
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), constantNull(trueCase.type()));
@@ -352,7 +431,7 @@ public final class IrExpressions
 
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
-            case FieldReference _, NullIf _ -> true;
+            case FieldReference _ -> true;
             case Reference _ -> referencesMayBeNull;
         };
     }
@@ -402,7 +481,6 @@ public final class IrExpressions
             case IsNull e -> mayFail(plannerContext, e.value());
             case Let e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.body());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
-            case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Match e -> mayFail(plannerContext, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.lambda().body()) || mayFail(plannerContext, clause.result())) ||
                     mayFail(plannerContext, e.defaultValue());

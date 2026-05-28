@@ -36,6 +36,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrExpressions.matchNullIf;
 
 /**
  * Transforms:
@@ -62,10 +63,17 @@ public class DistributeComparisonOverCase
         }
 
         if (comparison.left() instanceof Case caseTerm && (comparison.right() instanceof Reference || comparison.right() instanceof Constant)) {
+            // Leave a desugared NULLIF intact so it stays recognizable for connector pushdown.
+            if (matchNullIf(caseTerm) != null) {
+                return Optional.empty();
+            }
             return Optional.of(distribute(comparison.operator(), caseTerm, comparison.right()));
         }
 
         if (comparison.right() instanceof Case caseTerm && (comparison.left() instanceof Reference || comparison.left() instanceof Constant)) {
+            if (matchNullIf(caseTerm) != null) {
+                return Optional.empty();
+            }
             return Optional.of(distribute(flipOperator(comparison.operator()), caseTerm, comparison.left()));
         }
 

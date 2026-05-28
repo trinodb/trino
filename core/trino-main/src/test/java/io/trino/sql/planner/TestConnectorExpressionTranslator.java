@@ -47,7 +47,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
@@ -105,6 +104,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -537,7 +537,8 @@ public class TestConnectorExpressionTranslator
     public void testTranslateNullIf()
     {
         assertTranslationRoundTrips(
-                new NullIf(
+                nullIf(
+                        null,
                         new Reference(VARCHAR, "varchar_symbol_1"),
                         new Reference(VARCHAR, "varchar_symbol_1")),
                 new io.trino.spi.expression.Call(

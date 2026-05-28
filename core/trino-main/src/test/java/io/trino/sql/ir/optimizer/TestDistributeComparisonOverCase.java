@@ -28,9 +28,11 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,6 +121,21 @@ public class TestDistributeComparisonOverCase
                                         new Reference(BOOLEAN, "b"),
                                         comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                         comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
+    }
+
+    @Test
+    void testDoesNotDistributeNullIf()
+    {
+        // NULLIF(x, 1) desugars to a Case; it must be left intact so it stays recognizable for connector pushdown.
+        Expression nullIf = nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
+
+        assertThat(optimize(comparison(EQUAL, nullIf, new Reference(BIGINT, "m"))))
+                .describedAs("nullif(...) = reference")
+                .isEqualTo(Optional.empty());
+
+        assertThat(optimize(comparison(EQUAL, new Reference(BIGINT, "m"), nullIf)))
+                .describedAs("reference = nullif(...)")
+                .isEqualTo(Optional.empty());
     }
 
     private Optional<Expression> optimize(Expression expression)

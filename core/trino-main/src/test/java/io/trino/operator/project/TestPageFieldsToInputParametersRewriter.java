@@ -35,10 +35,10 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -63,6 +63,7 @@ import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,7 +111,7 @@ public class TestPageFieldsToInputParametersRewriter
         verifyEagerlyLoadedColumns(builder.buildExpression(call(ADD_BIGINT, new Coalesce(new Constant(BIGINT, 0L), new Reference(BIGINT, "bigint0")), new Reference(BIGINT, "bigint0"))), 1);
 
         verifyEagerlyLoadedColumns(builder.buildExpression(call(ADD_BIGINT, new Reference(BIGINT, "bigint0"), call(MULTIPLY_BIGINT, new Constant(BIGINT, 2L), new Reference(BIGINT, "bigint1")))), 2);
-        verifyEagerlyLoadedColumns(builder.buildExpression(new NullIf(new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1"))), 2);
+        verifyEagerlyLoadedColumns(builder.buildExpression(nullIf(new SymbolAllocator(), new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1"))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Coalesce(call(CEIL, call(DIVIDE_BIGINT, new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1"))), new Constant(BIGINT, 0L))), 2);
         verifyEagerlyLoadedColumns(builder.buildExpression(new Case(ImmutableList.of(new WhenClause(comparison(GREATER_THAN, new Reference(BIGINT, "bigint0"), new Reference(BIGINT, "bigint1")), new Constant(INTEGER, 1L))), new Constant(INTEGER, 0L))), 2);
         verifyEagerlyLoadedColumns(

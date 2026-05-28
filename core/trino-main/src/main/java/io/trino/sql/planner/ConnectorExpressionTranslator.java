@@ -39,6 +39,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.ComparisonOperator;
@@ -53,7 +54,6 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
@@ -118,6 +118,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrExpressions.matchNullIf;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -490,7 +491,7 @@ public final class ConnectorExpressionTranslator
             Optional<Expression> firstExpression = translate(first, lambdaArguments);
             Optional<Expression> secondExpression = translate(second, lambdaArguments);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
-                return Optional.of(new NullIf(firstExpression.get(), secondExpression.get()));
+                return Optional.of(IrExpressions.nullIf(plannerContext.getMetadata(), symbolAllocator, firstExpression.get(), secondExpression.get()));
             }
 
             return Optional.empty();
@@ -712,18 +713,25 @@ public final class ConnectorExpressionTranslator
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            // Only the Let-wrapped BETWEEN shape is translated to `$between`. The trivial form
-            // (AND of two comparisons over the same value) goes through `visitLogical` and is
-            // pushed as a plain AND, since the value is a Reference or Constant and
-            // duplicating it on the connector side is harmless.
-            IrExpressions.Between pattern = matchBetween(node);
-            if (pattern == null) {
+            // Only the Let-wrapped forms are translated to their function-call equivalents.
+            // The trivial forms (AND of comparisons / a Case expression on a trivial value)
+            // already route through `visitLogical` / `visitCase` and are pushed as their plain
+            // shape, since duplicating a Reference or Constant on the connector side is harmless.
+            IrExpressions.Between between = matchBetween(node);
+            if (between != null) {
+                Optional<ConnectorExpression> translated = process(between.value(), context).flatMap(value ->
+                        process(between.min(), context).flatMap(min ->
+                                process(between.max(), context).map(max ->
+                                        new io.trino.spi.expression.Call(BOOLEAN, BETWEEN_FUNCTION_NAME, ImmutableList.of(value, min, max)))));
+                if (translated.isPresent()) {
+                    return translated;
+                }
+            }
+            IrExpressions.NullIf nullIf = matchNullIf(node);
+            if (nullIf == null) {
                 return Optional.empty();
             }
-            return process(pattern.value(), context).flatMap(value ->
-                    process(pattern.min(), context).flatMap(min ->
-                            process(pattern.max(), context).map(max ->
-                                    new io.trino.spi.expression.Call(BOOLEAN, BETWEEN_FUNCTION_NAME, ImmutableList.of(value, min, max)))));
+            return translateNullIfPattern(nullIf, node.type(), context);
         }
 
         private Optional<ConnectorExpression> translateComparison(Type type, Comparison comparison, Context context)
@@ -938,14 +946,26 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitNullIf(NullIf node, Context context)
+        protected Optional<ConnectorExpression> visitCase(Case node, Context context)
         {
-            Optional<ConnectorExpression> firstValue = process(node.first(), context);
-            Optional<ConnectorExpression> secondValue = process(node.second(), context);
-            if (firstValue.isPresent() && secondValue.isPresent()) {
-                return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
             }
-            return Optional.empty();
+            // Generic Case isn't translated; only the trivial NULLIF shape
+            // (`if(first = second) then null else first`) is recognized so it can be pushed as
+            // `$nullif`. The Let-wrapped NULLIF is handled by `visitLet`.
+            IrExpressions.NullIf nullIf = matchNullIf(node);
+            if (nullIf == null) {
+                return Optional.empty();
+            }
+            return translateNullIfPattern(nullIf, ((Expression) node).type(), context);
+        }
+
+        private Optional<ConnectorExpression> translateNullIfPattern(IrExpressions.NullIf pattern, Type type, Context context)
+        {
+            return process(pattern.first(), context).flatMap(first ->
+                    process(pattern.second(), context).map(second ->
+                            new io.trino.spi.expression.Call(type, NULLIF_FUNCTION_NAME, ImmutableList.of(first, second))));
         }
 
         @Override

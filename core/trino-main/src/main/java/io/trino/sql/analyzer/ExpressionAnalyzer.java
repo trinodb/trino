@@ -361,6 +361,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Predicate>, PredicateCoercions> predicateCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
+    private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
     private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
     private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
@@ -489,6 +490,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Expression>, Type> getExpressionCoercions()
     {
         return unmodifiableMap(expressionCoercions);
+    }
+
+    public Map<NodeRef<NullIfExpression>, Type> getNullIfComparisonTypes()
+    {
+        return unmodifiableMap(nullIfComparisonTypes);
     }
 
     public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
@@ -1004,9 +1010,9 @@ public class ExpressionAnalyzer
             Type firstType = process(node.getFirst(), context);
             Type secondType = process(node.getSecond(), context);
 
-            if (typeCoercion.getCommonSuperType(firstType, secondType).isEmpty()) {
-                throw semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
-            }
+            Type comparisonType = typeCoercion.getCommonSuperType(firstType, secondType)
+                    .orElseThrow(() -> semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType));
+            nullIfComparisonTypes.put(NodeRef.of(node), comparisonType);
 
             return setExpressionType(node, firstType);
         }
@@ -4468,6 +4474,7 @@ public class ExpressionAnalyzer
                 analyzer.getExpressionCoercions(),
                 analyzer.getSortKeyCoercionsForFrameBoundCalculation(),
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
+        analysis.addNullIfComparisonTypes(analyzer.getNullIfComparisonTypes());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
         analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
