@@ -2344,16 +2344,12 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!(valueType instanceof TimeWithTimeZoneType) && !(valueType instanceof TimestampWithTimeZoneType) && !(valueType instanceof TimeType) && !(valueType instanceof TimestampType)) {
-                throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
-            }
-            Type resultType = valueType;
-            if (valueType instanceof TimeType timeType) {
-                resultType = createTimeWithTimeZoneType(timeType.getPrecision());
-            }
-            else if (valueType instanceof TimestampType timestampType) {
-                resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
-            }
+            Type resultType = switch (valueType) {
+                case TimeType type -> createTimeWithTimeZoneType(type.getPrecision());
+                case TimestampType type -> createTimestampWithTimeZoneType(type.getPrecision());
+                case TimeWithTimeZoneType _, TimestampWithTimeZoneType _ -> valueType;
+                default -> throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            };
 
             return setExpressionType(node, resultType);
         }
