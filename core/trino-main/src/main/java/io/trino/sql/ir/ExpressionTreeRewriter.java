@@ -195,26 +195,6 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitNullIf(NullIf node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteNullIf(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression first = rewrite(node.first(), context.get());
-            Expression second = rewrite(node.second(), context.get());
-
-            if (first != node.first() || second != node.second()) {
-                return new NullIf(first, second);
-            }
-
-            return node;
-        }
-
-        @Override
         protected Expression visitCase(Case node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

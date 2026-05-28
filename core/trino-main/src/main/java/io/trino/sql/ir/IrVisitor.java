@@ -112,11 +112,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitNullIf(NullIf node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitExpression(Expression node, C context)
     {
         return null;

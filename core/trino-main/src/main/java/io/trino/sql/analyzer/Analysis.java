@@ -76,6 +76,7 @@ import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
@@ -218,6 +219,7 @@ public class Analysis
 
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
+    private final Map<NodeRef<NullIfExpression>, Type> nullIfComparisonTypes = new LinkedHashMap<>();
 
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
@@ -797,6 +799,21 @@ public class Analysis
         this.coercions.putAll(coercions);
         this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
         this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public void addNullIfComparisonType(NullIfExpression expression, Type type)
+    {
+        this.nullIfComparisonTypes.put(NodeRef.of(expression), type);
+    }
+
+    public void addNullIfComparisonTypes(Map<NodeRef<NullIfExpression>, Type> types)
+    {
+        this.nullIfComparisonTypes.putAll(types);
+    }
+
+    public Type getNullIfComparisonType(NullIfExpression expression)
+    {
+        return nullIfComparisonTypes.get(NodeRef.of(expression));
     }
 
     public Type getSortKeyCoercionForFrameBoundCalculation(Expression frameOffset)

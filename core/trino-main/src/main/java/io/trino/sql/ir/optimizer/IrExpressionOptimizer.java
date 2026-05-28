@@ -33,7 +33,6 @@ import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
@@ -51,7 +50,6 @@ import io.trino.sql.ir.optimizer.rule.EvaluateIn;
 import io.trino.sql.ir.optimizer.rule.EvaluateIsNull;
 import io.trino.sql.ir.optimizer.rule.EvaluateLogical;
 import io.trino.sql.ir.optimizer.rule.EvaluateMatch;
-import io.trino.sql.ir.optimizer.rule.EvaluateNullIf;
 import io.trino.sql.ir.optimizer.rule.EvaluateReference;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
@@ -105,7 +103,6 @@ public class IrExpressionOptimizer
                 new EvaluateIsNull(context),
                 new EvaluateComparison(context),
                 new EvaluateCast(context),
-                new EvaluateNullIf(context),
                 new EvaluateMatch(context),
                 new EvaluateCase(),
                 new EvaluateCall(context),
@@ -148,7 +145,6 @@ public class IrExpressionOptimizer
                 new EvaluateIsNull(context),
                 new EvaluateComparison(context),
                 new EvaluateCast(context),
-                new EvaluateNullIf(context),
                 new EvaluateMatch(context),
                 new EvaluateCase(),
                 new EvaluateCall(context),
@@ -200,13 +196,6 @@ public class IrExpressionOptimizer
             case Row row -> process(row.items(), session, symbolAllocator, bindings).map(fields -> new Row(fields, row.type()));
             case Coalesce coalesce -> process(coalesce.operands(), session, symbolAllocator, bindings).map(operands -> new Coalesce(operands));
             case FieldReference reference -> process(reference.base(), session, symbolAllocator, bindings).map(base -> new FieldReference(base, reference.field()));
-            case NullIf nullIf -> {
-                Optional<Expression> first = process(nullIf.first(), session, symbolAllocator, bindings);
-                Optional<Expression> second = process(nullIf.second(), session, symbolAllocator, bindings);
-                yield first.isPresent() || second.isPresent() ?
-                        Optional.of(new NullIf(first.orElse(nullIf.first()), second.orElse(nullIf.second()))) :
-                        Optional.empty();
-            }
             case In in -> {
                 Optional<Expression> value = process(in.value(), session, symbolAllocator, bindings);
                 Optional<List<Expression>> list = process(in.valueList(), session, symbolAllocator, bindings);
