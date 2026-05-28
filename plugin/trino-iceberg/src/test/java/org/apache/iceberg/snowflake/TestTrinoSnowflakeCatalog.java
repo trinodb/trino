@@ -226,10 +226,11 @@ public class TestTrinoSnowflakeCatalog
 
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                new CatalogName("iceberg"),
                 PLANNER_CONTEXT.getTypeManager(),
                 jsonCodec(CommitTaskData.class),
                 catalog,
-                (connectorIdentity, fileIOProperties) -> {
+                (_, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 TABLE_STATISTICS_READER,
@@ -285,7 +286,8 @@ public class TestTrinoSnowflakeCatalog
         String namespace = "test_create_sort_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+        Schema tableSchema = new Schema(
+                Types.NestedField.optional(1, "col1", Types.LongType.get()),
                 Types.NestedField.optional(2, "col2", Types.StringType.get()),
                 Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
                 Types.NestedField.optional(4, "col4", Types.StringType.get()));

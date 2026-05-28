@@ -14,7 +14,6 @@
 package io.trino.hive.formats.avro.model;
 
 public sealed interface RecordFieldReadAction
-        permits
-        SkipFieldRecordFieldReadAction,
-        DefaultValueFieldRecordFieldReadAction,
-        ReadFieldAction {}
+        permits DefaultValueFieldRecordFieldReadAction,
+                ReadFieldAction,
+                SkipFieldRecordFieldReadAction {}

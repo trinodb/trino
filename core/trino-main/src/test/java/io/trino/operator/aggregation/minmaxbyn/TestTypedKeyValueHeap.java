@@ -80,7 +80,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(value, value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(BIGINT,
                 VARCHAR,
@@ -88,7 +89,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(value, utf8Slice(value.toString())))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(VARCHAR,
                 BIGINT,
@@ -96,7 +98,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(utf8Slice(value.toString()), value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(VARCHAR,
                 VARCHAR,
@@ -104,7 +107,9 @@ public class TestTypedKeyValueHeap
                         .map(String::valueOf)
                         .map(Slices::utf8Slice)
                         .map(value -> new Entry<>(value, value))
-                        .toList(), Comparator.naturalOrder(), OUTPUT_SIZE);
+                        .toList(),
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test
@@ -113,7 +118,8 @@ public class TestTypedKeyValueHeap
         test(VARCHAR,
                 VARCHAR,
                 Collections.nCopies(INPUT_SIZE, new Entry<>(EMPTY_SLICE, EMPTY_SLICE)),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test
@@ -124,7 +130,8 @@ public class TestTypedKeyValueHeap
                 LongStream.range(0, 10).boxed()
                         .map(value -> new Entry<>(value, value == 5 ? null : value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test

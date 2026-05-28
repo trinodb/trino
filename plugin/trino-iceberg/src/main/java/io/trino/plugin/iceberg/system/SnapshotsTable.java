@@ -44,8 +44,7 @@ public class SnapshotsTable
 
     public SnapshotsTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, ExecutorService executor)
     {
-        super(
-                requireNonNull(icebergTable, "icebergTable is null"),
+        super(requireNonNull(icebergTable, "icebergTable is null"),
                 createConnectorTableMetadata(
                         requireNonNull(tableName, "tableName is null"),
                         requireNonNull(typeManager, "typeManager is null")),

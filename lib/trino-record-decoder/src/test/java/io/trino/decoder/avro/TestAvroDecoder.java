@@ -240,7 +240,8 @@ public class TestAvroDecoder
         byte[] originalData = buildAvroData(getFieldBuilder()
                         .name("string_field").type().stringType().noDefault()
                         .endRecord(),
-                "string_field", "string_field_value");
+                "string_field",
+                "string_field_value");
         String addedColumnSchema = getFieldBuilder()
                 .name("string_field").type().stringType().noDefault()
                 .name("string_field_added").type().optional().stringType()
@@ -261,7 +262,8 @@ public class TestAvroDecoder
         byte[] originalData = buildAvroData(getFieldBuilder()
                         .name("string_field").type().stringType().noDefault()
                         .endRecord(),
-                "string_field", "string_field_value");
+                "string_field",
+                "string_field_value");
 
         DecoderTestColumnHandle renamedColumn = new DecoderTestColumnHandle(0, "row0", VARCHAR, "string_field_renamed", null, null, false, false, false);
         String renamedColumnSchema = getFieldBuilder()
@@ -308,7 +310,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_long_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_long_field", 100);
+                "int_to_long_field",
+                100);
 
         DecoderTestColumnHandle longColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", BIGINT, "int_to_long_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()
@@ -330,7 +333,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_double_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_double_field", 100);
+                "int_to_double_field",
+                100);
 
         DecoderTestColumnHandle doubleColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", DOUBLE, "int_to_double_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()
@@ -352,7 +356,8 @@ public class TestAvroDecoder
         byte[] originalIntData = buildAvroData(getFieldBuilder()
                         .name("int_to_string_field").type().intType().noDefault()
                         .endRecord(),
-                "int_to_string_field", 100);
+                "int_to_string_field",
+                100);
 
         DecoderTestColumnHandle stringColumnReadingIntData = new DecoderTestColumnHandle(0, "row0", VARCHAR, "int_to_string_field", null, null, false, false, false);
         String changedTypeSchema = getFieldBuilder()

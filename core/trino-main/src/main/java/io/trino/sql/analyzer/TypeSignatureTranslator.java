@@ -72,7 +72,8 @@ public final class TypeSignatureTranslator
 
     private static final Cache<String, DataType> DATA_TYPE_CACHE = EvictableCacheBuilder.newBuilder()
             .maximumSize(4096)
-            .build(new CacheLoader<>() {
+            .build(new CacheLoader<>()
+            {
                 @Override
                 public DataType load(String signature)
                 {

@@ -86,8 +86,8 @@ class TestSqlFunctions
     static {
         JsonMapper mapper = new JsonMapperProvider()
                 .withKeyDeserializers(ImmutableMap.of(
-                    TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                    Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
+                        TypeSignature.class, new TypeSignatureKeyDeserializer(),
+                        Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER)))
                 .withJsonDeserializers(ImmutableMap.of(
                         Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                         Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)))
@@ -335,6 +335,35 @@ class TestSqlFunctions
                 END
                 """;
         assertFunction(sql, handle -> assertThat(handle.invoke()).isEqualTo(5L));
+    }
+
+    @Test
+    void testWhileWithIfElseifSettingSameVariable()
+    {
+        // Exercise a routine variable with a Block-valued default (ARRAY[]) so that a JSON
+        // round-trip of the IR produces non-equal IrVariable records for the same field —
+        // SqlRoutineCompiler must dedupe by field number, not by record identity.
+        @Language("SQL") String sql =
+                """
+                FUNCTION test_generate_series(start_value bigint, end_value bigint, step bigint)
+                RETURNS bigint
+                BEGIN
+                  DECLARE result array(bigint) DEFAULT array[];
+                  DECLARE current bigint DEFAULT start_value;
+                  WHILE current <= end_value DO
+                    IF step > 0 THEN
+                      SET result = concat(result, array[current]);
+                      SET current = current + step;
+                    ELSEIF step < 0 THEN
+                      SET current = current - step;
+                    ELSE
+                      RETURN 0;
+                    END IF;
+                  END WHILE;
+                  RETURN cardinality(result);
+                END
+                """;
+        assertFunction(sql, handle -> assertThat(handle.invoke(1L, 3L, 1L)).isEqualTo(3L));
     }
 
     @Test

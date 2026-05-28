@@ -65,7 +65,8 @@ public class TestPruneOrderByInWindowAggregation
                     return planBuilder.window(
                             new DataOrganizationSpecification(ImmutableList.of(planBuilder.symbol("key", BIGINT)), Optional.empty()),
                             ImmutableMap.of(
-                                    avg, new WindowNode.Function(avgFunction,
+                                    avg, new WindowNode.Function(
+                                            avgFunction,
                                             ImmutableList.of(new Reference(BIGINT, "input")),
                                             Optional.of(new OrderingScheme(
                                                     ImmutableList.of(new Symbol(BIGINT, "input")),
@@ -73,7 +74,8 @@ public class TestPruneOrderByInWindowAggregation
                                             DEFAULT_FRAME,
                                             false,
                                             false),
-                                    arrayAgg, new WindowNode.Function(arrayAggFunction,
+                                    arrayAgg, new WindowNode.Function(
+                                            arrayAggFunction,
                                             ImmutableList.of(new Reference(BIGINT, "input")),
                                             Optional.of(new OrderingScheme(
                                                     ImmutableList.of(new Symbol(BIGINT, "input")),

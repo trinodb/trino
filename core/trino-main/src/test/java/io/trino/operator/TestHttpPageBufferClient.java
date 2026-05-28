@@ -522,7 +522,8 @@ public class TestHttpPageBufferClient
 
     private static void assertStatus(
             HttpPageBufferClient client,
-            URI location, String status,
+            URI location,
+            String status,
             int pagesReceived,
             int requestsScheduled,
             int requestsCompleted,

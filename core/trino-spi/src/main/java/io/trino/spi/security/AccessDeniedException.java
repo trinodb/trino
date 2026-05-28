@@ -730,7 +730,8 @@ public class AccessDeniedException
 
     private static void entityPrivilegeException(String operation, String privilege, EntityKindAndName entity, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot %s privilege %s on %s %s%s",
+        throw new AccessDeniedException(format(
+                "Cannot %s privilege %s on %s %s%s",
                 operation,
                 privilege,
                 entity.entityKind().toLowerCase(Locale.ROOT),
@@ -937,8 +938,12 @@ public class AccessDeniedException
 
     public static void denySetEntityAuthorization(EntityKindAndName entityKindAndName, TrinoPrincipal principal, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot set authorization for %s %s to %s%s",
-                entityKindAndName.entityKind().toLowerCase(ENGLISH), entityNameString(entityKindAndName.name()), principal, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format(
+                "Cannot set authorization for %s %s to %s%s",
+                entityKindAndName.entityKind().toLowerCase(ENGLISH),
+                entityNameString(entityKindAndName.name()),
+                principal,
+                formatExtraInfo(extraInfo)));
     }
 
     private static String entityNameString(List<String> name)

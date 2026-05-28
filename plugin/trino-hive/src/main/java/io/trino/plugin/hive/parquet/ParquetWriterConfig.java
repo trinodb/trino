@@ -49,6 +49,7 @@ public class ParquetWriterConfig
     private int pageValueCount = ParquetWriterOptions.DEFAULT_MAX_PAGE_VALUE_COUNT;
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
     private double validationPercentage = 5;
+    private boolean deltaLengthByteArrayEncodingEnabled = true;
 
     @MaxDataSize(PARQUET_WRITER_MAX_BLOCK_SIZE)
     public DataSize getBlockSize()
@@ -116,6 +117,19 @@ public class ParquetWriterConfig
     public ParquetWriterConfig setValidationPercentage(double validationPercentage)
     {
         this.validationPercentage = validationPercentage;
+        return this;
+    }
+
+    public boolean isDeltaLengthByteArrayEncodingEnabled()
+    {
+        return deltaLengthByteArrayEncodingEnabled;
+    }
+
+    @Config("parquet.writer.delta-length-byte-array-encoding-enabled")
+    @ConfigDescription("Use DELTA_LENGTH_BYTE_ARRAY encoding instead of PLAIN as the non-dictionary fallback for BYTE_ARRAY columns")
+    public ParquetWriterConfig setDeltaLengthByteArrayEncodingEnabled(boolean deltaLengthByteArrayEncodingEnabled)
+    {
+        this.deltaLengthByteArrayEncodingEnabled = deltaLengthByteArrayEncodingEnabled;
         return this;
     }
 }

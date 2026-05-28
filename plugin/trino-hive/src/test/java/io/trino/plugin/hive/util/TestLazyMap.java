@@ -40,7 +40,8 @@ public class TestLazyMap
         assertMapDecode("\\N\u0003ignored", ImmutableMap.of());
         assertMapDecode("\\N\u0003ignored\u0002alice\u0003apple", ImmutableMap.of(lazyString("alice"), lazyString("apple")));
         assertMapDecode("alice\u0003apple\u0002\\N\u0003ignored", ImmutableMap.of(lazyString("alice"), lazyString("apple")));
-        assertMapDecode("alice\u0003apple\u0002\\N\u0003ignored\u0002bob\u0003banana",
+        assertMapDecode(
+                "alice\u0003apple\u0002\\N\u0003ignored\u0002bob\u0003banana",
                 ImmutableMap.of(lazyString("alice"), lazyString("apple"), lazyString("bob"), lazyString("banana")));
         assertMapDecode("\\N\u0003ignored\u0002\u0003", ImmutableMap.of(lazyString(""), lazyString("")));
 

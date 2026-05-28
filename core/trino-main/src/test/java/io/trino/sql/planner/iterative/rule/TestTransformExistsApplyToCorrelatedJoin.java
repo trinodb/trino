@@ -61,8 +61,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
     {
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
-                        p.apply(
-                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
+                        p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(),
                                 p.values(),
                                 p.values()))
@@ -80,8 +79,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
     {
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
-                        p.apply(
-                                ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
+                        p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
                                 p.project(Assignments.of(),

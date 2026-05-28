@@ -90,7 +90,8 @@ class TestIcebergPageSourceProvider
 
         // Write equality delete file (deletes regionkey=1)
         Path deleteFilePath = tempDir.resolve("delete.parquet");
-        writeParquetFileToDisk(deleteFilePath,
+        writeParquetFileToDisk(
+                deleteFilePath,
                 ImmutableList.of(BIGINT),
                 ImmutableList.of("regionkey"),
                 new Page(createBigintBlock(1L)));

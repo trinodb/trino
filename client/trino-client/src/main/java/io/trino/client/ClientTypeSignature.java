@@ -74,8 +74,10 @@ public class ClientTypeSignature
     public List<ClientTypeSignature> getArgumentsAsTypeSignatures()
     {
         return arguments.stream()
-                .peek(parameter -> checkState(parameter.getKind() == ParameterKind.TYPE,
-                        "Expected all parameters to be TypeSignatures but [%s] was found", parameter))
+                .peek(parameter -> checkState(
+                        parameter.getKind() == ParameterKind.TYPE,
+                        "Expected all parameters to be TypeSignatures but [%s] was found",
+                        parameter))
                 .map(ClientTypeSignatureParameter::getTypeSignature)
                 .collect(toImmutableList());
     }

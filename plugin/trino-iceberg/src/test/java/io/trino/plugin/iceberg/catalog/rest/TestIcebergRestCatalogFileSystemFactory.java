@@ -323,24 +323,16 @@ final class TestIcebergRestCatalogFileSystemFactory
         }
 
         @Override
-        public void deleteFile(Location location)
-        {
-        }
+        public void deleteFile(Location location) {}
 
         @Override
-        public void deleteFiles(Collection<Location> locations)
-        {
-        }
+        public void deleteFiles(Collection<Location> locations) {}
 
         @Override
-        public void deleteDirectory(Location location)
-        {
-        }
+        public void deleteDirectory(Location location) {}
 
         @Override
-        public void renameFile(Location source, Location target)
-        {
-        }
+        public void renameFile(Location source, Location target) {}
 
         @Override
         public FileIterator listFiles(Location location)
@@ -355,14 +347,10 @@ final class TestIcebergRestCatalogFileSystemFactory
         }
 
         @Override
-        public void createDirectory(Location location)
-        {
-        }
+        public void createDirectory(Location location) {}
 
         @Override
-        public void renameDirectory(Location source, Location target)
-        {
-        }
+        public void renameDirectory(Location source, Location target) {}
 
         @Override
         public Set<Location> listDirectories(Location location)

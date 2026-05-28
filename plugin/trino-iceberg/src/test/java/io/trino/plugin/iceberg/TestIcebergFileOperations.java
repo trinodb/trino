@@ -390,7 +390,8 @@ public class TestIcebergFileOperations
                 withSmallRowGroups(Session.builder(getSession())
                         .setSystemProperty(SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED, "1PB")
                         .build()),
-                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders", 15000);
+                "INSERT INTO test_read_whole_splittable_file SELECT 'single partition', comment FROM tpch.tiny.orders",
+                15000);
 
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, IcebergSessionProperties.SPLIT_SIZE, "1kB")
@@ -951,7 +952,8 @@ public class TestIcebergFileOperations
         Table icebergTable = IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "iceberg", "test_schema");
 
         // Delete only 1 row in the file so the data file is not pruned completely
-        writeEqualityDeleteForTable(icebergTable,
+        writeEqualityDeleteForTable(
+                icebergTable,
                 fileSystemFactory,
                 Optional.of(icebergTable.spec()),
                 Optional.empty(),

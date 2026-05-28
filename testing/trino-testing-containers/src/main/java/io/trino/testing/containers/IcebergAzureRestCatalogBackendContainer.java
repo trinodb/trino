@@ -28,8 +28,7 @@ public class IcebergAzureRestCatalogBackendContainer
             String sasToken,
             long sasTokenExpiresAtMs)
     {
-        super(
-                "apache/iceberg-rest-fixture:1.10.1",
+        super("apache/iceberg-rest-fixture:1.10.1",
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),

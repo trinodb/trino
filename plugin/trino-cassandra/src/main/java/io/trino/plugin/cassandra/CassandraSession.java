@@ -302,7 +302,9 @@ public class CassandraSession
                     throw new TrinoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
-                                    caseInsensitiveSchemaName, result.getName(), keyspace.getName()));
+                                    caseInsensitiveSchemaName,
+                                    result.getName(),
+                                    keyspace.getName()));
                 }
                 result = keyspace;
             }
@@ -333,7 +335,8 @@ public class CassandraSession
         throw new TrinoException(
                 NOT_SUPPORTED,
                 format("More than one table has been found for the case insensitive table name: %s -> (%s)",
-                        caseInsensitiveTableName, tableNames));
+                        caseInsensitiveTableName,
+                        tableNames));
     }
 
     public boolean isMaterializedView(SchemaTableName schemaTableName)
@@ -351,7 +354,9 @@ public class CassandraSession
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
+                                lowercaseName,
+                                lowercaseNameToColumnMap.get(lowercaseName).getName(),
+                                column.getName()));
             }
             lowercaseNameToColumnMap.put(lowercaseName, column);
         }
@@ -391,7 +396,7 @@ public class CassandraSession
      *
      * @param table the table to get partitions from
      * @param filterPrefixes the list of possible values for each partition key.
-     * Order of values should match {@link CassandraTable#partitionKeyColumns()}
+     *         Order of values should match {@link CassandraTable#partitionKeyColumns()}
      * @return list of {@link CassandraPartition}
      */
     public List<CassandraPartition> getPartitions(CassandraTable table, List<Set<Object>> filterPrefixes)

@@ -118,8 +118,7 @@ public class TestEsriTable
 
         assertQueryFails(
                 "INSERT INTO counties VALUES ('esri fails writes', X'0102030405')",
-                "Writing not supported for StorageFormat\\{serde=com\\.esri\\.hadoop\\.hive\\.serde\\.EsriJsonSerDe, inputFormat=com\\.esri\\.json\\.hadoop\\.EnclosedEsriJsonInputFormat, outputFormat=org\\.apache\\.hadoop\\.hive\\.ql\\.io\\.HiveIgnoreKeyTextOutputFormat\\}"
-        );
+                "Writing not supported for StorageFormat\\{serde=com\\.esri\\.hadoop\\.hive\\.serde\\.EsriJsonSerDe, inputFormat=com\\.esri\\.json\\.hadoop\\.EnclosedEsriJsonInputFormat, outputFormat=org\\.apache\\.hadoop\\.hive\\.ql\\.io\\.HiveIgnoreKeyTextOutputFormat\\}");
 
         assertUpdate("DROP TABLE counties");
     }

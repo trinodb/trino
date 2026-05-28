@@ -99,7 +99,8 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug("Query type %s not supported. Supported query types %s",
+        logger.debug(
+                "Query type %s not supported. Supported query types %s",
                 queryCreatedEvent.getContext().getQueryType().toString(),
                 this.includeQueryTypes);
     }
@@ -112,7 +113,8 @@ public class OpenLineageListener
             client.emit(event);
             return;
         }
-        logger.debug("Query type %s not supported. Supported query types %s",
+        logger.debug(
+                "Query type %s not supported. Supported query types %s",
                 queryCompletedEvent.getContext().getQueryType().toString(),
                 this.includeQueryTypes);
     }
@@ -318,8 +320,7 @@ public class OpenLineageListener
                                                     .stream()
                                                     .map(field -> openLineage.newSchemaDatasetFacetFieldsBuilder()
                                                             .name(field.getColumn())
-                                                            .build()
-                                                    ).toList())
+                                                            .build()).toList())
                                     .build());
 
                     return inputDatasetBuilder
@@ -348,8 +349,7 @@ public class OpenLineageListener
                                                     .namespace(this.datasetNamespace)
                                                     .name(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable()))
                                                     .build())
-                                            .toList()
-                                    ).build()));
+                                            .toList()).build()));
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
             ioMetadata.getInputs().forEach(input -> {
@@ -375,13 +375,11 @@ public class OpenLineageListener
                                                                     .name(column.getColumnName())
                                                                     .type(column.getColumnType())
                                                                     .build())
-                                                            .toList()
-                                            ).build())
+                                                            .toList()).build())
                                     .dataSource(openLineage.newDatasourceDatasetFacet(
                                             toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()),
                                             trinoURI.resolve(toQualifiedSchemaName(outputMetadata.getCatalogName(), outputMetadata.getSchema()))))
-                                    .build()
-                            ).build());
+                                    .build()).build());
         }
         return ImmutableList.of();
     }

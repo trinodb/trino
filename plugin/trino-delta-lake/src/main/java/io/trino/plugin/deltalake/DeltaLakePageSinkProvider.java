@@ -24,6 +24,7 @@ import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -74,6 +75,7 @@ public class DeltaLakePageSinkProvider
     private final TypeManager typeManager;
     private final String trinoVersion;
     private final int domainCompactionThreshold;
+    private final boolean useDeltaLengthByteArrayEncoding;
 
     @Inject
     public DeltaLakePageSinkProvider(
@@ -85,6 +87,7 @@ public class DeltaLakePageSinkProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             DeltaLakeConfig deltaLakeConfig,
             ParquetReaderConfig parquetReaderConfig,
+            ParquetWriterConfig parquetWriterConfig,
             TypeManager typeManager,
             NodeVersion nodeVersion)
     {
@@ -98,6 +101,7 @@ public class DeltaLakePageSinkProvider
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
+        this.useDeltaLengthByteArrayEncoding = parquetWriterConfig.isDeltaLengthByteArrayEncodingEnabled();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = nodeVersion.toString();
     }
@@ -129,7 +133,8 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                useDeltaLengthByteArrayEncoding);
     }
 
     @Override
@@ -156,7 +161,8 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                useDeltaLengthByteArrayEncoding);
     }
 
     @Override
@@ -185,7 +191,8 @@ public class DeltaLakePageSinkProvider
                         session,
                         stats,
                         trinoVersion,
-                        parquetSchemaMapping);
+                        parquetSchemaMapping,
+                        useDeltaLengthByteArrayEncoding);
             }
             default -> throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
         };
@@ -226,7 +233,8 @@ public class DeltaLakePageSinkProvider
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
                 merge.deletionVectors(),
                 getRandomPrefixLength(tableHandle.metadataEntry()),
-                merge.shallowCloneSourceTableLocation());
+                merge.shallowCloneSourceTableLocation(),
+                useDeltaLengthByteArrayEncoding);
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(
@@ -275,6 +283,7 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                useDeltaLengthByteArrayEncoding);
     }
 }

@@ -174,13 +174,16 @@ public class TestParquetPageSkipping
         testPageSkipping("totalprice", "decimal(12,2)", new Object[][] {
                 {974.04, 131094.34, 131279.97, 406938.36},
                 {973, 131095, 131280, 406950},
-                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+                {974.04123, 131094.34123, 131279.97012, 406938.36555},
+        });
         testPageSkipping("totalprice", "decimal(12,0)", new Object[][] {
-                {973, 131095, 131280, 406950}});
+                {973, 131095, 131280, 406950},
+        });
         testPageSkipping("totalprice", "decimal(35,2)", new Object[][] {
                 {974.04, 131094.34, 131279.97, 406938.36},
                 {973, 131095, 131280, 406950},
-                {974.04123, 131094.34123, 131279.97012, 406938.36555}});
+                {974.04123, 131094.34123, 131279.97012, 406938.36555},
+        });
         testPageSkipping("orderdate", "date", new Object[][] {{"DATE '1992-01-05'", "DATE '1995-10-13'", "DATE '1995-10-13'", "DATE '1998-07-29'"}});
         testPageSkipping("orderdate", "timestamp", new Object[][] {{"TIMESTAMP '1992-01-05'", "TIMESTAMP '1995-10-13'", "TIMESTAMP '1995-10-14'", "TIMESTAMP '1998-07-29'"}});
         testPageSkipping("clerk", "varchar(15)", new Object[][] {{"'Clerk#000000006'", "'Clerk#000000508'", "'Clerk#000000513'", "'Clerk#000000996'"}});

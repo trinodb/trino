@@ -76,6 +76,7 @@ public class PluginManager
             .add("io.airlift.slice.")
             .add("io.opentelemetry.api.")
             .add("io.opentelemetry.context.")
+            .add("org.locationtech.jts.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);

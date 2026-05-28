@@ -50,11 +50,13 @@ public final class ArrayIntersectFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical elementIdentical,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

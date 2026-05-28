@@ -457,10 +457,10 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         return metadata.applyPartitioning(
-                connectorSession,
-                tableHandle.connectorHandle(),
-                partitioning.map(PartitioningHandle::getConnectorHandle),
-                columns)
+                        connectorSession,
+                        tableHandle.connectorHandle(),
+                        partitioning.map(PartitioningHandle::getConnectorHandle),
+                        columns)
                 .map(handle -> new TableHandle(catalogHandle, handle, tableHandle.transaction()));
     }
 
@@ -2056,6 +2056,19 @@ public final class MetadataManager
     }
 
     @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<ViewDefinition> view = getView(session, targetViewName);
+
+        if (targetViewName.equals(viewName)) {
+            return RedirectionAwareView.noRedirection(view);
+        }
+
+        return new RedirectionAwareView(view, Optional.of(targetViewName));
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
@@ -2221,8 +2234,7 @@ public final class MetadataManager
         projections.forEach(projection -> requireNonNull(projection, "one of the projections is null"));
         assignments.forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
 
-        verify(
-                expectedProjectionSize == projections.size(),
+        verify(expectedProjectionSize == projections.size(),
                 "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
                 projections.size(),
                 expectedProjectionSize,

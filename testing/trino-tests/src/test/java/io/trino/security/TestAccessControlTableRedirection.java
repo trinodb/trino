@@ -75,8 +75,7 @@ public class TestAccessControlTableRedirection
     private static final String ID_COLUMN_NAME = "id_column";
 
     private static final Map<String, Set<String>> SCHEMA_TABLE_MAPPING = ImmutableMap.of(
-            SCHEMA_NAME,
-            ImmutableSet.of(REDIRECTION_SOURCE_TABLE_NAME, REDIRECTION_TARGET_TABLE_NAME));
+            SCHEMA_NAME, ImmutableSet.of(REDIRECTION_SOURCE_TABLE_NAME, REDIRECTION_TARGET_TABLE_NAME));
 
     private static final Map<SchemaTableName, SchemaTableName> TABLE_REDIRECTIONS = ImmutableMap.of(
             schemaTableName(SCHEMA_NAME, REDIRECTION_SOURCE_TABLE_NAME), schemaTableName(SCHEMA_NAME, REDIRECTION_TARGET_TABLE_NAME));

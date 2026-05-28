@@ -83,8 +83,7 @@ public class EntriesTable
 
     public EntriesTable(TypeManager typeManager, SchemaTableName tableName, Table icebergTable, MetadataTableType metadataTableType, ExecutorService executor)
     {
-        super(
-                requireNonNull(icebergTable, "icebergTable is null"),
+        super(requireNonNull(icebergTable, "icebergTable is null"),
                 new ConnectorTableMetadata(
                         requireNonNull(tableName, "tableName is null"),
                         columns(requireNonNull(typeManager, "typeManager is null"), icebergTable)),

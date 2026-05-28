@@ -37,6 +37,7 @@ import io.trino.metadata.QualifiedObjectPrefix;
 import io.trino.metadata.QualifiedSchemaPrefix;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareView;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.metadata.TableExecuteHandle;
@@ -1645,6 +1646,15 @@ public class TracingMetadata
     }
 
     @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getRedirectionAwareView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectionAwareView(session, viewName);
+        }
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         Span span = startSpan("getTableHandle", tableName);
@@ -1890,7 +1900,8 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            String grant = String.format("%s-%s-%s-%s-%s%s",
+            String grant = String.format(
+                    "%s-%s-%s-%s-%s%s",
                     entity.entityKind(),
                     entity.name(),
                     grantee.getType(),

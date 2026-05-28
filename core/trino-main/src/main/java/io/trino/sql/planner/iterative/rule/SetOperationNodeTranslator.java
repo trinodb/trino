@@ -179,7 +179,8 @@ public class SetOperationNodeTranslator
                     Optional.empty()));
         }
 
-        return singleAggregation(idAllocator.getNextId(),
+        return singleAggregation(
+                idAllocator.getNextId(),
                 sourceNode,
                 aggregations.buildOrThrow(),
                 singleGroupingSet(originalColumns));

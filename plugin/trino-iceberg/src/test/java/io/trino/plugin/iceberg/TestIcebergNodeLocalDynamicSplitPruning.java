@@ -183,16 +183,14 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, 1L)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
                 assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            keyColumnHandle,
-                            Domain.singleValue(INTEGER, (long) keyColumnValue)));
+                            keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
                 SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
@@ -360,12 +358,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> differentDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
+                            dateColumnHandle, Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
             TupleDomain<ColumnHandle> nonOverlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentDatePredicate, nonOverlappingDatePredicate)) {
                 try (ConnectorPageSource emptyPageSource = createTestingPageSource(
                         transaction,
@@ -380,12 +376,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> sameDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.singleValue(DATE, dateColumnValue)));
+                            dateColumnHandle, Domain.singleValue(DATE, dateColumnValue)));
             TupleDomain<ColumnHandle> overlappingDatePredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            dateColumnHandle,
-                            Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
+                            dateColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameDatePredicate, overlappingDatePredicate)) {
                 try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
                         transaction,
@@ -500,12 +494,10 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             2,
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(
-                                            yearColumnHandle,
-                                            Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 2023L, true, 2024L, true)), true))),
+                                            yearColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 2023L, true, 2024L, true)), true))),
                             TupleDomain.withColumnDomains(
                                     ImmutableMap.of(
-                                            monthColumnHandle,
-                                            Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 12L, true)), true))),
+                                            monthColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(INTEGER, 1L, true, 12L, true)), true))),
                             OptionalLong.empty(),
                             ImmutableSet.of(yearColumnHandle, monthColumnHandle, receiptColumnHandle, amountColumnHandle),
                             Optional.empty(),
@@ -522,14 +514,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             // the amount of data to be processed from the current table
             TupleDomain<ColumnHandle> differentYearPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2024L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2024L)));
             TupleDomain<ColumnHandle> sameYearAndDifferentMonthPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L),
-                            monthColumnHandle,
-                            Domain.singleValue(INTEGER, 2L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L),
+                            monthColumnHandle, Domain.singleValue(INTEGER, 2L)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentYearPredicate, sameYearAndDifferentMonthPredicate)) {
                 try (ConnectorPageSource emptyPageSource = createTestingPageSource(
                         transaction,
@@ -544,14 +533,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
             TupleDomain<ColumnHandle> sameYearPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L)));
             TupleDomain<ColumnHandle> sameYearAndMonthPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
-                            yearColumnHandle,
-                            Domain.singleValue(INTEGER, 2023L),
-                            monthColumnHandle,
-                            Domain.singleValue(INTEGER, 1L)));
+                            yearColumnHandle, Domain.singleValue(INTEGER, 2023L),
+                            monthColumnHandle, Domain.singleValue(INTEGER, 1L)));
             for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameYearPredicate, sameYearAndMonthPredicate)) {
                 try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
                         transaction,

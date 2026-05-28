@@ -47,8 +47,9 @@ public class TestOrcWithoutRowGroupInfo
     public void testReadOrcFileWithoutRowGroupInfoWithPredicate()
             throws Exception
     {
-        testAndVerifyResults(TupleDomainOrcPredicate.builder().addColumn(new OrcColumnId(7),
-                Domain.singleValue(BIGINT, 2L))
+        testAndVerifyResults(TupleDomainOrcPredicate.builder().addColumn(
+                        new OrcColumnId(7),
+                        Domain.singleValue(BIGINT, 2L))
                 .build());
     }
 

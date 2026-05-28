@@ -863,7 +863,8 @@ class RelationPlanner
         RelationPlan subPlan = process(node.getRelation(), context);
 
         double ratio = analysis.getSampleRatio(node);
-        PlanNode planNode = new SampleNode(idAllocator.getNextId(),
+        PlanNode planNode = new SampleNode(
+                idAllocator.getNextId(),
                 subPlan.getRoot(),
                 ratio,
                 mapSampleType(node.getType()));
@@ -1016,7 +1017,8 @@ class RelationPlanner
             }
         }
 
-        PlanNode root = new JoinNode(idAllocator.getNextId(),
+        PlanNode root = new JoinNode(
+                idAllocator.getNextId(),
                 mapJoinType(type),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
@@ -1054,7 +1056,8 @@ class RelationPlanner
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
         if (type != INNER && !complexJoinExpressions.isEmpty()) {
-            root = new JoinNode(idAllocator.getNextId(),
+            root = new JoinNode(
+                    idAllocator.getNextId(),
                     mapJoinType(type),
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
@@ -2041,7 +2044,8 @@ class RelationPlanner
 
     private PlanNode distinct(PlanNode node)
     {
-        return singleAggregation(idAllocator.getNextId(),
+        return singleAggregation(
+                idAllocator.getNextId(),
                 node,
                 ImmutableMap.of(),
                 singleGroupingSet(node.getOutputSymbols()));

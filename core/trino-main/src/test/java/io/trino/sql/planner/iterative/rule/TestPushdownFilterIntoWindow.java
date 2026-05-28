@@ -70,7 +70,8 @@ public class TestPushdownFilterIntoWindow
                                     ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(p.symbol("a"))));
                 })
-                .matches(topNRanking(pattern -> pattern
+                .matches(topNRanking(
+                        pattern -> pattern
                                 .maxRankingPerPartition(99)
                                 .partial(false),
                         values("a")));
@@ -102,7 +103,8 @@ public class TestPushdownFilterIntoWindow
                 })
                 .matches(filter(
                         new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Constant(BIGINT, 3L), new Reference(BIGINT, "row_number_1")), new Comparison(LESS_THAN, new Reference(BIGINT, "row_number_1"), new Constant(BIGINT, 100L)))),
-                        topNRanking(pattern -> pattern
+                        topNRanking(
+                                pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
                                         .specification(
@@ -129,7 +131,8 @@ public class TestPushdownFilterIntoWindow
                 })
                 .matches(filter(
                         new Comparison(EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)),
-                        topNRanking(pattern -> pattern
+                        topNRanking(
+                                pattern -> pattern
                                         .partial(false)
                                         .maxRankingPerPartition(99)
                                         .specification(

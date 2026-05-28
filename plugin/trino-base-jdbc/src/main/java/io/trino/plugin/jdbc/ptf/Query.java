@@ -76,8 +76,7 @@ public class Query
 
         public QueryFunction(JdbcTransactionManager transactionManager)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(ScalarArgumentSpecification.builder()
                             .name("QUERY")

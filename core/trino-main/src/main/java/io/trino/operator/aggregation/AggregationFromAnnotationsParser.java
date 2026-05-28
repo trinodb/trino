@@ -406,7 +406,9 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            serializerGenerator = (_, _) -> generateStateSerializer(stateClass);
+            // Eagerly generate to avoid creating a new DynamicClassLoader on every invocation
+            AccumulatorStateSerializer<T> serializer = generateStateSerializer(stateClass);
+            serializerGenerator = (_, _) -> serializer;
         }
 
         TypeSignature serializedType;
@@ -431,7 +433,9 @@ public final class AggregationFromAnnotationsParser
             allDependencies.addAll(dependencies);
         }
         else {
-            factoryGenerator = (_, _) -> generateStateFactory(stateClass);
+            // Eagerly generate to avoid creating a new DynamicClassLoader on every invocation
+            AccumulatorStateFactory<T> factory = generateStateFactory(stateClass);
+            factoryGenerator = (_, _) -> factory;
         }
 
         return new AccumulatorStateDetails<>(
@@ -459,7 +463,7 @@ public final class AggregationFromAnnotationsParser
                 serializedType,
                 (functionBinding, _) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
                 (functionBinding, _) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
-                        ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
     }
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)

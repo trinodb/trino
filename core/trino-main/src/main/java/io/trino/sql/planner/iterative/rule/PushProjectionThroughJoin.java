@@ -142,9 +142,9 @@ public final class PushProjectionThroughJoin
     {
         // extract symbols required by the join itself
         return Streams.concat(
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
-                node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
-                node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream())
+                        node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft),
+                        node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight),
+                        node.getFilter().map(SymbolsExtractor::extractUnique).orElse(ImmutableSet.of()).stream())
                 .collect(toImmutableSet());
     }
 

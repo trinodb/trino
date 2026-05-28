@@ -577,14 +577,13 @@ public class MySqlClient
 
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL ->
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+            // Disable pushdown because floating-point values are approximate and not stored as exact values,
+            // attempts to treat them as exact in comparisons may lead to problems
+            case Types.REAL -> Optional.of(ColumnMapping.longMapping(
+                    REAL,
+                    (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                    realWriteFunction(),
+                    DISABLE_PUSHDOWN));
 
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
 
@@ -615,9 +614,9 @@ public class MySqlClient
             case Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY -> Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
 
             case Types.DATE -> Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        mySqlDateWriteFunctionUsingLocalDate()));
+                    DATE,
+                    dateReadFunctionUsingLocalDate(),
+                    mySqlDateWriteFunctionUsingLocalDate()));
 
             case Types.TIME -> {
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
@@ -1420,7 +1419,7 @@ public class MySqlClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
+                    .map((rs, _) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
                         boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
@@ -1455,7 +1454,7 @@ public class MySqlClient
                             """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
+                    .map((rs, _) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
     }

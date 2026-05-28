@@ -25,13 +25,13 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.LongVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.type.FunctionType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -542,7 +542,10 @@ public class SignatureBinder
             if (variableBinder.containsLongVariable(variableName)) {
                 Long currentValue = variableBinder.getLongVariable(variableName);
                 checkState(Objects.equals(currentValue, calculatedValue),
-                        "variable '%s' is already set to %s when trying to set %s", variableName, currentValue, calculatedValue);
+                        "variable '%s' is already set to %s when trying to set %s",
+                        variableName,
+                        currentValue,
+                        calculatedValue);
             }
             variableBinder.setLongVariable(variableName, calculatedValue);
         }
@@ -561,7 +564,8 @@ public class SignatureBinder
             case TypeParameter.Variable(String variable) -> {
                 checkState(
                         typeVariables.containsLongVariable(variable),
-                        "Variable is not bound: %s", variable);
+                        "Variable is not bound: %s",
+                        variable);
                 Long variableValue = typeVariables.getLongVariable(variable);
                 yield TypeParameter.numericParameter(variableValue);
             }
@@ -836,8 +840,7 @@ public class SignatureBinder
                             if (type.isEmpty()) {
                                 return SolverReturnStatus.UNSOLVABLE;
                             }
-                            verify(
-                                    type.get().getBaseName().equals(formalTypeSignature.getBase()),
+                            verify(type.get().getBaseName().equals(formalTypeSignature.getBase()),
                                     "Unexpected coerce result for %s and %s: %s",
                                     actualType,
                                     formalTypeSignature.getBase(),

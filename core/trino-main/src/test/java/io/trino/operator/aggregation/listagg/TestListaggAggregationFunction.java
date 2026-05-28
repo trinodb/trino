@@ -43,7 +43,7 @@ public class TestListaggAggregationFunction
     @Test
     public void testInputEmptyState()
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState();
+        var state = new SingleListaggAggregationState();
 
         String s = "value1";
         ValueBlock value = createStringsBlock(s);
@@ -69,7 +69,7 @@ public class TestListaggAggregationFunction
     {
         String overflowFillerTooLong = ".".repeat(65_537);
 
-        SingleListaggAggregationState state = new SingleListaggAggregationState();
+        var state = new SingleListaggAggregationState();
 
         assertThatThrownBy(() -> ListaggAggregationFunction.input(
                 state,
@@ -86,16 +86,16 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputStateSingleValue()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", true, "...", false,
-                "value1");
+        var values = List.of("value1");
+        var state = createListaggAggregationState(",", true, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 1024)).isEqualTo("value1");
     }
 
     @Test
     public void testOutputStateWithOverflowError()
     {
-        SingleListaggAggregationState state = createListaggAggregationState("", true, "...", false,
-                "overflowvalue1", "overflowvalue2");
+        var values = List.of("overflowvalue1", "overflowvalue2");
+        var state = createListaggAggregationState("", true, "...", false, values);
         state.setMaxOutputLength(20);
 
         assertThatThrownBy(() -> state.write(VARCHAR.createBlockBuilder(null, 1)))
@@ -106,32 +106,32 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputStateWithEmptyValues()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", true, "...", false,
-                "trino", "", "", "", "");
+        var values = List.of("trino", "", "", "", "");
+        var state = createListaggAggregationState(",", true, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("trino,,,,");
     }
 
     @Test
     public void testOutputStateWithEmptyDelimiter()
     {
-        SingleListaggAggregationState state = createListaggAggregationState("", true, "...", false,
-                "value1", "value2");
+        var values = List.of("value1", "value2");
+        var state = createListaggAggregationState("", true, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("value1value2");
     }
 
     @Test
     public void testOutputStateWithSeparatorSpecialUnicodeCharacter()
     {
-        SingleListaggAggregationState state = createListaggAggregationState("♥", true, "...", false,
-                "Trino", "SQL", "on", "everything");
+        var values = List.of("Trino", "SQL", "on", "everything");
+        var state = createListaggAggregationState("♥", true, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 29)).isEqualTo("Trino♥SQL♥on♥everything");
     }
 
     @Test
     public void testOutputTruncatedStateFirstValueTooBigWithoutIndicationCount()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", false,
-                "value1", "value2");
+        var values = List.of("value1", "value2");
+        var state = createListaggAggregationState(",", false, "...", false, values);
 
         assertThat(getOutputStateOnlyValue(state, 5)).isEqualTo("...");
     }
@@ -139,8 +139,8 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputTruncatedStateLastDelimiterOmitted()
     {
-        SingleListaggAggregationState state = createListaggAggregationState("###", false, "...", false,
-                "value1", "value2", "value3");
+        var values = List.of("value1", "value2", "value3");
+        var state = createListaggAggregationState("###", false, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 18)).isEqualTo("value1###value2###...");
         assertThat(getOutputStateOnlyValue(state, 19)).isEqualTo("value1###value2###...");
         assertThat(getOutputStateOnlyValue(state, 20)).isEqualTo("value1###value2###...");
@@ -151,8 +151,8 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputTruncatedStateWithoutIndicationCount()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", false,
-                "value1", "value2");
+        var values = List.of("value1", "value2");
+        var state = createListaggAggregationState(",", false, "...", false, values);
         assertThat(getOutputStateOnlyValue(state, 9)).isEqualTo("value1,...");
         assertThat(getOutputStateOnlyValue(state, 10)).isEqualTo("value1,...");
         assertThat(getOutputStateOnlyValue(state, 11)).isEqualTo("value1,...");
@@ -163,8 +163,8 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputTruncatedStateWithIndicationCount()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", true,
-                "string1", "string2");
+        var values = List.of("string1", "string2");
+        var state = createListaggAggregationState(",", false, "...", true, values);
         assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("string1,...(1)");
         assertThat(getOutputStateOnlyValue(state, 13)).isEqualTo("string1,...(1)");
         assertThat(getOutputStateOnlyValue(state, 14)).isEqualTo("string1,...(1)");
@@ -173,8 +173,8 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputTruncatedStateWithIndicationCountAlphabet()
     {
-        SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", true,
-                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "x", "y", "z");
+        var values = List.of("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "x", "y", "z");
+        var state = createListaggAggregationState(",", false, "...", true, values);
         assertThat(getOutputStateOnlyValue(state, 13)).isEqualTo("a,b,c,d,e,f,g,...(18)");
         assertThat(getOutputStateOnlyValue(state, 14)).isEqualTo("a,b,c,d,e,f,g,...(18)");
         assertThat(getOutputStateOnlyValue(state, 15)).isEqualTo("a,b,c,d,e,f,g,h,...(17)");
@@ -189,8 +189,8 @@ public class TestListaggAggregationFunction
     @Test
     public void testOutputTruncatedStateWithIndicationCountComplexSeparator()
     {
-        SingleListaggAggregationState state = createListaggAggregationState("###", false, "...", true,
-                "a", "b", "c", "dd", "e", "f", "g", "h", "i", "j", "k", "l");
+        var values = List.of("a", "b", "c", "dd", "e", "f", "g", "h", "i", "j", "k", "l");
+        var state = createListaggAggregationState("###", false, "...", true, values);
 
         assertThat(getOutputStateOnlyValue(state, 100)).isEqualTo("a###b###c###dd###e###f###g###h###i###j###k###l");
         assertThat(getOutputStateOnlyValue(state, 15)).isEqualTo("a###b###c###dd###...(8)");
@@ -236,9 +236,9 @@ public class TestListaggAggregationFunction
         return VARCHAR.getSlice(blockBuilder.build(), 0).toStringUtf8();
     }
 
-    private static SingleListaggAggregationState createListaggAggregationState(String separator, boolean overflowError, String overflowFiller, boolean showOverflowEntryCount, String... values)
+    private static SingleListaggAggregationState createListaggAggregationState(String separator, boolean overflowError, String overflowFiller, boolean showOverflowEntryCount, List<String> values)
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState();
+        var state = new SingleListaggAggregationState();
         state.initialize(utf8Slice(separator), overflowError, utf8Slice(overflowFiller), showOverflowEntryCount);
         for (String value : values) {
             state.add(createStringsBlock(value), 0);

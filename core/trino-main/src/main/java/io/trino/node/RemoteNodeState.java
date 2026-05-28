@@ -128,8 +128,7 @@ public class RemoteNodeState
         HttpResponseFuture<JsonResponse<ServerInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(SERVER_INFO_CODEC));
         ListenableFuture<Boolean> transformSuccess = Futures.transform(
                 responseFuture,
-                result ->
-                {
+                result -> {
                     try {
                         // If the result is null, mark the node as INACTIVE to prevent work from being scheduled on it
                         NodeState nodeState;
@@ -175,16 +174,18 @@ public class RemoteNodeState
                         logWarning("Error processing node state from %s: %s", infoUri, e.getMessage());
                         throw e;
                     }
-                }, directExecutor());
+                },
+                directExecutor());
         ListenableFuture<Boolean> catching = Futures.catching(
                 transformSuccess,
-                Throwable.class, t ->
-                {
+                Throwable.class,
+                t -> {
                     // Any failure results in the node being marked a GONE or INACTIVE to prevent work from being scheduled on it
                     nodeState.set(t instanceof ConnectException ? GONE : INACTIVE);
                     logWarning("Error fetching node state from %s: %s", infoUri, t.getMessage());
                     return false;
-                }, directExecutor());
+                },
+                directExecutor());
 
         future.compareAndSet(null, catching);
         addSuccessCallback(catching, _ -> {

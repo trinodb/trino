@@ -241,7 +241,9 @@ public class TestPrometheusSplit
         PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(
                 now,
-                maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
+                maxQueryRangeDuration,
+                queryChunkSizeDuration,
+                prometheusTableHandle);
         List<String> expectedSplitTimes = ImmutableList.of(
                 "827199.998", "913599.999", "1000000");
         assertThat(splitTimes).isEqualTo(expectedSplitTimes);

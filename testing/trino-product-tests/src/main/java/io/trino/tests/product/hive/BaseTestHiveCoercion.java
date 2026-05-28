@@ -520,56 +520,56 @@ public abstract class BaseTestHiveCoercion
                 .put("row_to_row", ImmutableList.of(
                         engine == Engine.TRINO ?
                                 rowBuilder()
-                                        .addField("keep", "as is")
-                                        .addField("ti2si", (short) -1)
-                                        .addField("si2int", 100)
-                                        .addField("int2bi", 2323L)
-                                        .addField("bi2vc", "12345")
-                                        .addField("lower2uppercase", 2L)
-                                        .build() :
+                                .addField("keep", "as is")
+                                .addField("ti2si", (short) -1)
+                                .addField("si2int", 100)
+                                .addField("int2bi", 2323L)
+                                .addField("bi2vc", "12345")
+                                .addField("lower2uppercase", 2L)
+                                .build() :
                                 // TODO: Compare structures for hive executor instead of serialized representation
                                 String.format("{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\",%s}", hiveValueForCaseChangeField),
                         engine == Engine.TRINO ?
                                 rowBuilder()
-                                        .addField("keep", null)
-                                        .addField("ti2si", (short) 1)
-                                        .addField("si2int", -100)
-                                        .addField("int2bi", -2323L)
-                                        .addField("bi2vc", "-12345")
-                                        .addField("lower2uppercase", 2L)
-                                        .build() :
+                                .addField("keep", null)
+                                .addField("ti2si", (short) 1)
+                                .addField("si2int", -100)
+                                .addField("int2bi", -2323L)
+                                .addField("bi2vc", "-12345")
+                                .addField("lower2uppercase", 2L)
+                                .build() :
                                 String.format("{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\",%s}", hiveValueForCaseChangeField)))
                 .put("list_to_list", ImmutableList.of(
                         engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
-                                        .addField("ti2int", 2)
-                                        .addField("si2bi", -101L)
-                                        .addField("bi2vc", "12345")
-                                        .build()) :
+                                                 .addField("ti2int", 2)
+                                                 .addField("si2bi", -101L)
+                                                 .addField("bi2vc", "12345")
+                                                 .build()) :
                                 "[{\"ti2int\":2,\"si2bi\":-101,\"bi2vc\":\"12345\"}]",
                         engine == Engine.TRINO ?
                                 ImmutableList.of(rowBuilder()
-                                        .addField("ti2int", -2)
-                                        .addField("si2bi", 101L)
-                                        .addField("bi2vc", "-12345")
-                                        .build()) :
+                                                 .addField("ti2int", -2)
+                                                 .addField("si2bi", 101L)
+                                                 .addField("bi2vc", "-12345")
+                                                 .build()) :
                                 "[{\"ti2int\":-2,\"si2bi\":101,\"bi2vc\":\"-12345\"}]"))
                 .put("map_to_map", ImmutableList.of(
                         engine == Engine.TRINO ?
                                 ImmutableMap.of(2, rowBuilder()
-                                        .addField("ti2bi", -3L)
-                                        .addField("int2bi", 2323L)
-                                        .addField("float2double", 0.5)
-                                        .addField("add", null)
-                                        .build()) :
+                                                   .addField("ti2bi", -3L)
+                                                   .addField("int2bi", 2323L)
+                                                   .addField("float2double", 0.5)
+                                                   .addField("add", null)
+                                                   .build()) :
                                 "{2:{\"ti2bi\":-3,\"int2bi\":2323,\"float2double\":0.5,\"add\":null}}",
                         engine == Engine.TRINO ?
                                 ImmutableMap.of(-2, rowBuilder()
-                                        .addField("ti2bi", null)
-                                        .addField("int2bi", -2323L)
-                                        .addField("float2double", -1.5)
-                                        .addField("add", null)
-                                        .build()) :
+                                                    .addField("ti2bi", null)
+                                                    .addField("int2bi", -2323L)
+                                                    .addField("float2double", -1.5)
+                                                    .addField("add", null)
+                                                    .build()) :
                                 "{-2:{\"ti2bi\":null,\"int2bi\":-2323,\"float2double\":-1.5,\"add\":null}}"))
                 .put("boolean_to_varchar", booleanToVarcharVal)
                 .putAll(specialCoercion)
@@ -960,15 +960,15 @@ public abstract class BaseTestHiveCoercion
         };
 
         List<Object> baseData = Streams.zip(
-                timestampValue.stream(),
-                timestampAsString.stream(),
-                (timestamp, timestampCoerced) -> rowBuilder()
-                        .addField("keep", timestamp)
-                        .addField("si2i", -1)
-                        .addField("timestamp2string", timestampCoerced)
-                        .addField("string2timestamp", timestamp)
-                        .addField("timestamp2date", Date.valueOf("2121-07-15"))
-                        .build())
+                        timestampValue.stream(),
+                        timestampAsString.stream(),
+                        (timestamp, timestampCoerced) -> rowBuilder()
+                                .addField("keep", timestamp)
+                                .addField("si2i", -1)
+                                .addField("timestamp2string", timestampCoerced)
+                                .addField("string2timestamp", timestamp)
+                                .addField("timestamp2date", Date.valueOf("2121-07-15"))
+                                .build())
                 .collect(toImmutableList());
 
         return ImmutableMap.<String, List<Object>>builder()

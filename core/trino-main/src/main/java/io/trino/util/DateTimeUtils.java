@@ -143,7 +143,8 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyyyy-M-d").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS").getParser(),
+        };
 
         DateTimeParser[] timestampWithTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyyyy-M-dZ").getParser(),
@@ -161,7 +162,8 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:sZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s ZZZ").getParser(),
                 DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSSZZZ").getParser(),
-                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser()};
+                DateTimeFormat.forPattern("yyyyyy-M-d H:m:s.SSS ZZZ").getParser(),
+        };
 
         DateTimePrinter timestampWithTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter();
 

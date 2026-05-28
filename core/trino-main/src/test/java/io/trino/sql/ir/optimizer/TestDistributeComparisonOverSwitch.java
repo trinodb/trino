@@ -52,9 +52,11 @@ public class TestDistributeComparisonOverSwitch
                         new Switch(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "a"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        new WhenClause(new Reference(BIGINT, "b"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "b"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
@@ -73,9 +75,11 @@ public class TestDistributeComparisonOverSwitch
                         new Switch(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "a"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                        new WhenClause(new Reference(BIGINT, "b"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "b"),
                                                 new Comparison(LESS_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                                 new Comparison(LESS_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
 
@@ -94,9 +98,11 @@ public class TestDistributeComparisonOverSwitch
                         new Switch(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "a"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        new WhenClause(new Reference(BIGINT, "b"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "b"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
 
@@ -115,9 +121,11 @@ public class TestDistributeComparisonOverSwitch
                         new Switch(
                                 new Reference(BIGINT, "s"),
                                 ImmutableList.of(
-                                        new WhenClause(new Reference(BIGINT, "a"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "a"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))),
-                                        new WhenClause(new Reference(BIGINT, "b"),
+                                        new WhenClause(
+                                                new Reference(BIGINT, "b"),
                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Constant(BIGINT, 1L)))),
                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Constant(BIGINT, 1L)))));
     }

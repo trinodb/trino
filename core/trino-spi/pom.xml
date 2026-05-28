@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>481-SNAPSHOT</version>
+        <version>482-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -223,6 +223,42 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorOutputTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSink io.trino.spi.connector.ConnectorPageSinkProvider::createPageSink(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorOutputTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, io.trino.spi.connector.ConnectorPageSinkId)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method io.trino.spi.connector.ConnectorPageSource io.trino.spi.connector.ConnectorPageSourceProvider::createPageSource(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorSplit, io.trino.spi.connector.ConnectorTableHandle, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableCredentials&gt;, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.DynamicFilter)</old>
+                                    <justification>Removed deprecated method without ConnectorTableCredentials parameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
                                     <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
@@ -279,6 +315,17 @@
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</old>
                                     <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::finishTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.List&lt;java.lang.Object&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean)</old>
+                                    <new>method io.trino.spi.function.FunctionMetadata io.trino.spi.function.FunctionMetadata::fromJson(io.trino.spi.function.FunctionId, io.trino.spi.function.Signature, java.lang.String, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.function.FunctionNullability, boolean, boolean, boolean, java.lang.String, io.trino.spi.function.FunctionKind, boolean, java.util.Optional&lt;io.trino.spi.type.TypeSignature&gt;, boolean)</new>
+                                    <justification>Add receiverType and instanceMethod to support SQL:2023 method invocation</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.type.TypeManager::isTypeRegistered(java.lang.String)</new>
+                                    <justification>Required for resolving static method calls on parametric type bases (array, row, map). Cannot be a default that calls getType because parametric bases require parameters and would force exception-driven control flow.</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

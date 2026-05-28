@@ -372,7 +372,10 @@ public class TestSchedulingUtils
     private static SubPlan valuesSubPlan(String fragmentId)
     {
         Symbol symbol = new Symbol(UNKNOWN, "column");
-        return createSubPlan(fragmentId, new ValuesNode(new PlanNodeId(fragmentId + "Values"),
+        return createSubPlan(
+                fragmentId,
+                new ValuesNode(
+                        new PlanNodeId(fragmentId + "Values"),
                         ImmutableList.of(symbol),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableList.of());

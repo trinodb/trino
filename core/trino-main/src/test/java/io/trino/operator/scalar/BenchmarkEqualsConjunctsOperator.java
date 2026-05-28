@@ -111,7 +111,8 @@ public class BenchmarkEqualsConjunctsOperator
     {
         return call(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                new Reference(BIGINT, "$col_" + leftField), new Reference(BIGINT, "$col_" + rightField));
+                new Reference(BIGINT, "$col_" + leftField),
+                new Reference(BIGINT, "$col_" + rightField));
     }
 
     @Benchmark

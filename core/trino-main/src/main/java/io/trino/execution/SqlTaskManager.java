@@ -743,7 +743,6 @@ public class SqlTaskManager
 
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
-
     {
         return queryContexts.getUnchecked(queryId);
     }

@@ -19,11 +19,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.stream.IntStream;
+
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -970,5 +973,49 @@ public class TestJsonTable
                             ('[["g", "h"], ["i", "j"], ["k", "l"]]',         1,         null,      null,                    'i',                    1,        null,      null),
                             ('[["g", "h"], ["i", "j"], ["k", "l"]]',         1,         null,      null,                    'j',                    2,        null,      null)
                         """);
+    }
+
+    @Test
+    public void testPassThroughColumnCorrectness()
+    {
+        // Each input row has a pass-through column (id) that must be propagated to every expanded output row.
+        assertThat(assertions.query(
+                """
+                SELECT id, CAST(val AS VARCHAR(1)) val
+                FROM (VALUES (1, '["a","b","c"]'), (2, '["d","e"]')) t(id, json_col),
+                JSON_TABLE(json_col, 'lax $[*]' COLUMNS (val varchar PATH 'lax $'))
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, 'a'),
+                            (1, 'b'),
+                            (1, 'c'),
+                            (2, 'd'),
+                            (2, 'e')
+                        """);
+    }
+
+    @Test
+    public void testPassThroughColumnsWithLargeExpansion()
+    {
+        // Regression test for pass-through block overflow.
+        // Two input rows with distinct 512-byte pass-through values, each expanded by a 3000-element
+        // JSON array. Total pass-through data per partition = 3000 × 512B ≈ 1.5 MB, which exceeds
+        // DEFAULT_MAX_PAGE_SIZE_IN_BYTES (1 MB) and exercises the page-splitting fix.
+        String value1 = "a".repeat(512);
+        String value2 = "b".repeat(512);
+        String jsonArray = IntStream.rangeClosed(1, 3000)
+                .mapToObj(String::valueOf)
+                .collect(joining(",", "[", "]"));
+
+        assertThat(assertions.query(
+                "SELECT pt, count(*) " +
+                        "FROM (VALUES ('" + value1 + "'), ('" + value2 + "')) t(pt), " +
+                        "JSON_TABLE('" + jsonArray + "', 'lax $[*]' COLUMNS (val bigint PATH 'lax $')) " +
+                        "GROUP BY pt " +
+                        "ORDER BY pt"))
+                .matches(
+                        "VALUES ('" + value1 + "', BIGINT '3000'), ('" + value2 + "', BIGINT '3000')");
     }
 }

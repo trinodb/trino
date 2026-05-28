@@ -671,7 +671,8 @@ public class AddExchanges
                         true,
                         session,
                         plannerContext,
-                        statsProvider);
+                        statsProvider,
+                        symbolAllocator);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }
@@ -820,8 +821,7 @@ public class AddExchanges
                 else {
                     PartitioningHandle partitioningHandle = partitioningScheme.get().getPartitioning().getHandle();
                     verify(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
-                    verify(
-                            partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    verify(partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                             "Table writer partitioning has constant arguments");
                     partitioningScheme = Optional.of(partitioningScheme.get().withPartitioningHandle(
                             new PartitioningHandle(

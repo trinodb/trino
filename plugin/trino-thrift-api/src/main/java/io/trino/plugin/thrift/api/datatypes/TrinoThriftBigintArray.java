@@ -93,7 +93,8 @@ public final class TrinoThriftBigintArray
     public ValueBlock toBlock(Type desiredType)
     {
         checkArgument(desiredType instanceof ArrayType arrayType && BIGINT.equals(arrayType.getElementType()),
-                "type doesn't match: %s", desiredType);
+                "type doesn't match: %s",
+                desiredType);
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(
                 numberOfRecords,

@@ -31,8 +31,7 @@ final class GcsVendedCredentialsProvider
             Map<String, String> catalogProperties,
             Map<String, String> fileIoProperties)
     {
-        super(
-                catalogProperties,
+        super(catalogProperties,
                 fileIoProperties,
                 parseBoolean(fileIoProperties, GCS_OAUTH2_REFRESH_CREDENTIALS_ENABLED, true),
                 Optional.ofNullable(fileIoProperties.get(GCS_OAUTH2_REFRESH_CREDENTIALS_ENDPOINT)),

@@ -81,6 +81,14 @@ public class ParametricScalar
         if (deprecated) {
             functionMetadata.deprecated();
         }
+        if (details.isInstanceMethod()) {
+            checkCondition(!signature.getArgumentTypes().isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Instance method %s must declare a self argument", details.getName());
+            functionMetadata.receiverType(signature.getArgumentTypes().getFirst());
+            functionMetadata.instanceMethod();
+        }
+        else {
+            details.getReceiverType().ifPresent(functionMetadata::receiverType);
+        }
 
         if (functionNullability.isReturnNullable()) {
             functionMetadata.nullable();
@@ -106,7 +114,8 @@ public class ParametricScalar
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder,
+    private static void declareDependencies(
+            FunctionDependencyDeclarationBuilder builder,
             Collection<ParametricScalarImplementation> implementations)
     {
         for (ParametricScalarImplementation implementation : implementations) {

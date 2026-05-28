@@ -26,7 +26,8 @@ public final class VerifyOnlyOneOutputNode
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan,
+    public void validate(
+            PlanNode plan,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)

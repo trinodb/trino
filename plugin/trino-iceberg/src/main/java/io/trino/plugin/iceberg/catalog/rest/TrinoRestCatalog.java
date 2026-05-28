@@ -204,13 +204,24 @@ public class TrinoRestCatalog
     {
         try {
             return restSessionCatalog.listNamespaces(convert(session), parentNamespace).stream()
-                    .flatMap(childNamespace -> Stream.concat(
-                            Stream.of(childNamespace.toString()),
-                            collectNamespaces(session, childNamespace).stream()))
+                    .flatMap(childNamespace -> collectNamespaceIfExists(session, childNamespace).stream())
                     .collect(toImmutableList());
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
+        }
+    }
+
+    private List<String> collectNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    {
+        try {
+            return Stream.concat(
+                            Stream.of(namespace.toString()),
+                            collectNamespaces(session, namespace).stream())
+                    .collect(toImmutableList());
+        }
+        catch (NoSuchNamespaceException e) {
+            return ImmutableList.of();
         }
     }
 
@@ -881,7 +892,7 @@ public class TrinoRestCatalog
         return switch (sessionType) {
             case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
             case USER -> {
-                String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
+                String sessionId = format("%s-%s-%s", session.getUser(), session.getQueryId(), session.getSource().orElse("default"));
 
                 Map<String, String> properties = ImmutableMap.of(
                         "user", session.getUser(),
@@ -1056,7 +1067,17 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list namespaces", e);
         }
-        return childNamespaces.stream().flatMap(childNamespace -> Stream.concat(Stream.of(childNamespace), listNamespaces(session, childNamespace).stream())).toList();
+        return childNamespaces.stream().flatMap(childNamespace -> listNamespaceIfExists(session, childNamespace).stream()).toList();
+    }
+
+    private List<Namespace> listNamespaceIfExists(ConnectorSession session, Namespace namespace)
+    {
+        try {
+            return Stream.concat(Stream.of(namespace), listNamespaces(session, namespace).stream()).toList();
+        }
+        catch (NoSuchNamespaceException e) {
+            return ImmutableList.of();
+        }
     }
 
     private static Namespace toTrinoNamespace(Namespace namespace)

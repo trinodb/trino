@@ -59,8 +59,7 @@ public class ExcludeColumnsFunction
 
     public ExcludeColumnsFunction()
     {
-        super(
-                BUILTIN_SCHEMA,
+        super(BUILTIN_SCHEMA,
                 NAME,
                 ImmutableList.of(
                         TableArgumentSpecification.builder()

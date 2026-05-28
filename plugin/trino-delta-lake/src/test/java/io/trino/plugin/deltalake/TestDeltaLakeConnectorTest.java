@@ -59,9 +59,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -366,7 +369,8 @@ public class TestDeltaLakeConnectorTest
     public void testQueryNullPartitionWithNotPushdownablePredicate()
     {
         String tableName = "test_null_partitions_" + randomNameSuffix();
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
                 "VALUES 5");
@@ -450,25 +454,16 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: array\\(integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: map\\(integer, integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'])",
-                "Using array, map or row type on partitioned columns is unsupported");
-    }
-
-    @Test
-    public void testInsertIntoUnsupportedVarbinaryPartitionType()
-    {
-        // TODO https://github.com/trinodb/trino/issues/24155 Cannot insert varbinary values into partitioned columns
-        // Update TestDeltaLakeBasic.testPartitionValuesParsedCheckpoint() when fixing this issue
-        try (TestTable table = newTrinoTable(
-                "test_varbinary_partition",
-                "(x int, part varbinary) WITH (partitioned_by = ARRAY['part'])")) {
-            assertQueryFails("INSERT INTO " + table.getName() + " VALUES (1, X'01')", "Unsupported type for partition: varbinary");
-        }
+                "Unsupported partition column type: row\\(\"field\" integer\\)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part VARBINARY) WITH (partitioned_by = ARRAY['part'])",
+                "Unsupported partition column type: varbinary");
     }
 
     @Test
@@ -477,13 +472,16 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_ctas_unsupported_partition_types_" + randomNameSuffix();
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, array[1] part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: array\\(integer\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, map() part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: map\\(unknown, unknown\\)");
         assertQueryFails(
                 "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, row(1) part",
-                "Using array, map or row type on partitioned columns is unsupported");
+                "Unsupported partition column type: row\\(integer\\)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, X'01' part",
+                "Unsupported partition column type: varbinary");
     }
 
     @Test
@@ -725,7 +723,7 @@ public class TestDeltaLakeConnectorTest
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '" + value + "'",
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
-                results -> {});
+                _ -> {});
     }
 
     @Test
@@ -1460,7 +1458,8 @@ public class TestDeltaLakeConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
+        assertUpdate(
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, firstMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED THEN UPDATE SET purchase = s.purchase, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
                 targetCustomerCount / 2);
@@ -1479,7 +1478,8 @@ public class TestDeltaLakeConnectorTest
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
                 .collect(Collectors.joining(", "));
 
-        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
+        assertUpdate(
+                format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchase, zipcode, spouse, address)", targetTable, secondMergeSource) +
                         "    ON t.customer = s.customer" +
                         "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
                         "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
@@ -1553,7 +1553,8 @@ public class TestDeltaLakeConnectorTest
                 "    WHEN MATCHED THEN UPDATE SET address = s.address"))
                 .hasMessage("One MERGE target table row matched more than one source row");
 
-        assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+        assertUpdate(
+                format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
@@ -1670,7 +1671,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.enableChangeDataFeed', 'true')," +
                             "('delta.enableDeletionVectors', 'false')," +
                             "('delta.minReaderVersion', '1')," +
-                            "('delta.minWriterVersion', '4')");
+                            "('delta.minWriterVersion', '4')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
 
         // timestamp type requires reader version 3 and writer version 7
@@ -1683,7 +1685,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.minReaderVersion', '3')," +
                             "('delta.minWriterVersion', '7')," +
                             "('delta.feature.timestampNtz', 'supported')," +
-                            "('delta.feature.changeDataFeed', 'supported')");
+                            "('delta.feature.changeDataFeed', 'supported')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
     }
 
@@ -1860,7 +1863,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.columnMapping.mode', 'name')," +
                             "('delta.columnMapping.maxColumnId', '1')," +
                             "('delta.minReaderVersion', '2')," +
-                            "('delta.minWriterVersion', '5')");
+                            "('delta.minWriterVersion', '5')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
 
         // timestamp type requires reader version 3 and writer version 7
@@ -1874,7 +1878,8 @@ public class TestDeltaLakeConnectorTest
                             "('delta.minReaderVersion', '3')," +
                             "('delta.minWriterVersion', '7')," +
                             "('delta.feature.columnMapping', 'supported')," +
-                            "('delta.feature.timestampNtz', 'supported')");
+                            "('delta.feature.timestampNtz', 'supported')," +
+                            "('location', '" + getTableLocation(table.getName()) + "')");
         }
     }
 
@@ -2891,7 +2896,7 @@ public class TestDeltaLakeConnectorTest
                     partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp'],
                     column_mapping_mode = '%s',
                     checkpoint_interval = 3
-                )\
+                )
                 """.formatted(tableName, mode));
 
         assertUpdate(
@@ -2910,8 +2915,9 @@ public class TestDeltaLakeConnectorTest
                    REAL '0',
                    'a',
                    DATE '2020-08-21',
-                   TIMESTAMP '2020-10-21 01:00:00.123 UTC')\
-                   """.formatted(tableName), 1);
+                   TIMESTAMP '2020-10-21 01:00:00.123 UTC')
+                """.formatted(tableName),
+                1);
         assertUpdate(
                 """
                 INSERT INTO %s
@@ -2928,8 +2934,9 @@ public class TestDeltaLakeConnectorTest
                         REAL '0',
                         'b',
                         DATE '2020-08-22',
-                        TIMESTAMP '2020-10-22 02:00:00.456 UTC')\
-                        """.formatted(tableName), 1);
+                        TIMESTAMP '2020-10-22 02:00:00.456 UTC')
+                """.formatted(tableName),
+                1);
         assertUpdate(
                 """
                 INSERT INTO %s
@@ -2946,8 +2953,9 @@ public class TestDeltaLakeConnectorTest
                         NULL,
                         NULL,
                         NULL,
-                        NULL)\
-                        """.formatted(tableName), 1);
+                        NULL)
+                """.formatted(tableName),
+                1);
 
         // Make sure that the checkpoint is being processed
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
@@ -3204,16 +3212,17 @@ public class TestDeltaLakeConnectorTest
 
         assertUpdate("UPDATE " + tableName + " SET domain = 'domain4' WHERE views = 2", 2);
         assertQuery(
-                "SELECT * FROM " + tableName, "" +
-                """
-                    VALUES
-                        ('url1', 'domain1', 1),
-                        ('url2', 'domain4', 2),
-                        ('url3', 'domain1', 3),
-                        ('url4', 'domain1', 400),
-                        ('url5', 'domain2', 500),
-                        ('url6', 'domain4', 2)
-                """);
+                "SELECT * FROM " + tableName,
+                "" +
+                        """
+                        VALUES
+                            ('url1', 'domain1', 1),
+                            ('url2', 'domain4', 2),
+                            ('url3', 'domain1', 3),
+                            ('url4', 'domain1', 400),
+                            ('url5', 'domain2', 500),
+                            ('url6', 'domain4', 2)
+                        """);
 
         assertTableChangesQuery(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
@@ -3659,7 +3668,8 @@ public class TestDeltaLakeConnectorTest
     private void testReadChangesFromCtasTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
+        assertUpdate(
+                "CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
                         "AS SELECT * FROM (VALUES" +
                         "('url1', 'domain1', 1), " +
                         "('url2', 'domain2', 2)) t(page_url, domain, views)",
@@ -4239,7 +4249,8 @@ public class TestDeltaLakeConnectorTest
             assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
 
@@ -4249,13 +4260,15 @@ public class TestDeltaLakeConnectorTest
             assertThat(beforeActiveFiles).isEqualTo(getActiveFiles(table.getName()));
 
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 1, 'Dave', 'Doe'", 1);
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
             assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe'), (1, 'Dave', 'Doe')");
         }
@@ -4272,7 +4285,8 @@ public class TestDeltaLakeConnectorTest
             assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
             assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
 
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
 
@@ -4280,7 +4294,8 @@ public class TestDeltaLakeConnectorTest
             computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE (file_size_threshold => '10kB')");
 
             assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
-            assertQuery(session,
+            assertQuery(
+                    session,
                     "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
                     "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
         }
@@ -4474,6 +4489,7 @@ public class TestDeltaLakeConnectorTest
                             .put("delta.enableDeletionVectors", "false")
                             .put("delta.minReaderVersion", "1")
                             .put("delta.minWriterVersion", "4")
+                            .put("location", getTableLocation(table.getName()))
                             .buildOrThrow());
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN ts TIMESTAMP");
@@ -4487,6 +4503,7 @@ public class TestDeltaLakeConnectorTest
                             .put("delta.feature.timestampNtz", "supported")
                             .put("delta.minReaderVersion", "3")
                             .put("delta.minWriterVersion", "7")
+                            .put("location", getTableLocation(table.getName()))
                             .buildOrThrow());
         }
     }
@@ -4495,6 +4512,18 @@ public class TestDeltaLakeConnectorTest
     {
         return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     @Test

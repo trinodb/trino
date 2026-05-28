@@ -535,7 +535,7 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
         return DynamicMessage.newBuilder(descriptor)
                 .setField(descriptor.findFieldByName("col_1"), format("string-%s", key))
                 .setField(descriptor.findFieldByName("col_2"), multiplyExact(key, 100))
-                .setField(descriptor.findFieldByName("col_3"), (key + 10.1D) / 10.0D)
+                .setField(descriptor.findFieldByName("col_3"), (key + 10.1d) / 10.0d)
                 .build();
     }
 }

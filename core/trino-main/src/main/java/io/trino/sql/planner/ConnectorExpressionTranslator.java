@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -37,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
@@ -47,6 +49,7 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -58,6 +61,7 @@ import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -194,8 +198,17 @@ public final class ConnectorExpressionTranslator
 
         public Optional<Expression> translate(ConnectorExpression expression)
         {
+            return translate(expression, Map.of());
+        }
+
+        private Optional<Expression> translate(ConnectorExpression expression, Map<String, Symbol> lambdaArguments)
+        {
             if (expression instanceof Variable variable) {
                 String name = variable.getName();
+                Symbol lambdaArgument = lambdaArguments.get(name);
+                if (lambdaArgument != null) {
+                    return Optional.of(lambdaArgument.toSymbolReference());
+                }
                 return Optional.of(variableMappings.get(name).toSymbolReference());
             }
 
@@ -204,18 +217,36 @@ public final class ConnectorExpressionTranslator
             }
 
             if (expression instanceof FieldDereference dereference) {
-                return translate(dereference.getTarget())
+                return translate(dereference.getTarget(), lambdaArguments)
                         .map(base -> new FieldReference(base, dereference.getField()));
             }
 
+            if (expression instanceof io.trino.spi.expression.Lambda lambda) {
+                return translateLambda(lambda, lambdaArguments);
+            }
+
             if (expression instanceof io.trino.spi.expression.Call call) {
-                return translateCall(call);
+                return translateCall(call, lambdaArguments);
             }
 
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateCall(io.trino.spi.expression.Call call)
+        private Optional<Expression> translateLambda(io.trino.spi.expression.Lambda lambda, Map<String, Symbol> lambdaArguments)
+        {
+            ImmutableList.Builder<Symbol> arguments = ImmutableList.builderWithExpectedSize(lambda.getArguments().size());
+            Map<String, Symbol> nestedLambdaArguments = new HashMap<>(lambdaArguments);
+            for (Variable argument : lambda.getArguments()) {
+                Symbol symbol = new Symbol(argument.getType(), argument.getName());
+                arguments.add(symbol);
+                nestedLambdaArguments.put(argument.getName(), symbol);
+            }
+
+            return translate(lambda.getBody(), nestedLambdaArguments)
+                    .map(body -> new Lambda(arguments.build(), body));
+        }
+
+        protected Optional<Expression> translateCall(io.trino.spi.expression.Call call, Map<String, Symbol> lambdaArguments)
         {
             if (call.getFunctionName().getCatalogSchema().isPresent()) {
                 CatalogSchemaName catalogSchemaName = call.getFunctionName().getCatalogSchema().get();
@@ -227,49 +258,49 @@ public final class ConnectorExpressionTranslator
                         fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())),
                         new AllowAllAccessControl());
 
-                return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
+                return translateCall(call.getFunctionName().getName(), resolved, call.getArguments(), lambdaArguments);
             }
 
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(Logical.Operator.AND, call.getArguments());
+                return translateLogicalExpression(Logical.Operator.AND, call.getArguments(), lambdaArguments);
             }
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
-                return translateLogicalExpression(Logical.Operator.OR, call.getArguments());
+                return translateLogicalExpression(Logical.Operator.OR, call.getArguments(), lambdaArguments);
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
 
                 if (expression instanceof io.trino.spi.expression.Call innerCall) {
                     if (innerCall.getFunctionName().equals(IS_NULL_FUNCTION_NAME) && innerCall.getArguments().size() == 1) {
-                        return translateIsNotNull(innerCall.getArguments().get(0));
+                        return translateIsNotNull(innerCall.getArguments().get(0), lambdaArguments);
                     }
                 }
 
-                return translateNot(expression);
+                return translateNot(expression, lambdaArguments);
             }
             if (IS_NULL_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translateIsNull(call.getArguments().get(0));
+                return translateIsNull(call.getArguments().get(0), lambdaArguments);
             }
 
             if (NULLIF_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
-                return translateNullIf(call.getArguments().get(0), call.getArguments().get(1));
+                return translateNullIf(call.getArguments().get(0), call.getArguments().get(1), lambdaArguments);
             }
             if (COALESCE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() >= 2) {
-                return translateCoalesce(call.getArguments());
+                return translateCoalesce(call.getArguments(), lambdaArguments);
             }
             if (CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translateCast(call.getType(), call.getArguments().get(0));
+                return translateCast(call.getType(), call.getArguments().get(0), lambdaArguments);
             }
 
             if (TRY_CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
-                return translateTryCast(call.getType(), call.getArguments().get(0));
+                return translateTryCast(call.getType(), call.getArguments().get(0), lambdaArguments);
             }
 
             // comparisons
             if (call.getArguments().size() == 2) {
                 Optional<Comparison.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
-                    return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
+                    return translateComparison(operator.get(), call.getArguments().get(0), call.getArguments().get(1), lambdaArguments);
                 }
             }
 
@@ -277,7 +308,7 @@ public final class ConnectorExpressionTranslator
             if (call.getArguments().size() == 2) {
                 Optional<OperatorType> operator = arithmeticBinaryOperatorForFunctionName(call.getFunctionName());
                 if (operator.isPresent()) {
-                    return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1));
+                    return translateArithmeticBinary(operator.get(), call.getArguments().get(0), call.getArguments().get(1), lambdaArguments);
                 }
             }
 
@@ -285,19 +316,19 @@ public final class ConnectorExpressionTranslator
             if (NEGATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression argument = getOnlyElement(call.getArguments());
                 ResolvedFunction function = plannerContext.getMetadata().resolveOperator(NEGATION, ImmutableList.of(argument.getType()));
-                return translate(argument).map(value -> new Call(function, ImmutableList.of(value)));
+                return translate(argument, lambdaArguments).map(value -> new Call(function, ImmutableList.of(value)));
             }
 
             if (StandardFunctions.LIKE_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return switch (call.getArguments().size()) {
-                    case 2 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty());
-                    case 3 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)));
+                    case 2 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.empty(), lambdaArguments);
+                    case 3 -> translateLike(call.getArguments().get(0), call.getArguments().get(1), Optional.of(call.getArguments().get(2)), lambdaArguments);
                     default -> Optional.empty();
                 };
             }
 
             if (IN_PREDICATE_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 2) {
-                return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
+                return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1), lambdaArguments);
             }
 
             ResolvedFunction resolved;
@@ -313,12 +344,12 @@ public final class ConnectorExpressionTranslator
                         fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
             }
 
-            return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
+            return translateCall(call.getFunctionName().getName(), resolved, call.getArguments(), lambdaArguments);
         }
 
-        private Optional<Expression> translateTryCast(Type type, ConnectorExpression argument)
+        private Optional<Expression> translateTryCast(Type type, ConnectorExpression argument, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedArgument = translate(argument);
+            Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (translatedArgument.isEmpty()) {
                 return Optional.empty();
             }
@@ -331,14 +362,14 @@ public final class ConnectorExpressionTranslator
                     ImmutableList.of(translatedArgument.get())));
         }
 
-        private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments)
+        private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments, Map<String, Symbol> lambdaArguments)
         {
             ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
             for (int i = 0; i < arguments.size(); i++) {
                 ConnectorExpression argument = arguments.get(i);
                 Type formalType = resolved.signature().getArgumentTypes().get(i);
                 Type argumentType = argument.getType();
-                Optional<Expression> translated = translate(argument);
+                Optional<Expression> translated = translate(argument, lambdaArguments);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -357,9 +388,9 @@ public final class ConnectorExpressionTranslator
             return Optional.of(builder.build());
         }
 
-        private Optional<Expression> translateIsNotNull(ConnectorExpression argument)
+        private Optional<Expression> translateIsNotNull(ConnectorExpression argument, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedArgument = translate(argument);
+            Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (translatedArgument.isPresent()) {
                 return Optional.of(not(plannerContext.getMetadata(), new IsNull(translatedArgument.get())));
             }
@@ -367,9 +398,9 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateIsNull(ConnectorExpression argument)
+        private Optional<Expression> translateIsNull(ConnectorExpression argument, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedArgument = translate(argument);
+            Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (translatedArgument.isPresent()) {
                 return Optional.of(new IsNull(translatedArgument.get()));
             }
@@ -377,18 +408,18 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateNot(ConnectorExpression argument)
+        private Optional<Expression> translateNot(ConnectorExpression argument, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedArgument = translate(argument);
+            Optional<Expression> translatedArgument = translate(argument, lambdaArguments);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
                 return Optional.of(not(plannerContext.getMetadata(), translatedArgument.get()));
             }
             return Optional.empty();
         }
 
-        private Optional<Expression> translateCast(Type type, ConnectorExpression expression)
+        private Optional<Expression> translateCast(Type type, ConnectorExpression expression, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedExpression = translate(expression);
+            Optional<Expression> translatedExpression = translate(expression, lambdaArguments);
 
             if (translatedExpression.isPresent()) {
                 return Optional.of(new Cast(translatedExpression.get(), type));
@@ -397,23 +428,23 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateLogicalExpression(Logical.Operator operator, List<ConnectorExpression> arguments)
+        private Optional<Expression> translateLogicalExpression(Logical.Operator operator, List<ConnectorExpression> arguments, Map<String, Symbol> lambdaArguments)
         {
-            Optional<List<Expression>> translatedArguments = translateExpressions(arguments);
+            Optional<List<Expression>> translatedArguments = translateExpressions(arguments, lambdaArguments);
             return translatedArguments.map(expressions -> new Logical(operator, expressions));
         }
 
-        private Optional<Expression> translateComparison(Comparison.Operator operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateComparison(Comparison.Operator operator, ConnectorExpression left, ConnectorExpression right, Map<String, Symbol> lambdaArguments)
         {
-            return translate(left).flatMap(leftTranslated ->
-                    translate(right).map(rightTranslated ->
+            return translate(left, lambdaArguments).flatMap(leftTranslated ->
+                    translate(right, lambdaArguments).map(rightTranslated ->
                             new Comparison(operator, leftTranslated, rightTranslated)));
         }
 
-        private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second)
+        private Optional<Expression> translateNullIf(ConnectorExpression first, ConnectorExpression second, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> firstExpression = translate(first);
-            Optional<Expression> secondExpression = translate(second);
+            Optional<Expression> firstExpression = translate(first, lambdaArguments);
+            Optional<Expression> secondExpression = translate(second, lambdaArguments);
             if (firstExpression.isPresent() && secondExpression.isPresent()) {
                 return Optional.of(new NullIf(firstExpression.get(), secondExpression.get()));
             }
@@ -421,9 +452,9 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateCoalesce(List<ConnectorExpression> arguments)
+        private Optional<Expression> translateCoalesce(List<ConnectorExpression> arguments, Map<String, Symbol> lambdaArguments)
         {
-            return translateExpressions(arguments)
+            return translateExpressions(arguments, lambdaArguments)
                     .map(Coalesce::new);
         }
 
@@ -453,12 +484,12 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        private Optional<Expression> translateArithmeticBinary(OperatorType operator, ConnectorExpression left, ConnectorExpression right)
+        private Optional<Expression> translateArithmeticBinary(OperatorType operator, ConnectorExpression left, ConnectorExpression right, Map<String, Symbol> lambdaArguments)
         {
             ResolvedFunction function = plannerContext.getMetadata().resolveOperator(operator, ImmutableList.of(left.getType(), right.getType()));
 
-            return translate(left).flatMap(leftTranslated ->
-                    translate(right).map(rightTranslated ->
+            return translate(left, lambdaArguments).flatMap(leftTranslated ->
+                    translate(right, lambdaArguments).map(rightTranslated ->
                             new Call(function, ImmutableList.of(leftTranslated, rightTranslated))));
         }
 
@@ -482,15 +513,15 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape)
+        protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedValue = translate(value);
-            Optional<Expression> translatedPattern = translate(pattern);
+            Optional<Expression> translatedValue = translate(value, lambdaArguments);
+            Optional<Expression> translatedPattern = translate(pattern, lambdaArguments);
 
             if (translatedValue.isPresent() && translatedPattern.isPresent()) {
                 Call patternCall;
                 if (escape.isPresent()) {
-                    Optional<Expression> translatedEscape = translate(escape.get());
+                    Optional<Expression> translatedEscape = translate(escape.get(), lambdaArguments);
                     if (translatedEscape.isEmpty()) {
                         return Optional.empty();
                     }
@@ -520,10 +551,10 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateInPredicate(ConnectorExpression value, ConnectorExpression values)
+        protected Optional<Expression> translateInPredicate(ConnectorExpression value, ConnectorExpression values, Map<String, Symbol> lambdaArguments)
         {
-            Optional<Expression> translatedValue = translate(value);
-            Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values);
+            Optional<Expression> translatedValue = translate(value, lambdaArguments);
+            Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values, lambdaArguments);
 
             if (translatedValue.isPresent() && translatedValues.isPresent()) {
                 return Optional.of(new In(translatedValue.get(), translatedValues.get()));
@@ -532,7 +563,7 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
+        protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression, Map<String, Symbol> lambdaArguments)
         {
             if (!(expression instanceof io.trino.spi.expression.Call call)) {
                 return Optional.empty();
@@ -542,14 +573,14 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return translateExpressions(call.getArguments());
+            return translateExpressions(call.getArguments(), lambdaArguments);
         }
 
-        protected Optional<List<Expression>> translateExpressions(List<ConnectorExpression> expressions)
+        protected Optional<List<Expression>> translateExpressions(List<ConnectorExpression> expressions, Map<String, Symbol> lambdaArguments)
         {
             ImmutableList.Builder<Expression> translatedExpressions = ImmutableList.builderWithExpectedSize(expressions.size());
             for (ConnectorExpression expression : expressions) {
-                Optional<Expression> translated = translate(expression);
+                Optional<Expression> translated = translate(expression, lambdaArguments);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -570,7 +601,7 @@ public final class ConnectorExpressionTranslator
     }
 
     public static class SqlToConnectorExpressionTranslator
-            extends IrVisitor<Optional<ConnectorExpression>, Void>
+            extends IrVisitor<Optional<ConnectorExpression>, SqlToConnectorExpressionTranslator.Context>
     {
         private final Session session;
 
@@ -580,19 +611,29 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitReference(Reference node, Void context)
+        public Optional<ConnectorExpression> process(Expression node)
         {
+            return process(node, Context.empty());
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitReference(Reference node, Context context)
+        {
+            ConnectorExpression binding = context.bindings().get(Symbol.from(node));
+            if (binding != null) {
+                return Optional.of(binding);
+            }
             return Optional.of(new Variable(node.name(), ((Expression) node).type()));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitConstant(Constant node, Void context)
+        protected Optional<ConnectorExpression> visitConstant(Constant node, Context context)
         {
             return Optional.of(constantFor(node.type(), node.value()));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitLogical(Logical node, Void context)
+        protected Optional<ConnectorExpression> visitLogical(Logical node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -605,7 +646,7 @@ public final class ConnectorExpressionTranslator
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.terms().size());
             for (Expression argument : node.terms()) {
-                Optional<ConnectorExpression> translated = process(argument);
+                Optional<ConnectorExpression> translated = process(argument, context);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -622,25 +663,25 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitComparison(Comparison node, Void context)
+        protected Optional<ConnectorExpression> visitComparison(Comparison node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
 
-            return process(node.left()).flatMap(left -> process(node.right()).map(right ->
+            return process(node.left(), context).flatMap(left -> process(node.right(), context).map(right ->
                     new io.trino.spi.expression.Call(((Expression) node).type(), functionNameForComparisonOperator(node.operator()), ImmutableList.of(left, right))));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitBetween(Between node, Void context)
+        protected Optional<ConnectorExpression> visitBetween(Between node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
-            return process(node.value()).flatMap(value ->
-                    process(node.min()).flatMap(min ->
-                            process(node.max()).map(max ->
+            return process(node.value(), context).flatMap(value ->
+                    process(node.min(), context).flatMap(min ->
+                            process(node.max(), context).map(max ->
                                     new io.trino.spi.expression.Call(
                                             BOOLEAN,
                                             AND_FUNCTION_NAME,
@@ -649,14 +690,14 @@ public final class ConnectorExpressionTranslator
                                                     new io.trino.spi.expression.Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(value, max)))))));
         }
 
-        protected Optional<ConnectorExpression> translateNegation(Call node)
+        protected Optional<ConnectorExpression> translateNegation(Call node, Context context)
         {
-            return process(node.arguments().getFirst())
+            return process(node.arguments().getFirst(), context)
                     .map(value -> new io.trino.spi.expression.Call(node.type(), NEGATE_FUNCTION_NAME, ImmutableList.of(value)));
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitCast(Cast node, Void context)
+        protected Optional<ConnectorExpression> visitCast(Cast node, Context context)
         {
             if (isSpecialType(((Expression) node).type())) {
                 // We don't want to expose some internal types to connectors.
@@ -669,7 +710,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            Optional<ConnectorExpression> translatedExpression = process(node.expression());
+            Optional<ConnectorExpression> translatedExpression = process(node.expression(), context);
             if (translatedExpression.isPresent()) {
                 return Optional.of(new io.trino.spi.expression.Call(node.type(), CAST_FUNCTION_NAME, List.of(translatedExpression.get())));
             }
@@ -678,7 +719,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitCall(Call node, Void context)
+        protected Optional<ConnectorExpression> visitCall(Call node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -688,35 +729,35 @@ public final class ConnectorExpressionTranslator
             checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
-                return translateLike(node);
+                return translateLike(node, context);
             }
             else if (functionName.equals(builtinFunctionName(NEGATION))) {
-                return translateNegation(node);
+                return translateNegation(node, context);
             }
             else if (functionName.equals(builtinFunctionName(ADD))) {
-                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                return process(node.arguments().get(0), context).flatMap(left -> process(node.arguments().get(1), context).map(right ->
                         new io.trino.spi.expression.Call(node.type(), ADD_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
             else if (functionName.equals(builtinFunctionName(SUBTRACT))) {
-                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                return process(node.arguments().get(0), context).flatMap(left -> process(node.arguments().get(1), context).map(right ->
                         new io.trino.spi.expression.Call(node.type(), SUBTRACT_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
             else if (functionName.equals(builtinFunctionName(MULTIPLY))) {
-                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                return process(node.arguments().get(0), context).flatMap(left -> process(node.arguments().get(1), context).map(right ->
                         new io.trino.spi.expression.Call(node.type(), MULTIPLY_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
             else if (functionName.equals(builtinFunctionName(DIVIDE))) {
-                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                return process(node.arguments().get(0), context).flatMap(left -> process(node.arguments().get(1), context).map(right ->
                         new io.trino.spi.expression.Call(node.type(), DIVIDE_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
             else if (functionName.equals(builtinFunctionName(MODULO))) {
-                return process(node.arguments().get(0)).flatMap(left -> process(node.arguments().get(1)).map(right ->
+                return process(node.arguments().get(0), context).flatMap(left -> process(node.arguments().get(1), context).map(right ->
                         new io.trino.spi.expression.Call(node.type(), MODULO_FUNCTION_NAME, ImmutableList.of(left, right))));
             }
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
             for (Expression argumentExpression : node.arguments()) {
-                Optional<ConnectorExpression> argument = process(argumentExpression);
+                Optional<ConnectorExpression> argument = process(argumentExpression, context);
                 if (argument.isEmpty()) {
                     return Optional.empty();
                 }
@@ -736,14 +777,50 @@ public final class ConnectorExpressionTranslator
             return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
         }
 
-        private Optional<ConnectorExpression> translateLike(Call node)
+        @Override
+        protected Optional<ConnectorExpression> visitLambda(Lambda node, Context context)
+        {
+            ImmutableList.Builder<Variable> arguments = ImmutableList.builderWithExpectedSize(node.arguments().size());
+            for (Symbol argument : node.arguments()) {
+                arguments.add(new Variable(argument.name(), argument.type()));
+            }
+
+            Optional<ConnectorExpression> body = process(node.body(), context.withoutBindings(node.arguments()));
+            return body.map(expression -> new io.trino.spi.expression.Lambda(node.type(), arguments.build(), expression));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitBind(Bind node, Context context)
+        {
+            ImmutableMap.Builder<Symbol, ConnectorExpression> bindings = ImmutableMap.builder();
+            for (int i = 0; i < node.values().size(); i++) {
+                Optional<ConnectorExpression> value = process(node.values().get(i), context);
+                if (value.isEmpty()) {
+                    return Optional.empty();
+                }
+                bindings.put(node.function().arguments().get(i), value.get());
+            }
+
+            List<Symbol> arguments = node.function().arguments().subList(node.values().size(), node.function().arguments().size());
+            List<Variable> connectorArguments = new ArrayList<>();
+            for (Symbol argument : arguments) {
+                connectorArguments.add(new Variable(argument.name(), argument.type()));
+            }
+
+            Context lambdaContext = context.withBindings(bindings.buildOrThrow()).withoutBindings(arguments);
+            Optional<ConnectorExpression> body = process(node.function().body(), lambdaContext);
+            return body.map(expression ->
+                    new io.trino.spi.expression.Lambda(node.type(), connectorArguments, expression));
+        }
+
+        private Optional<ConnectorExpression> translateLike(Call node, Context context)
         {
             // we need special handling for LIKE because within the engine IR a LIKE expression
             // is modeled as $like(value, $like_pattern(pattern, escape)) and we want
             // to expose it to connectors as if if were $like(value, pattern, escape)
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
 
-            Optional<ConnectorExpression> value = process(node.arguments().get(0));
+            Optional<ConnectorExpression> value = process(node.arguments().get(0), context);
             if (value.isEmpty()) {
                 return Optional.empty();
             }
@@ -759,14 +836,14 @@ public final class ConnectorExpressionTranslator
                 }
             }
             else if (patternArgument instanceof Call call && call.function().name().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
-                Optional<ConnectorExpression> translatedPattern = process(call.arguments().get(0));
+                Optional<ConnectorExpression> translatedPattern = process(call.arguments().get(0), context);
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();
                 }
                 arguments.add(translatedPattern.get());
 
                 if (call.arguments().size() == 2) {
-                    Optional<ConnectorExpression> translatedEscape = process(call.arguments().get(1));
+                    Optional<ConnectorExpression> translatedEscape = process(call.arguments().get(1), context);
                     if (translatedEscape.isEmpty()) {
                         return Optional.empty();
                     }
@@ -781,9 +858,9 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitIsNull(IsNull node, Void context)
+        protected Optional<ConnectorExpression> visitIsNull(IsNull node, Context context)
         {
-            Optional<ConnectorExpression> translatedValue = process(node.value());
+            Optional<ConnectorExpression> translatedValue = process(node.value(), context);
             if (translatedValue.isPresent()) {
                 return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
             }
@@ -815,10 +892,10 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitNullIf(NullIf node, Void context)
+        protected Optional<ConnectorExpression> visitNullIf(NullIf node, Context context)
         {
-            Optional<ConnectorExpression> firstValue = process(node.first());
-            Optional<ConnectorExpression> secondValue = process(node.second());
+            Optional<ConnectorExpression> firstValue = process(node.first(), context);
+            Optional<ConnectorExpression> secondValue = process(node.second(), context);
             if (firstValue.isPresent() && secondValue.isPresent()) {
                 return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), NULLIF_FUNCTION_NAME, ImmutableList.of(firstValue.get(), secondValue.get())));
             }
@@ -826,7 +903,7 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitCoalesce(Coalesce node, Void context)
+        protected Optional<ConnectorExpression> visitCoalesce(Coalesce node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
@@ -834,7 +911,7 @@ public final class ConnectorExpressionTranslator
 
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.operands().size());
             for (Expression operand : node.operands()) {
-                Optional<ConnectorExpression> translated = process(operand);
+                Optional<ConnectorExpression> translated = process(operand, context);
                 if (translated.isEmpty()) {
                     return Optional.empty();
                 }
@@ -844,13 +921,13 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitFieldReference(FieldReference node, Void context)
+        protected Optional<ConnectorExpression> visitFieldReference(FieldReference node, Context context)
         {
             if (!(node.base().type() instanceof RowType)) {
                 return Optional.empty();
             }
 
-            Optional<ConnectorExpression> translatedBase = process(node.base());
+            Optional<ConnectorExpression> translatedBase = process(node.base(), context);
             if (translatedBase.isEmpty()) {
                 return Optional.empty();
             }
@@ -859,9 +936,9 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitIn(In node, Void context)
+        protected Optional<ConnectorExpression> visitIn(In node, Context context)
         {
-            Optional<ConnectorExpression> valueExpression = process(node.value());
+            Optional<ConnectorExpression> valueExpression = process(node.value(), context);
 
             if (valueExpression.isEmpty()) {
                 return Optional.empty();
@@ -874,7 +951,7 @@ public final class ConnectorExpressionTranslator
                     return Optional.empty();
                 }
 
-                Optional<ConnectorExpression> processedValue = process(value);
+                Optional<ConnectorExpression> processedValue = process(value, context);
 
                 if (processedValue.isEmpty()) {
                     return Optional.empty();
@@ -888,9 +965,37 @@ public final class ConnectorExpressionTranslator
         }
 
         @Override
-        protected Optional<ConnectorExpression> visitExpression(Expression node, Void context)
+        protected Optional<ConnectorExpression> visitExpression(Expression node, Context context)
         {
             return Optional.empty();
+        }
+
+        protected record Context(Map<Symbol, ConnectorExpression> bindings)
+        {
+            public Context
+            {
+                bindings = ImmutableMap.copyOf(requireNonNull(bindings, "bindings is null"));
+            }
+
+            public static Context empty()
+            {
+                return new Context(Map.of());
+            }
+
+            public Context withBindings(Map<Symbol, ConnectorExpression> bindings)
+            {
+                return new Context(ImmutableMap.<Symbol, ConnectorExpression>builder()
+                        .putAll(this.bindings)
+                        .putAll(bindings)
+                        .buildKeepingLast());
+            }
+
+            public Context withoutBindings(List<Symbol> arguments)
+            {
+                Map<Symbol, ConnectorExpression> newBindings = new HashMap<>(bindings);
+                arguments.forEach(newBindings::remove);
+                return new Context(newBindings);
+            }
         }
     }
 }

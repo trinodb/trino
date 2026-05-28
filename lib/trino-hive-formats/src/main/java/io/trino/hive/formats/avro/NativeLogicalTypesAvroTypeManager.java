@@ -278,7 +278,10 @@ public class NativeLogicalTypesAvroTypeManager
     }
 
     public abstract static sealed class ValidateLogicalTypeResult
-            permits NoLogicalType, NonNativeAvroLogicalType, InvalidNativeAvroLogicalType, ValidNativeAvroLogicalType {}
+            permits InvalidNativeAvroLogicalType,
+                    NoLogicalType,
+                    NonNativeAvroLogicalType,
+                    ValidNativeAvroLogicalType {}
 
     protected static final class NoLogicalType
             extends ValidateLogicalTypeResult {}
@@ -344,7 +347,7 @@ public class NativeLogicalTypesAvroTypeManager
      * Decode a long from the two's complement big-endian representation.
      *
      * @param bytes the two's complement big-endian encoding of the number. It must contain at least 1 byte.
-     * It may contain more than 8 bytes if the leading bytes are not significant (either zeros or -1)
+     *         It may contain more than 8 bytes if the leading bytes are not significant (either zeros or -1)
      * @throws ArithmeticException if the bytes represent a number outside the range [-2^63, 2^63 - 1]
      */
     // Styled from io.trino.spi.type.Int128.fromBigEndian

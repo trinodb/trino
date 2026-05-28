@@ -104,7 +104,8 @@ public class UnwrapDateTruncInComparison
         return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, expression);
     }
 
-    private static Expression unwrapDateTrunc(Session session,
+    private static Expression unwrapDateTrunc(
+            Session session,
             PlannerContext plannerContext,
             Expression expression)
     {

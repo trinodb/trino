@@ -173,7 +173,8 @@ public abstract class AbstractTestApproximateCountDistinct
         if (values.isEmpty()) {
             return new Page(0);
         }
-        return new Page(values.size(),
+        return new Page(
+                values.size(),
                 createBlock(getValueType(), values),
                 createBlock(DOUBLE, ImmutableList.copyOf(Collections.nCopies(values.size(), maxStandardError))));
     }

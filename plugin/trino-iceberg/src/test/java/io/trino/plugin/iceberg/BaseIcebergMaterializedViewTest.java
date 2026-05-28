@@ -531,7 +531,8 @@ public abstract class BaseIcebergMaterializedViewTest
                 .doesNotContain("base_table1");
 
         String qualifiedMaterializedViewName = "iceberg." + schema + ".materialized_view_window";
-        assertQueryFails("SHOW CREATE VIEW materialized_view_window",
+        assertQueryFails(
+                "SHOW CREATE VIEW materialized_view_window",
                 "line 1:1: Relation '" + qualifiedMaterializedViewName + "' is a materialized view, not a view");
 
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW materialized_view_window"))
@@ -550,7 +551,8 @@ public abstract class BaseIcebergMaterializedViewTest
                         "FROM\n" +
                         "  base_table1");
 
-        assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
+        assertQueryFails(
+                "INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "line 1:1: Inserting into materialized views is not supported");
 
         computeScalar("EXPLAIN (TYPE LOGICAL) REFRESH MATERIALIZED VIEW materialized_view_window");
@@ -798,7 +800,8 @@ public abstract class BaseIcebergMaterializedViewTest
                     tswtz_3 timestamp(3) with time zone,
                     tswtz_9 timestamp(9) with time zone
                 )
-                """, sourceTableName));
+                """,
+                sourceTableName));
         assertUpdate(format("INSERT INTO %s VALUES (localtime, localtime, localtimestamp, localtimestamp, current_timestamp, current_timestamp)", sourceTableName), 1);
 
         assertUpdate(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM %s", materializedViewName, sourceTableName));

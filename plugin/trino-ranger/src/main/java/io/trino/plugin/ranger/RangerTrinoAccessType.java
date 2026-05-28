@@ -30,5 +30,5 @@ enum RangerTrinoAccessType
     EXECUTE,
     READ_SYSINFO,
     WRITE_SYSINFO,
-    _ANY
+    _ANY,
 }

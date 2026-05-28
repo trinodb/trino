@@ -36,8 +36,10 @@ import org.apache.iceberg.Table;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.INITIAL_SPLITS_PER_NODE;
@@ -116,7 +118,10 @@ public class TestIcebergOrcMetricsCollection
     public void testMetrics()
     {
         assertUpdate("create table no_metrics (c1 varchar, c2 varchar)");
-        Table table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        Table table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "no_metrics"));
         // skip metrics for all columns
         table.updateProperties().set("write.metadata.metrics.default", "none").commit();
@@ -133,7 +138,10 @@ public class TestIcebergOrcMetricsCollection
 
         // keep c1 metrics
         assertUpdate("create table c1_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -146,12 +154,15 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getRecordCount()).isEqualTo(1);
         assertThat(datafile.getValueCounts()).hasSize(1);
         assertThat(datafile.getNullValueCounts()).hasSize(1);
-        assertThat(datafile.getUpperBounds()).hasSize(1);
-        assertThat(datafile.getLowerBounds()).hasSize(1);
+        assertThat(datafile.getUpperBounds().getFields()).hasSize(2);
+        assertThat(datafile.getLowerBounds().getFields()).hasSize(2);
 
         // set c1 metrics mode to count
         assertUpdate("create table c1_metrics_count (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_count"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -169,7 +180,10 @@ public class TestIcebergOrcMetricsCollection
 
         // set c1 metrics mode to truncate(10)
         assertUpdate("create table c1_metrics_truncate (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "c1_metrics_truncate"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "none")
@@ -182,12 +196,17 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getRecordCount()).isEqualTo(1);
         assertThat(datafile.getValueCounts()).hasSize(1);
         assertThat(datafile.getNullValueCounts()).hasSize(1);
-        datafile.getUpperBounds().forEach((_, v) -> assertThat(v.length()).isEqualTo(10));
-        datafile.getLowerBounds().forEach((_, v) -> assertThat(v.length()).isEqualTo(10));
+        datafile.getUpperBounds().getFields().stream().filter(Objects::nonNull)
+                .forEach(v -> assertThat(v.toString().length()).isEqualTo(10));
+        datafile.getLowerBounds().getFields().stream().filter(Objects::nonNull)
+                .forEach(v -> assertThat(v.toString().length()).isEqualTo(10));
 
         // keep both c1 and c2 metrics
         assertUpdate("create table c_metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "c_metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.column.c1", "full")
@@ -199,12 +218,15 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getRecordCount()).isEqualTo(1);
         assertThat(datafile.getValueCounts()).hasSize(2);
         assertThat(datafile.getNullValueCounts()).hasSize(2);
-        assertThat(datafile.getUpperBounds()).hasSize(2);
-        assertThat(datafile.getLowerBounds()).hasSize(2);
+        assertThat(datafile.getUpperBounds().getFields()).hasSize(2);
+        assertThat(datafile.getLowerBounds().getFields()).hasSize(2);
 
         // keep all metrics
         assertUpdate("create table metrics (c1 varchar, c2 varchar)");
-        table = IcebergUtil.loadIcebergTable(trinoCatalog, tableOperationsProvider, IcebergTestUtils.SESSION,
+        table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
                 new SchemaTableName("test_schema", "metrics"));
         table.updateProperties()
                 .set("write.metadata.metrics.default", "full")
@@ -215,8 +237,8 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getRecordCount()).isEqualTo(1);
         assertThat(datafile.getValueCounts()).hasSize(2);
         assertThat(datafile.getNullValueCounts()).hasSize(2);
-        assertThat(datafile.getUpperBounds()).hasSize(2);
-        assertThat(datafile.getLowerBounds()).hasSize(2);
+        assertThat(datafile.getUpperBounds().getFields()).hasSize(2);
+        assertThat(datafile.getLowerBounds().getFields()).hasSize(2);
     }
 
     @Test
@@ -247,28 +269,28 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getNanValueCounts()).isNull();
 
         // Check per-column lower bound
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        assertThat(lowerBounds).containsEntry(1, "1");
-        assertThat(lowerBounds).containsEntry(2, "1");
-        assertThat(lowerBounds).containsEntry(3, "F");
-        assertThat(lowerBounds).containsEntry(4, "874.89");
-        assertThat(lowerBounds).containsEntry(5, "1992-01-01");
-        assertThat(lowerBounds).containsEntry(6, "1-URGENT");
-        assertThat(lowerBounds).containsEntry(7, "Clerk#000000001");
-        assertThat(lowerBounds).containsEntry(8, "0");
-        assertThat(lowerBounds).containsEntry(9, " about the accou");
+        MaterializedRow lowerBounds = datafile.getLowerBounds();
+        assertThat(lowerBounds.getField(0)).isEqualTo(1L);
+        assertThat(lowerBounds.getField(1)).isEqualTo(1L);
+        assertThat(lowerBounds.getField(2)).isEqualTo("F");
+        assertThat(lowerBounds.getField(3)).isEqualTo(874.89);
+        assertThat(lowerBounds.getField(4)).isEqualTo(LocalDate.of(1992, 1, 1));
+        assertThat(lowerBounds.getField(5)).isEqualTo("1-URGENT");
+        assertThat(lowerBounds.getField(6)).isEqualTo("Clerk#000000001");
+        assertThat(lowerBounds.getField(7)).isEqualTo(0);
+        assertThat(lowerBounds.getField(8)).isEqualTo(" about the accou");
 
         // Check per-column upper bound
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
-        assertThat(upperBounds).containsEntry(1, "60000");
-        assertThat(upperBounds).containsEntry(2, "1499");
-        assertThat(upperBounds).containsEntry(3, "P");
-        assertThat(upperBounds).containsEntry(4, "466001.28");
-        assertThat(upperBounds).containsEntry(5, "1998-08-02");
-        assertThat(upperBounds).containsEntry(6, "5-LOW");
-        assertThat(upperBounds).containsEntry(7, "Clerk#000001000");
-        assertThat(upperBounds).containsEntry(8, "0");
-        assertThat(upperBounds).containsEntry(9, "zzle. carefully!");
+        MaterializedRow upperBounds = datafile.getUpperBounds();
+        assertThat(upperBounds.getField(0)).isEqualTo(60000L);
+        assertThat(upperBounds.getField(1)).isEqualTo(1499L);
+        assertThat(upperBounds.getField(2)).isEqualTo("P");
+        assertThat(upperBounds.getField(3)).isEqualTo(466001.28);
+        assertThat(upperBounds.getField(4)).isEqualTo(LocalDate.of(1998, 8, 2));
+        assertThat(upperBounds.getField(5)).isEqualTo("5-LOW");
+        assertThat(upperBounds.getField(6)).isEqualTo("Clerk#000001000");
+        assertThat(upperBounds.getField(7)).isEqualTo(0);
+        assertThat(upperBounds.getField(8)).isEqualTo("zzle. carefully!");
 
         assertUpdate("DROP TABLE orders");
     }
@@ -296,10 +318,10 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getNullValueCounts()).containsEntry(4, (Long) 2L);
 
         // Check per-column lower bound
-        assertThat(datafile.getLowerBounds()).containsEntry(1, "3");
-        assertThat(datafile.getLowerBounds()).containsEntry(2, "3.4");
-        assertThat(datafile.getLowerBounds()).containsEntry(3, "aaa");
-        assertThat(datafile.getLowerBounds()).containsEntry(4, "2020-01-01T00:00:00.123");
+        assertThat(datafile.getLowerBounds().getField(0)).isEqualTo(3);
+        assertThat(datafile.getLowerBounds().getField(1)).isEqualTo(3.4f);
+        assertThat(datafile.getLowerBounds().getField(2)).isEqualTo("aaa");
+        assertThat(datafile.getLowerBounds().getField(3)).isEqualTo(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 123000000));
 
         assertUpdate("DROP TABLE test_with_nulls");
 
@@ -339,10 +361,10 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getNanValueCounts()).containsEntry(2, (Long) 1L);
         assertThat(datafile.getNanValueCounts()).containsEntry(3, (Long) 1L);
 
-        assertThat(datafile.getLowerBounds().get(2)).isNull();
-        assertThat(datafile.getLowerBounds().get(3)).isNull();
-        assertThat(datafile.getUpperBounds().get(2)).isNull();
-        assertThat(datafile.getUpperBounds().get(3)).isNull();
+        assertThat(datafile.getLowerBounds().getField(1)).isNull();
+        assertThat(datafile.getLowerBounds().getField(2)).isNull();
+        assertThat(datafile.getUpperBounds().getField(1)).isNull();
+        assertThat(datafile.getUpperBounds().getField(2)).isNull();
 
         assertUpdate("DROP TABLE test_with_nans");
     }
@@ -360,27 +382,27 @@ public class TestIcebergOrcMetricsCollection
         assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
+        MaterializedRow lowerBounds = datafile.getLowerBounds();
+        MaterializedRow upperBounds = datafile.getUpperBounds();
 
         // Only
         // 1. top-level primitive columns
         // 2. and nested primitive fields that are not descendants of LISTs or MAPs
         // should appear in lowerBounds or UpperBounds
-        assertThat(lowerBounds).hasSize(3);
-        assertThat(upperBounds).hasSize(3);
+        assertThat(lowerBounds.getFields()).hasSize(4);
+        assertThat(upperBounds.getFields()).hasSize(4);
 
         // col1
-        assertThat(lowerBounds).containsEntry(1, "-9");
-        assertThat(upperBounds).containsEntry(1, "8");
+        assertThat(lowerBounds.getField(0)).isEqualTo(-9);
+        assertThat(upperBounds.getField(0)).isEqualTo(8);
 
         // col2.f1 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertThat(lowerBounds).containsEntry(3, "0");
-        assertThat(upperBounds).containsEntry(3, "10");
+        assertThat(lowerBounds.getField(1)).isEqualTo(0);
+        assertThat(upperBounds.getField(1)).isEqualTo(10);
 
         // col2.f3 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertThat(lowerBounds).containsEntry(5, "-2.9");
-        assertThat(upperBounds).containsEntry(5, "4.9");
+        assertThat(lowerBounds.getField(3)).isEqualTo(-2.9);
+        assertThat(upperBounds.getField(3)).isEqualTo(4.9);
 
         assertUpdate("DROP TABLE test_nested_types");
     }
@@ -410,12 +432,12 @@ public class TestIcebergOrcMetricsCollection
         datafile.getNullValueCounts().values().forEach(nullValueCount -> assertThat(nullValueCount).isEqualTo((Long) 0L));
 
         // Check column lower bound. Min timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertThat(datafile.getLowerBounds()).containsEntry(1, "2021-01-01T00:00:00.111");
-        assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES '2021-01-01 00:00:00.111111'");
+        assertThat(datafile.getLowerBounds().getField(0)).isEqualTo(LocalDateTime.of(2021, 1, 1, 0, 0, 0, 111000000));
+        assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES TIMESTAMP '2021-01-01 00:00:00.111111'");
 
         // Check column upper bound. Max timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertThat(datafile.getUpperBounds()).containsEntry(1, "2021-01-31T00:00:00.333999");
-        assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
+        assertThat(datafile.getUpperBounds().getField(0)).isEqualTo(LocalDateTime.of(2021, 1, 31, 0, 0, 0, 333999000));
+        assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES TIMESTAMP '2021-01-31 00:00:00.333333'");
 
         assertUpdate("DROP TABLE test_timestamp");
     }

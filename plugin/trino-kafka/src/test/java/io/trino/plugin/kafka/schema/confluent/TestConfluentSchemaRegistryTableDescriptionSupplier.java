@@ -182,10 +182,10 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     private KafkaTopicDescription getKafkaTopicDescription(TableDescriptionSupplier tableDescriptionSupplier, SchemaTableName schemaTableName)
     {
         return tableDescriptionSupplier.getTopicDescription(
-                TestingConnectorSession.builder()
-                        .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
-                        .build(),
-                schemaTableName)
+                        TestingConnectorSession.builder()
+                                .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
+                                .build(),
+                        schemaTableName)
                 .orElseThrow();
     }
 

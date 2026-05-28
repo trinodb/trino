@@ -392,7 +392,7 @@ public class IcebergPageSourceProvider
                             tableSchema,
                             readerPageSourceWithRowPositions.startRowPosition(),
                             readerPageSourceWithRowPositions.endRowPosition(),
-                            (deleteFile) -> readDeletionVector(fileSystem, deleteFile),
+                            deleteFile -> readDeletionVector(fileSystem, deleteFile),
                             (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
@@ -429,13 +429,13 @@ public class IcebergPageSourceProvider
 
         Types.StructType structType = partitionSpec.partitionType();
         PartitionKey partitionKey = partitionKeyFactories.computeIfAbsent(
-                partitionSpec.specId(),
-                key -> {
-                    // creating the template wrapper is expensive, reuse it for all partitions of the same spec
-                    // reuse is only safe because we only use the copyFor method which is thread safe
-                    StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
-                    return data -> new PartitionKey(key, templateWrapper.copyFor(data));
-                })
+                        partitionSpec.specId(),
+                        key -> {
+                            // creating the template wrapper is expensive, reuse it for all partitions of the same spec
+                            // reuse is only safe because we only use the copyFor method which is thread safe
+                            StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
+                            return data -> new PartitionKey(key, templateWrapper.copyFor(data));
+                        })
                 .apply(partitionData);
 
         return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager));

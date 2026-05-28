@@ -325,7 +325,7 @@ public class ClientOptions
         CSV_HEADER_UNQUOTED,
         JSON,
         MARKDOWN,
-        NULL
+        NULL,
     }
 
     @Retention(RUNTIME)

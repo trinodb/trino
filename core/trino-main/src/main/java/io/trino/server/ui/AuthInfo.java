@@ -19,7 +19,8 @@ import static java.util.Objects.requireNonNull;
 
 public record AuthInfo(String authType, boolean passwordAllowed, boolean authenticated, Optional<String> username)
 {
-    public AuthInfo {
+    public AuthInfo
+    {
         requireNonNull(authType, "authType is null");
         requireNonNull(username, "username is null");
     }

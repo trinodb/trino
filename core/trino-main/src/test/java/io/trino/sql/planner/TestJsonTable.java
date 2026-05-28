@@ -29,6 +29,7 @@ import io.trino.operator.table.json.JsonTablePlanSingle;
 import io.trino.operator.table.json.JsonTablePlanUnion;
 import io.trino.operator.table.json.JsonTableQueryColumn;
 import io.trino.operator.table.json.JsonTableValueColumn;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -41,7 +42,6 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
-import io.trino.type.FunctionType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -103,14 +103,16 @@ public class TestJsonTable
                         bigint_col BIGINT DEFAULT 5 ON EMPTY DEFAULT int_col ON ERROR,
                         varchar_col VARCHAR FORMAT JSON ERROR ON ERROR)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 CREATED,
-                strictOutput(// left-side columns first, json_table columns next
+                strictOutput(
+                        // left-side columns first, json_table columns next
                         ImmutableList.of("json_col", "int_col", "bigint_col", "formatted_varchar_col"),
                         anyTree(
                                 project(
                                         ImmutableMap.of("formatted_varchar_col", expression(new Call(JSON_TO_VARCHAR, ImmutableList.of(new Reference(JSON_2016, "varchar_col"), new Constant(TINYINT, 1L), FALSE)))),
-                                        tableFunction(builder -> builder
+                                        tableFunction(
+                                                builder -> builder
                                                         .name("$json_table")
                                                         .addTableArgument(
                                                                 "$input",
@@ -123,11 +125,13 @@ public class TestJsonTable
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
                                                                 "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
-                                                        project(// coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
+                                                        project(
+                                                                // coerce context item and path parameters (default expressions are evaluated lazily inside $json_value)
                                                                 ImmutableMap.of(
                                                                         "name_coerced", expression(new Cast(new Reference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function
                                                                         "json_col_coerced", expression(new Cast(new Reference(createVarcharType(9), "json_col"), VARCHAR))), // cast context item to VARCHAR for the input function
-                                                                project(// pre-project path parameter
+                                                                project(
+                                                                        // pre-project path parameter
                                                                         ImmutableMap.of(
                                                                                 "name", expression(new Constant(createVarcharType(5), Slices.utf8Slice("[ala]")))),
                                                                         anyTree(
@@ -151,7 +155,7 @@ public class TestJsonTable
                         first_col BIGINT,
                         "Second_Col" BIGINT,
                         "_""_'_?_" BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -173,7 +177,7 @@ public class TestJsonTable
                         first_col BIGINT PATH 'lax $.a',
                         "Second_Col" BIGINT PATH 'lax $.B',
                         "_""_'_?_" BIGINT PATH 'lax false'))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -199,7 +203,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.y' COLUMNS(
                                 c BIGINT)),
                         d BIGINT))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -231,7 +235,7 @@ public class TestJsonTable
                         d VARCHAR FORMAT JSON,
                         e VARCHAR FORMAT JSON WITH CONDITIONAL ARRAY WRAPPER NULL ON EMPTY ERROR ON ERROR,
                         f VARCHAR FORMAT JSON OMIT QUOTES EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -289,7 +293,7 @@ public class TestJsonTable
                     'lax $' AS root_path
                     COLUMNS(
                         a BIGINT))
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -311,7 +315,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -333,7 +337,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT)
                     EMPTY ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -355,7 +359,7 @@ public class TestJsonTable
                     COLUMNS(
                         a BIGINT NULL ON ERROR)
                     ERROR ON ERROR)
-                    """,
+                """,
                 new JsonTablePlanLeaf(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(
@@ -384,7 +388,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.c' COLUMNS(col_2 BIGINT),
                             NESTED PATH 'lax $.d' COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' COLUMNS(col_4 BIGINT)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -425,7 +429,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (INNER, CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -462,7 +466,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN DEFAULT (CROSS))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),
@@ -503,7 +507,7 @@ public class TestJsonTable
                             NESTED PATH 'lax $.d' AS d COLUMNS(col_3 BIGINT)),
                         NESTED PATH 'lax $.e' AS e COLUMNS(col_4 BIGINT))
                     PLAN (ROOT_PATH INNER (((B OUTER (D CROSS C)) UNION E) CROSS A)))
-                    """,
+                """,
                 new JsonTablePlanSingle(
                         new IrJsonPath(true, contextVariable()),
                         ImmutableList.of(),

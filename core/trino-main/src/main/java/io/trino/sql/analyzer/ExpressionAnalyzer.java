@@ -42,6 +42,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
@@ -53,6 +54,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -128,6 +130,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -148,6 +151,7 @@ import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -159,7 +163,6 @@ import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
@@ -327,6 +330,7 @@ public class ExpressionAnalyzer
     private final Cache<String, Type> varcharCastableTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
     private final Map<NodeRef<Node>, ResolvedFunction> resolvedFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<FunctionCall>, Identifier> methodCallReceivers = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
@@ -390,8 +394,7 @@ public class ExpressionAnalyzer
             Session session,
             WarningCollector warningCollector)
     {
-        this(
-                plannerContext,
+        this(plannerContext,
                 accessControl,
                 (_, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
                         analysis,
@@ -434,6 +437,11 @@ public class ExpressionAnalyzer
     public Map<NodeRef<Node>, ResolvedFunction> getResolvedFunctions()
     {
         return unmodifiableMap(resolvedFunctions);
+    }
+
+    public Map<NodeRef<FunctionCall>, Identifier> getMethodCallReceivers()
+    {
+        return unmodifiableMap(methodCallReceivers);
     }
 
     public Map<NodeRef<Expression>, Type> getExpressionTypes()
@@ -967,7 +975,8 @@ public class ExpressionAnalyzer
                 coerceType(context, whenClause.getOperand(), BOOLEAN, "CASE WHEN clause");
             }
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -985,7 +994,8 @@ public class ExpressionAnalyzer
         {
             coerceCaseOperandToToSingleType(node, context);
 
-            Type type = coerceToSingleType(context,
+            Type type = coerceToSingleType(
+                    context,
                     "All CASE results",
                     getCaseResultExpressions(node.getWhenClauses(), node.getDefaultValue()));
             setExpressionType(node, type);
@@ -1306,6 +1316,14 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitFunctionCall(FunctionCall node, Context context)
         {
+            // SQL:2023 6.3 Syntax Rule 2: a non-parenthesized value expression primary
+            // of the form A.B(args) is treated as a method invocation if it satisfies
+            // the rules for one; otherwise it is a routine invocation.
+            Optional<Type> asMethod = tryResolveAsInstanceMethod(node, context);
+            if (asMethod.isPresent()) {
+                return asMethod.get();
+            }
+
             boolean isAggregation = functionResolver.isAggregationFunction(session, node.getName(), accessControl);
             boolean isRowPatternCount = context.isPatternRecognition() &&
                     isAggregation &&
@@ -1455,6 +1473,171 @@ public class ExpressionAnalyzer
 
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
+        }
+
+        private Optional<Type> tryResolveAsInstanceMethod(FunctionCall node, Context context)
+        {
+            QualifiedName name = node.getName();
+            if (name.getParts().size() != 2) {
+                return Optional.empty();
+            }
+            if (node.isDistinct()
+                    || node.getFilter().isPresent()
+                    || node.getOrderBy().isPresent()
+                    || node.getWindow().isPresent()
+                    || node.getProcessingMode().isPresent()
+                    || node.getNullTreatment().isPresent()) {
+                return Optional.empty();
+            }
+            if (context.isPatternRecognition() || context.isInWindow()) {
+                return Optional.empty();
+            }
+
+            Identifier receiver = name.getOriginalParts().get(0);
+            Identifier method = name.getOriginalParts().get(1);
+
+            // Method-call interpretation only applies when the receiver resolves
+            // as a field in the current scope. tryResolveField has no side effects
+            // so a non-match leaves the analyzer state untouched.
+            Optional<ResolvedField> resolvedReceiver = context.getScope()
+                    .tryResolveField(receiver, QualifiedName.of(receiver.getValue()));
+            if (resolvedReceiver.isEmpty()) {
+                return Optional.empty();
+            }
+            Type receiverType = resolvedReceiver.get().getField().getType();
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, method.getValue(), node.getArguments(), context);
+            }
+            catch (TrinoException e) {
+                return Optional.empty();
+            }
+
+            // Commit to method-call interpretation: record the receiver field reference.
+            process(receiver, context);
+
+            Type result = analyzeInstanceMethodInvocation(node, receiver, receiverType, method.getValue(), node.getArguments(), resolution, context);
+            methodCallReceivers.put(NodeRef.of(node), receiver);
+            return Optional.of(result);
+        }
+
+        @Override
+        protected Type visitMethodCall(MethodCall node, Context context)
+        {
+            Type receiverType = process(node.getReceiver(), context);
+            String methodName = node.getMethod().getValue();
+
+            MethodResolution resolution;
+            try {
+                resolution = resolveInstanceMethodCall(receiverType, methodName, node.getArguments(), context);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            return analyzeInstanceMethodInvocation(node, node.getReceiver(), receiverType, methodName, node.getArguments(), resolution, context);
+        }
+
+        private MethodResolution resolveInstanceMethodCall(Type receiverType, String methodName, List<Expression> arguments, Context context)
+        {
+            List<TypeSignatureProvider> argumentTypes = ImmutableList.<TypeSignatureProvider>builder()
+                    .add(new TypeSignatureProvider(receiverType.getTypeSignature()))
+                    .addAll(getCallArgumentTypes(arguments, context))
+                    .build();
+            ResolvedFunction function = functionResolver.resolveInstanceMethod(
+                    session,
+                    receiverType.getTypeSignature(),
+                    QualifiedName.of(methodName),
+                    argumentTypes,
+                    accessControl);
+            return new MethodResolution(function, argumentTypes);
+        }
+
+        private Type analyzeInstanceMethodInvocation(
+                Expression node,
+                Expression receiver,
+                Type receiverType,
+                String methodName,
+                List<Expression> arguments,
+                MethodResolution resolution,
+                Context context)
+        {
+            if (arguments.size() + 1 > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for method call .%s()", methodName);
+            }
+
+            BoundSignature signature = resolution.function().signature();
+            Type expectedReceiverType = signature.getArgumentTypes().getFirst();
+            coerceType(receiver, receiverType, expectedReceiverType, format("Method .%s receiver", methodName));
+            // Slot 0 of the signature is the receiver (self), so user-visible argument i maps to signature slot i + 1.
+            for (int i = 0; i < arguments.size(); i++) {
+                Expression expression = arguments.get(i);
+                Type expectedType = signature.getArgumentTypes().get(i + 1);
+                if (resolution.argumentTypes().get(i + 1).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(resolution.argumentTypes().get(i + 1).getTypeSignature());
+                    coerceType(expression, actualType, expectedType, format("Method .%s argument %d", methodName, i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), resolution.function());
+            return setExpressionType(node, signature.getReturnType());
+        }
+
+        private record MethodResolution(ResolvedFunction function, List<TypeSignatureProvider> argumentTypes) {}
+
+        @Override
+        protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
+        {
+            QualifiedName receiver = node.getType();
+            if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
+            }
+            TypeSignature receiverSignature = new TypeSignature(receiver.getSuffix());
+
+            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
+
+            ResolvedFunction function;
+            try {
+                function = functionResolver.resolveStaticMethod(
+                        session,
+                        receiverSignature,
+                        QualifiedName.of(node.getMethod().getValue()),
+                        argumentTypes,
+                        accessControl);
+            }
+            catch (TrinoException e) {
+                if (e.getLocation().isPresent()) {
+                    throw e;
+                }
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
+
+            if (node.getArguments().size() > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for static method call %s::%s()", receiver, node.getMethod().getValue());
+            }
+
+            BoundSignature signature = function.signature();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                Expression expression = node.getArguments().get(i);
+                Type expectedType = signature.getArgumentTypes().get(i);
+                if (argumentTypes.get(i).hasDependency()) {
+                    FunctionType expectedFunctionType = (FunctionType) expectedType;
+                    process(expression, context.expectingLambda(expectedFunctionType.getArgumentTypes()));
+                }
+                else {
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
+                    coerceType(expression, actualType, expectedType, format("Static method %s::%s argument %d", receiver, node.getMethod().getValue(), i));
+                }
+            }
+            resolvedFunctions.put(NodeRef.of(node), function);
+            return setExpressionType(node, signature.getReturnType());
         }
 
         private void analyzeWindow(ResolvedWindow window, Context context, Node originalNode)
@@ -1905,10 +2088,10 @@ public class ExpressionAnalyzer
         private static NavigationMode mapProcessingMode(Optional<ProcessingMode> processingMode)
         {
             return processingMode.map(mode -> switch (mode.getMode()) {
-                case FINAL -> NavigationMode.FINAL;
-                case RUNNING -> NavigationMode.RUNNING;
-            })
-            .orElse(NavigationMode.RUNNING);
+                        case FINAL -> NavigationMode.FINAL;
+                        case RUNNING -> NavigationMode.RUNNING;
+                    })
+                    .orElse(NavigationMode.RUNNING);
         }
 
         private static int getNavigationOffset(FunctionCall node, int defaultOffset)
@@ -1977,13 +2160,16 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.getFirst(),
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedNavigationFunctions.getFirst().getName(), name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedNavigationFunctions.getFirst().getName(),
+                            name);
                 }
                 if (nestedNavigationFunctions.size() > 1) {
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nestedNavigationFunctions.get(1),
-                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function", name);
+                            "Cannot nest multiple pattern navigation functions inside %s pattern navigation function",
+                            name);
                 }
                 FunctionCall nested = getOnlyElement(nestedNavigationFunctions);
                 String nestedName = nested.getName().getSuffix();
@@ -1991,7 +2177,9 @@ public class ExpressionAnalyzer
                     throw semanticException(
                             INVALID_NAVIGATION_NESTING,
                             nested,
-                            "Cannot nest %s pattern navigation function inside %s pattern navigation function", nestedName, name);
+                            "Cannot nest %s pattern navigation function inside %s pattern navigation function",
+                            nestedName,
+                            name);
                 }
                 if (nested != node.getArguments().getFirst()) {
                     throw semanticException(
@@ -2053,7 +2241,8 @@ public class ExpressionAnalyzer
                 throw semanticException(
                         INVALID_ARGUMENTS,
                         node,
-                        "All labels and classifiers inside the call to '%s' must match", name);
+                        "All labels and classifiers inside the call to '%s' must match",
+                        name);
             }
 
             Optional<String> label = Iterables.getOnlyElement(allLabels);
@@ -2442,7 +2631,8 @@ public class ExpressionAnalyzer
             }
 
             if (valueList instanceof InListExpression inListExpression) {
-                Type type = coerceToSingleType(context,
+                Type type = coerceToSingleType(
+                        context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
@@ -2624,8 +2814,12 @@ public class ExpressionAnalyzer
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
-                throw semanticException(INVALID_PARAMETER_USAGE, node,
-                        "Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size());
+                throw semanticException(
+                        INVALID_PARAMETER_USAGE,
+                        node,
+                        "Expected a lambda that takes %s argument(s) but got %s",
+                        types.size(),
+                        lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -2903,6 +3097,16 @@ public class ExpressionAnalyzer
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", declaredReturnedType.get());
                 }
+            }
+
+            // SQL:2023 §6.35 SR 3: if the effective returned type is JSON, the quotes behavior shall be KEEP.
+            // OMIT QUOTES would require emitting a bare unquoted scalar, which is not valid JSON; the spec
+            // closes the hole at analysis time, not at runtime (§9.44, which handles the JSON target, has no
+            // QUOTES parameter). On trunk the only reachable JSON-effective return type is an explicit
+            // RETURNING JSON — analyzeJsonPathInvocation's getInputFunction rejects JSON-typed inputs, so
+            // the SR 1 "JSON-typed input with no RETURNING" branch can't be exercised today.
+            if (quotesBehavior.filter(behavior -> behavior == JsonQuery.QuotesBehavior.OMIT).isPresent() && JSON.equals(returnedType)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
             }
             JsonFormat outputFormat = declaredOutputFormat.orElse(JsonFormat.JSON); // default
 
@@ -3428,7 +3632,9 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(),
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            Iterables.get(typeExpressions.get(type), 0).getNode(),
                             "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                             description,
                             superType,
@@ -3444,7 +3650,9 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(),
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                Iterables.get(coercionCandidates, 0).getNode(),
                                 "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                                 description,
                                 superType,
@@ -3475,11 +3683,11 @@ public class ExpressionAnalyzer
             boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
                     (composite.getFrom() instanceof IntervalField.Day() && (
                             composite.getTo() instanceof IntervalField.Hour() ||
-                            composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Minute() ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Hour() && (
                             composite.getTo() instanceof IntervalField.Minute() ||
-                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                                    composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
                     (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
 
             if (!valid) {
@@ -3875,6 +4083,7 @@ public class ExpressionAnalyzer
                 analyzer.getSortKeyCoercionsForFrameBoundComparison());
         analysis.addFrameBoundCalculations(analyzer.getFrameBoundCalculations());
         analyzer.getResolvedFunctions().forEach((key, value) -> analysis.addResolvedFunction(key.getNode(), value, session.getUser()));
+        analyzer.getMethodCallReceivers().forEach((key, value) -> analysis.addMethodCallReceiver(key.getNode(), value));
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());

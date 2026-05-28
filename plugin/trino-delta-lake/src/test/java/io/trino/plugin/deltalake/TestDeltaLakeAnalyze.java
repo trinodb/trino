@@ -607,7 +607,8 @@ public class TestDeltaLakeAnalyze
         String tableName = "test_statistics_on_insert_when_stats_not_collected_before_" + randomNameSuffix();
         assertUpdate(
                 withStatsOnWrite(false),
-                "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+                "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
+                25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -651,7 +652,8 @@ public class TestDeltaLakeAnalyze
         // insert modified rows
         assertUpdate(
                 withStatsOnWrite(false),
-                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation",
+                25);
 
         // without ANALYZE all stats but size and NDV should be updated
         assertQuery(
@@ -682,7 +684,8 @@ public class TestDeltaLakeAnalyze
     public void testPartitionedStatisticsOnInsertWhenCollectionOnWriteDisabled()
     {
         String tableName = "test_partitioned_statistics_on_insert_when_collection_on_write_disabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName
+        assertUpdate(
+                "CREATE TABLE " + tableName
                         + " WITH ("
                         + "   partitioned_by = ARRAY['regionkey']"
                         + ")"
@@ -701,7 +704,8 @@ public class TestDeltaLakeAnalyze
         // insert modified rows
         assertUpdate(
                 withStatsOnWrite(false),
-                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+                "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation",
+                25);
 
         // without ANALYZE all stats but size and NDV should be updated
         assertQuery(

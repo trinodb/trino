@@ -27,6 +27,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -104,6 +105,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -113,11 +115,11 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleIntervalQualifier;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
-import io.trino.type.FunctionType;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
@@ -320,6 +322,8 @@ public class TranslationMap
                 case io.trino.sql.tree.FieldReference expression -> translate(expression);
                 case Identifier expression -> translate(expression);
                 case FunctionCall expression -> translate(expression);
+                case StaticMethodCall expression -> translate(expression);
+                case MethodCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
@@ -596,7 +600,7 @@ public class TranslationMap
                     plannerContext.getMetadata().getCoercion(
                             builtinFunctionName("$try_cast"),
                             analysis.getType(expression.getExpression()),
-                    analysis.getType(expression)),
+                            analysis.getType(expression)),
                     ImmutableList.of(translateExpression(expression.getExpression())));
         }
 
@@ -675,11 +679,50 @@ public class TranslationMap
         Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
         checkArgument(resolvedFunction.isPresent(), "Function has not been analyzed: %s", expression);
 
+        Optional<Identifier> methodReceiver = analysis.getMethodCallReceiver(expression);
+        if (methodReceiver.isPresent()) {
+            return new Call(
+                    resolvedFunction.get(),
+                    ImmutableList.<io.trino.sql.ir.Expression>builder()
+                            .add(translateExpression(methodReceiver.get()))
+                            .addAll(expression.getArguments().stream()
+                                    .map(this::translateExpression)
+                                    .collect(toImmutableList()))
+                            .build());
+        }
+
         return new Call(
                 resolvedFunction.get(),
                 expression.getArguments().stream()
                         .map(this::translateExpression)
                         .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(StaticMethodCall expression)
+    {
+        Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
+        checkArgument(resolvedFunction.isPresent(), "Static method has not been analyzed: %s", expression);
+
+        return new Call(
+                resolvedFunction.get(),
+                expression.getArguments().stream()
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(MethodCall expression)
+    {
+        Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(expression);
+        checkArgument(resolvedFunction.isPresent(), "Method has not been analyzed: %s", expression);
+
+        return new Call(
+                resolvedFunction.get(),
+                ImmutableList.<io.trino.sql.ir.Expression>builder()
+                        .add(translateExpression(expression.getReceiver()))
+                        .addAll(expression.getArguments().stream()
+                                .map(this::translateExpression)
+                                .collect(toImmutableList()))
+                        .build());
     }
 
     private io.trino.sql.ir.Expression translate(DereferenceExpression expression)
@@ -977,8 +1020,8 @@ public class TranslationMap
         return new Call(
                 operator,
                 ImmutableList.of(
-                    new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
-                    new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
+                        new io.trino.sql.ir.Cast(translateExpression(node.getBase()), operator.signature().getArgumentType(0)),
+                        new io.trino.sql.ir.Cast(translateExpression(node.getIndex()), operator.signature().getArgumentType(1))));
     }
 
     private io.trino.sql.ir.Expression translate(LambdaExpression node)

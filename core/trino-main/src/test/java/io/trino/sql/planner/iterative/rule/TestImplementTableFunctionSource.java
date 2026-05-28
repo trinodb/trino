@@ -110,7 +110,8 @@ public class TestImplementTableFunctionSource
                                     Optional.empty())),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
@@ -136,7 +137,8 @@ public class TestImplementTableFunctionSource
                                     Optional.empty())),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c")))
@@ -167,7 +169,8 @@ public class TestImplementTableFunctionSource
                                     Optional.of(new DataOrganizationSpecification(ImmutableList.of(), Optional.of(new OrderingScheme(ImmutableList.of(d), ImmutableMap.of(d, ASC_NULLS_LAST))))))),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
@@ -195,7 +198,8 @@ public class TestImplementTableFunctionSource
                                     Optional.of(new DataOrganizationSpecification(ImmutableList.of(c), Optional.of(new OrderingScheme(ImmutableList.of(d), ImmutableMap.of(d, ASC_NULLS_LAST))))))),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c")))
@@ -223,7 +227,8 @@ public class TestImplementTableFunctionSource
                                     Optional.of(new DataOrganizationSpecification(ImmutableList.of(c), Optional.empty())))),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c", "d")))
@@ -266,7 +271,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(), Optional.empty())))),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
@@ -277,15 +283,18 @@ public class TestImplementTableFunctionSource
                                         "e", "marker_2",
                                         "f", "marker_2"))
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper symbols for joined nodes
+                                project(
+                                        // append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size")))),
-                                        join(// join nodes using helper symbols
+                                        join(
+                                                // join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(OR, ImmutableList.of(
@@ -296,14 +305,16 @@ public class TestImplementTableFunctionSource
                                                                 new Logical(AND, ImmutableList.of(
                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -356,7 +367,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(), Optional.of(new OrderingScheme(ImmutableList.of(h), ImmutableMap.of(h, DESC_NULLS_FIRST))))))),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f"), ImmutableList.of()))
@@ -369,16 +381,19 @@ public class TestImplementTableFunctionSource
                                         "g", "marker_3",
                                         "h", "marker_3"))
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null))),
                                         "marker_3", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper symbols for joined nodes
+                                project(
+                                        // append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_row_number_1_2"), new Reference(BIGINT, "input_3_row_number"))),
                                                 "combined_partition_size_1_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_partition_size_1_2"), new Reference(BIGINT, "input_3_partition_size")))),
-                                        join(// join nodes using helper symbols
+                                        join(
+                                                // join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(OR, ImmutableList.of(
@@ -389,11 +404,13 @@ public class TestImplementTableFunctionSource
                                                                 new Logical(AND, ImmutableList.of(
                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_partition_size_1_2")),
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))
-                                                        .left(project(// append helper symbols for joined nodes
+                                                        .left(project(
+                                                                // append helper symbols for joined nodes
                                                                 ImmutableMap.of(
                                                                         "combined_row_number_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                                         "combined_partition_size_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size")))),
-                                                                join(// join nodes using helper symbols
+                                                                join(
+                                                                        // join nodes using helper symbols
                                                                         FULL,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(OR, ImmutableList.of(
@@ -404,21 +421,24 @@ public class TestImplementTableFunctionSource
                                                                                         new Logical(AND, ImmutableList.of(
                                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))
-                                                                                .left(window(// append helper symbols for source input_1
+                                                                                .left(window(
+                                                                                        // append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c", "d")))
-                                                                                .right(window(// append helper symbols for source input_2
+                                                                                .right(window(
+                                                                                        // append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("e", "f"))))))
-                                                        .right(window(// append helper symbols for source input_3
+                                                        .right(window(
+                                                                // append helper symbols for source input_3
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of("h"), ImmutableMap.of("h", DESC_NULLS_FIRST)))
                                                                         .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -461,7 +481,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(e), Optional.of(new OrderingScheme(ImmutableList.of(f), ImmutableMap.of(f, DESC_NULLS_FIRST))))))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
@@ -472,16 +493,19 @@ public class TestImplementTableFunctionSource
                                         "e", "marker_2",
                                         "f", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "e")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -494,14 +518,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of("f"), ImmutableMap.of("f", DESC_NULLS_FIRST)))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -543,7 +569,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(d), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
@@ -552,16 +579,19 @@ public class TestImplementTableFunctionSource
                                         "c", "marker_1",
                                         "d", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "d")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 INNER,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -574,14 +604,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -619,7 +651,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(d), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
@@ -628,16 +661,19 @@ public class TestImplementTableFunctionSource
                                         "c", "marker_1",
                                         "d", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "d")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -650,14 +686,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -695,7 +733,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(d), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
@@ -704,16 +743,19 @@ public class TestImplementTableFunctionSource
                                         "c", "marker_1",
                                         "d", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_2_partition_size"), new Reference(BIGINT, "input_1_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "d"), new Reference(BIGINT, "c")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -726,14 +768,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_2
+                                                        .left(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_2
                                                                 values("d")))
-                                                        .right(window(// append helper symbols for source input_1
+                                                        .right(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -771,7 +815,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(d), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
@@ -780,16 +825,19 @@ public class TestImplementTableFunctionSource
                                         "c", "marker_1",
                                         "d", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "d")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 FULL,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -802,14 +850,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -859,7 +909,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(e), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2", "input_3")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
@@ -869,17 +920,20 @@ public class TestImplementTableFunctionSource
                                         "d", "marker_2",
                                         "e", "marker_3"))
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2_3"), ImmutableList.of("combined_row_number_1_2_3"), ImmutableMap.of("combined_row_number_1_2_3", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null))),
                                         "marker_3", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3")), new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_row_number_1_2"), new Reference(BIGINT, "input_3_row_number"))),
                                                 "combined_partition_size_1_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_partition_size_1_2"), new Reference(BIGINT, "input_3_partition_size"))),
                                                 "combined_partition_column_1_2_3", expression(new Coalesce(new Reference(BIGINT, "combined_partition_column_1_2"), new Reference(BIGINT, "e")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -892,12 +946,14 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_partition_size_1_2")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(project(// append helper and partitioning symbols for co-partitioned nodes
+                                                        .left(project(
+                                                                // append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
                                                                         "combined_row_number_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                                         "combined_partition_size_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                                         "combined_partition_column_1_2", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "d")))),
-                                                                join(// co-partition nodes
+                                                                join(
+                                                                        // co-partition nodes
                                                                         INNER,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
@@ -910,21 +966,24 @@ public class TestImplementTableFunctionSource
                                                                                                 new Logical(AND, ImmutableList.of(
                                                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                                                .left(window(// append helper symbols for source input_1
+                                                                                .left(window(
+                                                                                        // append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c")))
-                                                                                .right(window(// append helper symbols for source input_2
+                                                                                .right(window(
+                                                                                        // append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d"))))))
-                                                        .right(window(// append helper symbols for source input_3
+                                                        .right(window(
+                                                                // append helper symbols for source input_3
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -986,7 +1045,8 @@ public class TestImplementTableFunctionSource
                                     ImmutableList.of("input_1", "input_2"),
                                     ImmutableList.of("input_3", "input_4")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e"), ImmutableList.of("f")))
@@ -998,17 +1058,20 @@ public class TestImplementTableFunctionSource
                                         "f", "marker_4",
                                         "g", "marker_4"))
                                 .specification(specification(ImmutableList.of("combined_partition_column_1_2", "combined_partition_column_3_4"), ImmutableList.of("combined_row_number_1_2_3_4"), ImmutableMap.of("combined_row_number_1_2_3_4", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3_4")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3_4")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null))),
                                         "marker_3", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3_4")), new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, null))),
                                         "marker_4", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_4_row_number"), new Reference(BIGINT, "combined_row_number_1_2_3_4")), new Reference(BIGINT, "input_4_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper symbols for joined nodes
+                                project(
+                                        // append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_1_2_3_4", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "combined_row_number_3_4"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_row_number_1_2"), new Reference(BIGINT, "combined_row_number_3_4"))),
                                                 "combined_partition_size_1_2_3_4", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_partition_size_1_2"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "combined_partition_size_3_4"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_partition_size_1_2"), new Reference(BIGINT, "combined_partition_size_3_4")))),
-                                        join(// join nodes using helper symbols
+                                        join(
+                                                // join nodes using helper symbols
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(OR, ImmutableList.of(
@@ -1019,12 +1082,14 @@ public class TestImplementTableFunctionSource
                                                                 new Logical(AND, ImmutableList.of(
                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "combined_row_number_3_4"), new Reference(BIGINT, "combined_partition_size_1_2")),
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "combined_row_number_1_2"), new Constant(BIGINT, 1L)))))))
-                                                        .left(project(// append helper and partitioning symbols for co-partitioned nodes
+                                                        .left(project(
+                                                                // append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
                                                                         "combined_row_number_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                                         "combined_partition_size_1_2", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                                         "combined_partition_column_1_2", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "d")))),
-                                                                join(// co-partition nodes
+                                                                join(
+                                                                        // co-partition nodes
                                                                         INNER,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
@@ -1037,26 +1102,30 @@ public class TestImplementTableFunctionSource
                                                                                                 new Logical(AND, ImmutableList.of(
                                                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                                                .left(window(// append helper symbols for source input_1
+                                                                                .left(window(
+                                                                                        // append helper symbols for source input_1
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_1
                                                                                         values("c")))
-                                                                                .right(window(// append helper symbols for source input_2
+                                                                                .right(window(
+                                                                                        // append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d"))))))
-                                                        .right(project(// append helper and partitioning symbols for co-partitioned nodes
+                                                        .right(project(
+                                                                // append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
                                                                         "combined_row_number_3_4", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_4_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "input_4_row_number"))),
                                                                         "combined_partition_size_3_4", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_3_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_4_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_3_partition_size"), new Reference(BIGINT, "input_4_partition_size"))),
                                                                         "combined_partition_column_3_4", expression(new Coalesce(new Reference(BIGINT, "e"), new Reference(BIGINT, "f")))),
-                                                                join(// co-partition nodes
+                                                                join(
+                                                                        // co-partition nodes
                                                                         FULL,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
@@ -1069,14 +1138,16 @@ public class TestImplementTableFunctionSource
                                                                                                 new Logical(AND, ImmutableList.of(
                                                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_4_row_number"), new Reference(BIGINT, "input_3_partition_size")),
                                                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                                                .left(window(// append helper symbols for source input_3
+                                                                                .left(window(
+                                                                                        // append helper symbols for source input_3
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_3
                                                                                         values("e")))
-                                                                                .right(window(// append helper symbols for source input_4
+                                                                                .right(window(
+                                                                                        // append helper symbols for source input_4
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("f"), ImmutableList.of("g"), ImmutableMap.of("g", DESC_NULLS_FIRST)))
                                                                                                 .addFunction("input_4_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -1126,7 +1197,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(e), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_2", "input_3")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
@@ -1136,16 +1208,19 @@ public class TestImplementTableFunctionSource
                                         "d", "marker_2",
                                         "e", "marker_3"))
                                 .specification(specification(ImmutableList.of("combined_partition_column_2_3", "c"), ImmutableList.of("combined_row_number_2_3_1"), ImmutableMap.of("combined_row_number_2_3_1", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number_2_3_1")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number_2_3_1")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null))),
                                         "marker_3", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "combined_row_number_2_3_1")), new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper symbols for joined nodes
+                                project(
+                                        // append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number_2_3_1", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_row_number_2_3"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_row_number_2_3"), new Reference(BIGINT, "input_1_row_number"))),
                                                 "combined_partition_size_2_3_1", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "combined_partition_size_2_3"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "combined_partition_size_2_3"), new Reference(BIGINT, "input_1_partition_size")))),
-                                        join(// join nodes using helper symbols
+                                        join(
+                                                // join nodes using helper symbols
                                                 INNER,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(OR, ImmutableList.of(
@@ -1156,12 +1231,14 @@ public class TestImplementTableFunctionSource
                                                                 new Logical(AND, ImmutableList.of(
                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_partition_size_2_3")),
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "combined_row_number_2_3"), new Constant(BIGINT, 1L)))))))
-                                                        .left(project(// append helper and partitioning symbols for co-partitioned nodes
+                                                        .left(project(
+                                                                // append helper and partitioning symbols for co-partitioned nodes
                                                                 ImmutableMap.of(
                                                                         "combined_row_number_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_3_row_number"))),
                                                                         "combined_partition_size_2_3", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_3_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_2_partition_size"), new Reference(BIGINT, "input_3_partition_size"))),
                                                                         "combined_partition_column_2_3", expression(new Coalesce(new Reference(BIGINT, "d"), new Reference(BIGINT, "e")))),
-                                                                join(// co-partition nodes
+                                                                join(
+                                                                        // co-partition nodes
                                                                         LEFT,
                                                                         nestedJoinBuilder -> nestedJoinBuilder
                                                                                 .filter(new Logical(AND, ImmutableList.of(
@@ -1174,21 +1251,24 @@ public class TestImplementTableFunctionSource
                                                                                                 new Logical(AND, ImmutableList.of(
                                                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_3_row_number"), new Reference(BIGINT, "input_2_partition_size")),
                                                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                                                .left(window(// append helper symbols for source input_2
+                                                                                .left(window(
+                                                                                        // append helper symbols for source input_2
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("d"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_2_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_2
                                                                                         values("d")))
-                                                                                .right(window(// append helper symbols for source input_3
+                                                                                .right(window(
+                                                                                        // append helper symbols for source input_3
                                                                                         builder -> builder
                                                                                                 .specification(specification(ImmutableList.of("e"), ImmutableList.of(), ImmutableMap.of()))
                                                                                                 .addFunction("input_3_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                                                 .addFunction("input_3_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                                         // input_3
                                                                                         values("e"))))))
-                                                        .right(window(// append helper symbols for source input_1
+                                                        .right(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -1239,7 +1319,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(e), Optional.of(new OrderingScheme(ImmutableList.of(f), ImmutableMap.of(f, DESC_NULLS_FIRST))))))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
@@ -1251,16 +1332,19 @@ public class TestImplementTableFunctionSource
                                         "e", "marker_2",
                                         "f", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column", expression(new Coalesce(new Reference(BIGINT, "c_coerced"), new Reference(BIGINT, "e")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -1273,7 +1357,8 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c_coerced"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -1282,7 +1367,8 @@ public class TestImplementTableFunctionSource
                                                                 project(
                                                                         ImmutableMap.of("c_coerced", expression(new Cast(new Reference(BIGINT, "c"), INTEGER))),
                                                                         values("c", "d"))))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e"), ImmutableList.of("f"), ImmutableMap.of("f", DESC_NULLS_FIRST)))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -1325,7 +1411,8 @@ public class TestImplementTableFunctionSource
                                             Optional.of(new DataOrganizationSpecification(ImmutableList.of(e, f), Optional.empty())))),
                             ImmutableList.of(ImmutableList.of("input_1", "input_2")));
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c", "d"), ImmutableList.of("e", "f")))
@@ -1336,17 +1423,20 @@ public class TestImplementTableFunctionSource
                                         "e", "marker_2",
                                         "f", "marker_2"))
                                 .specification(specification(ImmutableList.of("combined_partition_column_1", "combined_partition_column_2"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper and partitioning symbols for co-partitioned nodes
+                                project(
+                                        // append helper and partitioning symbols for co-partitioned nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size"))),
                                                 "combined_partition_column_1", expression(new Coalesce(new Reference(BIGINT, "c"), new Reference(BIGINT, "e"))),
                                                 "combined_partition_column_2", expression(new Coalesce(new Reference(BIGINT, "d"), new Reference(BIGINT, "f")))),
-                                        join(// co-partition nodes
+                                        join(
+                                                // co-partition nodes
                                                 LEFT,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(AND, ImmutableList.of(
@@ -1358,14 +1448,16 @@ public class TestImplementTableFunctionSource
                                                                         new Logical(AND, ImmutableList.of(
                                                                                 new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                                 new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c", "d"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("e", "f"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
@@ -1408,7 +1500,8 @@ public class TestImplementTableFunctionSource
                                             Optional.empty())),
                             ImmutableList.of());
                 })
-                .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
+                .matches(PlanMatchPattern.tableFunctionProcessor(
+                        builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
                                 .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
@@ -1419,15 +1512,18 @@ public class TestImplementTableFunctionSource
                                         "e", "marker_2",
                                         "f", "marker_2"))
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("combined_row_number"), ImmutableMap.of("combined_row_number", ASC_NULLS_LAST))),
-                        project(// append marker symbols
+                        project(
+                                // append marker symbols
                                 ImmutableMap.of(
                                         "marker_1", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, null))),
                                         "marker_2", expression(ifExpression(new Comparison(EQUAL, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "combined_row_number")), new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, null)))),
-                                project(// append helper symbols for joined nodes
+                                project(
+                                        // append helper symbols for joined nodes
                                         ImmutableMap.of(
                                                 "combined_row_number", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_row_number"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_row_number"), new Reference(BIGINT, "input_2_row_number"))),
                                                 "combined_partition_size", expression(ifExpression(new Comparison(GREATER_THAN, new Coalesce(new Reference(BIGINT, "input_1_partition_size"), new Constant(BIGINT, -1L)), new Coalesce(new Reference(BIGINT, "input_2_partition_size"), new Constant(BIGINT, -1L))), new Reference(BIGINT, "input_1_partition_size"), new Reference(BIGINT, "input_2_partition_size")))),
-                                        join(// join nodes using helper symbols
+                                        join(
+                                                // join nodes using helper symbols
                                                 FULL,
                                                 joinBuilder -> joinBuilder
                                                         .filter(new Logical(OR, ImmutableList.of(
@@ -1438,14 +1534,16 @@ public class TestImplementTableFunctionSource
                                                                 new Logical(AND, ImmutableList.of(
                                                                         new Comparison(GREATER_THAN, new Reference(BIGINT, "input_2_row_number"), new Reference(BIGINT, "input_1_partition_size")),
                                                                         new Comparison(EQUAL, new Reference(BIGINT, "input_1_row_number"), new Constant(BIGINT, 1L)))))))
-                                                        .left(window(// append helper symbols for source input_1
+                                                        .left(window(
+                                                                // append helper symbols for source input_1
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_1_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))
                                                                         .addFunction("input_1_partition_size", windowFunction("count", ImmutableList.of(), FULL_FRAME)),
                                                                 // input_1
                                                                 values("c", "d")))
-                                                        .right(window(// append helper symbols for source input_2
+                                                        .right(window(
+                                                                // append helper symbols for source input_2
                                                                 builder -> builder
                                                                         .specification(specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of()))
                                                                         .addFunction("input_2_row_number", windowFunction("row_number", ImmutableList.of(), FULL_FRAME))

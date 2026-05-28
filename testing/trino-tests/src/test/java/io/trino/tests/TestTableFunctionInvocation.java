@@ -83,16 +83,13 @@ public class TestTableFunctionInvocation
                                     if (functionHandle instanceof TestingTableFunctions.TestingTableFunctionHandle handle) {
                                         return switch (handle.name().functionName()) {
                                             case "identity_function" -> new TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider();
-                                            case "identity_pass_through_function" ->
-                                                    new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider();
+                                            case "identity_pass_through_function" -> new TestingTableFunctions.IdentityPassThroughFunction.IdentityPassThroughFunctionProcessorProvider();
                                             case "empty_output" -> new TestingTableFunctions.EmptyOutputFunction.EmptyOutputProcessorProvider();
-                                            case "empty_output_with_pass_through" ->
-                                                    new TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider();
+                                            case "empty_output_with_pass_through" -> new TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider();
                                             case "test_inputs_function" -> new TestingTableFunctions.TestInputsFunction.TestInputsFunctionProcessorProvider();
                                             case "pass_through" -> new TestingTableFunctions.PassThroughInputFunction.PassThroughInputProcessorProvider();
                                             case "test_input" -> new TestingTableFunctions.TestInputFunction.TestInputProcessorProvider();
-                                            case "test_single_input_function" ->
-                                                    new TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider();
+                                            case "test_single_input_function" -> new TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider();
                                             case "empty_source" -> new TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider();
                                             default -> throw new IllegalArgumentException("unexpected table function: " + handle.name());
                                         };

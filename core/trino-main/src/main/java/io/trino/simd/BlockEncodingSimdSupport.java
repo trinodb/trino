@@ -127,7 +127,7 @@ public final class BlockEncodingSimdSupport
         enum X86SimdInstructionSet
         {
             avx512f,
-            avx512vbmi2
+            avx512vbmi2,
         }
 
         EnumSet<X86SimdInstructionSet> x86Flags = EnumSet.noneOf(X86SimdInstructionSet.class);
@@ -169,7 +169,7 @@ public final class BlockEncodingSimdSupport
         enum ArmSimdInstructionSet
         {
             sve,
-            sve2
+            sve2,
         }
 
         EnumSet<ArmSimdInstructionSet> armFlags = EnumSet.noneOf(ArmSimdInstructionSet.class);

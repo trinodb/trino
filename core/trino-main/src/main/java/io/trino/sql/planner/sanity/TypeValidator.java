@@ -17,6 +17,7 @@ import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -30,7 +31,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.type.FunctionType;
 import io.trino.type.UnknownType;
 
 import java.util.List;
@@ -46,7 +46,8 @@ public final class TypeValidator
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan,
+    public void validate(
+            PlanNode plan,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)

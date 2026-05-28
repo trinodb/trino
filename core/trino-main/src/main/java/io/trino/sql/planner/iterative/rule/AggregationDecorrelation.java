@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -26,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 
 final class AggregationDecorrelation
 {
@@ -37,6 +41,63 @@ final class AggregationDecorrelation
                 aggregationNode.getAggregations().isEmpty() &&
                 aggregationNode.getGroupingSetCount() == 1 &&
                 aggregationNode.hasNonEmptyGroupingSet();
+    }
+
+    /**
+     * Returns true if every aggregation function "ignores null input values" or more
+     * precisely that result of Aggregation over relation {@code R′ = R ∪ N} is guaranteed
+     * to be the same as result of Aggregation over relation {@code R}, provided that each
+     * tuple of {@code N}:
+     * <ul>
+     *    <li>has the same grouping keys as one of the tuples of {@code R},
+     *    <li>has NULL value for each argument of the aggregation function.
+     * </ul>
+     */
+    public static boolean isNullRowInsensitiveAggregation(AggregationNode node)
+    {
+        for (Aggregation aggregation : node.getAggregations().values()) {
+            // TODO pre-existing (moved), but probably redundant check
+            if (aggregation.getFilter().isPresent() || aggregation.getMask().isPresent()) {
+                return false;
+            }
+            CatalogSchemaFunctionName name = aggregation.getResolvedFunction().name();
+            if (!isBuiltinFunctionName(name)) {
+                // Unrecognized
+                return false;
+            }
+            switch (name.functionName()) {
+                // TODO this should be determined from aggregation function metadata
+                case "min", "max", "sum", "avg", "bool_and", "bool_or" -> {
+                    if (!aggregation.getArguments().stream().allMatch(AggregationDecorrelation::isNullOnNullInput)) {
+                        return false;
+                    }
+                }
+                case "count" -> {
+                    if (aggregation.getArguments().isEmpty()) {
+                        // count(*)
+                        return false;
+                    }
+                    // count(a...)
+                    if (!aggregation.getArguments().stream().allMatch(AggregationDecorrelation::isNullOnNullInput)) {
+                        return false;
+                    }
+                }
+                default -> {
+                    // Unrecognized
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns true when expression is guaranteed to return NULL when all references in the expression are NULL.
+     */
+    private static boolean isNullOnNullInput(Expression expression)
+    {
+        // TODO expand to more expression shapes
+        return expression instanceof Reference;
     }
 
     public static Map<Symbol, Aggregation> rewriteWithMasks(Map<Symbol, Aggregation> aggregations, Map<Symbol, Symbol> masks)

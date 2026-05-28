@@ -38,7 +38,7 @@ public final class FilterPattern<T>
     @Override
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
-        //TODO remove cast
+        // TODO remove cast
         BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;
         return Stream.of(Match.of(captures))
                 .filter(_ -> predicate.test((T) object, context));

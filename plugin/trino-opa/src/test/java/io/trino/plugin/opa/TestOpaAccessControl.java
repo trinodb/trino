@@ -394,7 +394,8 @@ final class TestOpaAccessControl
     {
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl -> accessControl.checkCanRenameSchema(
                 TEST_SECURITY_CONTEXT,
-                new CatalogSchemaName("my_catalog", "my_schema"), "new_schema_name"));
+                new CatalogSchemaName("my_catalog", "my_schema"),
+                "new_schema_name"));
         String expectedRequest =
                 """
                 {
@@ -662,7 +663,7 @@ final class TestOpaAccessControl
 
     private void testRequestContextContentsForGivenTrinoVersion(Optional<SystemAccessControlFactory.SystemAccessControlContext> accessControlContext, String expectedTrinoVersion)
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString()),
                 Optional.of(mockClient),
@@ -696,7 +697,7 @@ final class TestOpaAccessControl
     @Test
     void testRequestContextContentsForAdditionalContext()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, _ -> OK_RESPONSE);
         OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
                 ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.context-file", OPA_ADDITIONAL_CONTEXT_FILE.toString()),
                 Optional.of(mockClient),
@@ -841,7 +842,7 @@ final class TestOpaAccessControl
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
-                request -> {
+                _ -> {
                     throw new AssertionError("Should not have been called");
                 });
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
@@ -892,14 +893,14 @@ final class TestOpaAccessControl
                                 {
                                     "result": {"expression": "expression-%d"}
                                 }\
-                                """, index)))
+                                """,
+                                index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithoutIdentityResponses,
                 IntStream.range(1, 10).mapToObj(index -> Map.entry(
                         createColumnSchema(String.format("some-column-%d", index)),
-                        new OpaViewExpression(String.format("expression-%d", index), Optional.empty())
-                )).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                        new OpaViewExpression(String.format("expression-%d", index), Optional.empty()))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         Map<ColumnSchema, String> expressionWithIdentityResponses = IntStream.range(1, 10)
                 .mapToObj(index -> Map.entry(
@@ -909,14 +910,14 @@ final class TestOpaAccessControl
                                 {
                                     "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
                                 }\
-                                """, index)))
+                                """,
+                                index)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         testGetColumnMasks(
                 expressionWithIdentityResponses,
                 IntStream.range(1, 10).mapToObj(index -> Map.entry(
                         createColumnSchema(String.format("some-column-%d", index)),
-                        new OpaViewExpression(String.format("expression-%d", index), Optional.of(String.format("some_identity-%d", index)))
-                )).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                        new OpaViewExpression(String.format("expression-%d", index), Optional.of(String.format("some_identity-%d", index))))).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         Map<ColumnSchema, String> mixedExpressions = ImmutableMap.of(
                 createColumnSchema("some-column-1"), "{}",
@@ -945,13 +946,15 @@ final class TestOpaAccessControl
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
-                request -> {
+                _ -> {
                     throw new AssertionError("Should not have been called");
                 });
 
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
 
-        Map<ColumnSchema, ViewExpression> result = authorizer.getColumnMasks(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME,
+        Map<ColumnSchema, ViewExpression> result = authorizer.getColumnMasks(
+                TEST_SECURITY_CONTEXT,
+                TEST_COLUMN_MASKING_TABLE_NAME,
                 Stream.of("some_column_1", "another_column_2").map(TestHelpers::createColumnSchema).collect(toImmutableList()));
         assertThat(result).isEmpty();
         assertThat(httpClient.getRequests()).isEmpty();
@@ -969,7 +972,11 @@ final class TestOpaAccessControl
         // Test invalid JSON response for just one of the columns
         assertAccessControlMethodThrowsForResponseHandler(
                 createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), UNDEFINED_RESPONSE)),
-                OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.OpaServerError.PolicyNotFound.class, "did not return a value");
+                OPA_COLUMN_MASKING_URI,
+                opaConfig,
+                methodUnderTest,
+                OpaQueryException.OpaServerError.PolicyNotFound.class,
+                "did not return a value");
         assertAccessControlMethodThrowsForResponseHandler(
                 createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), BAD_REQUEST_RESPONSE)), OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.OpaServerError.class, "returned status 400");
         assertAccessControlMethodThrowsForResponseHandler(
@@ -992,17 +999,16 @@ final class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
-
         // Same test with only one column having the valid but illegal JSON response
         assertAccessControlMethodThrowsForResponseHandler(
                 createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), response)),
+
                 OPA_COLUMN_MASKING_URI,
                 opaConfig,
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
     }
-
 
     @Test
     public void testQueryIdPropagation()

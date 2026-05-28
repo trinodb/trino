@@ -74,8 +74,12 @@ public class KafkaSplitManager
 
             Map<TopicPartition, Long> partitionBeginOffsets = kafkaConsumer.beginningOffsets(topicPartitions);
             Map<TopicPartition, Long> partitionEndOffsets = kafkaConsumer.endOffsets(topicPartitions);
-            KafkaFilteringResult kafkaFilteringResult = kafkaFilterManager.getKafkaFilterResult(session, kafkaTableHandle,
-                    partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+            KafkaFilteringResult kafkaFilteringResult = kafkaFilterManager.getKafkaFilterResult(
+                    session,
+                    kafkaTableHandle,
+                    partitionInfos,
+                    partitionBeginOffsets,
+                    partitionEndOffsets);
             partitionInfos = kafkaFilteringResult.partitionInfos();
             partitionBeginOffsets = kafkaFilteringResult.partitionBeginOffsets();
             partitionEndOffsets = kafkaFilteringResult.partitionEndOffsets();

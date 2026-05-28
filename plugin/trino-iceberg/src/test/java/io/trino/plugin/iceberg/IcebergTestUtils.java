@@ -224,7 +224,8 @@ public final class IcebergTestUtils
                 .createMetastore(Optional.empty());
     }
 
-    public static BaseTable loadTable(String tableName,
+    public static BaseTable loadTable(
+            String tableName,
             HiveMetastore metastore,
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName,

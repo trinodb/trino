@@ -68,7 +68,8 @@ public class TestPruneTableFunctionProcessorColumns
                 })
                 .matches(project(
                         ImmutableMap.of(),
-                        tableFunctionProcessor(builder -> builder
+                        tableFunctionProcessor(
+                                builder -> builder
                                         .name("test_function")
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of())),
                                 values("a", "b"))));
@@ -94,7 +95,8 @@ public class TestPruneTableFunctionProcessorColumns
                 })
                 .matches(project(
                         ImmutableMap.of(),
-                        tableFunctionProcessor(builder -> builder
+                        tableFunctionProcessor(
+                                builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("proper"))
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of())),
@@ -126,7 +128,8 @@ public class TestPruneTableFunctionProcessorColumns
                 })
                 .matches(project(
                         ImmutableMap.of("y", expression(new Reference(BIGINT, "y")), "b", expression(new Reference(BIGINT, "b"))),
-                        tableFunctionProcessor(builder -> builder
+                        tableFunctionProcessor(
+                                builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("x", "y"))
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of("b"))),
@@ -214,7 +217,8 @@ public class TestPruneTableFunctionProcessorColumns
                 })
                 .matches(project(
                         ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
-                        tableFunctionProcessor(builder -> builder
+                        tableFunctionProcessor(
+                                builder -> builder
                                         .name("test_function")
                                         .properOutputs(ImmutableList.of("proper"))
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of(), ImmutableList.of("b"), ImmutableList.of())),

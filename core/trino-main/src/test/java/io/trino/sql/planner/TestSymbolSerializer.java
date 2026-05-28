@@ -44,7 +44,7 @@ class TestSymbolSerializer
     }
 
     private static final JsonCodec<Symbol> SYMBOL_CODEC = CODEC_FACTORY.jsonCodec(Symbol.class);
-    private static final JsonCodec<Map<Symbol, String>> MAP_CODEC = CODEC_FACTORY.jsonCodec(new TypeToken<>() { });
+    private static final JsonCodec<Map<Symbol, String>> MAP_CODEC = CODEC_FACTORY.jsonCodec(new TypeToken<>() {});
 
     @Test
     void testAsValue()

@@ -150,7 +150,8 @@ public class TestWindowFilterPushDown
                 true,
                 anyTree(
                         anyNot(FilterNode.class,
-                                topNRanking(pattern -> pattern
+                                topNRanking(
+                                        pattern -> pattern
                                                 .rankingType(rankingType)
                                                 .maxRankingPerPartition(9),
                                         anyTree(

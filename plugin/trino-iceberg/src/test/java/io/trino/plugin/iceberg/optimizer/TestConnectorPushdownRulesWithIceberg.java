@@ -393,8 +393,10 @@ public class TestConnectorPushdownRulesWithIceberg
                     return p.project(
                             Assignments.of(
                                     // The column reference is part of both the assignments
-                                    p.symbol("column_ref", BIGINT), column,
-                                    p.symbol("negated_column_ref", BIGINT), negation),
+                                    p.symbol("column_ref", BIGINT),
+                                    column,
+                                    p.symbol("negated_column_ref", BIGINT),
+                                    negation),
                             p.tableScan(
                                     table,
                                     ImmutableList.of(p.symbol("just_bigint", BIGINT)),
@@ -417,8 +419,10 @@ public class TestConnectorPushdownRulesWithIceberg
                     return p.project(
                             Assignments.of(
                                     // The subscript expression instance is part of both the assignments
-                                    p.symbol("expr_deref", BIGINT), fieldReference,
-                                    p.symbol("expr_deref_2", BIGINT), sum),
+                                    p.symbol("expr_deref", BIGINT),
+                                    fieldReference,
+                                    p.symbol("expr_deref_2", BIGINT),
+                                    sum),
                             p.tableScan(
                                     table,
                                     ImmutableList.of(p.symbol("struct_of_bigint", ROW_TYPE)),

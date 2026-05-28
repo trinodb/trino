@@ -54,8 +54,7 @@ public final class FileBasedNetworkTopology
     @Inject
     public FileBasedNetworkTopology(TopologyFileConfig topologyConfig)
     {
-        this(
-                topologyConfig.getNetworkTopologyFile(),
+        this(topologyConfig.getNetworkTopologyFile(),
                 topologyConfig.getRefreshPeriod(),
                 Ticker.systemTicker());
     }

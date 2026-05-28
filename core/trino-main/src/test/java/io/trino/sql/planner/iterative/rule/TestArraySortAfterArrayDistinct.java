@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -27,7 +28,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -49,8 +49,7 @@ public class TestArraySortAfterArrayDistinct
     @Test
     public void testArrayDistinctAfterArraySort()
     {
-        test(
-                new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+        test(new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
                 new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 

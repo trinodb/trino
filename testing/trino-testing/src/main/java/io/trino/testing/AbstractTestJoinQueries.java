@@ -90,26 +90,31 @@ public abstract class AbstractTestJoinQueries
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name < r.name");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey < n.regionkey");
         // test with single null value in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
                 "VALUES -1, 0");
         // test with single (first) null value in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
                 "VALUES -1, 0");
         // test with multiple null values in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a",
                 "VALUES -1");
         // test with only null value in build side
         assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey - 100 < t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
         // test with function predicate in ON clause
         assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) < length(substr(r.name, 5))");
 
-        assertQuery("SELECT * FROM " +
+        assertQuery(
+                "SELECT * FROM " +
                         "(VALUES (1,1),(2,1)) t1(a,b), " +
                         "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
                         "WHERE a=x and b<=y",
                 "VALUES (1,1,1,1), (1,1,1,2), (2,1,2,1)");
 
-        assertQuery("SELECT * FROM " +
+        assertQuery(
+                "SELECT * FROM " +
                         "(VALUES (1,1),(2,1)) t1(a,b), " +
                         "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
                         "WHERE a=x and b<y",
@@ -122,26 +127,31 @@ public abstract class AbstractTestJoinQueries
         assertQuery("SELECT n.nationkey, r.regionkey FROM region r JOIN nation n ON n.regionkey = r.regionkey AND n.name > r.name AND r.regionkey = 0");
         assertQuery("SELECT l.suppkey, n.nationkey, l.partkey, n.regionkey FROM nation n JOIN lineitem l ON l.suppkey = n.nationkey AND l.partkey > n.regionkey");
         // test with single null value in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, CAST(-1 AS BIGINT)), (0, NULL), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
                 "VALUES -1, 0");
         // test with single (first) null value in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, NULL), (0, CAST(-1 AS BIGINT)), (0, CAST(0 AS BIGINT))) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
                 "VALUES -1, 0");
         // test with multiple null values in build side
-        assertQuery("SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
+        assertQuery(
+                "SELECT b FROM nation n, (VALUES (0, NULL), (0, NULL), (0, CAST(-1 AS BIGINT)), (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a",
                 "VALUES -1");
         // test with only null value in build side
         assertQuery("SELECT b FROM nation n, (VALUES (0, NULL)) t(a, b) WHERE n.regionkey + 100 > t.b AND n.nationkey = t.a", "SELECT 1 WHERE FALSE");
         /// test with function predicate in ON clause
         assertQuery("SELECT n.nationkey, r.regionkey FROM nation n JOIN region r ON n.regionkey = r.regionkey AND length(n.name) > length(substr(r.name, 5))");
 
-        assertQuery("SELECT * FROM " +
+        assertQuery(
+                "SELECT * FROM " +
                         "(VALUES (1,1),(2,1)) t1(a,b), " +
                         "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
                         "WHERE a=x and b>=y",
                 "VALUES (1,1,1,1), (2,1,2,1)");
 
-        assertQuery("SELECT * FROM " +
+        assertQuery(
+                "SELECT * FROM " +
                         "(VALUES (1,1),(2,1)) t1(a,b), " +
                         "(VALUES (1,1),(1,2),(2,1)) t2(x,y) " +
                         "WHERE a=x and b>y",
@@ -529,26 +539,30 @@ public abstract class AbstractTestJoinQueries
 
         // left join which gets converted to inner join without equality conditions.
         // all symbols pruned by original join
-        assertQuery("SELECT 1 FROM (VALUES 1, 20) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b WHERE b IS NOT NULL",
+        assertQuery(
+                "SELECT 1 FROM (VALUES 1, 20) t1(a) LEFT OUTER JOIN (VALUES 10, 11) t2(b) ON a > b WHERE b IS NOT NULL",
                 "VALUES (1), (1)");
     }
 
     @Test
     public void testNonEqalityJoinWithScalarRequiringSessionParameter()
     {
-        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
                 "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
     }
 
     @Test
     public void testNonEqualityJoinWithTryInFilter()
     {
-        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
                         "             ON a=c AND TRY(1 / (b-a) != 1000)",
                 "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
 
         // use of scalar requiring session parameter within try
-        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
+        assertQuery(
+                "SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
                         "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b) > current_timestamp)",
                 "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
     }
@@ -663,43 +677,59 @@ public abstract class AbstractTestJoinQueries
     public void testJoinsWithTrueJoinCondition()
     {
         // inner join
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (0, 10), (0, 11), (1, 10), (1, 11)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
 
         // left join
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) LEFT JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) LEFT JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (0, 10), (0, 11), (1, 10), (1, 11)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) LEFT JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) LEFT JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) LEFT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) LEFT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "VALUES (0, NULL), (1, NULL)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) LEFT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) LEFT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
 
         // right join
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) RIGHT JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) RIGHT JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (0, 10), (0, 11), (1, 10), (1, 11)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) RIGHT JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) RIGHT JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (NULL, 10), (NULL, 11)");
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) RIGHT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) RIGHT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) RIGHT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) RIGHT JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
 
         // full join
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) FULL JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) FULL JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (0, 10), (0, 11), (1, 10), (1, 11)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) FULL JOIN (VALUES 10, 11) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) FULL JOIN (VALUES 10, 11) t2(b) ON TRUE",
                 "VALUES (NULL, 10), (NULL, 11)");
-        assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) FULL JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (VALUES 0, 1) t1(a) FULL JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "VALUES (0, NULL), (1, NULL)");
-        assertQuery("SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) FULL JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
+        assertQuery(
+                "SELECT * FROM (SELECT 1 WHERE FALSE) t1(a) FULL JOIN (SELECT 1 WHERE FALSE) t2(b) ON TRUE",
                 "SELECT 1 WHERE FALSE");
     }
 
@@ -1011,7 +1041,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinWithExpressionsThatMayReturnNull()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "    SELECT a, nullif(a, 1)\n" +
@@ -1020,7 +1051,8 @@ public abstract class AbstractTestJoinQueries
                         "JOIN (VALUES 1) u(x) ON t.a = u.x",
                 "SELECT 1, NULL, 1");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "    SELECT a, contains(array[2, null], a)\n" +
@@ -1029,7 +1061,8 @@ public abstract class AbstractTestJoinQueries
                         "JOIN (VALUES 1) u(x) ON t.a = u.x\n",
                 "SELECT 1, NULL, 1");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "    SELECT a, array[null][a]\n" +
@@ -1038,7 +1071,8 @@ public abstract class AbstractTestJoinQueries
                         "JOIN (VALUES 1) u(x) ON t.a = u.x",
                 "SELECT 1, NULL, 1");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "    SELECT a, try(a / 0)\n" +
@@ -1081,7 +1115,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSimpleFullJoin()
     {
-        assertQuery("SELECT a, b FROM (VALUES (1), (2)) t (a) FULL OUTER JOIN (VALUES (1), (3)) u (b) ON a = b",
+        assertQuery(
+                "SELECT a, b FROM (VALUES (1), (2)) t (a) FULL OUTER JOIN (VALUES (1), (3)) u (b) ON a = b",
                 "SELECT * FROM (VALUES (1, 1), (2, NULL), (NULL, 3))");
         assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey",
                 "SELECT COUNT(*) FROM (" +
@@ -1112,24 +1147,28 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testFullJoinNormalizedToLeft()
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey WHERE lineitem.orderkey IS NOT NULL",
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey WHERE lineitem.orderkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey WHERE lineitem.orderkey IS NOT NULL");
 
         // The above outer join queries will produce the same result even if they are inner join.
         // The below query uses "orderkey = custkey" as join condition.
-        assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE lineitem.orderkey IS NOT NULL",
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE lineitem.orderkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem LEFT OUTER JOIN orders ON lineitem.orderkey = orders.custkey WHERE lineitem.orderkey IS NOT NULL");
     }
 
     @Test
     public void testFullJoinNormalizedToRight()
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey WHERE orders.orderkey IS NOT NULL",
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.orderkey WHERE orders.orderkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.orderkey  WHERE orders.orderkey IS NOT NULL");
 
         // The above outer join queries will produce the same result even if they are inner join.
         // The below query uses "orderkey = custkey" as join condition.
-        assertQuery("SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE orders.custkey IS NOT NULL",
+        assertQuery(
+                "SELECT COUNT(*) FROM lineitem FULL JOIN orders ON lineitem.orderkey = orders.custkey WHERE orders.custkey IS NOT NULL",
                 "SELECT COUNT(*) FROM lineitem RIGHT OUTER JOIN orders ON lineitem.orderkey = orders.custkey  WHERE orders.custkey IS NOT NULL");
     }
 
@@ -1468,7 +1507,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinWithStatefulFilterFunction()
     {
-        assertQuery("SELECT *\n" +
+        assertQuery(
+                "SELECT *\n" +
                         "FROM (VALUES 1, 2) a(id)\n" +
                         "FULL JOIN (VALUES 2, 3) b(id)\n" +
                         "ON (array_intersect(array[a.id], array[b.id]) = array[a.id])",
@@ -1624,7 +1664,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testCrossJoinsWithWhereClause()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT a, b, c, d " +
                         "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')) t1 (a, b) " +
                         "CROSS JOIN (VALUES (1, 1.1), (3, 3.3), (5, 5.5)) t2 (c, d) " +
@@ -1644,11 +1685,14 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testCrossJoinWithNulls()
     {
-        assertQuery("SELECT a, b FROM (VALUES (1), (2)) t (a) CROSS JOIN (VALUES (1), (3)) u (b)",
+        assertQuery(
+                "SELECT a, b FROM (VALUES (1), (2)) t (a) CROSS JOIN (VALUES (1), (3)) u (b)",
                 "SELECT * FROM (VALUES  (1, 1), (1, 3), (2, 1), (2, 3))");
-        assertQuery("SELECT a, b FROM (VALUES (1), (2), (null)) t (a), (VALUES (11), (null), (13)) u (b)",
+        assertQuery(
+                "SELECT a, b FROM (VALUES (1), (2), (null)) t (a), (VALUES (11), (null), (13)) u (b)",
                 "SELECT * FROM (VALUES (1, 11), (1, null), (1, 13), (2, 11), (2, null), (2, 13), (null, 11), (null, null), (null, 13))");
-        assertQuery("SELECT a, b FROM (VALUES ('AA'), ('BB'), (null)) t (a), (VALUES ('111'), (null), ('333')) u (b)",
+        assertQuery(
+                "SELECT a, b FROM (VALUES ('AA'), ('BB'), (null)) t (a), (VALUES ('111'), (null), ('333')) u (b)",
                 "SELECT * FROM (VALUES ('AA', '111'), ('AA', null), ('AA', '333'), ('BB', '111'), ('BB', null), ('BB', '333'), (null, '111'), (null, null), (null, '333'))");
     }
 
@@ -1702,7 +1746,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testCrossJoinUnnestWithUnion()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT col, COUNT(*)\n" +
                         "FROM ((\n" +
                         "    SELECT ARRAY[1, 2] AS a\n" +
@@ -1839,11 +1884,13 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testAntiJoinNullHandling()
     {
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+        assertQuery(
+                "WITH empty AS (SELECT 1 WHERE FALSE) " +
                         "SELECT 3 FROM (VALUES 1) WHERE NULL NOT IN (SELECT * FROM empty)",
                 "VALUES 3");
 
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+        assertQuery(
+                "WITH empty AS (SELECT 1 WHERE FALSE) " +
                         "SELECT x FROM (VALUES NULL) t(x) WHERE x NOT IN (SELECT * FROM empty)",
                 "VALUES NULL");
     }
@@ -1866,7 +1913,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSemiJoinNullHandling()
     {
-        assertQuery("WITH empty AS (SELECT 1 WHERE FALSE) " +
+        assertQuery(
+                "WITH empty AS (SELECT 1 WHERE FALSE) " +
                         "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty)",
                 "SELECT 0 WHERE FALSE");
 
@@ -2304,7 +2352,8 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testMultiJoinWithEligibleForDynamicFiltering()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT customer.name, lineitem.partkey " +
                         "FROM lineitem " +
                         "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " + // with dynamic filters enabled, gets converted to INNER CROSS JOIN
@@ -2313,7 +2362,8 @@ public abstract class AbstractTestJoinQueries
                         "AND customer.name >= 'Customer#000001463' ",
                 "VALUES ('Customer#000001471', 474), ('Customer#000001471', 1969), ('Customer#000001471', 32)");
 
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT count(*) " +
                         "FROM lineitem " +
                         "LEFT JOIN orders ON lineitem.orderkey = orders.orderkey " + // with dynamic filters enabled, gets converted to INNER CROSS JOIN

@@ -469,10 +469,8 @@ public class TpchMetadata
             }
             else if (tableHandle.tableName().equals(TpchTable.PART.getTableName())) {
                 constraint = toTupleDomain(ImmutableMap.of(
-                        toColumnHandle(PartColumn.CONTAINER),
-                        partContainerNullableValues,
-                        toColumnHandle(PartColumn.TYPE),
-                        partTypeNullableValues));
+                        toColumnHandle(PartColumn.CONTAINER), partContainerNullableValues,
+                        toColumnHandle(PartColumn.TYPE), partTypeNullableValues));
             }
         }
 
@@ -500,16 +498,13 @@ public class TpchMetadata
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
         if (predicatePushdownEnabled && handle.tableName().equals(TpchTable.ORDERS.getTableName())) {
             predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(OrderColumn.ORDER_STATUS),
-                    filterValues(orderStatusNullableValues, OrderColumn.ORDER_STATUS, constraint)));
+                    toColumnHandle(OrderColumn.ORDER_STATUS), filterValues(orderStatusNullableValues, OrderColumn.ORDER_STATUS, constraint)));
             unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
         }
         else if (predicatePushdownEnabled && handle.tableName().equals(TpchTable.PART.getTableName())) {
             predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(PartColumn.CONTAINER),
-                    filterValues(partContainerNullableValues, PartColumn.CONTAINER, constraint),
-                    toColumnHandle(PartColumn.TYPE),
-                    filterValues(partTypeNullableValues, PartColumn.TYPE, constraint)));
+                    toColumnHandle(PartColumn.CONTAINER), filterValues(partContainerNullableValues, PartColumn.CONTAINER, constraint),
+                    toColumnHandle(PartColumn.TYPE), filterValues(partTypeNullableValues, PartColumn.TYPE, constraint)));
             unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
             unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
         }

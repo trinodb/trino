@@ -103,8 +103,7 @@ public class PushProjectionIntoTableScan
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
-                                session
-                        ).entrySet().stream())
+                                session).entrySet().stream())
                 // Filter out constant expressions. Constant expressions should not be pushed to the connector.
                 .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates
@@ -145,6 +144,7 @@ public class PushProjectionIntoTableScan
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
                 .map(expression -> {
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
+                    translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
                     return plannerContext.getExpressionOptimizer().process(translated, session, ImmutableMap.of()).orElse(translated);

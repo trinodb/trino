@@ -70,8 +70,8 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
+                 SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -230,7 +230,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
                 .hasNoCause();
     }
 

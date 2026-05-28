@@ -15,8 +15,10 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -68,6 +70,12 @@ public class FunctionId
 
     public static FunctionId toFunctionId(String canonicalName, Signature signature)
     {
-        return new FunctionId((canonicalName + signature).toLowerCase(Locale.US));
+        return toFunctionId(canonicalName, signature, Optional.empty());
+    }
+
+    public static FunctionId toFunctionId(String canonicalName, Signature signature, Optional<TypeSignature> receiverType)
+    {
+        String prefix = receiverType.map(type -> type + "::").orElse("");
+        return new FunctionId((prefix + canonicalName + signature).toLowerCase(Locale.US));
     }
 }

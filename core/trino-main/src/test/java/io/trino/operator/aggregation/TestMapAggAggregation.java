@@ -133,7 +133,8 @@ public class TestMapAggAggregation
                 FUNCTION_RESOLUTION,
                 "map_agg",
                 fromTypes(DOUBLE, arrayType),
-                ImmutableMap.of(1.0, ImmutableList.of("a", "b"),
+                ImmutableMap.of(
+                        1.0, ImmutableList.of("a", "b"),
                         2.0, ImmutableList.of("c", "d"),
                         3.0, ImmutableList.of("e", "f")),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -154,7 +155,8 @@ public class TestMapAggAggregation
                 FUNCTION_RESOLUTION,
                 "map_agg",
                 fromTypes(DOUBLE, innerMapType),
-                ImmutableMap.of(1.0, ImmutableMap.of("a", "b"),
+                ImmutableMap.of(
+                        1.0, ImmutableMap.of("a", "b"),
                         2.0, ImmutableMap.of("c", "d"),
                         3.0, ImmutableMap.of("e", "f")),
                 createDoublesBlock(1.0, 2.0, 3.0),
@@ -177,7 +179,8 @@ public class TestMapAggAggregation
                 FUNCTION_RESOLUTION,
                 "map_agg",
                 fromTypes(DOUBLE, innerRowType),
-                ImmutableMap.of(1.0, ImmutableList.of(1, 1.0),
+                ImmutableMap.of(
+                        1.0, ImmutableList.of(1, 1.0),
                         2.0, ImmutableList.of(2, 2.0),
                         3.0, ImmutableList.of(3, 3.0)),
                 createDoublesBlock(1.0, 2.0, 3.0),

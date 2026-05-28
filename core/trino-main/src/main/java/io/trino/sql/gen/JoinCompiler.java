@@ -241,14 +241,11 @@ public class JoinCompiler
         generateAppendToMethod(classDefinition, outputChannels, channelFields);
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
-        generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowIdenticalToRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
-        generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generatePositionIdenticalRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionIdenticalToRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
-        generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generatePositionIdenticalToPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateIsPositionNull(classDefinition, joinChannelFields);
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
@@ -464,53 +461,6 @@ public class JoinCompiler
                 .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
                 .ifTrue(constantLong(0L))
                 .ifFalse(invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(callSiteBinder.bind(hashCodeOperator).getBindingId()), "hash", hashCodeOperator.type(), blockRef, blockPosition));
-    }
-
-    private void generateRowEqualsRowMethod(
-            ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            List<Type> joinChannelTypes)
-    {
-        Parameter leftPosition = arg("leftPosition", int.class);
-        Parameter leftPage = arg("leftPage", Page.class);
-        Parameter rightPosition = arg("rightPosition", int.class);
-        Parameter rightPage = arg("rightPage", Page.class);
-        MethodDefinition rowEqualsRowMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "rowEqualsRow",
-                type(boolean.class),
-                leftPosition,
-                leftPage,
-                rightPosition,
-                rightPage);
-
-        for (int index = 0; index < joinChannelTypes.size(); index++) {
-            Type type = joinChannelTypes.get(index);
-
-            BytecodeExpression leftBlock = leftPage.invoke("getBlock", Block.class, constantInt(index));
-
-            BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
-
-            LabelNode checkNextField = new LabelNode("checkNextField");
-            rowEqualsRowMethod
-                    .getBody()
-                    .append(typeEquals(
-                            callSiteBinder,
-                            type,
-                            leftBlock,
-                            leftPosition,
-                            rightBlock,
-                            rightPosition))
-                    .ifTrueGoto(checkNextField)
-                    .push(false)
-                    .retBoolean()
-                    .visitLabel(checkNextField);
-        }
-
-        rowEqualsRowMethod
-                .getBody()
-                .push(true)
-                .retInt();
     }
 
     private void generateRowIdenticalToRowMethod(
@@ -733,7 +683,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(identicalOperator).getBindingId()),
                 "identical",
                 identicalOperator.type(),
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition);
     }
 
     private void generatePositionEqualsPositionMethod(
@@ -891,7 +844,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
                 "comparison",
                 long.class,
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition)
                 .cast(int.class)
                 .ret();
 
@@ -975,7 +931,10 @@ public class JoinCompiler
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
                 "equal",
                 equalOperator.type(),
-                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                leftBlock,
+                leftBlockPosition,
+                rightBlock,
+                rightBlockPosition);
     }
 
     @UsedByGeneratedCode

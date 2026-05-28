@@ -18,10 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -45,16 +43,15 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.matching.Pattern.nonEmpty;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isDistinctOperator;
+import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.isNullRowInsensitiveAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.restoreDistinctAggregation;
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -126,7 +123,6 @@ import static java.util.Objects.requireNonNull;
 public class TransformCorrelatedGlobalAggregationWithProjection
         implements Rule<CorrelatedJoinNode>
 {
-    private static final CatalogSchemaFunctionName BOOL_OR = builtinFunctionName("bool_or");
     private static final Capture<ProjectNode> PROJECTION = newCapture();
     private static final Capture<AggregationNode> AGGREGATION = newCapture();
     private static final Capture<PlanNode> SOURCE = newCapture();
@@ -184,10 +180,11 @@ public class TransformCorrelatedGlobalAggregationWithProjection
         Optional<Symbol> nonNull = Optional.empty();
 
         AggregationNode globalAggregation = captures.get(AGGREGATION);
-        // Null-insensitive aggregations don't distinguish empty input from null input, so they don't need a special mask true symbol
-        // to distinguish between these two cases after decorrelation. For example, count(*) needs a mask symbol because it returns 0
-        // for an empty set but 1 for a set with a single null row, but boolean_or returns null for both an empty set and a set with a single null row.
-        if (!isNullInsensitiveAggregation(globalAggregation)) {
+        // Some aggregations don't need a mask symbol. This is when result of aggregation function over empty input is the same as result of aggregating
+        // single row with all input arguments being null.
+        // For example, count(*) needs a mask as otherwise it would return 0 for an empty input before decorrelation and 1 after decorrelation.
+        // On the other hand, min, max, bool_or, and few others do not need a mask symbol.
+        if (!isNullRowInsensitiveAggregation(globalAggregation)) {
             nonNull = Optional.of(context.getSymbolAllocator().newSymbol("non_null", BOOLEAN));
             source = new ProjectNode(
                     context.getIdAllocator().getNextId(),
@@ -300,19 +297,5 @@ public class TransformCorrelatedGlobalAggregationWithProjection
                 context.getIdAllocator().getNextId(),
                 globalAggregation,
                 assignments));
-    }
-
-    private static boolean isNullInsensitiveAggregation(AggregationNode node)
-    {
-        if (node.getAggregations().size() != 1) {
-            return false;
-        }
-
-        Aggregation aggregation = getOnlyElement(node.getAggregations().values());
-        if (aggregation.getFilter().isPresent() || aggregation.getMask().isPresent()) {
-            return false;
-        }
-
-        return aggregation.getResolvedFunction().name().equals(BOOL_OR) && aggregation.getArguments().getFirst() instanceof Reference;
     }
 }

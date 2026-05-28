@@ -150,10 +150,10 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         project(ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")), "expr", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum_1"), new Constant(INTEGER, 1L))))),
                                 aggregation(ImmutableMap.of("sum_1", aggregationFunction("sum", ImmutableList.of("a"))),
                                         join(LEFT, builder -> builder
-                                                .left(assignUniqueId("unique",
+                                                .left(assignUniqueId(
+                                                        "unique",
                                                         values(ImmutableMap.of("corr", 0))))
-                                                .right(project(ImmutableMap.of("non_null", expression(TRUE)),
-                                                        values(ImmutableMap.of("a", 0, "b", 1))))))));
+                                                .right(values(ImmutableMap.of("a", 0, "b", 1)))))));
     }
 
     @Test
@@ -165,8 +165,10 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
-                                        p.symbol("expr_count", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
+                                        p.symbol("expr_sum", INTEGER),
+                                        new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count", INTEGER),
+                                        new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -218,8 +220,10 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         p.values(p.symbol("corr")),
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_sum", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
-                                        p.symbol("expr_count", INTEGER), new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
+                                        p.symbol("expr_sum", INTEGER),
+                                        new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "sum"), new Constant(INTEGER, 1L))),
+                                        p.symbol("expr_count", INTEGER),
+                                        new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "count"), new Constant(INTEGER, 1L)))),
                                 p.aggregation(outerBuilder -> outerBuilder
                                         .addAggregation(p.symbol("sum"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
                                         .addAggregation(p.symbol("count"), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
@@ -284,7 +288,8 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         project(
                                                 ImmutableMap.of("new_mask", expression(new Logical(AND, ImmutableList.of(new Reference(BOOLEAN, "mask"), new Reference(BOOLEAN, "non_null"))))),
                                                 join(LEFT, builder -> builder
-                                                        .left(assignUniqueId("unique",
+                                                        .left(assignUniqueId(
+                                                                "unique",
                                                                 values(ImmutableMap.of("corr", 0))))
                                                         .right(project(ImmutableMap.of("non_null", expression(TRUE)),
                                                                 values(ImmutableMap.of("a", 0, "mask", 1)))))))));
@@ -304,11 +309,13 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         .source(p.values(p.symbol("subquery", BOOLEAN)))
                                         .addAggregation(
                                                 p.symbol("aggrbool", BOOLEAN),
-                                                PlanBuilder.aggregation("bool_or", ImmutableList.of(new Reference(BOOLEAN, "subquery"))), ImmutableList.of(BOOLEAN))
+                                                PlanBuilder.aggregation("bool_or", ImmutableList.of(new Reference(BOOLEAN, "subquery"))),
+                                                ImmutableList.of(BOOLEAN))
                                         .globalGrouping()))))
                 .matches(
                         project(
-                                ImmutableMap.of("corr", expression(new Reference(BIGINT, "corr")),
+                                ImmutableMap.of(
+                                        "corr", expression(new Reference(BIGINT, "corr")),
                                         "exists", expression(new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE))),
                                 aggregation(
                                         singleGroupingSet("unique", "corr"),
@@ -319,9 +326,9 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                                         SINGLE,
                                         join(LEFT, builder -> builder
                                                 .left(
-                                                        assignUniqueId("unique",
+                                                        assignUniqueId(
+                                                                "unique",
                                                                 values(ImmutableMap.of("corr", 0))))
-                                                .right(
-                                                        values(ImmutableMap.of("subquery", 0)))))));
+                                                .right(values(ImmutableMap.of("subquery", 0)))))));
     }
 }

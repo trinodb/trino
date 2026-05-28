@@ -104,7 +104,7 @@ public final class CachingHiveMetastore
     public enum StatsRecording
     {
         ENABLED,
-        DISABLED
+        DISABLED,
     }
 
     public enum ObjectType

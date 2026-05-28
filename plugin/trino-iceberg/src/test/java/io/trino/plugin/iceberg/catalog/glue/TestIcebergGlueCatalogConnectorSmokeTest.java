@@ -106,7 +106,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .matches(format("" +
+                .matches(format(
+                        "" +
                                 "\\QCREATE TABLE iceberg.%1$s.region (\n" +
                                 "   regionkey bigint,\n" +
                                 "   name varchar,\n" +

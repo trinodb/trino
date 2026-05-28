@@ -76,7 +76,9 @@ public class LdapFilteringGroupProvider
     {
         Optional<String> userDistinguishedName;
         try {
-            userDistinguishedName = ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+            userDistinguishedName = ldapClient.executeLdapQuery(
+                    ldapAdminUser,
+                    ldapAdminPassword,
                     new LdapQuery.LdapQueryBuilder()
                             .withSearchBase(userBaseDN)
                             .withSearchFilter(userSearchFilter)
@@ -98,7 +100,9 @@ public class LdapFilteringGroupProvider
 
         return userDistinguishedName.map(ldapUser -> {
             try {
-                return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+                return ldapClient.executeLdapQuery(
+                        ldapAdminUser,
+                        ldapAdminPassword,
                         new LdapQuery.LdapQueryBuilder()
                                 .withSearchBase(groupBaseDN)
                                 .withAttributes(groupsNameAttribute)

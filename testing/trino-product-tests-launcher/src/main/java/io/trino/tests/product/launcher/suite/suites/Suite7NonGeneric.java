@@ -18,6 +18,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeMinioDataLakeTaskRetriesFilesystem;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresql;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlPostgis;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresqlSpooling;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSecretsProvider;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSpooling;
@@ -38,11 +39,11 @@ import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.TestGroups.FAULT_TOLERANT;
 import static io.trino.tests.product.TestGroups.GROUP_BY;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
-import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
 import static io.trino.tests.product.TestGroups.JOIN;
 import static io.trino.tests.product.TestGroups.POSTGRESQL;
+import static io.trino.tests.product.TestGroups.POSTGRESQL_POSTGIS;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -66,6 +67,9 @@ public class Suite7NonGeneric
                 testOnEnvironment(EnvMultinodePostgresqlSpooling.class)
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
                         .build(),
+                testOnEnvironment(EnvMultinodePostgresqlPostgis.class)
+                        .withGroups(CONFIGURED_FEATURES, POSTGRESQL_POSTGIS)
+                        .build(),
                 testOnEnvironment(EnvMultinodeSecretsProvider.class)
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
                         .build(),
@@ -79,7 +83,7 @@ public class Suite7NonGeneric
                         .withGroups(CONFIGURED_FEATURES, HIVE_SPARK_NO_STATS_FALLBACK)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class)
-                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION, HIVE_KERBEROS)
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvTwoMixedHives.class)
                         .withGroups(CONFIGURED_FEATURES, TWO_HIVES)

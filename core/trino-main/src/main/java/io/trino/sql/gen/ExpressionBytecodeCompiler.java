@@ -234,7 +234,8 @@ public class ExpressionBytecodeCompiler
                             ImmutableList.of(left.type(), right.type()));
                     ResolvedFunction notFunction = metadata.resolveBuiltinFunction("$not", fromTypes(BOOLEAN));
                     yield generatorContext.generateCall(notFunction,
-                            ImmutableList.of(generatorContext.generateCall(equalsFunction,
+                            ImmutableList.of(generatorContext.generateCall(
+                                    equalsFunction,
                                     ImmutableList.of(generatorContext.generate(left), generatorContext.generate(right)))));
                 }
                 case GREATER_THAN -> generateComparisonCall(generatorContext, OperatorType.LESS_THAN, right, left);
@@ -249,7 +250,8 @@ public class ExpressionBytecodeCompiler
         private BytecodeNode generateComparisonCall(BytecodeGeneratorContext generatorContext, OperatorType operatorType, Expression left, Expression right)
         {
             ResolvedFunction function = metadata.resolveOperator(operatorType, ImmutableList.of(left.type(), right.type()));
-            return generatorContext.generateCall(function,
+            return generatorContext.generateCall(
+                    function,
                     ImmutableList.of(generatorContext.generate(left), generatorContext.generate(right)));
         }
 

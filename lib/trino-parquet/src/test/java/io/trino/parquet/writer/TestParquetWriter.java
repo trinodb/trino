@@ -44,6 +44,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -70,6 +72,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -604,6 +607,54 @@ public class TestParquetWriter
         assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isTrue();
         assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
         assertThat(hasBloomFilter(chunkMetaData)).isTrue();
+    }
+
+    @Test
+    public void testDeltaLengthByteArrayFallbackIsWritten()
+            throws Exception
+    {
+        // High-cardinality VARCHAR values force the dictionary writer to fall back: the
+        // compression check fires after the first page because random UUIDs offer no
+        // dictionary compression, so the writer switches to DELTA_LENGTH_BYTE_ARRAY.
+        // 5000 values is comfortably above the empirical fallback threshold (~2000).
+        List<Slice> sliceValues = IntStream.range(0, 5_000)
+                .mapToObj(_ -> Slices.utf8Slice("row-" + UUID.randomUUID()))
+                .collect(toImmutableList());
+
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(VARCHAR);
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setUseDeltaLengthByteArrayEncoding(true)
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 1000, sliceValues)),
+                ParquetReaderOptions.defaultOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        // Assert that DELTA_LENGTH_BYTE_ARRAY encoding appears in at least one column chunk
+        Set<Encoding> allEncodings = parquetMetadata.getBlocks().stream()
+                .flatMap(block -> block.columns().stream())
+                .flatMap(column -> column.getEncodings().stream())
+                .collect(toImmutableSet());
+        assertThat(allEncodings).contains(Encoding.DELTA_LENGTH_BYTE_ARRAY);
+
+        // Round-trip: read back values and verify they equal the written values
+        ImmutableList.Builder<Slice> readBackBuilder = ImmutableList.builder();
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, types, columnNames)) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block block = page.getBlock(0);
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    readBackBuilder.add(VARCHAR.getSlice(block, i));
+                }
+            }
+        }
+        assertThat(readBackBuilder.build()).isEqualTo(sliceValues);
     }
 
     public static Stream<Arguments> testWriteBloomFiltersParams()

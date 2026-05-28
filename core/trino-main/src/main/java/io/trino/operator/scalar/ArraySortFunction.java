@@ -41,7 +41,8 @@ public final class ArraySortFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            BlockPositionComparison comparisonOperator,
             @SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();

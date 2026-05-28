@@ -156,7 +156,7 @@ public class JoinHashSupplier
     public enum PagesHashType
     {
         BIGINT,
-        DEFAULT
+        DEFAULT,
     }
 
     private static PagesHashType getPagesHashType(LongArrayList addresses, OptionalInt singleBigintJoinChannel)

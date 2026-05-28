@@ -44,6 +44,7 @@ import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -60,7 +61,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.FunctionType;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -110,7 +110,8 @@ public class TestPageFunctionCompiler
     private static final Map<Symbol, Integer> LAYOUT = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
     private static final Call ADD_10_EXPRESSION = call(
             FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-            new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 10L));
+            new Reference(BIGINT, "$col_0"),
+            new Constant(BIGINT, 10L));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()

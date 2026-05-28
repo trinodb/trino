@@ -313,7 +313,7 @@ public class TestQueuesDb
                         .setSystemProperty(QUERY_MAX_EXECUTION_TIME, "1ms")
                         .build(),
                 LONG_LASTING_QUERY);
-        //this query should immediately get queued
+        // this query should immediately get queued
         waitForQueryState(queryRunner, secondQuery, QUEUED);
         // after a 5s wait this query should still be QUEUED, not FAILED as the max execution time should be enforced after the query starts running
         Thread.sleep(5_000);

@@ -191,7 +191,9 @@ public class TestJdbcAccessTokenWithOAuth2RefreshToken
     {
         private final Set<String> validTokens = ConcurrentHashMap.newKeySet();
 
-        /** Issues a fresh access token, registers it as valid, and returns its string value. */
+        /**
+         * Issues a fresh access token, registers it as valid, and returns its string value.
+         */
         public String issueAccessToken()
         {
             String token = UUID.randomUUID().toString();

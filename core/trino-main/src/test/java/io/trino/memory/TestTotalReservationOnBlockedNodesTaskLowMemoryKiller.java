@@ -108,8 +108,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                 .buildOrThrow();
 
         Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.of(
-                "q_2",
-                ImmutableMap.of(
+                "q_2", ImmutableMap.of(
                         "n1", ImmutableMap.of(
                                 1, 1L,
                                 2, 3L),
@@ -262,7 +261,8 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
-                new TaskStats(Instant.now(),
+                new TaskStats(
+                        Instant.now(),
                         null,
                         null,
                         null,

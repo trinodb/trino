@@ -36,7 +36,18 @@ runs:
       - name: Free additional disk space
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
-        run: ./.github/bin/free-disk-space.sh
+        run: |
+          available_kb=$(df -k . | awk 'NR == 2 {print $4}')
+          available_gb=$((available_kb / 1024 / 1024))
+          if ((available_gb < 40)); then
+            echo "Only ${available_gb} GiB available, running disk cleanup"
+            ./.github/bin/free-disk-space.sh
+          else
+            echo "Skipping disk cleanup, ${available_gb} GiB available"
+          fi
+      - name: Configure Docker Hub mirror
+        shell: bash
+        run: ./.github/bin/configure-docker-hub-mirror.sh
       - uses: actions/setup-java@v5
         if: ${{ inputs.java-version != '' }}
         with:
@@ -111,7 +122,37 @@ runs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+      - name: Prefer Google Maven Central for Maven wrapper
+        shell: bash
+        run: echo "MVNW_REPOURL=https://maven-central.storage-download.googleapis.com/maven2" >> "${GITHUB_ENV}"
+      - name: Cache and Restore Maven wrapper
+        id: cache-maven-wrapper
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
+        uses: actions/cache@v5
+        with:
+          # Note: must be same set of paths as for cache:restore mode
+          path: ~/.m2/wrapper/dists
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
+      - name: Restore Maven wrapper
+        id: cache_restore-maven-wrapper
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
+        uses: actions/cache/restore@v5
+        with:
+          # Note: must be same set of paths as for cache:true mode
+          path: ~/.m2/wrapper/dists
+          key: ${{ runner.os }}-maven-wrapper-google-maven-central-${{ hashFiles('.mvn/wrapper/maven-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-wrapper-google-maven-central-
+      - name: Verify Maven wrapper
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: .github/bin/retry ./mvnw -v
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
         run: echo "::add-matcher::.github/problem-matcher.json"
+      - name: Display disk usage
+        shell: bash
+        run: df -h .

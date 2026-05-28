@@ -25,6 +25,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.ir.Constant;
@@ -32,7 +33,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -117,7 +117,8 @@ public class BenchmarkArrayTransform
                                 ImmutableList.of(new Symbol(BIGINT, "x")),
                                 call(
                                         functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                        new Constant(BIGINT, 0L), new Reference(BIGINT, "x")))));
+                                        new Constant(BIGINT, 0L),
+                                        new Reference(BIGINT, "x")))));
                 layoutBuilder.put(new Symbol(arrayType, "$col_" + i), i);
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }

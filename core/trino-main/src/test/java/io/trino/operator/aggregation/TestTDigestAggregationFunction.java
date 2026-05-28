@@ -65,7 +65,11 @@ public class TestTDigestAggregationFunction
                 createDoublesBlock(1.0, null, 2.0, null, 3.0, null, 4.0, null, 5.0, null),
                 createDoublesBlock(weights),
                 ImmutableList.of(1.5, 1.1, 3.5, 4.4, 9.9),
-                1.0, 2.0, 3.0, 4.0, 5.0);
+                1.0,
+                2.0,
+                3.0,
+                4.0,
+                5.0);
         testAggregation(
                 createDoublesBlock(null, null, null, null, null),
                 BlockAssertions.createRepeatedValuesBlock(1.0, 5),
@@ -74,12 +78,30 @@ public class TestTDigestAggregationFunction
                 createDoublesBlock(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
                 createDoublesBlock(weights),
                 ImmutableList.copyOf(weights),
-                -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0);
+                -1.0,
+                -2.0,
+                -3.0,
+                -4.0,
+                -5.0,
+                -6.0,
+                -7.0,
+                -8.0,
+                -9.0,
+                -10.0);
         testAggregation(
                 createDoublesBlock(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0),
                 createDoublesBlock(weights),
                 ImmutableList.copyOf(weights),
-                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
+                1.0,
+                2.0,
+                3.0,
+                4.0,
+                5.0,
+                6.0,
+                7.0,
+                8.0,
+                9.0,
+                10.0);
         testAggregation(
                 createDoublesBlock(),
                 BlockAssertions.createRepeatedValuesBlock(1.0, 0),
@@ -125,8 +147,10 @@ public class TestTDigestAggregationFunction
                 FUNCTION_RESOLUTION,
                 "tdigest_agg",
                 fromTypes(DOUBLE),
-                equalAssertion, "Test multiple values",
-                new Page(doublesBlock), getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs));
+                equalAssertion,
+                "Test multiple values",
+                new Page(doublesBlock),
+                getExpectedValue(nCopies(inputs.length, DEFAULT_WEIGHT), inputs));
         // Test with weights
         assertAggregation(
                 FUNCTION_RESOLUTION,

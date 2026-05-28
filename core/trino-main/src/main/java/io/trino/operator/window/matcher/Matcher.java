@@ -254,9 +254,9 @@ public class Matcher
                 advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
             }
             default -> {
-                 // MATCH_LABEL or DONE
-                                runtime.threads.set(threadId, pointer);
-                                next.add(threadId);
+                // MATCH_LABEL or DONE
+                runtime.threads.set(threadId, pointer);
+                next.add(threadId);
             }
         }
     }

@@ -72,7 +72,9 @@ public final class LambdaMetafactoryGenerator
         }
         Arrays.stream(interfaceMethod.getParameterTypes()).forEach(type -> expectedTypes.add(type(type)));
         checkArgument(expectedTypes.equals(targetMethod.getParameterTypes()),
-                "Expected target method to have parameter types %s, but has %s", expectedTypes, targetMethod.getParameterTypes());
+                "Expected target method to have parameter types %s, but has %s",
+                expectedTypes,
+                targetMethod.getParameterTypes());
 
         Type interfaceMethodType = toMethodType(interfaceMethod);
         return invokeDynamic(

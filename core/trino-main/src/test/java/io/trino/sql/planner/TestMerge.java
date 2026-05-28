@@ -119,37 +119,38 @@ public class TestMerge
                                 markDistinct("is_distinct", ImmutableList.of("unique_id", "case_number"),
                                         anyTree(
                                                 project(ImmutableMap.of(
-                                                        "unique_id", expression(new Coalesce(ImmutableList.of(new Reference(BIGINT, "target_unique_id"), new Reference(BIGINT, "source_unique_id")))),
-                                                        "field", expression(new Reference(BIGINT, "field")),
-                                                        "merge_row", expression(new Reference(ROW_TYPE, "merge_row")),
-                                                        "case_number", expression(new FieldReference(new Reference(ROW_TYPE, "merge_row"), 4))),
-                                                        project(ImmutableMap.of(
+                                                                "unique_id", expression(new Coalesce(ImmutableList.of(new Reference(BIGINT, "target_unique_id"), new Reference(BIGINT, "source_unique_id")))),
                                                                 "field", expression(new Reference(BIGINT, "field")),
-                                                                "merge_row", expression(new Case(
-                                                                        ImmutableList.of(
-                                                                                new WhenClause(new Reference(BOOLEAN, "present"), new Row(ImmutableList.of(new Reference(INTEGER, "column1"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 3L), new Constant(INTEGER, 0L)), ROW_TYPE)),
-                                                                                new WhenClause(new IsNull(new Reference(BOOLEAN, "present")), new Row(ImmutableList.of(new Reference(INTEGER, "column1_0"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 1L), new Constant(INTEGER, 1L)), ROW_TYPE))),
-                                                                        new Constant(ROW_TYPE, null))),
-                                                                "target_unique_id", expression(new Reference(BIGINT, "target_unique_id")),
-                                                                "source_unique_id", expression(new Reference(BIGINT, "source_unique_id"))),
-                                                                            join(RIGHT, builder -> builder
-                                                                                    .equiCriteria("column1", "column1_0")
-                                                                                    .left(
-                                                                                            project(ImmutableMap.of(
-                                                                                                            "column1", expression(new Reference(INTEGER, "column1")),
-                                                                                                            "field", expression(new Reference(BIGINT, "field")),
-                                                                                                            "target_unique_id", expression(new Reference(BIGINT, "target_unique_id")),
-                                                                                                            "present", expression(new Constant(BOOLEAN, true))),
-                                                                                                    assignUniqueId("target_unique_id",
-                                                                                                            tableScan(
-                                                                                                                    tableHandle -> ((MockConnectorTableHandle) tableHandle).getTableName().getTableName().equals("test_table_merge_target"),
-                                                                                                                    TupleDomain.all(),
-                                                                                                                    ImmutableMap.of(
-                                                                                                                            "column1", columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals("column1"),
-                                                                                                                            "field", columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals("merge_row_id"))))))
-                                                                                    .right(
-                                                                                            anyTree(
-                                                                                                    assignUniqueId("source_unique_id",
-                                                                                                            tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2")))))))))))));
+                                                                "merge_row", expression(new Reference(ROW_TYPE, "merge_row")),
+                                                                "case_number", expression(new FieldReference(new Reference(ROW_TYPE, "merge_row"), 4))),
+                                                        project(ImmutableMap.of(
+                                                                        "field", expression(new Reference(BIGINT, "field")),
+                                                                        "merge_row", expression(new Case(
+                                                                                ImmutableList.of(
+                                                                                        new WhenClause(new Reference(BOOLEAN, "present"), new Row(ImmutableList.of(new Reference(INTEGER, "column1"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 3L), new Constant(INTEGER, 0L)), ROW_TYPE)),
+                                                                                        new WhenClause(new IsNull(new Reference(BOOLEAN, "present")), new Row(ImmutableList.of(new Reference(INTEGER, "column1_0"), new Reference(INTEGER, "column2_1"), new Call(NOT, ImmutableList.of(new IsNull(new Reference(BOOLEAN, "present")))), new Constant(TINYINT, 1L), new Constant(INTEGER, 1L)), ROW_TYPE))),
+                                                                                new Constant(ROW_TYPE, null))),
+                                                                        "target_unique_id", expression(new Reference(BIGINT, "target_unique_id")),
+                                                                        "source_unique_id", expression(new Reference(BIGINT, "source_unique_id"))),
+                                                                join(RIGHT, builder -> builder
+                                                                        .equiCriteria("column1", "column1_0")
+                                                                        .left(
+                                                                                project(ImmutableMap.of(
+                                                                                                "column1", expression(new Reference(INTEGER, "column1")),
+                                                                                                "field", expression(new Reference(BIGINT, "field")),
+                                                                                                "target_unique_id", expression(new Reference(BIGINT, "target_unique_id")),
+                                                                                                "present", expression(new Constant(BOOLEAN, true))),
+                                                                                        assignUniqueId("target_unique_id",
+                                                                                                tableScan(
+                                                                                                        tableHandle -> ((MockConnectorTableHandle) tableHandle).getTableName().getTableName().equals("test_table_merge_target"),
+                                                                                                        TupleDomain.all(),
+                                                                                                        ImmutableMap.of(
+                                                                                                                "column1", columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals("column1"),
+                                                                                                                "field", columnHandle -> ((MockConnectorColumnHandle) columnHandle).name().equals("merge_row_id"))))))
+                                                                        .right(
+                                                                                anyTree(
+                                                                                        assignUniqueId(
+                                                                                                "source_unique_id",
+                                                                                                tableScan("test_table_merge_source", ImmutableMap.of("column1_0", "column1", "column2_1", "column2")))))))))))));
     }
 }

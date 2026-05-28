@@ -131,12 +131,11 @@ public class GlueIcebergTableOperations
         }
         catch (GlueException e) {
             switch (e) {
+                // clean up metadata files corresponding to the current transaction
                 case AlreadyExistsException _,
                      EntityNotFoundException _,
                      InvalidInputException _,
-                     ResourceNumberLimitExceededException _ ->
-                    // clean up metadata files corresponding to the current transaction
-                        io().deleteFile(newMetadataLocation);
+                     ResourceNumberLimitExceededException _ -> io().deleteFile(newMetadataLocation);
                 default -> {}
             }
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);

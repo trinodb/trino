@@ -33,6 +33,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.sql.ir.Call;
@@ -42,7 +43,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -167,7 +167,8 @@ public class BenchmarkJsonPathBinaryOperators
                                     new FunctionType(ImmutableList.of(), VARCHAR)))),
                     ImmutableList.of(
                             call(functionResolution.resolveFunction(VARCHAR_TO_JSON, fromTypes(VARCHAR, BOOLEAN)),
-                                    new Reference(VARCHAR, "$col_0"), new Constant(BOOLEAN, true)),
+                                    new Reference(VARCHAR, "$col_0"),
+                                    new Constant(BOOLEAN, true)),
                             new Constant(jsonPath2016Type, new IrJsonPath(false, path)),
                             constantNull(JSON_NO_PARAMETERS_ROW_TYPE),
                             constantNull(VARCHAR),

@@ -443,7 +443,8 @@ public class TestNodeScheduler
         InternalNode chosenNode = Iterables.get(nodeManager.getNodes(ACTIVE), 0);
 
         TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
-        RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
+        RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(
+                taskId1,
                 chosenNode,
                 ImmutableList.of(
                         new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()),
@@ -514,7 +515,7 @@ public class TestNodeScheduler
         splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitLocal()));
         // 1 split with node2 as local node
         splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(HostAddress.fromString("10.0.0.1:12"))));
-        //splits now contains 41 splits : 21 with node1 as local node and 20 with node2 as local node
+        // splits now contains 41 splits : 21 with node1 as local node and 20 with node2 as local node
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         // Check that only 40 splits are being assigned as there is a single task
         assertThat(assignments3.size()).isEqualTo(40);
@@ -726,7 +727,8 @@ public class TestNodeScheduler
 
         TestSplitRemote()
         {
-            this(HostAddress.fromString(format("10.%s.%s.%s:%s",
+            this(HostAddress.fromString(format(
+                    "10.%s.%s.%s:%s",
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),

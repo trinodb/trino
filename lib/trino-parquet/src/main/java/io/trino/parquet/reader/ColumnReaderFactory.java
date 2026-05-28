@@ -184,13 +184,13 @@ public final class ColumnReaderFactory
             if (timestampType.isShort()) {
                 return createColumnReader(
                         field,
-                        (encoding) -> valueDecoders.getInt96ToShortTimestampDecoder(encoding, timeZone),
+                        encoding -> valueDecoders.getInt96ToShortTimestampDecoder(encoding, timeZone),
                         LONG_ADAPTER,
                         memoryContext);
             }
             return createColumnReader(
                     field,
-                    (encoding) -> valueDecoders.getInt96ToLongTimestampDecoder(encoding, timeZone),
+                    encoding -> valueDecoders.getInt96ToLongTimestampDecoder(encoding, timeZone),
                     FIXED12_ADAPTER,
                     memoryContext);
         }

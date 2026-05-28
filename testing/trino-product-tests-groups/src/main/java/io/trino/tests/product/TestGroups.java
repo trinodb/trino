@@ -59,13 +59,13 @@ public final class TestGroups
     public static final String HIVE_ALLUXIO_CACHING = "hive_alluxio_caching";
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String HIVE_HUDI_REDIRECTIONS = "hive_hudi_redirections";
-    public static final String HIVE_KERBEROS = "hive_kerberos";
     public static final String HIVE_FILE_HEADER = "hive_file_header";
     public static final String AUTHORIZATION = "authorization";
     public static final String AZURE = "azure";
     public static final String EXASOL = "exasol";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
+    public static final String POSTGRESQL_POSTGIS = "postgresql_postgis";
     public static final String SQLSERVER = "sqlserver";
     public static final String LDAP = "ldap";
     public static final String LDAP_AND_FILE = "ldap_and_file";

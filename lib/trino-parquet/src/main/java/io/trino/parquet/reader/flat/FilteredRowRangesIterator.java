@@ -87,7 +87,7 @@ public class FilteredRowRangesIterator
 
     /**
      * @return Size of the next read within current range, bounded by chunkSize.
-     * When all the rows of the current range have been read, advance to the next range.
+     *         When all the rows of the current range have been read, advance to the next range.
      */
     @Override
     public int advanceRange(int chunkSize)
@@ -161,7 +161,7 @@ public class FilteredRowRangesIterator
 
     /**
      * @return Count of values to be skipped when current range start
-     * is after current position in the page
+     *         is after current position in the page
      */
     @Override
     public long skipToRangeStart()

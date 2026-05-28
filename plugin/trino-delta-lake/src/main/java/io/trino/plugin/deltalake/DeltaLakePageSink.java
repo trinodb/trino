@@ -40,10 +40,10 @@ public class DeltaLakePageSink
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            boolean useDeltaLengthByteArrayEncoding)
     {
-        super(
-                typeOperators,
+        super(typeOperators,
                 inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,
@@ -56,7 +56,8 @@ public class DeltaLakePageSink
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                useDeltaLengthByteArrayEncoding);
     }
 
     @Override

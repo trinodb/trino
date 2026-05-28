@@ -35,7 +35,7 @@ public class TestJsonUtils
     enum TestEnum
     {
         OPTION_A,
-        OPTION_B
+        OPTION_B,
     }
 
     public static class TestObject

@@ -57,7 +57,8 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_soft_memory_limit.json", "softMemoryLimit percentage is over 100%");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for all sub-groups of 'requests' or none of them");
         assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
-        assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json",
+        assertFails(
+                "resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
         assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
         assertFails("resource_groups_config_bad_query_type.json", "Selector specifies an invalid query type: invalid_query_type");
@@ -267,7 +268,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testDocsExample()
     {
         FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
-                (listener) -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
+                listener -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../../docs/src/main/sphinx/admin/resource-groups-example.json"));

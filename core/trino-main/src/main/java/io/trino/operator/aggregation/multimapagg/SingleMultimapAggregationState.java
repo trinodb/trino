@@ -40,8 +40,7 @@ public class SingleMultimapAggregationState
             MethodHandle valueReadFlat,
             MethodHandle valueWriteFlat)
     {
-        super(
-                keyType,
+        super(keyType,
                 keyReadFlat,
                 keyWriteFlat,
                 hashFlat,

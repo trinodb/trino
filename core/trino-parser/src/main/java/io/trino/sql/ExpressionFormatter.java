@@ -77,6 +77,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -94,6 +95,7 @@ import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -503,6 +505,18 @@ public final class ExpressionFormatter
             }
 
             return builder.toString();
+        }
+
+        @Override
+        protected String visitStaticMethodCall(StaticMethodCall node, Void context)
+        {
+            return formatName(node.getType()) + "::" + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
+        }
+
+        @Override
+        protected String visitMethodCall(MethodCall node, Void context)
+        {
+            return "(" + formatExpression(node.getReceiver()) + ")." + formatExpression(node.getMethod()) + "(" + joinExpressions(node.getArguments()) + ")";
         }
 
         @Override
@@ -1150,34 +1164,35 @@ public final class ExpressionFormatter
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
     {
-        return groupingElements.stream().map(groupingElement -> {
-            String result = "";
-            if (groupingElement instanceof SimpleGroupBy) {
-                List<Expression> columns = groupingElement.getExpressions();
-                if (columns.size() == 1) {
-                    result = formatExpression(getOnlyElement(columns));
-                }
-                else {
-                    result = formatGroupingSet(columns);
-                }
-            }
-            else if (groupingElement instanceof AutoGroupBy) {
-                result = "AUTO";
-            }
-            else if (groupingElement instanceof GroupingSets groupingSets) {
-                String type = switch (groupingSets.getType()) {
-                    case EXPLICIT -> "GROUPING SETS";
-                    case CUBE -> "CUBE";
-                    case ROLLUP -> "ROLLUP";
-                };
+        return groupingElements.stream()
+                .map(groupingElement -> {
+                    String result = "";
+                    if (groupingElement instanceof SimpleGroupBy) {
+                        List<Expression> columns = groupingElement.getExpressions();
+                        if (columns.size() == 1) {
+                            result = formatExpression(getOnlyElement(columns));
+                        }
+                        else {
+                            result = formatGroupingSet(columns);
+                        }
+                    }
+                    else if (groupingElement instanceof AutoGroupBy) {
+                        result = "AUTO";
+                    }
+                    else if (groupingElement instanceof GroupingSets groupingSets) {
+                        String type = switch (groupingSets.getType()) {
+                            case EXPLICIT -> "GROUPING SETS";
+                            case CUBE -> "CUBE";
+                            case ROLLUP -> "ROLLUP";
+                        };
 
-                result = groupingSets.getSets().stream()
-                        .map(ExpressionFormatter::formatGroupingSet)
-                        .collect(joining(", ", type + " (", ")"));
-            }
-            return result;
-        })
-        .collect(joining(", "));
+                        result = groupingSets.getSets().stream()
+                                .map(ExpressionFormatter::formatGroupingSet)
+                                .collect(joining(", ", type + " (", ")"));
+                    }
+                    return result;
+                })
+                .collect(joining(", "));
     }
 
     private static String formatGroupingSet(List<Expression> groupingSet)

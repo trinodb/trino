@@ -316,7 +316,8 @@ public class TestHiveBucketedTables
     {
         try (TemporaryHiveTable table = temporaryHiveTable("table_with_unsupported_bucketing_types_" + randomNameSuffix())) {
             String tableName = table.getName();
-            onHive().executeQuery(format("CREATE TABLE %s (" +
+            onHive().executeQuery(format(
+                    "CREATE TABLE %s (" +
                             "n_integer       INT," +
                             "n_decimal       DECIMAL(9, 2)," +
                             "n_timestamp     TIMESTAMP," +
@@ -335,7 +336,8 @@ public class TestHiveBucketedTables
             assertThat(showCreateTableResult)
                     .hasRowsCount(1);
             assertThat((String) showCreateTableResult.getOnlyValue())
-                    .matches(Pattern.compile(format("\\QCREATE TABLE hive.default.%s (\n" +
+                    .matches(Pattern.compile(format(
+                            "\\QCREATE TABLE hive.default.%s (\n" +
                                     "   n_integer integer,\n" +
                                     "   n_decimal decimal(9, 2),\n" +
                                     "   n_timestamp timestamp(3),\n" +
@@ -379,20 +381,21 @@ public class TestHiveBucketedTables
             assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
-            assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (" +
-                                    "n_integer       integer," +
-                                    "n_decimal       decimal(9, 2)," +
-                                    "n_timestamp     timestamp(3)," +
-                                    "n_char          char(10)," +
-                                    "n_binary        varbinary," +
-                                    "n_union         ROW(tag tinyint, field0 integer, field1 varchar)," +
-                                    "n_struct        ROW(field1 integer, field2 varchar)) " +
-                                    "WITH (" +
-                                    "   bucketed_by = ARRAY['%s']," +
-                                    "   bucket_count = 2" +
-                                    ")",
-                            newTableName,
-                            columnToBeBucketed)))
+            assertQueryFailure(() -> onTrino().executeQuery(format(
+                    "CREATE TABLE %s (" +
+                            "n_integer       integer," +
+                            "n_decimal       decimal(9, 2)," +
+                            "n_timestamp     timestamp(3)," +
+                            "n_char          char(10)," +
+                            "n_binary        varbinary," +
+                            "n_union         ROW(tag tinyint, field0 integer, field1 varchar)," +
+                            "n_struct        ROW(field1 integer, field2 varchar)) " +
+                            "WITH (" +
+                            "   bucketed_by = ARRAY['%s']," +
+                            "   bucket_count = 2" +
+                            ")",
+                    newTableName,
+                    columnToBeBucketed)))
                     .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
 
             assertQueryFailure(() -> onTrino()

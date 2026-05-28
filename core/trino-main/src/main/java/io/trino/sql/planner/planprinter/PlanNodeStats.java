@@ -192,10 +192,12 @@ public class PlanNodeStats
                 new Duration(planNodeScheduledTime.toMillis() + other.getPlanNodeScheduledTime().toMillis(), MILLISECONDS),
                 new Duration(planNodeCpuTime.toMillis() + other.getPlanNodeCpuTime().toMillis(), MILLISECONDS),
                 new Duration(planNodeBlockedTime.toMillis() + other.getPlanNodeBlockedTime().toMillis(), MILLISECONDS),
-                planNodeInputPositions, planNodeInputDataSize,
+                planNodeInputPositions,
+                planNodeInputDataSize,
                 succinctBytes(this.planNodePhysicalInputDataSize.toBytes() + other.planNodePhysicalInputDataSize.toBytes()),
                 new Duration(planNodePhysicalInputReadTime.toMillis() + other.getPlanNodePhysicalInputReadTime().toMillis(), MILLISECONDS),
-                planNodeOutputPositions, planNodeOutputDataSize,
+                planNodeOutputPositions,
+                planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
                 operatorStats);
     }

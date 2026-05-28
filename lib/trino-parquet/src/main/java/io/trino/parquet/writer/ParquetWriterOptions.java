@@ -33,6 +33,7 @@ public class ParquetWriterOptions
     public static final int DEFAULT_BATCH_SIZE = 10_000;
     public static final DataSize DEFAULT_MAX_BLOOM_FILTER_SIZE = DataSize.of(1, MEGABYTE);
     public static final double DEFAULT_BLOOM_FILTER_FPP = 0.05;
+    public static final boolean DEFAULT_USE_DELTA_LENGTH_BYTE_ARRAY_ENCODING = true;
 
     public static ParquetWriterOptions.Builder builder()
     {
@@ -47,6 +48,7 @@ public class ParquetWriterOptions
     private final double bloomFilterFpp;
     // Set of column dot paths to columns with bloom filters
     private final Set<String> bloomFilterColumns;
+    private final boolean useDeltaLengthByteArrayEncoding;
 
     private ParquetWriterOptions(
             DataSize maxBlockSize,
@@ -55,7 +57,8 @@ public class ParquetWriterOptions
             int batchSize,
             DataSize maxBloomFilterSize,
             double bloomFilterFpp,
-            Set<String> bloomFilterColumns)
+            Set<String> bloomFilterColumns,
+            boolean useDeltaLengthByteArrayEncoding)
     {
         this.maxRowGroupSize = Ints.saturatedCast(maxBlockSize.toBytes());
         this.maxPageSize = Ints.saturatedCast(maxPageSize.toBytes());
@@ -64,6 +67,7 @@ public class ParquetWriterOptions
         this.maxBloomFilterSize = Ints.saturatedCast(maxBloomFilterSize.toBytes());
         this.bloomFilterFpp = bloomFilterFpp;
         this.bloomFilterColumns = ImmutableSet.copyOf(bloomFilterColumns);
+        this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
         checkArgument(this.bloomFilterFpp > 0.0 && this.bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
     }
 
@@ -102,6 +106,11 @@ public class ParquetWriterOptions
         return bloomFilterFpp;
     }
 
+    public boolean isUseDeltaLengthByteArrayEncoding()
+    {
+        return useDeltaLengthByteArrayEncoding;
+    }
+
     public static class Builder
     {
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
@@ -111,6 +120,7 @@ public class ParquetWriterOptions
         private DataSize maxBloomFilterSize = DEFAULT_MAX_BLOOM_FILTER_SIZE;
         private Set<String> bloomFilterColumns = ImmutableSet.of();
         private double bloomFilterFpp = DEFAULT_BLOOM_FILTER_FPP;
+        private boolean useDeltaLengthByteArrayEncoding = DEFAULT_USE_DELTA_LENGTH_BYTE_ARRAY_ENCODING;
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
@@ -154,6 +164,12 @@ public class ParquetWriterOptions
             return this;
         }
 
+        public Builder setUseDeltaLengthByteArrayEncoding(boolean useDeltaLengthByteArrayEncoding)
+        {
+            this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+            return this;
+        }
+
         public ParquetWriterOptions build()
         {
             return new ParquetWriterOptions(
@@ -163,7 +179,8 @@ public class ParquetWriterOptions
                     batchSize,
                     maxBloomFilterSize,
                     bloomFilterFpp,
-                    bloomFilterColumns);
+                    bloomFilterColumns,
+                    useDeltaLengthByteArrayEncoding);
         }
     }
 }

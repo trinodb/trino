@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.Engine;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -28,12 +27,9 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import java.util.Optional;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.hive.Engine.DELTA;
 import static io.trino.tests.product.hive.Engine.TRINO;
@@ -79,8 +75,7 @@ public class TestDeltaLakeDropTableCompatibility
         };
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
     public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
     {
         testDropTableAccuracy(creator, dropper, explicitLocation);

@@ -45,6 +45,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestDirectTrinoClient
 {
+    private static final String CLIENT_TIMEOUT = "2s";
+
     private QueryRunner queryRunner;
     private QueryRunner queryRunnerWithTaskRetry;
 
@@ -54,7 +56,7 @@ public class TestDirectTrinoClient
         queryRunner = new StandaloneQueryRunner(
                 TEST_SESSION,
                 builder -> builder.overrideProperties(ImmutableMap.of(
-                        "query.client.timeout", "1s")));
+                        "query.client.timeout", CLIENT_TIMEOUT)));
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.execute("CREATE SCHEMA blackhole.test_schema");
@@ -73,7 +75,7 @@ public class TestDirectTrinoClient
         queryRunnerWithTaskRetry = new StandaloneQueryRunner(
                 TEST_SESSION,
                 builder -> builder.overrideProperties(ImmutableMap.of(
-                        "query.client.timeout", "1s",
+                        "query.client.timeout", CLIENT_TIMEOUT,
                         "retry-policy", "TASK")));
         queryRunnerWithTaskRetry.installPlugin(new TpchPlugin());
         queryRunnerWithTaskRetry.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));

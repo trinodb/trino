@@ -101,7 +101,8 @@ public final class ValidateDependenciesChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan,
+    public void validate(
+            PlanNode plan,
             Session session,
             PlannerContext plannerContext,
             WarningCollector warningCollector)
@@ -194,7 +195,8 @@ public final class ValidateDependenciesChecker
                         inputs,
                         node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             node.getCommonBaseFrame()
@@ -358,7 +360,8 @@ public final class ValidateDependenciesChecker
                         inputs,
                         node.getOrderingScheme().get().orderBy(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getOrderingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
@@ -403,7 +406,8 @@ public final class ValidateDependenciesChecker
                     inputs,
                     node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(),
+                    node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -488,7 +492,8 @@ public final class ValidateDependenciesChecker
                     inputs,
                     node.getOrderingScheme().orderBy(),
                     "Invalid node. Order by dependencies (%s) not in source plan output (%s)",
-                    node.getOrderingScheme().orderBy(), node.getSource().getOutputSymbols());
+                    node.getOrderingScheme().orderBy(),
+                    node.getSource().getOutputSymbols());
 
             return null;
         }
@@ -524,7 +529,8 @@ public final class ValidateDependenciesChecker
                         createInputs(source, boundSymbols),
                         node.getTiesResolvingScheme().get().orderBy(),
                         "Invalid node. Ties resolving dependencies (%s) not in source plan output (%s)",
-                        node.getTiesResolvingScheme().get().orderBy(), node.getSource().getOutputSymbols());
+                        node.getTiesResolvingScheme().get().orderBy(),
+                        node.getSource().getOutputSymbols());
             }
 
             checkDependencies(
@@ -689,7 +695,7 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitTableScan(TableScanNode node, Set<Symbol> boundSymbols)
         {
-            //We don't have to do a check here as TableScanNode has no dependencies.
+            // We don't have to do a check here as TableScanNode has no dependencies.
             return null;
         }
 

@@ -1011,7 +1011,8 @@ public class OrcTester
             Iterator<Function<Integer, Object>> values)
             throws Exception
     {
-        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(names,
+        StandardStructObjectInspector objectInspector = getStandardStructObjectInspector(
+                names,
                 types.stream().map(OrcTester::getJavaObjectInspector).collect(toImmutableList()));
 
         writeOrcColumnsHive(

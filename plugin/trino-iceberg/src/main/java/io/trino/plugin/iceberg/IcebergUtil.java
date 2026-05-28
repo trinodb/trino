@@ -342,7 +342,7 @@ public final class IcebergUtil
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         IcebergFileFormat fileFormat = getFileFormat(icebergTable);
         properties.put(FILE_FORMAT_PROPERTY, fileFormat);
-        if (!icebergTable.spec().fields().isEmpty()) {
+        if (icebergTable.spec().isPartitioned()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
 
@@ -541,6 +541,10 @@ public final class IcebergUtil
                     .map(field -> NestedField.from(field).withName(nestedField.name() + "." + field.name()).build());
         }
 
+        if (type.isVariantType()) {
+            return Stream.empty();
+        }
+
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
@@ -596,7 +600,7 @@ public final class IcebergUtil
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }
 
-    private static String quotedName(String name)
+    public static String quotedName(String name)
     {
         if (SIMPLE_NAME.matcher(name).matches()) {
             return name;
@@ -803,11 +807,6 @@ public final class IcebergUtil
      * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
      * {@code null} partition values are represented with {@link Optional#empty}.
      */
-    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
-    {
-        return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
-    }
-
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
@@ -991,12 +990,7 @@ public final class IcebergUtil
             propertiesBuilder.put(OBJECT_STORE_ENABLED, "true");
         }
         Optional<String> dataLocation = IcebergTableProperties.getDataLocation(tableMetadata.getProperties());
-        dataLocation.ifPresent(location -> {
-            if (!objectStoreLayoutEnabled) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
-            }
-            propertiesBuilder.put(WRITE_DATA_LOCATION, location);
-        });
+        dataLocation.ifPresent(location -> propertiesBuilder.put(WRITE_DATA_LOCATION, location));
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
@@ -1113,7 +1107,7 @@ public final class IcebergUtil
      * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
      *
      * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot.
      */
     public static Optional<Snapshot> firstSnapshot(Table table)
@@ -1135,11 +1129,11 @@ public final class IcebergUtil
 
     /**
      * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
-     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
-     * expiration makes it impossible to find the snapshot.
+     *         reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     *         expiration makes it impossible to find the snapshot.
      * @throws IllegalArgumentException when table has no snapshot,
-     * {@code baseSnapshotId} is not a valid snapshot in the table or
-     * the {@code baseSnapshotId} is the current snapshot.
+     *         {@code baseSnapshotId} is not a valid snapshot in the table or
+     *         the {@code baseSnapshotId} is the current snapshot.
      */
     public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
     {
@@ -1335,6 +1329,13 @@ public final class IcebergUtil
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, Table table)
     {
         return readerForManifest(manifest, table.io(), table.specs());
+    }
+
+    public static PartitionSpec getFileScanPartitionSpec(FileScanTask fileScanTask, Map<Integer, PartitionSpec> specs)
+    {
+        int specId = fileScanTask.file().specId();
+        PartitionSpec spec = specs.get(specId);
+        return requireNonNull(spec, "Table specs doesn't contain specId: " + specId);
     }
 
     public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)

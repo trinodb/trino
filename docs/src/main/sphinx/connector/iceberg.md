@@ -985,6 +985,7 @@ ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d');
  active_files_count         |           98
  scanned_files_count        |           97
  deleted_files_count        |            0
+ deleted_bytes              |            0
 ```
 
 The value for `retention_threshold` must be higher than or equal to
@@ -1009,6 +1010,8 @@ The output of the query has the following metrics:
   - The count of files scanned from the file system.
 * - `deleted_files_count`
   - The count of files deleted by remove_orphan_files.
+* - `deleted_bytes`
+  - The total size in bytes of files deleted by remove_orphan_files.
 :::
 
 (drop-extended-stats)=
@@ -1548,13 +1551,13 @@ The output of the query has the following columns:
   - Mapping between the Iceberg column ID and its corresponding count of 
     non-numerical values in the file.
 * - `lower_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `upper_bounds`
-  - `map(INTEGER, BIGINT)`
+  - `row(...)`
   - Mapping between the Iceberg column ID and its corresponding upper bound in
-    the file.
+    the file (i.e. - `ROW("1" DATE, "2" BIGINT, ...)`).
 * - `key_metadata`
   - `VARBINARY`
   - Metadata about the encryption key used to encrypt this file, if applicable.

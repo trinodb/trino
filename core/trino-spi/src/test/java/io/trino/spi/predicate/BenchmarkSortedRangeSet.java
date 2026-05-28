@@ -313,7 +313,8 @@ public class BenchmarkSortedRangeSet
         public List<SortedRangeSet> largeRanges;
         private List<SortedRangeSet> veryLargeRanges;
         public SortedRangeSet largeDiscreteSortedRangeSet = SortedRangeSet.of(BIGINT, 0L, LongStream.range(1, 100_000).boxed().toList().toArray());
-        public SortedRangeSet largeRangeSortedRangeSet = SortedRangeSet.of(Range.range(BIGINT, 0L, true, 9L, true),
+        public SortedRangeSet largeRangeSortedRangeSet = SortedRangeSet.of(
+                Range.range(BIGINT, 0L, true, 9L, true),
                 LongStream.rangeClosed(1L, 100_000L).mapToObj(l -> Range.range(BIGINT, l * 10, l % 2 == 1, (l + 1) * 10 - 1, l % 2 == 0)).toList().toArray(Range[]::new));
 
         @Setup(Level.Iteration)

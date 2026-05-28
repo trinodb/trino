@@ -191,8 +191,7 @@ class SplitAssignerTester
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
             for (Integer taskPartitionId : sealedTaskPartitions) {
                 SplitsMapping taskSplits = splits.getOrDefault(taskPartitionId, SplitsMapping.EMPTY);
-                verify(
-                        noMoreSplits.get(taskPartitionId).containsAll(taskSplits.getPlanNodeIds()),
+                verify(noMoreSplits.get(taskPartitionId).containsAll(taskSplits.getPlanNodeIds()),
                         "no more split is missing for task partition %s: %s",
                         taskPartitionId,
                         Sets.difference(taskSplits.getPlanNodeIds(), noMoreSplits.get(taskPartitionId)));

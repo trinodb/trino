@@ -33,8 +33,7 @@ public class TestingFailureInjector
     @Inject
     public TestingFailureInjector(TestingFailureInjectionConfig config)
     {
-        this(
-                config.getExpirationPeriod(),
+        this(config.getExpirationPeriod(),
                 config.getRequestTimeout());
     }
 

@@ -85,7 +85,8 @@ public class UnwrapYearInComparison
         return (expression, context) -> unwrapYear(context.getSession(), plannerContext, expression);
     }
 
-    private static Expression unwrapYear(Session session,
+    private static Expression unwrapYear(
+            Session session,
             PlannerContext plannerContext,
             Expression expression)
     {

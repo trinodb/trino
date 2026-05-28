@@ -84,9 +84,6 @@ public class TableChangesFunctionProcessor
 
         Schema tableSchema = SchemaParser.fromJson(functionHandle.tableSchemaJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.partitionSpecJson());
-        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
-                .toArray(org.apache.iceberg.types.Type[]::new);
 
         int delegateColumnIndex = 0;
         int[] delegateColumnMap = new int[functionHandle.columns().size()];
@@ -123,7 +120,7 @@ public class TableChangesFunctionProcessor
                 functionHandle.columns(),
                 tableSchema,
                 partitionSpec,
-                PartitionData.fromJson(split.partitionDataJson(), partitionColumnTypes),
+                PartitionData.fromJson(split.partitionDataJson(), partitionSpec),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
                 TupleDomain.all(),

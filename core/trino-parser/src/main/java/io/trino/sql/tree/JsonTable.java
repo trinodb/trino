@@ -44,7 +44,7 @@ public final class JsonTable
     public enum ErrorBehavior
     {
         ERROR,
-        EMPTY
+        EMPTY,
     }
 
     public JsonPathInvocation getJsonPathInvocation()

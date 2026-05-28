@@ -712,13 +712,13 @@ public class TestLocalProperties
         TestingColumnHandle columnHandle = new TestingColumnHandle("a");
 
         LocalProperty<ColumnHandle> property1 = new ConstantProperty<>(columnHandle);
-        assertThat(property1).isEqualTo(mapper.readValue(mapper.writeValueAsString(property1), new TypeReference<LocalProperty<ColumnHandle>>() { }));
+        assertThat(property1).isEqualTo(mapper.readValue(mapper.writeValueAsString(property1), new TypeReference<LocalProperty<ColumnHandle>>() {}));
 
         LocalProperty<ColumnHandle> property2 = new SortingProperty<>(columnHandle, SortOrder.ASC_NULLS_FIRST);
-        assertThat(property2).isEqualTo(mapper.readValue(mapper.writeValueAsString(property2), new TypeReference<LocalProperty<ColumnHandle>>() { }));
+        assertThat(property2).isEqualTo(mapper.readValue(mapper.writeValueAsString(property2), new TypeReference<LocalProperty<ColumnHandle>>() {}));
 
         LocalProperty<ColumnHandle> property3 = new GroupingProperty<>(ImmutableList.of(columnHandle));
-        assertThat(property3).isEqualTo(mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() { }));
+        assertThat(property3).isEqualTo(mapper.readValue(mapper.writeValueAsString(property3), new TypeReference<LocalProperty<ColumnHandle>>() {}));
     }
 
     @SafeVarargs

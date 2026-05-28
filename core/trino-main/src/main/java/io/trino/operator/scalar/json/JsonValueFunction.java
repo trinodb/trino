@@ -40,13 +40,13 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import io.trino.sql.tree.JsonValue.EmptyOrErrorBehavior;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
@@ -412,8 +412,8 @@ public class JsonValueFunction
         }
         ResolvedFunction coercion = metadata.getCoercion(defaultType, returnType);
         MethodHandle coercionHandle = functionManager.getScalarFunctionImplementation(
-                coercion,
-                new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
+                        coercion,
+                        new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
         if (!coercionHandle.type().parameterType(0).equals(ConnectorSession.class)) {
             coercionHandle = dropArguments(coercionHandle, 0, ConnectorSession.class);

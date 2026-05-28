@@ -175,7 +175,7 @@ final class TestBucketFunctions
                 .isEqualTo(expectedBucket);
     }
 
-    private void assertInvalidType(@Language("SQL")String input, String type)
+    private void assertInvalidType(@Language("SQL") String input, String type)
     {
         assertTrinoExceptionThrownBy(() -> assertions.function("bucket", input, "1").evaluate())
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)

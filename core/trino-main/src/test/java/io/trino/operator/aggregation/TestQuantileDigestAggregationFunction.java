@@ -91,7 +91,12 @@ public class TestQuantileDigestAggregationFunction
         testAggregationDouble(
                 createDoublesBlock(1.0, null, 2.0, null, 3.0, null, 4.0, null, 5.0, null),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0, 2.0, 3.0, 4.0, 5.0);
+                0.01,
+                1.0,
+                2.0,
+                3.0,
+                4.0,
+                5.0);
         testAggregationDouble(
                 createDoublesBlock(null, null, null, null, null),
                 createRepeatedValuesBlock(1, 5),
@@ -99,11 +104,31 @@ public class TestQuantileDigestAggregationFunction
         testAggregationDouble(
                 createDoublesBlock(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
                 createRepeatedValuesBlock(1, 10),
-                0.01, -1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0);
+                0.01,
+                -1.0,
+                -2.0,
+                -3.0,
+                -4.0,
+                -5.0,
+                -6.0,
+                -7.0,
+                -8.0,
+                -9.0,
+                -10.0);
         testAggregationDouble(
                 createDoublesBlock(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
+                0.01,
+                1.0,
+                2.0,
+                3.0,
+                4.0,
+                5.0,
+                6.0,
+                7.0,
+                8.0,
+                9.0,
+                10.0);
         testAggregationDouble(
                 createDoublesBlock(),
                 createRepeatedValuesBlock(1, 0),
@@ -111,7 +136,8 @@ public class TestQuantileDigestAggregationFunction
         testAggregationDouble(
                 createDoublesBlock(1.0),
                 createRepeatedValuesBlock(1, 1),
-                0.01, 1.0);
+                0.01,
+                1.0);
         testAggregationDouble(
                 createDoubleSequenceBlock(-1000, 1000),
                 createRepeatedValuesBlock(1, 2000),
@@ -125,7 +151,12 @@ public class TestQuantileDigestAggregationFunction
         testAggregationReal(
                 createBlockOfReals(1.0f, null, 2.0f, null, 3.0f, null, 4.0f, null, 5.0f, null),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f);
+                0.01,
+                1.0f,
+                2.0f,
+                3.0f,
+                4.0f,
+                5.0f);
         testAggregationReal(
                 createBlockOfReals(null, null, null, null, null),
                 createRepeatedValuesBlock(1, 5),
@@ -133,11 +164,31 @@ public class TestQuantileDigestAggregationFunction
         testAggregationReal(
                 createBlockOfReals(-1.0f, -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -7.0f, -8.0f, -9.0f, -10.0f),
                 createRepeatedValuesBlock(1, 10),
-                0.01, -1.0f, -2.0f, -3.0f, -4.0f, -5.0f, -6.0f, -7.0f, -8.0f, -9.0f, -10.0f);
+                0.01,
+                -1.0f,
+                -2.0f,
+                -3.0f,
+                -4.0f,
+                -5.0f,
+                -6.0f,
+                -7.0f,
+                -8.0f,
+                -9.0f,
+                -10.0f);
         testAggregationReal(
                 createBlockOfReals(1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f);
+                0.01,
+                1.0f,
+                2.0f,
+                3.0f,
+                4.0f,
+                5.0f,
+                6.0f,
+                7.0f,
+                8.0f,
+                9.0f,
+                10.0f);
         testAggregationReal(
                 createBlockOfReals(),
                 createRepeatedValuesBlock(1, 0),
@@ -145,7 +196,8 @@ public class TestQuantileDigestAggregationFunction
         testAggregationReal(
                 createBlockOfReals(1.0f),
                 createRepeatedValuesBlock(1, 1),
-                0.01, 1.0f);
+                0.01,
+                1.0f);
         testAggregationReal(
                 createSequenceBlockOfReal(-1000, 1000),
                 createRepeatedValuesBlock(1, 2000),
@@ -159,7 +211,12 @@ public class TestQuantileDigestAggregationFunction
         testAggregationBigint(
                 createLongsBlock(1L, null, 2L, null, 3L, null, 4L, null, 5L, null),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1, 2, 3, 4, 5);
+                0.01,
+                1,
+                2,
+                3,
+                4,
+                5);
         testAggregationBigint(
                 createLongsBlock(null, null, null, null, null),
                 createRepeatedValuesBlock(1, 5),
@@ -167,11 +224,31 @@ public class TestQuantileDigestAggregationFunction
         testAggregationBigint(
                 createLongsBlock(-1, -2, -3, -4, -5, -6, -7, -8, -9, -10),
                 createRepeatedValuesBlock(1, 10),
-                0.01, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10);
+                0.01,
+                -1,
+                -2,
+                -3,
+                -4,
+                -5,
+                -6,
+                -7,
+                -8,
+                -9,
+                -10);
         testAggregationBigint(
                 createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
                 createRepeatedValuesBlock(1, 10),
-                0.01, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+                0.01,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10);
         testAggregationBigint(
                 createLongsBlock(new int[] {}),
                 createRepeatedValuesBlock(1, 0),
@@ -179,7 +256,8 @@ public class TestQuantileDigestAggregationFunction
         testAggregationBigint(
                 createLongsBlock(1),
                 createRepeatedValuesBlock(1, 1),
-                0.01, 1);
+                0.01,
+                1);
         testAggregationBigint(
                 createLongSequenceBlock(-1000, 1000),
                 createRepeatedValuesBlock(1, 2000),

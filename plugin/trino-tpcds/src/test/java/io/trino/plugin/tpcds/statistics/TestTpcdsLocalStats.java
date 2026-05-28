@@ -91,11 +91,14 @@ public class TestTpcdsLocalStats
                         .estimate(distinctValuesCount("cd_marital_status"), noError()));
 
         // i_category is char(50)
-        statisticsAssertion.check("SELECT * FROM item WHERE i_category = 'Women                                             '",
+        statisticsAssertion.check(
+                "SELECT * FROM item WHERE i_category = 'Women                                             '",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
-        statisticsAssertion.check("SELECT * FROM item WHERE 'Women                                             ' = i_category",
+        statisticsAssertion.check(
+                "SELECT * FROM item WHERE 'Women                                             ' = i_category",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
-        statisticsAssertion.check("SELECT * FROM item WHERE i_category = cast('Women' as char(50))",
+        statisticsAssertion.check(
+                "SELECT * FROM item WHERE i_category = cast('Women' as char(50))",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 
@@ -120,20 +123,25 @@ public class TestTpcdsLocalStats
                         .estimate(OUTPUT_ROW_COUNT, relativeError(.6))); // distribution is non-uniform, so we need higher tolerance
 
         // p_cost is decimal(15,2)
-        statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 1", // p_cost is always 1000.00, so no rows should be left
+        statisticsAssertion.check(
+                "SELECT * FROM promotion WHERE p_cost < 1", // p_cost is always 1000.00, so no rows should be left
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
-        statisticsAssertion.check("SELECT * FROM promotion WHERE 1 > p_cost", // p_cost is always 1000.00, so no rows should be left
+        statisticsAssertion.check(
+                "SELECT * FROM promotion WHERE 1 > p_cost", // p_cost is always 1000.00, so no rows should be left
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
-        statisticsAssertion.check("SELECT * FROM promotion WHERE p_cost < 2000.0", // p_cost is always 1000.00, so all rows should be left
+        statisticsAssertion.check(
+                "SELECT * FROM promotion WHERE p_cost < 2000.0", // p_cost is always 1000.00, so all rows should be left
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
     }
 
     @Test
     public void testIn()
     {
-        statisticsAssertion.check("SELECT * FROM item WHERE i_category IN ('Women                                             ')",
+        statisticsAssertion.check(
+                "SELECT * FROM item WHERE i_category IN ('Women                                             ')",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
-        statisticsAssertion.check("SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
+        statisticsAssertion.check(
+                "SELECT * FROM ship_mode WHERE sm_carrier IN ('DHL                 ', 'BARIAN              ')",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, defaultTolerance()));
     }
 }

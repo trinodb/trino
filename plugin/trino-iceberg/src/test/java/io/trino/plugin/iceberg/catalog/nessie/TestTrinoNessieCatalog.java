@@ -154,7 +154,10 @@ public class TestTrinoNessieCatalog
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(),
+        catalogWithDefaultLocation.createNamespace(
+                SESSION,
+                namespace,
+                ImmutableMap.of(),
                 new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace);
@@ -198,6 +201,7 @@ public class TestTrinoNessieCatalog
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    new CatalogName("iceberg"),
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,

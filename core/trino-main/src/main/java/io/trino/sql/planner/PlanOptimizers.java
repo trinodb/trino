@@ -81,6 +81,7 @@ import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationsToSubquer
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
+import io.trino.sql.planner.iterative.rule.OptimizeSingleAnyValueAggregation;
 import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
@@ -463,6 +464,7 @@ public class PlanOptimizers
                                         new RemoveRedundantExists(),
                                         new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(),
+                                        new OptimizeSingleAnyValueAggregation(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
@@ -763,7 +765,8 @@ public class PlanOptimizers
                         costCalculator,
                         SystemSessionProperties::useLegacyWindowFilterPushdown,
                         ImmutableList.of(new WindowFilterPushDown(plannerContext)),
-                        ImmutableSet.of(// should run after DecorrelateUnnest and ImplementLimitWithTies
+                        ImmutableSet.of(
+                                // should run after DecorrelateUnnest and ImplementLimitWithTies
                                 new RemoveEmptyUnionBranches(),
                                 new EvaluateEmptyIntersect(),
                                 new RemoveEmptyExceptBranches(),
@@ -920,35 +923,35 @@ public class PlanOptimizers
                         new RemoveEmptyExceptBranches(),
                         new TransformFilteringSemiJoinToInnerJoin())));
 
+        builder.add(new IterativeOptimizer(
+                "DetermineJoinDistributions",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new DetermineJoinDistributionType(costComparator, taskCountEstimator), // Must run before AddExchanges
+                        // Must run before AddExchanges and after ReplicateSemiJoinInDelete
+                        // to avoid temporarily having an invalid plan
+                        new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
+
+        builder.add(new IterativeOptimizer(
+                "PushJoinIntoTableScan",
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(pushIntoTableScanRulesExceptJoins)
+                        // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
+                        // otherwise too early pushdown could prevent optimal plan from being selected.
+                        .add(new PushJoinIntoTableScan(plannerContext))
+                        // DetermineTableScanNodePartitioning is needed to needs to ensure all table handles have proper partitioning determined
+                        // Must run before AddExchanges
+                        .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
+                        .build()));
+
         if (!forceSingleNode) {
-            builder.add(new IterativeOptimizer(
-                    "DetermineJoinDistributions",
-                    plannerContext,
-                    ruleStats,
-                    statsCalculator,
-                    costCalculator,
-                    ImmutableSet.of(
-                            new DetermineJoinDistributionType(costComparator, taskCountEstimator), // Must run before AddExchanges
-                            // Must run before AddExchanges and after ReplicateSemiJoinInDelete
-                            // to avoid temporarily having an invalid plan
-                            new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
-
-            builder.add(new IterativeOptimizer(
-                    "PushJoinIntoTableScan",
-                    plannerContext,
-                    ruleStats,
-                    statsCalculator,
-                    costCalculator,
-                    ImmutableSet.<Rule<?>>builder()
-                            .addAll(pushIntoTableScanRulesExceptJoins)
-                            // PushJoinIntoTableScan must run after ReorderJoins (and DetermineJoinDistributionType)
-                            // otherwise too early pushdown could prevent optimal plan from being selected.
-                            .add(new PushJoinIntoTableScan(plannerContext))
-                            // DetermineTableScanNodePartitioning is needed to needs to ensure all table handles have proper partitioning determined
-                            // Must run before AddExchanges
-                            .add(new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator))
-                            .build()));
-
             builder.add(
                     new IterativeOptimizer(
                             "PushTableWriteThroughUnion",

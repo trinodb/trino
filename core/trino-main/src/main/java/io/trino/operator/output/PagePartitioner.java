@@ -109,7 +109,8 @@ public class PagePartitioner
         for (int i = 0; i < this.partitionChannels.length; i++) {
             if (this.partitionChannels[i] < 0) {
                 checkArgument(this.partitionConstantBlocks != null && this.partitionConstantBlocks[i] != null,
-                        "Expected constant for partitioning channel %s, but none was found", i);
+                        "Expected constant for partitioning channel %s, but none was found",
+                        i);
             }
         }
 

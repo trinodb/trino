@@ -47,7 +47,8 @@ public final class SymbolAliases
 
     public Expression rewrite(Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>() {
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
+        {
             @Override
             public Expression rewriteReference(Reference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {

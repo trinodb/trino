@@ -130,9 +130,11 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"uniform",
+        @Param({
+                "uniform",
                 "benchmark",
-                "topology"})
+                "topology",
+        })
         private String policy = "uniform";
 
         private FinalizerService finalizerService = new FinalizerService();

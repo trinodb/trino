@@ -41,9 +41,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.type.FunctionType;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -510,7 +510,9 @@ public class ParametricScalarImplementation
             for (TypeParameter typeParameter : typeParameters) {
                 checkArgument(
                         typeParameter.value().matches("[A-Z][A-Z0-9]*"),
-                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]", typeParameter.value(), method);
+                        "Expected type parameter to only contain A-Z and 0-9 (starting with A-Z), but got %s on method [%s]",
+                        typeParameter.value(),
+                        method);
             }
 
             inferSpecialization(method, actualReturnType, returnType.value());

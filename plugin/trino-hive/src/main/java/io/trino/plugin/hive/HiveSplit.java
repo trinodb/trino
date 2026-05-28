@@ -82,8 +82,7 @@ public class HiveSplit
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
-        this(
-                partitionName,
+        this(partitionName,
                 path,
                 start,
                 length,

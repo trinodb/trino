@@ -47,7 +47,7 @@ public final class ArrayPositionFunction
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalMethodHandle,
+            MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") boolean element)
     {
@@ -77,7 +77,7 @@ public final class ArrayPositionFunction
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalMethodHandle,
+            MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") long element)
     {
@@ -107,7 +107,7 @@ public final class ArrayPositionFunction
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalMethodHandle,
+            MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") double element)
     {
@@ -137,7 +137,7 @@ public final class ArrayPositionFunction
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalMethodHandle,
+            MethodHandle equalMethodHandle,
             @SqlType("array(T)") Block array,
             @SqlType("T") Object element)
     {

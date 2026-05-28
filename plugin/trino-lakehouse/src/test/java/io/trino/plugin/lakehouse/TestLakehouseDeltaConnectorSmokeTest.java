@@ -71,7 +71,7 @@ public class TestLakehouseDeltaConnectorSmokeTest
     {
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).matches("VALUES (CAST(1 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$transactions\"")).matches("VALUES (CAST(1 AS BIGINT))");
-        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(3 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(4 AS BIGINT))");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).matches("VALUES (CAST(0 AS BIGINT))");
 
         // This test should get updated if a new system table is added

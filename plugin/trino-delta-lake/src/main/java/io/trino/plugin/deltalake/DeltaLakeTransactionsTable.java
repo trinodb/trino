@@ -46,8 +46,7 @@ public class DeltaLakeTransactionsTable
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager)
     {
-        super(
-                requireNonNull(table, "table is null"),
+        super(requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,

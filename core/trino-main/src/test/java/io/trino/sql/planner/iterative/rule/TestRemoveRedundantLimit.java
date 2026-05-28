@@ -40,8 +40,7 @@ public class TestRemoveRedundantLimit
     {
         tester().assertThat(new RemoveRedundantLimit())
                 .on(p ->
-                        p.limit(
-                                10,
+                        p.limit(10,
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
@@ -70,8 +69,7 @@ public class TestRemoveRedundantLimit
     {
         tester().assertThat(new RemoveRedundantLimit())
                 .on(p ->
-                        p.limit(
-                                0,
+                        p.limit(0,
                                 p.filter(
                                         new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
                                         p.values(
@@ -115,7 +113,7 @@ public class TestRemoveRedundantLimit
                                                 ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 11L)))))))
                 .matches(
                         node(FilterNode.class,
-                                        node(ValuesNode.class)));
+                                node(ValuesNode.class)));
     }
 
     @Test
@@ -123,8 +121,7 @@ public class TestRemoveRedundantLimit
     {
         tester().assertThat(new RemoveRedundantLimit())
                 .on(p ->
-                        p.limit(
-                                10,
+                        p.limit(10,
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))

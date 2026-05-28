@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer;
 
+import io.airlift.units.DataSize;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.spi.block.Block;
@@ -55,7 +56,7 @@ public abstract class AbstractColumnWriterBenchmark
     public BloomFilterType bloomFilterType;
 
     @Param({
-            "1", "1048576" // 1MB is default page size
+            "1", "1048576", // 1MB is default page size
     })
     public int maxDictionaryPageSize;
 
@@ -94,7 +95,12 @@ public abstract class AbstractColumnWriterBenchmark
 
     private PrimitiveValueWriter createValuesWriter()
     {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(1024 * 1024, maxDictionaryPageSize);
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.ofBytes(1024 * 1024))
+                        .setUseDeltaLengthByteArrayEncoding(false)
+                        .build(),
+                maxDictionaryPageSize);
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"test"}, getParquetType(), 0, 0);
         return getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilterType.getBloomFilter(columnDescriptor)), getTrinoType(), columnDescriptor.getPrimitiveType(), Optional.empty());
     }

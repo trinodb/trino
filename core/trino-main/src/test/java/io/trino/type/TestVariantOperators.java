@@ -849,7 +849,8 @@ class TestVariantOperators
         //  * global metadata over the whole JSON tree
         //  * object-field encoding sorted by UTF-8 name (via Slice sort)
         //  * correct field-id assignment per object
-        String json = """
+        String json =
+                """
                 [
                   {"b": 1, "a": 2},
                   {"c": 3, "a": 4}
@@ -898,7 +899,8 @@ class TestVariantOperators
     {
         // Use some non-ASCII field names to exercise the Slice/UTF-8 sort.
         // These are chosen just to make sure we're not assuming ASCII-only.
-        String json = """
+        String json =
+                """
                 {
                   "é": 1,
                   "e": 2,
@@ -1039,7 +1041,8 @@ class TestVariantOperators
                         "B", "two",
                         "C", true));
 
-        String oneOfEverythingRowLiteral = """
+        String oneOfEverythingRowLiteral =
+                """
                 ROW(
                   NULL AS a,
                   TRUE AS b,
@@ -1150,8 +1153,7 @@ class TestVariantOperators
         Variant leaf = Variant.ofObject(ImmutableSortedMap.of(
                 utf8Slice("outer"),
                 Variant.ofObject(Map.of(
-                        utf8Slice("inner"),
-                        Variant.ofArray(List.of(
+                        utf8Slice("inner"), Variant.ofArray(List.of(
                                 Variant.ofObject(Map.of(utf8Slice("x"), Variant.ofInt(10))),
                                 Variant.ofObject(Map.of(utf8Slice("y"), Variant.ofInt(20)))))))));
 
@@ -1215,6 +1217,7 @@ class TestVariantOperators
                                     Map.of("a", "y", "b", 2)));
                 });
     }
+
     private static Variant objectVariantWithManyFields(int fieldCount, String prefix)
     {
         List<Slice> names = new ArrayList<>(fieldCount);
@@ -1247,8 +1250,7 @@ class TestVariantOperators
                 "ARRAY[%s, %s]".formatted(toVariantLiteral(leaf1), toVariantLiteral(leaf2)),
                 List.of(
                         Map.of("a", "x", "b", 1),
-                        Map.of("a", 3, "c", 2))
-        );
+                        Map.of("a", 3, "c", 2)));
     }
 
     @Test
@@ -1448,7 +1450,8 @@ class TestVariantOperators
 
         assertThat(assertions.expression("CAST(a AS MAP<VARCHAR, %s>)".formatted(type))
                 .binding(
-                        "a", toVariantLiteral(createObjectWithSortedFields(
+                        "a",
+                        toVariantLiteral(createObjectWithSortedFields(
                                 Metadata.of(List.of(utf8Slice("key1"), utf8Slice("key2"), utf8Slice("key3"))),
                                 List.of(
                                         new ObjectField(0, variant),
@@ -1462,7 +1465,8 @@ class TestVariantOperators
 
         assertThat(assertions.expression("CAST(a AS ROW(col1 %s, col2 %s, col3 %s))".formatted(type, type, type))
                 .binding(
-                        "a", toVariantLiteral(createObjectWithSortedFields(
+                        "a",
+                        toVariantLiteral(createObjectWithSortedFields(
                                 Metadata.of(List.of(utf8Slice("col1"), utf8Slice("col2"), utf8Slice("col3"))),
                                 List.of(
                                         new ObjectField(0, variant),

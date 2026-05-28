@@ -57,12 +57,4 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
             return delegate.getSplitProcessor(session, handle, tableCredentials, split);
         }
     }
-
-    @Override
-    public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplitProcessor(session, handle, split);
-        }
-    }
 }

@@ -35,9 +35,9 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.type.FunctionType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
-import io.trino.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

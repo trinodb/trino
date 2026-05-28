@@ -68,8 +68,7 @@ public class TableChangesFunction
 
     public TableChangesFunction(DeltaLakeMetadataFactory deltaLakeMetadataFactory)
     {
-        super(
-                SCHEMA_NAME,
+        super(SCHEMA_NAME,
                 NAME,
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder().name(SCHEMA_NAME_ARGUMENT).type(VARCHAR).build(),

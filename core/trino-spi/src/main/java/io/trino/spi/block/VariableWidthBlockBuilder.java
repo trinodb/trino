@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
@@ -22,6 +23,7 @@ import java.util.Arrays;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
@@ -401,12 +403,17 @@ public class VariableWidthBlockBuilder
 
     private void ensureFreeSpace(int extraBytesCapacity)
     {
-        int requiredSize = offsets[positionCount] + extraBytesCapacity;
+        long requiredSize = (long) offsets[positionCount] + extraBytesCapacity;
+        if (requiredSize > MAX_ARRAY_SIZE) {
+            throw new TrinoException(
+                    GENERIC_INSUFFICIENT_RESOURCES,
+                    "Block byte size exceeds limit of " + MAX_ARRAY_SIZE + " bytes");
+        }
         if (bytes.length >= requiredSize) {
             return;
         }
 
-        int newSize = calculateNewArraySize(requiredSize, initialSliceOutputSize);
+        int newSize = calculateNewArraySize((int) requiredSize, initialSliceOutputSize);
         bytes = Arrays.copyOf(bytes, newSize);
         updateRetainedSize();
     }

@@ -187,6 +187,7 @@ import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.operator.scalar.time.TimeToTimeWithTimeZoneCast;
 import io.trino.operator.scalar.time.TimeToTimestampCast;
 import io.trino.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamp.CharToTimestampCast;
 import io.trino.operator.scalar.timestamp.DateAdd;
 import io.trino.operator.scalar.timestamp.DateDiff;
 import io.trino.operator.scalar.timestamp.DateFormat;
@@ -224,6 +225,7 @@ import io.trino.operator.scalar.timestamp.VarcharToTimestampCast;
 import io.trino.operator.scalar.timestamp.WithTimeZone;
 import io.trino.operator.scalar.timestamptz.AtTimeZone;
 import io.trino.operator.scalar.timestamptz.AtTimeZoneWithOffset;
+import io.trino.operator.scalar.timestamptz.CharToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
@@ -260,6 +262,7 @@ import io.trino.sql.DynamicFilters;
 import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BooleanOperators;
+import io.trino.type.CharOperators;
 import io.trino.type.DateOperators;
 import io.trino.type.DateTimeOperators;
 import io.trino.type.DecimalOperators;
@@ -497,6 +500,7 @@ public final class SystemFunctionBundle
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class)
                 .scalars(NumberOperators.class)
+                .scalars(CharOperators.class)
                 .scalars(VarcharOperators.class)
                 .scalars(DateOperators.class)
                 .scalars(IntervalDayTimeOperators.class)
@@ -662,6 +666,7 @@ public final class SystemFunctionBundle
                 .scalar(TimeWithTimeZoneToTimestampCast.class)
                 .scalar(TimestampWithTimeZoneToTimestampCast.class)
                 .scalar(VarcharToTimestampCast.class)
+                .scalar(CharToTimestampCast.class)
                 .scalar(LocalTimestamp.class)
                 .scalar(DateTrunc.class)
                 .scalar(HumanReadableSeconds.class)
@@ -730,7 +735,8 @@ public final class SystemFunctionBundle
                 .scalar(TimestampWithTimeZoneToVarcharCast.class)
                 .scalar(TimeToTimestampWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
-                .scalar(VarcharToTimestampWithTimeZoneCast.class);
+                .scalar(VarcharToTimestampWithTimeZoneCast.class)
+                .scalar(CharToTimestampWithTimeZoneCast.class);
 
         // time without time zone functions and operators
         builder.scalar(LocalTimeFunction.class)

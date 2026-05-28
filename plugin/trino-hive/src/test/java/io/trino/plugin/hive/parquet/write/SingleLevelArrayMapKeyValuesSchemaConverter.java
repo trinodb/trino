@@ -162,16 +162,19 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     // 2 elements: "key", "value"
     private static GroupType convertMapType(String name, MapTypeInfo typeInfo, Repetition repetition)
     {
-        Type keyType = convertType(ParquetHiveSerDe.MAP_KEY.toString(),
-                typeInfo.getMapKeyTypeInfo(), Repetition.REQUIRED);
-        Type valueType = convertType(ParquetHiveSerDe.MAP_VALUE.toString(),
+        Type keyType = convertType(
+                ParquetHiveSerDe.MAP_KEY.toString(),
+                typeInfo.getMapKeyTypeInfo(),
+                Repetition.REQUIRED);
+        Type valueType = convertType(
+                ParquetHiveSerDe.MAP_VALUE.toString(),
                 typeInfo.getMapValueTypeInfo());
         return mapType(repetition, name, "map", keyType, valueType);
     }
 
     public static GroupType mapType(Repetition repetition, String alias, String mapAlias, Type keyType, Type valueType)
     {
-        //support projection only on key of a map
+        // support projection only on key of a map
         if (valueType == null) {
             return mapKeyValueWrapper(
                     repetition,

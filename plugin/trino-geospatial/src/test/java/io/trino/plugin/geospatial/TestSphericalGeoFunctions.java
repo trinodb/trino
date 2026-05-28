@@ -232,7 +232,7 @@ public class TestSphericalGeoFunctions
         assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))")::evaluate)
                 .hasMessage("When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
-        //Invalid Polygon (duplicated point)
+        // Invalid Polygon (duplicated point)
         assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))")::evaluate)
                 .hasMessage("Polygon is not valid: it has two identical consecutive vertices");
 
@@ -254,7 +254,7 @@ public class TestSphericalGeoFunctions
         assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0))")))
                 .satisfies(approximatelyEqualTo(637.58e11, 0.00001));
 
-        //A Polygon with a large hole
+        // A Polygon with a large hole
         assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))")))
                 .satisfies(approximatelyEqualTo(348.04e10, 0.00001));
 

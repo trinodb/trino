@@ -83,7 +83,8 @@ public record DeltaLakeTable(List<DeltaLakeColumn> columns, List<String> constra
             Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadataEntry);
 
             for (String columnName : getExactColumnNames(metadataEntry)) {
-                columns.add(new DeltaLakeColumn(columnName,
+                columns.add(new DeltaLakeColumn(
+                        columnName,
                         columnTypes.get(columnName),
                         columnsNullability.getOrDefault(columnName, true),
                         Optional.ofNullable(columnComments.get(columnName)),

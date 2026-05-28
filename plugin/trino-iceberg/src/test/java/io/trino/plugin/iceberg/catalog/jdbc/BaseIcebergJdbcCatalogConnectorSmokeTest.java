@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.Namespace;
@@ -91,7 +90,9 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
         warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_catalog_smoke_test").toFile();
         closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
-        jdbcCatalog = (JdbcCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
+        jdbcCatalog = (JdbcCatalog) buildIcebergCatalog(
+                "tpch",
+                ImmutableMap.<String, String>builder()
                         .put(CATALOG_IMPL, JdbcCatalog.class.getName())
                         .put(URI, server.getJdbcUrl())
                         .put(PROPERTY_PREFIX + "user", USER)
@@ -99,7 +100,7 @@ public abstract class BaseIcebergJdbcCatalogConnectorSmokeTest
                         .put(PROPERTY_PREFIX + "schema-version", SchemaVersion.V1.toString())
                         .put(WAREHOUSE_LOCATION, warehouseLocation.getAbsolutePath())
                         .buildOrThrow(),
-                new Configuration(false));
+                null);
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()

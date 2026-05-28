@@ -232,8 +232,14 @@ public final class TypeRegistry
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        // checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
         return instantiatedType;
+    }
+
+    public boolean isTypeRegistered(String name)
+    {
+        String key = name.toLowerCase(Locale.ENGLISH);
+        return types.containsKey(new TypeSignature(key)) || parametricTypes.containsKey(key);
     }
 
     public Collection<Type> getTypes()
@@ -456,6 +462,12 @@ public final class TypeRegistry
         public Type getType(TypeId id)
         {
             return typeRegistry.getType(id);
+        }
+
+        @Override
+        public boolean isTypeRegistered(String name)
+        {
+            return typeRegistry.isTypeRegistered(name);
         }
 
         @Override

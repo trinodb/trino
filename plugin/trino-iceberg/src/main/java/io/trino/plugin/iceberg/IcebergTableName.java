@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
+import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -85,5 +86,10 @@ public final class IcebergTableName
     public static boolean isMaterializedViewStorage(String validIcebergTableName)
     {
         return tableTypeFrom(validIcebergTableName) == MATERIALIZED_VIEW_STORAGE;
+    }
+
+    public static boolean isSystemView(String validIcebergTableName)
+    {
+        return tableTypeFrom(validIcebergTableName) == PARTITIONS;
     }
 }

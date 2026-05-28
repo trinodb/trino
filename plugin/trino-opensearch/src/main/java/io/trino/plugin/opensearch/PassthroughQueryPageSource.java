@@ -83,5 +83,6 @@ public class PassthroughQueryPageSource
 
     @Override
     public void close()
-            throws IOException {}
+            throws IOException
+    {}
 }

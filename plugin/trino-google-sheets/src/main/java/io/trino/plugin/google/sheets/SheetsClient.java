@@ -24,6 +24,7 @@ import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -73,12 +74,7 @@ public class SheetsClient
     public static final String RANGE_SEPARATOR = "#";
     private static final Logger log = Logger.get(SheetsClient.class);
 
-    public static final ExponentialBackOff BACKOFF = new ExponentialBackOff.Builder()
-            .setInitialIntervalMillis(500)
-            .setMaxIntervalMillis(10_000)
-            .setMaxElapsedTimeMillis(60_000)
-            .setMultiplier(1.5)
-            .build();
+    private static final int HTTP_TOO_MANY_REQUESTS = 429;
 
     private static final String APPLICATION_NAME = "trino google sheets integration";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
@@ -344,8 +340,27 @@ public class SheetsClient
             httpRequest.setConnectTimeout(toIntExact(config.getConnectionTimeout().toMillis()));
             httpRequest.setReadTimeout(toIntExact(config.getReadTimeout().toMillis()));
             httpRequest.setWriteTimeout(toIntExact(config.getWriteTimeout().toMillis()));
-            httpRequest.setUnsuccessfulResponseHandler(new HttpBackOffUnsuccessfulResponseHandler(BACKOFF));
-            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(BACKOFF));
+            httpRequest.setUnsuccessfulResponseHandler(newUnsuccessfulResponseHandler());
+            httpRequest.setIOExceptionHandler(new HttpBackOffIOExceptionHandler(newBackOff()));
         };
+    }
+
+    @VisibleForTesting
+    static HttpBackOffUnsuccessfulResponseHandler newUnsuccessfulResponseHandler()
+    {
+        return new HttpBackOffUnsuccessfulResponseHandler(newBackOff())
+                .setBackOffRequired(response -> response.getStatusCode() == HTTP_TOO_MANY_REQUESTS ||
+                        (response.getStatusCode() >= 500 && response.getStatusCode() <= 599));
+    }
+
+    @VisibleForTesting
+    static ExponentialBackOff newBackOff()
+    {
+        return new ExponentialBackOff.Builder()
+                .setInitialIntervalMillis(500)
+                .setMaxIntervalMillis(10_000)
+                .setMaxElapsedTimeMillis(60_000)
+                .setMultiplier(1.5)
+                .build();
     }
 }

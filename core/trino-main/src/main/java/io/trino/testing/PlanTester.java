@@ -22,6 +22,8 @@ import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
@@ -286,6 +288,11 @@ public class PlanTester
         implements Closeable
 {
     public static final BlockEncodingManager TESTING_BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new BlockEncodingSimdSupport(true));
+
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.hibernate.validator.internal.util.Version", Level.WARN);
+    }
 
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;

@@ -86,13 +86,13 @@ public class JsonQuery
     {
         WITHOUT, // default
         CONDITIONAL,
-        UNCONDITIONAL
+        UNCONDITIONAL,
     }
 
     public enum QuotesBehavior
     {
         KEEP, // default
-        OMIT
+        OMIT,
     }
 
     public JsonPathInvocation getJsonPathInvocation()

@@ -93,23 +93,23 @@ public class TestBooleanOperators
     public void testNotEqual()
     {
         assertThat(assertions.expression("a <> b")
-        .binding("a", "true")
-        .binding("b", "true"))
+                .binding("a", "true")
+                .binding("b", "true"))
                 .isEqualTo(false);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "true")
-        .binding("b", "false"))
+                .binding("a", "true")
+                .binding("b", "false"))
                 .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "false")
-        .binding("b", "true"))
+                .binding("a", "false")
+                .binding("b", "true"))
                 .isEqualTo(true);
 
         assertThat(assertions.expression("a <> b")
-        .binding("a", "false")
-        .binding("b", "false"))
+                .binding("a", "false")
+                .binding("b", "false"))
                 .isEqualTo(false);
     }
 

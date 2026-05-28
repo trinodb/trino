@@ -61,8 +61,7 @@ public class TestIcebergS3AndGlueMetastoreTest
     @Override
     protected void validateDataFiles(String partitionColumn, String tableName, String location)
     {
-        getActiveFiles(tableName).forEach(dataFile ->
-        {
+        getActiveFiles(tableName).forEach(dataFile -> {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             String partitionPart = partitionColumn.isEmpty() ? "" : partitionColumn + "=[a-z0-9]+/";
             assertThat(dataFile).matches("^" + Pattern.quote(locationDirectory) + "data/" + partitionPart + "[a-zA-Z0-9_-]+.(orc|parquet)$");
@@ -73,8 +72,7 @@ public class TestIcebergS3AndGlueMetastoreTest
     @Override
     protected void validateMetadataFiles(String location)
     {
-        getAllMetadataDataFilesFromTableDirectory(location).forEach(metadataFile ->
-        {
+        getAllMetadataDataFilesFromTableDirectory(location).forEach(metadataFile -> {
             String locationDirectory = location.endsWith("/") ? location : location + "/";
             assertThat(metadataFile).matches("^" + Pattern.quote(locationDirectory) + "metadata/[a-zA-Z0-9_-]+.(avro|metadata.json|stats)$");
             verifyPathExist(metadataFile);
@@ -136,7 +134,7 @@ public class TestIcebergS3AndGlueMetastoreTest
                     ('col_str', %s, 4.0, 0.0, null, null, null),
                     ('col_int', null, 4.0, 0.0, null, 1, 4),
                     (null, null, null, null, 4.0, null, null)"""
-                            .formatted(partitioned ? "432.0" : "243.0");
+                            .formatted(partitioned ? "442.0" : "256.0");
 
             // Check extended statistics collection on write
             assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);

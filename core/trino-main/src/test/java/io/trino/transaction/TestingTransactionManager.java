@@ -53,7 +53,7 @@ public class TestingTransactionManager
         return new TransactionInfo(
                 transactionId,
                 IsolationLevel.READ_UNCOMMITTED,
-                false, //read only
+                false, // read only
                 false, // auto commit
                 Instant.now(), // created
                 Duration.succinctNanos(0), // idle
