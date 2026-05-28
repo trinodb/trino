@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_ORDINAL_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.DATA_CHANGE_TIMESTAMP_ID;
@@ -79,6 +80,7 @@ public class TableChangesFunctionProcessor
         requireNonNull(session, "session is null");
         requireNonNull(functionHandle, "functionHandle is null");
         requireNonNull(tableCredentials, "tableCredentials is null");
+        verify(tableCredentials.isPresent(), "tableCredentials is empty");
         requireNonNull(split, "split is null");
         requireNonNull(icebergPageSourceProvider, "icebergPageSourceProvider is null");
 
