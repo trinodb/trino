@@ -39,6 +39,7 @@ import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;
@@ -104,15 +105,16 @@ public class UnwrapDateTruncInComparison
     {
         requireNonNull(plannerContext, "plannerContext is null");
 
-        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, expression);
+        return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
     private static Expression unwrapDateTrunc(
             Session session,
             PlannerContext plannerContext,
+            SymbolAllocator symbolAllocator,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, session, symbolAllocator), expression);
     }
 
     private static class Visitor
@@ -120,14 +122,16 @@ public class UnwrapDateTruncInComparison
     {
         private final PlannerContext plannerContext;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final InterpretedFunctionInvoker functionInvoker;
         private final IrExpressionEvaluator evaluator;
         private final IrExpressionOptimizer optimizer;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             evaluator = plannerContext.getExpressionEvaluator();
             optimizer = plannerContext.getExpressionOptimizer();
@@ -179,7 +183,7 @@ public class UnwrapDateTruncInComparison
             }
 
             Expression argument = call.arguments().get(1);
-            Expression right = optimizer.process(originalRight, session, ImmutableMap.of()).orElse(originalRight);
+            Expression right = optimizer.process(originalRight, session, symbolAllocator, ImmutableMap.of()).orElse(originalRight);
 
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (operator) {

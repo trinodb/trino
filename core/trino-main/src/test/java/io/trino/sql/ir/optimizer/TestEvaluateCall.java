@@ -26,6 +26,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.EvaluateCall;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -92,6 +93,6 @@ public class TestEvaluateCall
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateCall(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

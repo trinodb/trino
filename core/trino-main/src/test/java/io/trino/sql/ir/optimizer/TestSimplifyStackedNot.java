@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -39,6 +40,6 @@ public class TestSimplifyStackedNot
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyStackedNot().apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyStackedNot().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

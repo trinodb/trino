@@ -28,6 +28,7 @@ import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class EvaluateComparison
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Call)) {
             return Optional.empty();

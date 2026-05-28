@@ -27,6 +27,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
@@ -54,7 +55,7 @@ public class DesugarBetween
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         return switch (expression) {
             case Between(Constant value, Expression min, Expression max) -> Optional.of(new Logical(AND, ImmutableList.of(

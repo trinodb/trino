@@ -101,7 +101,7 @@ public class InternalConnectorExpressionEvaluator
             return TryFunction.evaluate(
                     () -> {
                         // optimizer.process returns Optional.empty() when no change was made; use original as fallback
-                        Expression result = optimizer.process(irExpression, session, columnBindings)
+                        Expression result = optimizer.process(irExpression, session, new SymbolAllocator(columnBindings.keySet()), columnBindings)
                                 .orElse(irExpression);
                         if (!(result instanceof Constant constant)) {
                             return new EvaluationResult.NoResult();

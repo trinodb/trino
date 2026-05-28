@@ -324,7 +324,7 @@ public final class SqlRoutinePlanner
             io.trino.sql.ir.Expression lambdaCaptureDesugared = LambdaCaptureDesugaringRewriter.rewrite(translated, symbolAllocator);
 
             // optimize the expression
-            io.trino.sql.ir.Expression optimized = optimizer.process(lambdaCaptureDesugared, session, ImmutableMap.of()).orElse(lambdaCaptureDesugared);
+            io.trino.sql.ir.Expression optimized = optimizer.process(lambdaCaptureDesugared, session, symbolAllocator, ImmutableMap.of()).orElse(lambdaCaptureDesugared);
 
             // Replace symbol references with routine variable references
             List<Map.Entry<String, IrVariable>> variableEntries = List.copyOf(context.variables().entrySet());

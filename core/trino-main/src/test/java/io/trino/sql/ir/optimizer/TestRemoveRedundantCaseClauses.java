@@ -24,6 +24,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -106,6 +107,6 @@ public class TestRemoveRedundantCaseClauses
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantCaseClauses().apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantCaseClauses().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }
