@@ -22,6 +22,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.optimizer.rule.EvaluateRow;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -58,6 +59,6 @@ public class TestEvaluateRow
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateRow().apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateRow().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

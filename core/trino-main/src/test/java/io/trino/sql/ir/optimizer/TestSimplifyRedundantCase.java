@@ -26,6 +26,7 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -176,6 +177,6 @@ public class TestSimplifyRedundantCase
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyRedundantCase(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyRedundantCase(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

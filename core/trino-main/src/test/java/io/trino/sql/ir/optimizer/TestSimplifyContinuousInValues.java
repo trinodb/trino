@@ -25,6 +25,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
 
@@ -196,6 +197,6 @@ public class TestSimplifyContinuousInValues
 
     private static Optional<Expression> optimize(Expression expression)
     {
-        return new SimplifyContinuousInValues().apply(expression, testSession(), ImmutableMap.of());
+        return new SimplifyContinuousInValues().apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

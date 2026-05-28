@@ -147,7 +147,7 @@ public class PushProjectionIntoTableScan
                     translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return plannerContext.getExpressionOptimizer().process(translated, session, ImmutableMap.of()).orElse(translated);
+                    return plannerContext.getExpressionOptimizer().process(translated, session, context.getSymbolAllocator(), ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 

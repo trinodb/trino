@@ -27,6 +27,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +74,6 @@ public class TestSpecializeTransformWithJsonParse
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }
