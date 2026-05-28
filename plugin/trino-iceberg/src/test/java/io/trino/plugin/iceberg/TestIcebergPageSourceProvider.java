@@ -143,7 +143,7 @@ class TestIcebergPageSourceProvider
                 3, // fileRecordCount
                 PARQUET,
                 ImmutableMap.of(),
-                0L, // dataSequenceNumber
+                OptionalLong.of(0), // dataSequenceNumber
                 OptionalLong.empty(),
                 Optional.empty())) {
             // Memory should still be 0 before reading any pages (lazy loading)

@@ -48,7 +48,7 @@ public record IcebergSplit(
         @JsonProperty("splitWeight") SplitWeight splitWeight,
         @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
         @JsonProperty("affinityKey") Optional<String> affinityKey,
-        @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+        @JsonProperty("dataSequenceNumber") OptionalLong dataSequenceNumber,
         @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId)
         implements ConnectorSplit
 {
@@ -63,6 +63,7 @@ public record IcebergSplit(
         requireNonNull(splitWeight, "splitWeight is null");
         requireNonNull(fileStatisticsDomain, "fileStatisticsDomain is null");
         requireNonNull(affinityKey, "affinityKey is null");
+        requireNonNull(dataSequenceNumber, "dataSequenceNumber is null");
         requireNonNull(fileFirstRowId, "fileFirstRowId is null");
     }
 
@@ -89,7 +90,7 @@ public record IcebergSplit(
                 + estimatedSizeOf(deletes, DeleteFile::retainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
-                + SIZE_OF_LONG // dataSequenceNumber
+                + (dataSequenceNumber.isPresent() ? SIZE_OF_LONG : 0)
                 + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + (fileFirstRowId.isPresent() ? SIZE_OF_LONG : 0);
     }
