@@ -37,7 +37,6 @@ import java.util.List;
         @JsonSubTypes.Type(value = Lambda.class, name = "lambda"),
         @JsonSubTypes.Type(value = Let.class, name = "let"),
         @JsonSubTypes.Type(value = Logical.class, name = "logical"),
-        @JsonSubTypes.Type(value = NullIf.class, name = "nullif"),
         @JsonSubTypes.Type(value = Reference.class, name = "reference"),
         @JsonSubTypes.Type(value = Row.class, name = "row"),
         @JsonSubTypes.Type(value = Match.class, name = "match"),
@@ -57,7 +56,6 @@ public sealed interface Expression
                 Let,
                 Logical,
                 Match,
-                NullIf,
                 Reference,
                 Row
 {

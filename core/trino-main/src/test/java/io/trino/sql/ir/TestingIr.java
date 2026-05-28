@@ -13,6 +13,7 @@
  */
 package io.trino.sql.ir;
 
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.SymbolAllocator;
 
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -38,5 +39,17 @@ public final class TestingIr
     public static Expression between(Expression value, Expression min, Expression max)
     {
         return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), new SymbolAllocator(), value, min, max);
+    }
+
+    /// Builds the desugared IR form of `NULLIF(first, second)` (see {@link IrExpressions#nullIf}),
+    /// resolving the equality operator against the shared testing planner context.
+    public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second)
+    {
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), allocator, first, second);
+    }
+
+    public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
+    {
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), allocator, first, second, comparisonType);
     }
 }

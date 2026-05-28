@@ -20,11 +20,11 @@ import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -75,12 +75,14 @@ public class SimplifyFilterPredicate
 
         boolean simplified = false;
         for (Expression conjunct : conjuncts) {
-            Optional<Expression> simplifiedConjunct = switch (conjunct) {
-                case NullIf expression -> Optional.of(Logical.and(expression.first(), isFalseOrNullPredicate(expression.second())));
-                case Case expression -> simplify(expression);
-                case Match expression -> simplify(expression);
-                case null, default -> Optional.empty();
-            };
+            IrExpressions.NullIf nullIf = IrExpressions.matchNullIf(conjunct);
+            Optional<Expression> simplifiedConjunct = nullIf != null ?
+                    Optional.of((Expression) Logical.and(nullIf.first(), isFalseOrNullPredicate(nullIf.second()))) :
+                    switch (conjunct) {
+                        case Case expression -> simplify(expression);
+                        case Match expression -> simplify(expression);
+                        case null, default -> Optional.empty();
+                    };
 
             if (simplifiedConjunct.isPresent()) {
                 simplified = true;

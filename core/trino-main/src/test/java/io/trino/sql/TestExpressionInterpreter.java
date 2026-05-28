@@ -35,7 +35,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
@@ -69,6 +68,7 @@ import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -252,20 +252,20 @@ public class TestExpressionInterpreter
     public void testNullIf()
     {
         assertOptimizedEquals(
-                new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
+                nullIf(new SymbolAllocator(), new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("a"))),
                 new Constant(VARCHAR, null));
         assertOptimizedEquals(
-                new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
+                nullIf(new SymbolAllocator(), new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, Slices.utf8Slice("b"))),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
-                new NullIf(new Constant(VARCHAR, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
+                nullIf(new SymbolAllocator(), new Constant(VARCHAR, null), new Constant(VARCHAR, Slices.utf8Slice("b"))),
                 new Constant(VARCHAR, null));
         assertOptimizedEquals(
-                new NullIf(new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, null)),
+                nullIf(new SymbolAllocator(), new Constant(VARCHAR, Slices.utf8Slice("a")), new Constant(VARCHAR, null)),
                 new Constant(VARCHAR, Slices.utf8Slice("a")));
         assertOptimizedEquals(
-                new NullIf(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
-                new NullIf(new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
+                nullIf(new SymbolAllocator(), new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)),
+                nullIf(new SymbolAllocator(), new Reference(INTEGER, "unbound_value"), new Constant(INTEGER, 1L)));
     }
 
     @Test

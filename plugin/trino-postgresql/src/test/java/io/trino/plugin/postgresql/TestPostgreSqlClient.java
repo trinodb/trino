@@ -46,7 +46,6 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -73,6 +72,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrExpressions.nullIf;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -420,7 +420,9 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                new NullIf(
+                                nullIf(
+                                        FUNCTIONS.getMetadata(),
+                                        new SymbolAllocator(),
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol"))),
                         ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))

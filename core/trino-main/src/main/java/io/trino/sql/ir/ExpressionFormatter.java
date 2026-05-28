@@ -193,12 +193,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNullIf(NullIf node, Void context)
-        {
-            return "NULLIF(" + process(node.first(), context) + ", " + process(node.second(), context) + ')';
-        }
-
-        @Override
         protected String visitCoalesce(Coalesce node, Void context)
         {
             return "COALESCE(" + joinExpressions(node.operands()) + ")";

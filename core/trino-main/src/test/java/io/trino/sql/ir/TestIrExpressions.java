@@ -19,7 +19,9 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
+import io.trino.sql.ir.IrExpressions.NullIf;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -39,14 +41,17 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrExpressions.matchNullIf;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.JsonType.JSON;
@@ -115,7 +120,7 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
     }
 
@@ -173,6 +178,38 @@ public class TestIrExpressions
         assertThat(matchBetween(new Logical(AND, ImmutableList.of(
                 comparison(GREATER_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.1)),
                 comparison(LESS_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.2))))))
+                .isNull();
+    }
+
+    @Test
+    public void testAsNullIf()
+    {
+        // Round-trips the factory's trivial-value form
+        assertThat(matchNullIf(nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))))
+                .isEqualTo(new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)));
+
+        // Round-trips the factory's Let-wrapped form
+        Expression first = new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "x")));
+        assertThat(matchNullIf(nullIf(new SymbolAllocator(), first, new Constant(BIGINT, 1L))))
+                .isEqualTo(new NullIf(first, new Constant(BIGINT, 1L)));
+
+        // The bound symbol must not escape through second
+        assertThat(matchNullIf(new Let(
+                new Symbol(BIGINT, "s"),
+                first,
+                ifExpression(
+                        comparison(EQUAL, new Reference(BIGINT, "s"), new Reference(BIGINT, "s")),
+                        constantNull(BIGINT),
+                        new Reference(BIGINT, "s")))))
+                .isNull();
+
+        // A non-deterministic first operand evaluated independently in the condition and the
+        // default is not a NULLIF
+        Expression random = new Call(RANDOM, ImmutableList.of());
+        assertThat(matchNullIf(ifExpression(
+                comparison(EQUAL, random, new Constant(DOUBLE, 0.1)),
+                constantNull(DOUBLE),
+                random)))
                 .isNull();
     }
 }
