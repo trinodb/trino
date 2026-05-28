@@ -45,11 +45,6 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteNullIf(NullIf node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
     public Expression rewriteCase(Case node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);

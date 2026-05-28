@@ -116,15 +116,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitNullIf(NullIf node, C context)
-    {
-        process(node.first(), context);
-        process(node.second(), context);
-
-        return null;
-    }
-
-    @Override
     protected Void visitBind(Bind node, C context)
     {
         for (Expression value : node.values()) {

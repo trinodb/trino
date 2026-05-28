@@ -48,7 +48,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
@@ -337,12 +336,6 @@ public class ExpressionBytecodeCompiler
         protected BytecodeNode visitIsNull(IsNull node, Context context)
         {
             return new IsNullCodeGenerator(node).generateExpression(generatorContext(context.scope(), context.lets()));
-        }
-
-        @Override
-        protected BytecodeNode visitNullIf(NullIf node, Context context)
-        {
-            return new NullIfCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

@@ -35,7 +35,6 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.UnknownType;
@@ -324,7 +323,7 @@ public class TestEqualityInference
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
-                new NullIf(new Reference(BIGINT, "b"), number(1)),
+                IrExpressions.nullIf(new SymbolAllocator(), new Reference(BIGINT, "b"), new Constant(BIGINT, 1L)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
                 new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
                 new Match(new Reference(INTEGER, "b"), ImmutableList.of(equalityClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));

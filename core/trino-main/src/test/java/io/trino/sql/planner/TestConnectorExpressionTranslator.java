@@ -48,7 +48,6 @@ import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
@@ -401,8 +400,7 @@ public class TestConnectorExpressionTranslator
         // Non-trivial value: the factory wraps in a Let so the value is evaluated once. The
         // connector receives a single `$between(value, min, max)` instead of the duplicated form.
         assertTranslationRoundTrips(
-                IrExpressions.between(
-                        new SymbolAllocator(),
+                IrExpressions.between(new SymbolAllocator(),
                         new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "double_symbol_1"))),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),
@@ -530,7 +528,8 @@ public class TestConnectorExpressionTranslator
     public void testTranslateNullIf()
     {
         assertTranslationRoundTrips(
-                new NullIf(
+                IrExpressions.nullIf(
+                        null,
                         new Reference(VARCHAR, "varchar_symbol_1"),
                         new Reference(VARCHAR, "varchar_symbol_1")),
                 new io.trino.spi.expression.Call(

@@ -47,7 +47,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -411,7 +410,8 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                new NullIf(
+                                IrExpressions.nullIf(
+                                        new SymbolAllocator(),
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol"))),
                         ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))

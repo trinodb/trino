@@ -18,6 +18,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
@@ -47,11 +48,18 @@ public class DistributeComparisonOverCase
     {
         if (expression instanceof Comparison(Comparison.Operator operator, Case caseTerm, Expression target) &&
                 (target instanceof Reference || target instanceof Constant)) {
+            // Leave a desugared NULLIF intact so it stays recognizable for connector pushdown.
+            if (IrExpressions.asNullIf(caseTerm).isPresent()) {
+                return Optional.empty();
+            }
             return Optional.of(distribute(operator, caseTerm, target));
         }
 
         if (expression instanceof Comparison(Comparison.Operator operator, Expression target, Case caseTerm) &&
                 (target instanceof Reference || target instanceof Constant)) {
+            if (IrExpressions.asNullIf(caseTerm).isPresent()) {
+                return Optional.empty();
+            }
             return Optional.of(distribute(flipOperator(operator), caseTerm, target));
         }
 

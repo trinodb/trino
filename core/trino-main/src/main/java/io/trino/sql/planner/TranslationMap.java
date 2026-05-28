@@ -53,7 +53,6 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -166,6 +165,7 @@ import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.equalityClause;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrExpressions.nullIf;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
@@ -433,9 +433,9 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(NullIfExpression expression)
     {
-        return new NullIf(
-                translateExpression(expression.getFirst()),
-                translateExpression(expression.getSecond()));
+        io.trino.sql.ir.Expression first = translateExpression(expression.getFirst());
+        io.trino.sql.ir.Expression second = translateExpression(expression.getSecond());
+        return nullIf(symbolAllocator, first, second, analysis.getNullIfComparisonType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(ArithmeticUnaryExpression expression)

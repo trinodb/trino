@@ -27,10 +27,10 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
-import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.Test;
 
@@ -195,7 +195,7 @@ public class TestSimplifyFilterPredicate
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
-                        new NullIf(new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
+                        IrExpressions.nullIf(new SymbolAllocator(), new Reference(BOOLEAN, "a"), new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .matches(
                         filter(

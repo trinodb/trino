@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.IrExpressions.BetweenPattern;
+import io.trino.sql.ir.IrExpressions.NullIfPattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
@@ -35,11 +36,14 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.asBetween;
+import static io.trino.sql.ir.IrExpressions.asNullIf;
 import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.constantNull;
+import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrExpressions.nullIf;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -109,7 +113,7 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
     }
 
@@ -139,6 +143,38 @@ public class TestIrExpressions
         assertThat(asBetween(new Logical(AND, ImmutableList.of(
                 new Comparison(GREATER_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.1)),
                 new Comparison(LESS_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.2))))))
+                .isEmpty();
+    }
+
+    @Test
+    public void testAsNullIf()
+    {
+        // Round-trips the factory's trivial-value form
+        assertThat(asNullIf(nullIf(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L))))
+                .contains(new NullIfPattern(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)));
+
+        // Round-trips the factory's Let-wrapped form
+        Expression first = new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "x")));
+        assertThat(asNullIf(nullIf(new SymbolAllocator(), first, new Constant(BIGINT, 1L))))
+                .contains(new NullIfPattern(first, new Constant(BIGINT, 1L)));
+
+        // The bound symbol must not escape through second
+        assertThat(asNullIf(new Let(
+                new Symbol(BIGINT, "s"),
+                first,
+                ifExpression(
+                        new Comparison(EQUAL, new Reference(BIGINT, "s"), new Reference(BIGINT, "s")),
+                        constantNull(BIGINT),
+                        new Reference(BIGINT, "s")))))
+                .isEmpty();
+
+        // A non-deterministic first operand evaluated independently in the condition and the
+        // default is not a NULLIF
+        Expression random = new Call(RANDOM, ImmutableList.of());
+        assertThat(asNullIf(ifExpression(
+                new Comparison(EQUAL, random, new Constant(DOUBLE, 0.1)),
+                constantNull(DOUBLE),
+                random)))
                 .isEmpty();
     }
 }
