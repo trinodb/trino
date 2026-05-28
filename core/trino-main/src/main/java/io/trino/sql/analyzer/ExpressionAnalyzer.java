@@ -825,7 +825,7 @@ public class ExpressionAnalyzer
             }
 
             // FIXME: scope context resolver will be used to resolve DereferenceExpression
-            Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
+            Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session, Optional.of(context.getScope()));
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, node);
 
             // If this Dereference looks like column reference, try match it to column first.
@@ -2635,7 +2635,7 @@ public class ExpressionAnalyzer
                         .ifPresent(function -> {
                             throw semanticException(NOT_SUPPORTED, function, "IN-PREDICATE with %s function is not yet supported", function.getName().getSuffix());
                         });
-                Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session);
+                Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(session, Optional.of(context.getScope()));
                 extractExpressions(ImmutableList.of(value), DereferenceExpression.class)
                         .forEach(dereference -> {
                             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(canonicalizer, dereference);

@@ -588,7 +588,9 @@ class QueryPlanner
 
     public PlanNode plan(Update node)
     {
-        Function<Identifier, String> canonicalizer = plannerContext.getDefaultCanonicalizer(node).orElseThrow();
+        // FIXME: The update plan must have a scope with a resolver present because
+        //        StatementAnalyzer::visitTable has necessarily been executed.
+        Function<Identifier, String> canonicalizer = analysis.getScope(node).getResolver().orElseThrow().getCanonicalizer();
         MergeAnalysis mergeAnalysis = analysis.getMergeAnalysis().orElseThrow();
         Table table = mergeAnalysis.getTargetTable();
 

@@ -2517,7 +2517,7 @@ class StatementAnalyzer
             analysis.registerTable(table, tableHandle, targetTableName, getBranchName(table), session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
             // FIXME: To be able to have working JOIN and MERGE clause then we need to inject the connector resolver in tableScope
-            Scope tableScope = createAndAssignScope(table, scope, outputFields);
+            Scope tableScope = createAndAssignScope(table, scope, resolver, outputFields);
 
             if (addRowIdColumn) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
@@ -3346,7 +3346,7 @@ class StatementAnalyzer
             analyzeHaving(node, sourceScope);
 
             // FIXME: In computeAndAssignOutputScope we need to create Field with the last canonicalizer set in this query
-            Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope, plannerContext.getResolver(session));
+            Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope, plannerContext.getResolver(session, Optional.of(sourceScope)));
 
             List<Expression> orderByExpressions = emptyList();
             Optional<Scope> orderByScope = Optional.empty();
@@ -3683,8 +3683,6 @@ class StatementAnalyzer
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName(), plannerContext);
             Resolver resolver = plannerContext.getResolver(session, originalName.catalogName());
-            plannerContext.setResolver(update, resolver);
-            //plannerContext.setResolver(session, resolver);
 
             if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating materialized views is not supported");
@@ -4387,7 +4385,7 @@ class StatementAnalyzer
             }
 
             // FIXME: In order to be correctly resolved, the Field must hold the correct canonicalizer
-            Optional<Resolver> resolver = plannerContext.getResolver(session);
+            Optional<Resolver> resolver = plannerContext.getResolver(session, scope);
             List<Field> fields = commonSuperType.getFields().stream()
                     .map(field -> Field.newUnqualified(field.getName(), field.getType(), resolver))
                     .collect(toImmutableList());
@@ -5099,7 +5097,6 @@ class StatementAnalyzer
                 }
             }
 
-            // FIXME: In order to retrieve the resolver used, we need to propagate it.
             return createAndAssignScope(node, scope, outputFields.build());
         }
 
@@ -5784,8 +5781,8 @@ class StatementAnalyzer
             Scope.Builder withScopeBuilder = scopeBuilder(scope);
 
             // FIXME: For WITH clause we use the WITH resolver (ie: Identity canonicalizer)
-            //        and this for inner subquery to.
             Resolver resolver = plannerContext.getWithResolver(session);
+            plannerContext.setResolver(session, resolver);
 
             for (WithQuery withQuery : with.getQueries()) {
 
@@ -5828,7 +5825,6 @@ class StatementAnalyzer
             }
             Scope withScope = withScopeBuilder.build();
             analysis.setScope(with, withScope);
-            plannerContext.endUsingWithResolver(session);
             return withScope;
         }
 
@@ -6304,12 +6300,22 @@ class StatementAnalyzer
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields)
         {
-            return createAndAssignScope(node, parentScope, new RelationType(fields));
+            return createAndAssignScope(node, parentScope, Optional.empty(), new RelationType(fields));
+        }
+
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Resolver resolver, List<Field> fields)
+        {
+            return createAndAssignScope(node, parentScope, Optional.of(resolver), new RelationType(fields));
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)
         {
-            Scope scope = scopeBuilder(parentScope)
+            return createAndAssignScope(node, parentScope, Optional.empty(), relationType);
+        }
+
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Optional<Resolver> resolver, RelationType relationType)
+        {
+            Scope scope = scopeBuilder(parentScope, resolver)
                     .withRelationType(RelationId.of(node), relationType)
                     .build();
 
@@ -6319,10 +6325,15 @@ class StatementAnalyzer
 
         private Scope createScope(Optional<Scope> parentScope)
         {
-            return scopeBuilder(parentScope).build();
+            return scopeBuilder(parentScope, Optional.empty()).build();
         }
 
         private Scope.Builder scopeBuilder(Optional<Scope> parentScope)
+        {
+            return scopeBuilder(parentScope, Optional.empty());
+        }
+
+            private Scope.Builder scopeBuilder(Optional<Scope> parentScope, Optional<Resolver> resolver)
         {
             Scope.Builder scopeBuilder = Scope.builder();
 
@@ -6334,6 +6345,7 @@ class StatementAnalyzer
             else {
                 outerQueryScope.ifPresent(scopeBuilder::withOuterQueryParent);
             }
+            resolver.ifPresent(scopeBuilder::withResolver);
 
             return scopeBuilder;
         }

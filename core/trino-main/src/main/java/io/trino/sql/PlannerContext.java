@@ -18,7 +18,6 @@ import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Canonicalizer;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.LanguageFunctionManager;
@@ -27,12 +26,11 @@ import io.trino.metadata.ResolverManager;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Resolver;
-import io.trino.sql.tree.Update;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -145,16 +143,6 @@ public class PlannerContext
         return tracer;
     }
 
-    public void setResolver(Session session, String catalog)
-    {
-        resolverManager.setResolver(session, catalog, metadata::getResolver);
-    }
-
-    public Resolver getResolver(Canonicalizer canonicalizer)
-    {
-        return metadata.getResolver(canonicalizer);
-    }
-
     public Resolver getResolver(Session session, String catalog)
     {
         return resolverManager.getResolver(session, catalog, metadata::getResolver);
@@ -165,34 +153,22 @@ public class PlannerContext
         resolverManager.setResolver(session.getQueryId().id(), resolver);
     }
 
-    public void setResolver(Update node, Resolver resolver)
-    {
-        resolverManager.setCanonicalizer(NodeRef.of(node), resolver);
-    }
-
     public Resolver getWithResolver(Session session)
     {
         return resolverManager.getWithResolver(session.getQueryId().id());
     }
 
-    public void endUsingWithResolver(Session session)
+    public Optional<Resolver> getResolver(Session session, Optional<Scope> scope)
     {
-        resolverManager.endUsingWithResolver(session.getQueryId().id());
-    }
-
-    public Optional<Resolver> getResolver(Session session)
-    {
+        if (scope.isPresent() && scope.get().getResolver().isPresent()) {
+            return scope.get().getResolver();
+        }
         return resolverManager.getResolver(session.getQueryId().id());
     }
 
-    public Optional<Function<Identifier, String>> getDefaultCanonicalizer(Update node)
+    public Function<Identifier, String> getDefaultCanonicalizer(Session session, Optional<Scope> scope)
     {
-        return resolverManager.getCanonicalizer(NodeRef.of(node));
-    }
-
-    public Function<Identifier, String> getDefaultCanonicalizer(Session session)
-    {
-        return getDefaultCanonicalizer(getResolver(session));
+        return getDefaultCanonicalizer(getResolver(session, scope));
     }
 
     public Function<Identifier, String> getDefaultCanonicalizer(Optional<Resolver> resolver)

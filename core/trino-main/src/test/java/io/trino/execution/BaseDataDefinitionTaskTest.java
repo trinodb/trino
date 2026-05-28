@@ -774,7 +774,7 @@ public abstract class BaseDataDefinitionTaskTest
         public Resolver getResolver(Session session, String catalog)
         {
             // FIXME: we need to retrieve the canonicalizer of the connector
-            Canonicalizer canonicalizer = Canonicalizer.UPPERCASE_CANONICALIZER;
+            Canonicalizer canonicalizer = Canonicalizer.IDENTITY_CANONICALIZER;
             return new Resolver(catalogName, canonicalizer::canonicalize, canonicalizer::compare, canonicalizer::predicate);
         }
 

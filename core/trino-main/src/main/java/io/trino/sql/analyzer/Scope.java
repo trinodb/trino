@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class Scope
 {
     private final Optional<Scope> parent;
+    private final Optional<Resolver> resolver;
     private final boolean queryBoundary;
     private final RelationId relationId;
     private final RelationType relation;
@@ -62,6 +63,7 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
+            Optional<Resolver> resolver,
             boolean queryBoundary,
             RelationId relationId,
             RelationType relation,
@@ -69,10 +71,25 @@ public class Scope
     {
 
         this.parent = requireNonNull(parent, "parent is null");
+        this.resolver = requireNonNull(resolver, "parent is null");
         this.queryBoundary = queryBoundary;
         this.relationId = requireNonNull(relationId, "relationId is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+    }
+
+    public Optional<Resolver> getResolver()
+    {
+        Scope scope;
+        Optional<Scope> parent = Optional.of(this);
+        while (parent.isPresent()) {
+            scope = parent.get();
+            if (scope.resolver.isPresent()) {
+                return scope.resolver;
+            }
+            parent = scope.parent;
+        }
+        return Optional.empty();
     }
 
     private Optional<Resolver> getRelationResolver()
@@ -90,23 +107,9 @@ public class Scope
         return getRelationResolver().map(r -> r.getCanonicalizerKind().name()).orElse("No Resolver");
     }
 
-    public int canonicalizerKind()
-    {
-        Optional<Resolver> resolver = getRelationResolver();
-        if (resolver.isPresent()) {
-            String value = resolver.get().canonicalize(new Identifier("Xy", false));
-            return switch (value) {
-                case "Xy" -> 3;
-                case "xy" -> 1;
-                case "XY" -> 2;
-                default -> 0;
-            };
-        }
-        return 3;
-    }
-
     public String getFields()
     {
+        // FIXME: Here for debugging purpose
         List<String> fields = relation.getAllFields().stream()
                 .filter(f -> f.getName().isPresent())
                 .map(f -> f.getName().get() + " - " + f.canonicalizerType())
@@ -116,7 +119,7 @@ public class Scope
 
     public Scope withRelationType(RelationType relationType)
     {
-        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+        return new Scope(parent, resolver, queryBoundary, relationId, relationType, namedQueries);
     }
 
     public Scope getQueryBoundaryScope()
@@ -386,6 +389,7 @@ public class Scope
     public static final class Builder
     {
         private Optional<Scope> parent = Optional.empty();
+        private Optional<Resolver> resolver = Optional.empty();
         private boolean queryBoundary;
         private RelationId relationId = RelationId.anonymous();
         private RelationType relation = new RelationType();
@@ -394,6 +398,7 @@ public class Scope
         public Builder like(Scope other)
         {
             parent = other.parent;
+            resolver = other.resolver;
             queryBoundary = other.queryBoundary;
             relationId = other.relationId;
             relation = other.relation;
@@ -412,6 +417,13 @@ public class Scope
         {
             checkArgument(this.parent.isEmpty(), "parent is already set");
             this.parent = Optional.of(parent);
+            return this;
+        }
+
+        public Builder withResolver(Resolver resolver)
+        {
+            checkArgument(this.resolver.isEmpty(), "resolver is already set");
+            this.resolver = Optional.of(resolver);
             return this;
         }
 
@@ -437,7 +449,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, queryBoundary, relationId, relation, namedQueries);
+            return new Scope(parent, resolver, queryBoundary, relationId, relation, namedQueries);
         }
     }
 

@@ -120,7 +120,7 @@ public class ResolverManager
 
     public Resolver getWithResolver(String queryId)
     {
-        withQueryId = Optional.of(queryId);
+        this.resolver.put(queryId, withResolver);
         return withResolver;
     }
 
@@ -133,9 +133,6 @@ public class ResolverManager
 
     public Optional<Resolver> getResolver(String queryId)
     {
-        if (withQueryId.isPresent() && withQueryId.get().equals(queryId)) {
-            return Optional.of(withResolver);
-        }
         return Optional.ofNullable(this.resolver.get(queryId));
     }
 
