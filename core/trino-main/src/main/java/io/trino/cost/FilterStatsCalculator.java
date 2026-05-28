@@ -21,15 +21,17 @@ import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.ExpressionRewriter;
+import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -59,13 +61,9 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
-import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
-import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
@@ -270,32 +268,23 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitBetween(Between node, Void context)
+        protected PlanNodeStatsEstimate visitLet(Let node, Void context)
         {
-            SymbolStatsEstimate valueStats = getExpressionStats(node.value());
-            if (valueStats.isUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-            if (!getExpressionStats(node.min()).isSingleValue()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-            if (!getExpressionStats(node.max()).isSingleValue()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-
-            Expression lowerBound = new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min());
-            Expression upperBound = new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max());
-
-            Expression transformed;
-            if (isInfinite(valueStats.getLowValue())) {
-                // We want to do heuristic cut (infinite range to finite range) ASAP and then do filtering on finite range.
-                // We rely on 'and()' being processed left to right
-                transformed = and(lowerBound, upperBound);
-            }
-            else {
-                transformed = and(upperBound, lowerBound);
-            }
-            return process(transformed);
+            // Inline the bound reference back into the body and re-estimate. Stats estimation has no
+            // side effects, so the runtime "evaluate value once" guarantee of `Let` doesn't need to be
+            // preserved here — what matters is that the dissolved expression has the same symbol-level
+            // statistics as the bound form.
+            Expression inlined = ExpressionTreeRewriter.rewriteWith(
+                    new ExpressionRewriter<>()
+                    {
+                        @Override
+                        public Expression rewriteReference(Reference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                        {
+                            return reference.name().equals(node.name().name()) ? node.value() : reference;
+                        }
+                    },
+                    node.body());
+            return process(inlined);
         }
 
         @Override

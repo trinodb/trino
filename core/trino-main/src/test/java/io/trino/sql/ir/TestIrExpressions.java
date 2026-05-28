@@ -16,21 +16,31 @@ package io.trino.sql.ir;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.IrExpressions.BetweenPattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.asBetween;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.constantNull;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.JsonType.JSON;
@@ -41,6 +51,8 @@ public class TestIrExpressions
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(VARCHAR));
     private static final ResolvedFunction SPLIT_PART = FUNCTIONS.resolveFunction("split_part", fromTypes(VARCHAR, VARCHAR, BIGINT));
+    private static final ResolvedFunction NEGATION_BIGINT = new TestingFunctionResolution().resolveOperator(NEGATION, ImmutableList.of(BIGINT));
+    private static final ResolvedFunction RANDOM = new TestingFunctionResolution().resolveFunction("random", fromTypes());
 
     @Test
     public void testMayBeNullConstantsAndReferences()
@@ -99,5 +111,34 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new NullIf(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+    }
+
+    @Test
+    public void testAsBetween()
+    {
+        // Round-trips the factory's trivial-value form
+        assertThat(asBetween(between(new SymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                .contains(new BetweenPattern(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+
+        // Round-trips the factory's Let-wrapped form
+        Expression value = new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "x")));
+        assertThat(asBetween(between(new SymbolAllocator(), value, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))))
+                .contains(new BetweenPattern(value, new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+
+        // The bound symbol must not escape through min/max
+        assertThat(asBetween(new Let(
+                new Symbol(BIGINT, "s"),
+                value,
+                new Logical(AND, ImmutableList.of(
+                        new Comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "s"), new Reference(BIGINT, "s")),
+                        new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "s"), new Constant(BIGINT, 10L)))))))
+                .isEmpty();
+
+        // A non-deterministic value evaluated independently in each conjunct is not a BETWEEN
+        Expression random = new Call(RANDOM, ImmutableList.of());
+        assertThat(asBetween(new Logical(AND, ImmutableList.of(
+                new Comparison(GREATER_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.1)),
+                new Comparison(LESS_THAN_OR_EQUAL, random, new Constant(DOUBLE, 0.2))))))
+                .isEmpty();
     }
 }

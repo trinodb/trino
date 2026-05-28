@@ -82,11 +82,6 @@ public abstract class IrVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitBetween(Between node, C context)
-    {
-        return visitExpression(node, context);
-    }
-
     protected R visitIn(In node, C context)
     {
         return visitExpression(node, context);

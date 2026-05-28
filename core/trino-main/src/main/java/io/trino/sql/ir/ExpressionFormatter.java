@@ -254,13 +254,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitBetween(Between node, Void context)
-        {
-            return "(" + process(node.value(), context) + " BETWEEN " +
-                    process(node.min(), context) + " AND " + process(node.max(), context) + ")";
-        }
-
-        @Override
         protected String visitIn(In node, Void context)
         {
             return "(" + process(node.value(), context) + " IN (" + joinExpressions(node.valueList()) + "))";

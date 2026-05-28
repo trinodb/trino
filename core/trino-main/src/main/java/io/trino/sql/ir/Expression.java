@@ -25,7 +25,6 @@ import java.util.List;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
         @JsonSubTypes.Type(value = Array.class, name = "array"),
-        @JsonSubTypes.Type(value = Between.class, name = "between"),
         @JsonSubTypes.Type(value = Bind.class, name = "bind"),
         @JsonSubTypes.Type(value = Call.class, name = "call"),
         @JsonSubTypes.Type(value = Case.class, name = "case"),
@@ -46,7 +45,6 @@ import java.util.List;
 })
 public sealed interface Expression
         permits Array,
-                Between,
                 Bind,
                 Call,
                 Case,

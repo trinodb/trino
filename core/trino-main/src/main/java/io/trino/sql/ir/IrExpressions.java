@@ -30,11 +30,14 @@ import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.type.TypeCoercion;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -46,6 +49,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 public final class IrExpressions
 {
@@ -60,6 +67,62 @@ public final class IrExpressions
     {
         return new Call(function, Arrays.asList(arguments));
     }
+
+    /// Lower a BETWEEN to `value >= min AND value <= max`, wrapping `value` in a [Let] when it is
+    /// non-trivial so the operand is evaluated exactly once.
+    public static Expression between(SymbolAllocator allocator, Expression value, Expression min, Expression max)
+    {
+        // Inline trivial values directly so the result stays a plain AND of comparisons.
+        if (value instanceof Reference || value instanceof Constant) {
+            return new Logical(AND, ImmutableList.of(
+                    new Comparison(GREATER_THAN_OR_EQUAL, value, min),
+                    new Comparison(LESS_THAN_OR_EQUAL, value, max)));
+        }
+        Symbol bound = allocator.newSymbol("between", value.type());
+        Reference reference = new Reference(value.type(), bound.name());
+        return new Let(bound, value, new Logical(AND, ImmutableList.of(
+                new Comparison(GREATER_THAN_OR_EQUAL, reference, min),
+                new Comparison(LESS_THAN_OR_EQUAL, reference, max))));
+    }
+
+    /// Recognize a BETWEEN-shape as produced by [#between] in either the trivial-value form
+    /// (`AND(x >= min, x <= max)`) or the Let-wrapped form (`Let(s, value, AND(s >= min, s <= max))`).
+    public static Optional<BetweenPattern> asBetween(Expression expression)
+    {
+        if (expression instanceof Let(Symbol bound, Expression value, Expression body)) {
+            // The bound symbol must not leak through min/max: a pattern consumer sees only the
+            // extracted parts, where such a reference would be unbound.
+            return matchAndRange(body).flatMap(bounds -> bounds.value() instanceof Reference ref && ref.name().equals(bound.name()) &&
+                    !SymbolsExtractor.extractUnique(bounds.min()).contains(bound) &&
+                    !SymbolsExtractor.extractUnique(bounds.max()).contains(bound) ?
+                    Optional.of(new BetweenPattern(value, bounds.min(), bounds.max())) :
+                    Optional.empty());
+        }
+        return matchAndRange(expression);
+    }
+
+    private static Optional<BetweenPattern> matchAndRange(Expression expression)
+    {
+        if (!(expression instanceof Logical logical) || logical.operator() != AND || logical.terms().size() != 2) {
+            return Optional.empty();
+        }
+        if (!(logical.terms().get(0) instanceof Comparison(Comparison.Operator op1, Expression left1, Expression right1)) ||
+                !(logical.terms().get(1) instanceof Comparison(Comparison.Operator op2, Expression left2, Expression right2))) {
+            return Optional.empty();
+        }
+        // The value occurs in both conjuncts: collapsing the two independent evaluations into the
+        // pattern's single occurrence is only sound when the value is deterministic.
+        if (op1 == GREATER_THAN_OR_EQUAL && op2 == LESS_THAN_OR_EQUAL && left1.equals(left2) && isDeterministic(left1)) {
+            return Optional.of(new BetweenPattern(left1, right1, right2));
+        }
+        if (op1 == LESS_THAN_OR_EQUAL && op2 == LESS_THAN_OR_EQUAL && right1.equals(left2) && isDeterministic(right1)) {
+            return Optional.of(new BetweenPattern(right1, left1, right2));
+        }
+        return Optional.empty();
+    }
+
+    /// View of a `value BETWEEN min AND max` predicate as produced by [#between].
+    public record BetweenPattern(Expression value, Expression min, Expression max) {}
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
     {
@@ -125,7 +188,6 @@ public final class IrExpressions
             case Array _, Bind _, IsNull _, Lambda _, Row _ -> false;
 
             // These expressions may return null based on their operands
-            case Between e -> mayBeNull(plannerContext, e.value(), referencesMayBeNull) || mayBeNull(plannerContext, e.min(), referencesMayBeNull) || mayBeNull(plannerContext, e.max(), referencesMayBeNull);
             case Call e -> mayBeNull(plannerContext, e.function(), e.arguments(), referencesMayBeNull);
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, clause.getResult(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, e.defaultValue(), referencesMayBeNull);
@@ -178,7 +240,6 @@ public final class IrExpressions
 
             // These expressions need to verify their operands
             case Array e -> e.elements().stream().anyMatch(element -> mayFail(plannerContext, element));
-            case Between e -> mayFail(plannerContext, e.value()) || mayFail(plannerContext, e.min()) || mayFail(plannerContext, e.max());
             case Call e -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());

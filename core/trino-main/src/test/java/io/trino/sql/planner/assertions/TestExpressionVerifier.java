@@ -15,13 +15,14 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -84,10 +85,10 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isTrue();
+        assertThat(verifier.process(IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isTrue();
         // Different value
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "Y"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
-        assertThat(verifier.process(new Between(new Reference(BIGINT, "custkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), new Between(new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
+        assertThat(verifier.process(IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "orderkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "Y"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
+        assertThat(verifier.process(IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "custkey"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)), IrExpressions.between(new SymbolAllocator(), new Reference(BIGINT, "X"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))).isFalse();
     }
 
     @Test

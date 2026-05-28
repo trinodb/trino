@@ -35,7 +35,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -45,6 +44,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
@@ -374,7 +374,7 @@ public class TestConnectorExpressionTranslator
     {
         assertTranslationToConnectorExpression(
                 TEST_SESSION,
-                new Between(
+                IrExpressions.between(new SymbolAllocator(),
                         new Reference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),

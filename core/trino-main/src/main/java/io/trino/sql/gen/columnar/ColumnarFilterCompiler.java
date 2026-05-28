@@ -40,7 +40,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.CallSiteBinder;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
@@ -194,7 +193,6 @@ public class ColumnarFilterCompiler
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
                 case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, functionManager).generateColumnarFilter());
-                case Between between -> Optional.of(new BetweenInlineColumnarFilterGenerator(between, layout, metadata, functionManager).generateColumnarFilter());
                 default -> Optional.empty();
             };
         }

@@ -26,7 +26,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Array;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -97,7 +96,6 @@ public class IrExpressionEvaluator
     {
         return switch (expression) {
             case Array e -> evaluateInternal(e, session, bindings);
-            case Between e -> evaluateInternal(e, session, bindings);
             case Bind e -> evaluateInternal(e, session, bindings);
             case Call e -> evaluateInternal(e, session, bindings);
             case Case e -> evaluateInternal(e, session, bindings);
@@ -383,26 +381,6 @@ public class IrExpressionEvaluator
         }
 
         return evaluate(body, session, bindings);
-    }
-
-    private Object evaluateInternal(Between expression, Session session, Map<String, Object> bindings)
-    {
-        Object value = evaluate(expression.value(), session, bindings);
-        Object min = evaluate(expression.min(), session, bindings);
-        Object max = evaluate(expression.max(), session, bindings);
-
-        Object low = evaluateOperator(OperatorType.LESS_THAN_OR_EQUAL, expression.min().type(), expression.value().type(), min, value, session);
-        Object high = evaluateOperator(OperatorType.LESS_THAN_OR_EQUAL, expression.value().type(), expression.max().type(), value, max, session);
-
-        if (Boolean.FALSE.equals(low) || Boolean.FALSE.equals(high)) {
-            return Boolean.FALSE;
-        }
-
-        if (Boolean.TRUE.equals(low) && Boolean.TRUE.equals(high)) {
-            return Boolean.TRUE;
-        }
-
-        return null;
     }
 
     private Object evaluateInternal(Array expression, Session session, Map<String, Object> bindings)
