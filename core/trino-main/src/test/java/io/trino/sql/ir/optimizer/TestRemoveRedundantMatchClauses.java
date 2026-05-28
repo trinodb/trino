@@ -28,6 +28,7 @@ import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantMatchClauses;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -155,7 +156,7 @@ public class TestRemoveRedundantMatchClauses
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantMatchClauses(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantMatchClauses(FUNCTIONS.getPlannerContext()).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 
     private static MatchClause equalityClause(Expression value, Expression result)

@@ -23,6 +23,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.DesugarBetween;
+import io.trino.sql.planner.SymbolAllocator;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -196,6 +197,6 @@ public class TestDesugarBetween
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new DesugarBetween(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new DesugarBetween(PLANNER_CONTEXT).apply(expression, testSession(), new SymbolAllocator(), ImmutableMap.of());
     }
 }

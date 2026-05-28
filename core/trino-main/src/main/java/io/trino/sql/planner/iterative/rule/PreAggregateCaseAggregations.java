@@ -429,7 +429,7 @@ public class PreAggregateCaseAggregations
 
     private Expression optimizeExpression(Expression expression, Context context)
     {
-        return plannerContext.getExpressionOptimizer().process(expression, context.getSession(), ImmutableMap.of()).orElse(expression);
+        return plannerContext.getExpressionOptimizer().process(expression, context.getSession(), context.getSymbolAllocator(), ImmutableMap.of()).orElse(expression);
     }
 
     private static class CaseAggregation

@@ -24,6 +24,7 @@ import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +50,7 @@ public class EvaluateMatch
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Match(Expression operand, List<MatchClause> clauses, Expression defaultValue))) {
             return Optional.empty();

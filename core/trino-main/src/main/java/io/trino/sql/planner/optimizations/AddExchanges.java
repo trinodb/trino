@@ -1508,7 +1508,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanSanityChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, symbolAllocator);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1516,7 +1516,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session);
+            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session, symbolAllocator);
         }
 
         private PreferredProperties computePreference(PreferredProperties preferredProperties, PreferredProperties parentPreferredProperties)

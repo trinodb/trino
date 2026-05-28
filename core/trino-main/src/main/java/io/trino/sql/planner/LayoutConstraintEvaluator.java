@@ -35,14 +35,16 @@ import static java.util.Objects.requireNonNull;
 public class LayoutConstraintEvaluator
 {
     private final Session session;
+    private final SymbolAllocator symbolAllocator;
     private final Map<Symbol, ColumnHandle> assignments;
     private final IrExpressionOptimizer evaluator;
     private final Expression expression;
     private final Set<ColumnHandle> arguments;
 
-    public LayoutConstraintEvaluator(PlannerContext plannerContext, Session session, Map<Symbol, ColumnHandle> assignments, Expression expression)
+    public LayoutConstraintEvaluator(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, Map<Symbol, ColumnHandle> assignments, Expression expression)
     {
         this.session = requireNonNull(session, "session is null");
+        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         evaluator = plannerContext.getPartialEvaluator();
         this.expression = requireNonNull(expression, "expression is null");
@@ -73,7 +75,7 @@ public class LayoutConstraintEvaluator
 
         // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
         // spurious query failures for partitions that would otherwise be filtered out.
-        Expression optimized = TryFunction.evaluate(() -> evaluator.process(expression, session, inputs).orElse(expression), Booleans.TRUE);
+        Expression optimized = TryFunction.evaluate(() -> evaluator.process(expression, session, symbolAllocator, inputs).orElse(expression), Booleans.TRUE);
 
         // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
         return !(optimized instanceof Constant constant) || Boolean.TRUE.equals(constant.value());

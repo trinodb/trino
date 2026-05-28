@@ -107,10 +107,11 @@ public class SplitSourceFactory
     public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
+        SymbolAllocator symbolAllocator = new SymbolAllocator(fragment.getSymbols());
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, stageSpan, allSplitSources),
+                    new Visitor(session, symbolAllocator, stageSpan, allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -133,15 +134,18 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final Span stageSpan;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
+                SymbolAllocator symbolAllocator,
                 Span stageSpan,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
+            this.symbolAllocator = symbolAllocator;
             this.stageSpan = stageSpan;
             this.splitSources = allSplitSources;
         }
@@ -176,7 +180,7 @@ public class SplitSourceFactory
             }
 
             Expression nonDynamicFilter = filterConjuncts(filterPredicate.orElse(TRUE), expression -> !DynamicFilters.isDynamicFilter(expression));
-            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, session, assignments, nonDynamicFilter);
+            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, session, symbolAllocator, assignments, nonDynamicFilter);
 
             // we are interested only in functional predicate here, so we set the summary to ALL.
             Constraint constraint = new Constraint(

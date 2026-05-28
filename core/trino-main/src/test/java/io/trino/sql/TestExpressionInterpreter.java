@@ -42,6 +42,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TestingTransactionManager;
 import org.junit.jupiter.api.Test;
@@ -948,7 +949,7 @@ public class TestExpressionInterpreter
 
     static Object optimize(Expression parsedExpression)
     {
-        return PLANNER_CONTEXT.getExpressionOptimizer().process(parsedExpression, TEST_SESSION, INPUTS)
+        return PLANNER_CONTEXT.getExpressionOptimizer().process(parsedExpression, TEST_SESSION, new SymbolAllocator(), INPUTS)
                 .orElse(parsedExpression);
     }
 
