@@ -142,7 +142,7 @@ class TestIcebergPageSourceProvider
                 dataInputFile.length(),
                 3, // fileRecordCount
                 PARQUET,
-                ImmutableMap.of(),
+                new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of()),
                 0L, // dataSequenceNumber
                 OptionalLong.empty(),
                 Optional.empty())) {

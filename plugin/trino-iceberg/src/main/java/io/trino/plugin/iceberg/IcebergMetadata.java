@@ -1472,7 +1472,7 @@ public class IcebergMetadata
         try {
             // S3 Tables internally assigns a unique location for each table
             if (!isS3Tables(location.toString())) {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
+                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergUtil.getTableCredentials(transaction.table().io()));
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
                             "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
@@ -2381,7 +2381,7 @@ public class IcebergMetadata
         }
 
         Instant expiration = session.getStart().minusMillis(retention.toMillis());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergUtil.getTableCredentials(table.io()));
         return removeOrphanFiles(
                 table,
                 fileSystem,
@@ -2395,7 +2395,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesHandle addFilesHandle = (IcebergAddFilesHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergUtil.getTableCredentials(table.io()));
         long addedDataFiles = addFiles(
                 session,
                 fileSystem,
@@ -2412,7 +2412,7 @@ public class IcebergMetadata
     {
         IcebergAddFilesFromTableHandle addFilesHandle = (IcebergAddFilesFromTableHandle) executeHandle.procedureHandle();
         Table table = catalog.loadTable(session, executeHandle.schemaTableName());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), table.io().properties());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), IcebergUtil.getTableCredentials(table.io()));
         long addedDataFiles = addFilesFromTable(
                 session,
                 fileSystem,

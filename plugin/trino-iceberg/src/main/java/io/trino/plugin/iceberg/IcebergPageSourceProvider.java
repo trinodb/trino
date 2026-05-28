@@ -181,7 +181,6 @@ import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredica
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileIoProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
@@ -258,10 +257,12 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        checkState(connectorTableCredentials.isPresent(), "connectorTableCredentials is empty");
+        IcebergTableCredentials icebergTableCredentials = (IcebergTableCredentials) connectorTableCredentials.orElseThrow();
         if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
             return new FilesTablePageSource(
                     typeManager,
-                    fileSystemFactory.create(session.getIdentity(), getFileIoProperties(connectorTableCredentials)),
+                    fileSystemFactory.create(session.getIdentity(), icebergTableCredentials),
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
@@ -295,7 +296,7 @@ public class IcebergPageSourceProvider
                 split.fileSize(),
                 split.fileRecordCount(),
                 split.fileFormat(),
-                getFileIoProperties(connectorTableCredentials),
+                icebergTableCredentials,
                 split.dataSequenceNumber(),
                 split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
@@ -317,7 +318,7 @@ public class IcebergPageSourceProvider
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
-            Map<String, String> fileIoProperties,
+            IcebergTableCredentials icebergTableCredentials,
             long dataSequenceNumber,
             OptionalLong fileFirstRowId,
             Optional<NameMapping> nameMapping)
@@ -335,7 +336,7 @@ public class IcebergPageSourceProvider
 
         // exit early when only reading partition keys from a simple split
         String partition = partitionSpec.partitionToPath(partitionData);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTableCredentials);
         TrinoInputFile inputFile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));

@@ -13,15 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergTableCredentialsProvider
@@ -36,8 +40,18 @@ public class IcebergTableCredentialsProvider
 
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return Optional.of(tableCredentials.computeIfAbsent(schemaTableName, key ->
-                new IcebergTableCredentials(catalog.loadTable(session, key).io().properties())));
+        return Optional.of(tableCredentials.computeIfAbsent(schemaTableName, key -> {
+            try (FileIO io = catalog.loadTable(session, key).io()) {
+                if (io instanceof ForwardingFileIo ioWithCredentials) {
+                    return new IcebergTableCredentials(
+                            io.properties(),
+                            ioWithCredentials.credentials().stream()
+                                    .map(credential -> new IcebergStorageCredentials(credential.prefix(), credential.config()))
+                                    .collect(toImmutableList()));
+                }
+                return new IcebergTableCredentials(io.properties(), ImmutableList.of());
+            }
+        }));
     }
 
     public void putTableCredentials(SchemaTableName schemaTableName, IcebergTableCredentials credentials)
