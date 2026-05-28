@@ -55,7 +55,7 @@ public class DeleteManager
 
     public Optional<RowPredicate> getDeletePredicate(
             String dataFilePath,
-            long dataSequenceNumber,
+            OptionalLong dataSequenceNumber,
             List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
             Schema tableSchema,
@@ -112,9 +112,17 @@ public class DeleteManager
                     };
                 });
 
-        Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
-                .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber))
-                .reduce(RowPredicate::and);
+        Optional<RowPredicate> equalityDeletes;
+        if (equalityDeleteFiles.isEmpty()) {
+            equalityDeletes = Optional.empty();
+        }
+        else {
+            long splitDataSequenceNumber = dataSequenceNumber.orElseThrow(() ->
+                    new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath));
+            equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
+                    .map(filter -> filter.createPredicate(readColumns, splitDataSequenceNumber))
+                    .reduce(RowPredicate::and);
+        }
 
         if (positionDeletes.isPresent() && equalityDeletes.isPresent()) {
             return Optional.of(positionDeletes.get().and(equalityDeletes.get()));
