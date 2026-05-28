@@ -46,9 +46,11 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
@@ -79,6 +81,7 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
@@ -123,9 +126,9 @@ public final class ConnectorExpressionTranslator
 {
     private ConnectorExpressionTranslator() {}
 
-    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
+    public static Expression translate(Session session, ConnectorExpression expression, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
     {
-        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings)
+        return new ConnectorToSqlExpressionTranslator(session, plannerContext, variableMappings, symbolAllocator)
                 .translate(expression)
                 .orElseThrow(() -> new UnsupportedOperationException("Expression is not supported: " + expression.toString()));
     }
@@ -187,12 +190,14 @@ public final class ConnectorExpressionTranslator
         private final Session session;
         private final PlannerContext plannerContext;
         private final Map<String, Symbol> variableMappings;
+        private final SymbolAllocator symbolAllocator;
 
-        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings)
+        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.variableMappings = requireNonNull(variableMappings, "variableMappings is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
         public Optional<Expression> translate(ConnectorExpression expression)
@@ -265,6 +270,12 @@ public final class ConnectorExpressionTranslator
             }
             if (OR_FUNCTION_NAME.equals(call.getFunctionName())) {
                 return translateLogicalExpression(Logical.Operator.OR, call.getArguments(), lambdaArguments);
+            }
+            if (BETWEEN_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 3) {
+                return translate(call.getArguments().get(0), lambdaArguments).flatMap(value ->
+                        translate(call.getArguments().get(1), lambdaArguments).flatMap(min ->
+                                translate(call.getArguments().get(2), lambdaArguments).map(max ->
+                                        IrExpressions.between(symbolAllocator, value, min, max))));
             }
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
@@ -659,6 +670,23 @@ public final class ConnectorExpressionTranslator
                 case AND -> Optional.of(new io.trino.spi.expression.Call(BOOLEAN, AND_FUNCTION_NAME, arguments.build()));
                 case OR -> Optional.of(new io.trino.spi.expression.Call(BOOLEAN, OR_FUNCTION_NAME, arguments.build()));
             };
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitLet(Let node, Context context)
+        {
+            if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+            // Only the Let-wrapped BETWEEN shape is translated to `$between`. The trivial form
+            // (AND of two comparisons over the same value) goes through `visitLogical` and is
+            // pushed as a plain AND, since the value is a Reference or Constant and
+            // duplicating it on the connector side is harmless.
+            return IrExpressions.asBetween(node).flatMap(pattern ->
+                    process(pattern.value(), context).flatMap(value ->
+                            process(pattern.min(), context).flatMap(min ->
+                                    process(pattern.max(), context).map(max ->
+                                            new io.trino.spi.expression.Call(BOOLEAN, BETWEEN_FUNCTION_NAME, ImmutableList.of(value, min, max))))));
         }
 
         @Override

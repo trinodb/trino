@@ -143,7 +143,7 @@ public class PushProjectionIntoTableScan
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, context.getSymbolAllocator());
                     translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
@@ -175,7 +175,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = variable.getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
+                Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings, context.getSymbolAllocator());
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }

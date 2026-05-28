@@ -184,7 +184,7 @@ public class PushAggregationIntoTableScan
 
         List<Expression> newProjections = result.getProjections().stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, context.getSymbolAllocator());
                     translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.

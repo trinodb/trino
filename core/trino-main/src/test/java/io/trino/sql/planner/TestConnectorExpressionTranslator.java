@@ -72,6 +72,7 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.BETWEEN_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.COALESCE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
@@ -372,9 +373,11 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateBetween()
     {
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                IrExpressions.between(new SymbolAllocator(),
+        // Trivial value (Reference): the factory emits AND-of-comparisons; the connector receives
+        // the same shape without `$between` since duplicating a variable is harmless.
+        assertTranslationRoundTrips(
+                IrExpressions.between(
+                        new SymbolAllocator(),
                         new Reference(DOUBLE, "double_symbol_1"),
                         new Constant(DOUBLE, 1.2),
                         new Reference(DOUBLE, "double_symbol_2")),
@@ -394,6 +397,22 @@ public class TestConnectorExpressionTranslator
                                         List.of(
                                                 new Variable("double_symbol_1", DOUBLE),
                                                 new Variable("double_symbol_2", DOUBLE))))));
+
+        // Non-trivial value: the factory wraps in a Let so the value is evaluated once. The
+        // connector receives a single `$between(value, min, max)` instead of the duplicated form.
+        assertTranslationRoundTrips(
+                IrExpressions.between(
+                        new SymbolAllocator(),
+                        new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "double_symbol_1"))),
+                        new Constant(DOUBLE, 1.2),
+                        new Reference(DOUBLE, "double_symbol_2")),
+                new io.trino.spi.expression.Call(
+                        BOOLEAN,
+                        BETWEEN_FUNCTION_NAME,
+                        List.of(
+                                new io.trino.spi.expression.Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))),
+                                new io.trino.spi.expression.Constant(1.2d, DOUBLE),
+                                new Variable("double_symbol_2", DOUBLE))));
     }
 
     @Test
@@ -721,7 +740,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings);
+        Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, new SymbolAllocator());
         assertThat(translation).isEqualTo(expected);
     }
 }
