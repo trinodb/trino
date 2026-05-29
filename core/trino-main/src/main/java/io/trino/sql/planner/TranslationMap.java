@@ -107,6 +107,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -526,6 +527,7 @@ public class TranslationMap
     private static boolean isRelationalPredicate(Predicate predicate)
     {
         return predicate instanceof QuantifiedComparisonPredicate
+                || predicate instanceof MatchPredicate
                 || (predicate instanceof InPredicate in && !(in.getValueList() instanceof InListExpression));
     }
 
@@ -628,6 +630,7 @@ public class TranslationMap
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), isNull) : isNull;
             }
             case LikePredicate predicate -> translateLike(value, predicate);
+            case MatchPredicate _ -> throw new IllegalStateException("MATCH predicate should have been planned by SubqueryPlanner");
             case QuantifiedComparisonPredicate _ -> throw new IllegalStateException("Quantified comparison should have been planned by SubqueryPlanner");
         };
     }
