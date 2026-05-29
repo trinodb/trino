@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.isUseLegacyDecorrelator;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
@@ -109,6 +110,14 @@ public class TransformExistsApplyToCorrelatedJoin
         TODO: remove this condition when exploratory optimizer is implemented or support for decorrelating joins is implemented in PlanNodeDecorrelator
         */
         if (parent.getCorrelation().isEmpty()) {
+            return Result.ofPlanNode(rewriteToDefaultAggregation(parent, context));
+        }
+
+        // With the dependent-join framework active (the default), every correlated EXISTS funnels through the
+        // default bool_or aggregation: the dependent-join framework decorrelates that shape to the
+        // same single-join plan the non-default path eventually reaches (including the build-side
+        // dedup for equality correlation), without this rule depending on PlanNodeDecorrelator.
+        if (!isUseLegacyDecorrelator(context.getSession())) {
             return Result.ofPlanNode(rewriteToDefaultAggregation(parent, context));
         }
 
