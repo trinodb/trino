@@ -168,6 +168,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -345,6 +346,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, List<Integer>> argumentBindings = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> subqueries = new LinkedHashSet<>();
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
+    private final Set<NodeRef<UniquePredicate>> uniquePredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
 
     // Coercions needed for window function frame of type RANGE.
@@ -614,6 +616,11 @@ public class ExpressionAnalyzer
     public Set<NodeRef<ExistsPredicate>> getExistsSubqueries()
     {
         return unmodifiableSet(existsSubqueries);
+    }
+
+    public Set<NodeRef<UniquePredicate>> getUniquePredicates()
+    {
+        return unmodifiableSet(uniquePredicates);
     }
 
     public List<OperandAndPredicate> getQuantifiedComparisons()
@@ -3135,6 +3142,35 @@ public class ExpressionAnalyzer
             return setExpressionType(node, BOOLEAN);
         }
 
+        @Override
+        protected Type visitUniquePredicate(UniquePredicate node, Context context)
+        {
+            StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node, context.getCorrelationSupport());
+            Scope subqueryScope = Scope.builder()
+                    .withParent(context.getScope())
+                    .build();
+
+            List<RowType.Field> fields = analyzer.analyze(node.getSubquery(), subqueryScope)
+                    .getRelationType()
+                    .getAllFields().stream()
+                    .map(field -> field.getName()
+                            .map(name -> RowType.field(name, field.getType()))
+                            .orElseGet(() -> RowType.field(field.getType())))
+                    .collect(toImmutableList());
+
+            for (RowType.Field field : fields) {
+                if (!field.getType().isComparable()) {
+                    throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in UNIQUE predicate", field.getType());
+                }
+            }
+
+            setExpressionType(node.getSubquery(), RowType.from(fields));
+
+            uniquePredicates.add(NodeRef.of(node));
+
+            return setExpressionType(node, BOOLEAN);
+        }
+
         private Type analyzeQuantifiedComparison(Expression value, QuantifiedComparisonPredicate predicate, Expression anchor, Context context)
         {
             quantifiedComparisons.add(new OperandAndPredicate(value, predicate));
@@ -4265,6 +4301,7 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4297,6 +4334,7 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4326,6 +4364,7 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4354,6 +4393,7 @@ public class ExpressionAnalyzer
                         analyzer.getColumnReferences(),
                         analyzer.getQuantifiedComparisons(),
                         analyzer.getMatchPredicates(),
+                        analyzer.getUniquePredicates(),
                         analyzer.getWindowFunctions()));
     }
 
@@ -4383,6 +4423,7 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions()));
     }
 
@@ -4458,6 +4499,7 @@ public class ExpressionAnalyzer
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getMatchPredicates(),
+                analyzer.getUniquePredicates(),
                 analyzer.getWindowFunctions());
     }
 

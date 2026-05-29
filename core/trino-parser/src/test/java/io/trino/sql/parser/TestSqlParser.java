@@ -239,6 +239,7 @@ import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.Union;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
@@ -6095,6 +6096,18 @@ public class TestSqlParser
         MatchPredicate secondFragment = (MatchPredicate) ((WhenClause.Partial) secondClause.getMatch()).predicate();
         assertThat(secondFragment.isUnique()).isTrue();
         assertThat(secondFragment.getType()).isEqualTo(MatchPredicate.Type.PARTIAL);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        SqlParser parser = new SqlParser();
+        UniquePredicate predicate = (UniquePredicate) parser.createExpression("UNIQUE (SELECT a FROM t)");
+        assertThat(predicate.getSubquery()).isInstanceOf(SubqueryExpression.class);
+
+        assertThat(parser.createExpression("UNIQUE (SELECT a, b FROM t)")).isInstanceOf(UniquePredicate.class);
+
+        assertThat(parser.createExpression("NOT UNIQUE (SELECT a FROM t)")).isInstanceOf(NotExpression.class);
     }
 
     @Test

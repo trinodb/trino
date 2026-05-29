@@ -615,6 +615,7 @@ primaryExpression
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
+    | UNIQUE '(' query ')'                                                                #unique
     | CASE operand=expression simpleWhenClause+ (ELSE elseExpression=expression)? END     #simpleCase
     | CASE searchedWhenClause+ (ELSE elseExpression=expression)? END                      #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast

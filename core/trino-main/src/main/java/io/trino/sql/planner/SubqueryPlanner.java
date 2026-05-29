@@ -54,6 +54,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QuantifiedComparisonPredicate;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.SubqueryExpression;
+import io.trino.sql.tree.UniquePredicate;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -78,6 +79,7 @@ import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.util.Objects.requireNonNull;
 
 class SubqueryPlanner
@@ -154,6 +156,10 @@ class SubqueryPlanner
         PlanBuilder matchBuilder = builder;
         for (Cluster<OperandAndPredicate> cluster : cluster(selectSubqueryPredicates(matchBuilder, allSubExpressions, subqueries.getMatchPredicates()), entry -> subqueryPredicateKey(entry, matchBuilder.getScope()))) {
             builder = planMatchPredicate(builder, cluster, subqueries);
+        }
+        PlanBuilder uniqueBuilder = builder;
+        for (Cluster<UniquePredicate> cluster : cluster(selectSubqueries(uniqueBuilder, allSubExpressions, subqueries.getUniquePredicates()), expr -> scopeAwareKey(expr, analysis, uniqueBuilder.getScope()))) {
+            builder = planUniquePredicate(builder, cluster);
         }
 
         return builder;
@@ -358,6 +364,79 @@ class SubqueryPlanner
                         ImmutableMap.of(exists, new ApplyNode.Exists()),
                         subPlan.getRoot().getOutputSymbols(),
                         subquery));
+    }
+
+    /**
+     * Plans `UNIQUE (subquery)` per SQL:2003 §8.9. The predicate is TRUE iff no two rows of the
+     * subquery are equal under row equality, ignoring any row that contains a NULL value (those
+     * rows are not duplicates of anything, including themselves).
+     * <p>
+     * Reduces to: `NOT EXISTS (
+     *   SELECT 1 FROM subquery WHERE noneNull(R) GROUP BY R HAVING COUNT(*) > 1
+     * )`.
+     * <p>
+     * An empty subquery and a subquery containing only NULL-bearing rows both yield TRUE — the
+     * grouped + filtered relation is empty so `EXISTS` is FALSE and `NOT EXISTS` is TRUE.
+     */
+    private PlanBuilder planUniquePredicate(PlanBuilder subPlan, Cluster<UniquePredicate> cluster)
+    {
+        UniquePredicate predicate = cluster.getRepresentative();
+        io.trino.sql.tree.Expression subqueryExpression = predicate.getSubquery();
+
+        RelationPlan relationPlan = planSubquery(subqueryExpression, subPlan.getTranslations());
+        List<Symbol> subqueryFields = visibleFieldMappings(relationPlan);
+
+        // Filter out any row that contains a NULL — such rows can't form duplicates per the spec.
+        Expression noneNullFilter = combineAnd(subqueryFields.stream()
+                .map(symbol -> (Expression) not(plannerContext.getMetadata(), new IsNull(symbol.toSymbolReference())))
+                .collect(toImmutableList()));
+        PlanNode nonNullRows = new FilterNode(idAllocator.getNextId(), relationPlan.getRoot(), noneNullFilter);
+
+        // Group by the full row and count occurrences.
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
+        Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
+        AggregationNode countAggregation = singleAggregation(
+                idAllocator.getNextId(),
+                nonNullRows,
+                ImmutableMap.of(countSymbol, new AggregationNode.Aggregation(
+                        countFunction,
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())),
+                singleGroupingSet(subqueryFields));
+
+        // Keep only groups that have more than one row — those are duplicates.
+        PlanNode duplicates = new FilterNode(
+                idAllocator.getNextId(),
+                countAggregation,
+                comparison(plannerContext.getMetadata(), ComparisonOperator.GREATER_THAN, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)));
+
+        // EXISTS over duplicates — TRUE iff there is at least one duplicate group.
+        Symbol existsSymbol = symbolAllocator.newSymbol("exists", BOOLEAN);
+        PlanNode apply = new ApplyNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                duplicates,
+                ImmutableMap.of(existsSymbol, new ApplyNode.Exists()),
+                subPlan.getRoot().getOutputSymbols(),
+                subqueryExpression);
+
+        // UNIQUE is the negation: no duplicate group → TRUE.
+        Symbol uniqueSymbol = symbolAllocator.newSymbol("unique", BOOLEAN);
+        PlanNode root = new ProjectNode(
+                idAllocator.getNextId(),
+                apply,
+                Assignments.builder()
+                        .putIdentities(apply.getOutputSymbols())
+                        .put(uniqueSymbol, not(plannerContext.getMetadata(), existsSymbol.toSymbolReference()))
+                        .build());
+
+        return new PlanBuilder(
+                subPlan.getTranslations()
+                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), uniqueSymbol)),
+                root);
     }
 
     private RelationPlan planSubquery(io.trino.sql.tree.Expression subquery, TranslationMap outerContext)
