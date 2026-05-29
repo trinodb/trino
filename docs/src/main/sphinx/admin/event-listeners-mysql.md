@@ -41,6 +41,15 @@ parameters to the MySQL JDBC driver. The supported parameters for the URL are
 documented in the [MySQL Developer
 Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
+Large query events can require significant MySQL storage. Set
+`mysql-event-listener.excluded-columns` to a comma-separated list of supported
+`trino_queries` text columns to exclude selected payloads from stored records.
+The table schema is unchanged. Nullable columns are stored as `NULL`. Required
+columns use valid empty values: `query` is stored as an empty string, required
+JSON array columns are stored as `[]`, and `session_properties_json` is stored
+as `{}`. These replacement values are not distinguishable from actual empty
+payloads. Excluding `query` removes the SQL text from stored query history.
+
 And set `event-listener.config-files` to `etc/mysql-event-listener.properties`
 in {ref}`config-properties`:
 
@@ -67,6 +76,12 @@ string, user, catalog, and others with information about the query processing.
   - Description
 * - `mysql-event-listener.db.url`
   - JDBC connection URL to the database including credentials
+* - `mysql-event-listener.excluded-columns`
+  - Comma-separated list of text columns to exclude from stored query records.
+    Supported values are `client_info`, `client_tags_json`, `failure_message`,
+    `failures_json`, `inputs_json`, `operator_summaries_json`, `output_json`,
+    `plan`, `prepared_query`, `query`, `session_properties_json`,
+    `stage_info_json`, and `warnings_json`.
 * - `mysql-event-listener.terminate-on-initialization-failure`
   - MySQL event listener initialization can fail if the database is unavailable.
     This [boolean](prop-type-boolean) switch controls whether to throw an 
