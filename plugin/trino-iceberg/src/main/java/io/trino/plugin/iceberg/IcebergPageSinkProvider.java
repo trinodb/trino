@@ -91,6 +91,7 @@ public class IcebergPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
+        verify(tableCredentials.isPresent(), "tableCredentials must be present");
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) outputTableHandle;
         return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
     }
@@ -98,6 +99,7 @@ public class IcebergPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
     {
+        verify(tableCredentials.isPresent(), "tableCredentials must be present");
         IcebergWritableTableHandle tableHandle = (IcebergWritableTableHandle) insertTableHandle;
         return createPageSink(session, tableHandle, getFileIoProperties(tableCredentials));
     }
