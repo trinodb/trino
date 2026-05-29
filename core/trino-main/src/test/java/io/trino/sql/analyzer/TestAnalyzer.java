@@ -78,6 +78,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnLineageInfo;
@@ -3621,6 +3622,21 @@ public class TestAnalyzer
         assertFails("SELECT * FROM v2")
                 .hasErrorCode(VIEW_IS_STALE)
                 .hasMessage("line 1:15: View 'tpch.s1.v2' is stale or in invalid state: column [a] of type bigint projected from query view at position 0 cannot be coerced to column [a] of type varchar stored in view definition");
+    }
+
+    @Test
+    public void testStaleViewWhenStaleRefresh()
+    {
+        analyze("SELECT * FROM v2_refresh");
+
+        transaction(transactionManager, plannerContext.getMetadata(), accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(SETUP_SESSION, session -> {
+                    ViewDefinition refreshed = plannerContext.getMetadata().getView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2_refresh")).orElseThrow();
+                    assertThat(refreshed.getColumns()).containsExactly(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()));
+                    assertThat(refreshed.getWhenStaleBehavior()).isEqualTo(ConnectorViewDefinition.WhenStaleBehavior.REFRESH);
+                });
     }
 
     @Test
@@ -8432,7 +8448,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.FAIL);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
 
         // stale view (different column type)
@@ -8443,8 +8460,21 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.FAIL);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
+
+        // stale view with auto-refresh behavior
+        ViewDefinition viewData3 = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("user")),
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.REFRESH);
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2_refresh"), viewData3, ImmutableMap.of(), false));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(
@@ -8454,7 +8484,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.FAIL);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), false));
 
         // recursive view referencing to itself
@@ -8465,7 +8496,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.FAIL);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
 
         // type analysis for INSERT
@@ -8570,7 +8602,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ConnectorViewDefinition.WhenStaleBehavior.FAIL);
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,

@@ -30,14 +30,20 @@ public class CreateView
         INVOKER, DEFINER
     }
 
+    public enum WhenStaleBehavior
+    {
+        FAIL, REFRESH
+    }
+
     private final QualifiedName name;
     private final Query query;
     private final boolean replace;
     private final Optional<String> comment;
     private final Optional<Security> security;
+    private final Optional<WhenStaleBehavior> whenStaleBehavior;
     private final List<Property> properties;
 
-    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, Optional<WhenStaleBehavior> whenStaleBehavior, List<Property> properties)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -45,6 +51,7 @@ public class CreateView
         this.replace = replace;
         this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
+        this.whenStaleBehavior = requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         this.properties = ImmutableList.copyOf(properties);
     }
 
@@ -73,6 +80,11 @@ public class CreateView
         return security;
     }
 
+    public Optional<WhenStaleBehavior> getWhenStaleBehavior()
+    {
+        return whenStaleBehavior;
+    }
+
     public List<Property> getProperties()
     {
         return properties;
@@ -96,7 +108,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, security, properties);
+        return Objects.hash(name, query, replace, security, whenStaleBehavior, properties);
     }
 
     @Override
@@ -114,6 +126,7 @@ public class CreateView
                 && replace == o.replace
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
+                && Objects.equals(whenStaleBehavior, o.whenStaleBehavior)
                 && Objects.equals(properties, o.properties);
     }
 
@@ -126,6 +139,7 @@ public class CreateView
                 .add("replace", replace)
                 .add("comment", comment)
                 .add("security", security)
+                .add("whenStaleBehavior", whenStaleBehavior)
                 .add("properties", properties)
                 .toString();
     }
