@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -26,13 +27,19 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -40,6 +47,7 @@ import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.QuantifiedComparisonPredicate;
@@ -55,15 +63,19 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static java.util.Objects.requireNonNull;
 
 class SubqueryPlanner
@@ -136,6 +148,10 @@ class SubqueryPlanner
         PlanBuilder quantifiedComparisonsBuilder = builder;
         for (Cluster<OperandAndPredicate> cluster : cluster(selectSubqueryPredicates(quantifiedComparisonsBuilder, allSubExpressions, subqueries.getQuantifiedComparisons()), entry -> subqueryPredicateKey(entry, quantifiedComparisonsBuilder.getScope()))) {
             builder = planQuantifiedComparison(builder, cluster, subqueries);
+        }
+        PlanBuilder matchBuilder = builder;
+        for (Cluster<OperandAndPredicate> cluster : cluster(selectSubqueryPredicates(matchBuilder, allSubExpressions, subqueries.getMatchPredicates()), entry -> subqueryPredicateKey(entry, matchBuilder.getScope()))) {
+            builder = planMatchPredicate(builder, cluster, subqueries);
         }
 
         return builder;
@@ -401,6 +417,205 @@ class SubqueryPlanner
                         subPlan.getRoot());
             }
         };
+    }
+
+    /**
+     * Plans `ROW(v1, …, vN) MATCH [UNIQUE] [SIMPLE | PARTIAL | FULL] (subquery)` per SQL:2003 §8.5.
+     * The plan is `outerNullWrap(mode, R, indicator)` where:
+     * - non-UNIQUE: indicator = EXISTS (subquery WHERE rowMatch)
+     * - UNIQUE: indicator = (COUNT(*) over subquery WHERE rowMatch) = 1
+     * - rowMatch is AND(R[i] = S[i]) for SIMPLE/FULL, AND(R[i] IS NULL OR R[i] = S[i]) for PARTIAL
+     * - outerNullWrap is anyNull(R) OR x (SIMPLE), allNull(R) OR x (PARTIAL),
+     *   allNull(R) OR (noneNull(R) AND x) (FULL)
+     */
+    private PlanBuilder planMatchPredicate(PlanBuilder subPlan, Cluster<OperandAndPredicate> cluster, Analysis.SubqueryAnalysis subqueries)
+    {
+        OperandAndPredicate representative = cluster.getRepresentative();
+        MatchPredicate predicate = (MatchPredicate) representative.predicate();
+        io.trino.sql.tree.Expression value = representative.operand();
+        io.trino.sql.tree.Expression subqueryExpression = predicate.getSubquery();
+
+        subPlan = handleSubqueries(subPlan, value, subqueries);
+
+        // Plan the value's individual fields as scalar symbols on subPlan so that the row-match
+        // predicate is a conjunction of Reference = Reference, which the decorrelator can lift.
+        List<io.trino.sql.tree.Expression> valueFieldExpressions = valueFieldExpressions(value);
+        subPlan = subPlan.appendProjections(valueFieldExpressions, symbolAllocator, idAllocator);
+        List<Symbol> valueFields = valueFieldExpressions.stream()
+                .map(subPlan::translate)
+                .collect(toImmutableList());
+
+        // Plan the subquery as a relation; its visible field mappings are the per-field S symbols.
+        RelationPlan relationPlan = planSubquery(subqueryExpression, subPlan.getTranslations());
+        List<Symbol> subqueryFields = visibleFieldMappings(relationPlan);
+
+        checkState(valueFields.size() == subqueryFields.size(),
+                "MATCH row arity mismatch: value has %s fields, subquery has %s",
+                valueFields.size(),
+                subqueryFields.size());
+
+        // If value-field types differ from subquery-field types, cast the value side to match.
+        boolean needsCoercion = false;
+        for (int i = 0; i < valueFields.size(); i++) {
+            if (!valueFields.get(i).type().equals(subqueryFields.get(i).type())) {
+                needsCoercion = true;
+                break;
+            }
+        }
+        if (needsCoercion) {
+            Assignments.Builder assignments = Assignments.builder()
+                    .putIdentities(subPlan.getRoot().getOutputSymbols());
+            ImmutableList.Builder<Symbol> coerced = ImmutableList.builderWithExpectedSize(valueFields.size());
+            for (int i = 0; i < valueFields.size(); i++) {
+                Symbol original = valueFields.get(i);
+                Type targetType = subqueryFields.get(i).type();
+                if (original.type().equals(targetType)) {
+                    coerced.add(original);
+                }
+                else {
+                    Symbol castSymbol = symbolAllocator.newSymbol("cast", targetType);
+                    assignments.put(castSymbol, new Cast(original.toSymbolReference(), targetType));
+                    coerced.add(castSymbol);
+                }
+            }
+            subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build()));
+            valueFields = coerced.build();
+        }
+
+        Expression innerFilter = buildRowMatchFilter(predicate.getType(), valueFields, subqueryFields);
+        PlanNode filteredSubquery = new FilterNode(idAllocator.getNextId(), relationPlan.getRoot(), innerFilter);
+
+        Symbol indicatorSymbol;
+        PlanNode withIndicator;
+        if (predicate.isUnique()) {
+            ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
+            Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
+            AggregationNode countAggregation = singleAggregation(
+                    idAllocator.getNextId(),
+                    filteredSubquery,
+                    ImmutableMap.of(countSymbol, new AggregationNode.Aggregation(
+                            countFunction,
+                            ImmutableList.of(),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty())),
+                    globalAggregation());
+            PlanNode joined = new CorrelatedJoinNode(
+                    idAllocator.getNextId(),
+                    subPlan.getRoot(),
+                    countAggregation,
+                    subPlan.getRoot().getOutputSymbols(),
+                    JoinType.INNER,
+                    TRUE,
+                    ((SubqueryExpression) subqueryExpression).getQuery());
+            indicatorSymbol = symbolAllocator.newSymbol("unique", BOOLEAN);
+            withIndicator = new ProjectNode(
+                    idAllocator.getNextId(),
+                    joined,
+                    Assignments.builder()
+                            .putIdentities(joined.getOutputSymbols())
+                            .put(indicatorSymbol, new Comparison(Comparison.Operator.EQUAL, countSymbol.toSymbolReference(), new Constant(BIGINT, 1L)))
+                            .build());
+        }
+        else {
+            indicatorSymbol = symbolAllocator.newSymbol("exists", BOOLEAN);
+            withIndicator = new ApplyNode(
+                    idAllocator.getNextId(),
+                    subPlan.getRoot(),
+                    filteredSubquery,
+                    ImmutableMap.of(indicatorSymbol, new ApplyNode.Exists()),
+                    subPlan.getRoot().getOutputSymbols(),
+                    subqueryExpression);
+        }
+
+        Symbol matchSymbol = symbolAllocator.newSymbol("match", BOOLEAN);
+        Expression matchExpression = buildOuterNullWrap(predicate.getType(), valueFields, indicatorSymbol);
+        PlanNode root = new ProjectNode(
+                idAllocator.getNextId(),
+                withIndicator,
+                Assignments.builder()
+                        .putIdentities(withIndicator.getOutputSymbols())
+                        .put(matchSymbol, matchExpression)
+                        .build());
+
+        return new PlanBuilder(
+                mapClusterOutput(subPlan.getTranslations(), cluster, matchSymbol),
+                root);
+    }
+
+    private static List<io.trino.sql.tree.Expression> valueFieldExpressions(io.trino.sql.tree.Expression value)
+    {
+        if (value instanceof io.trino.sql.tree.Row row) {
+            return row.getFields().stream()
+                    .map(io.trino.sql.tree.Row.Field::getExpression)
+                    .collect(toImmutableList());
+        }
+        return ImmutableList.of(value);
+    }
+
+    private static List<Symbol> visibleFieldMappings(RelationPlan relationPlan)
+    {
+        RelationType descriptor = relationPlan.getDescriptor();
+        ImmutableList.Builder<Symbol> fields = ImmutableList.builder();
+        for (int i = 0; i < descriptor.getAllFieldCount(); i++) {
+            if (!descriptor.getFieldByIndex(i).isHidden()) {
+                fields.add(relationPlan.getFieldMappings().get(i));
+            }
+        }
+        return fields.build();
+    }
+
+    private static Expression buildRowMatchFilter(MatchPredicate.Type type, List<Symbol> valueFields, List<Symbol> subqueryFields)
+    {
+        ImmutableList.Builder<Expression> conjuncts = ImmutableList.builderWithExpectedSize(valueFields.size());
+        for (int i = 0; i < valueFields.size(); i++) {
+            Expression r = valueFields.get(i).toSymbolReference();
+            Expression s = subqueryFields.get(i).toSymbolReference();
+            Expression equality = new Comparison(Comparison.Operator.EQUAL, r, s);
+            if (type == MatchPredicate.Type.PARTIAL) {
+                conjuncts.add(combineOr(new IsNull(r), equality));
+            }
+            else {
+                conjuncts.add(equality);
+            }
+        }
+        return combineAnd(conjuncts.build());
+    }
+
+    private Expression buildOuterNullWrap(MatchPredicate.Type type, List<Symbol> valueFields, Symbol indicatorSymbol)
+    {
+        List<Expression> isNullChecks = valueFields.stream()
+                .map(symbol -> (Expression) new IsNull(symbol.toSymbolReference()))
+                .collect(toImmutableList());
+        Expression indicator = indicatorSymbol.toSymbolReference();
+        return switch (type) {
+            case SIMPLE -> combineOr(combineOr(isNullChecks), indicator);
+            case PARTIAL -> combineOr(combineAnd(isNullChecks), indicator);
+            case FULL -> combineOr(
+                    combineAnd(isNullChecks),
+                    combineAnd(not(plannerContext.getMetadata(), combineOr(isNullChecks)), indicator));
+        };
+    }
+
+    private static Expression combineAnd(List<Expression> terms)
+    {
+        return terms.size() == 1 ? terms.get(0) : new Logical(Logical.Operator.AND, ImmutableList.copyOf(terms));
+    }
+
+    private static Expression combineAnd(Expression a, Expression b)
+    {
+        return new Logical(Logical.Operator.AND, ImmutableList.of(a, b));
+    }
+
+    private static Expression combineOr(List<Expression> terms)
+    {
+        return terms.size() == 1 ? terms.get(0) : new Logical(Logical.Operator.OR, ImmutableList.copyOf(terms));
+    }
+
+    private static Expression combineOr(Expression a, Expression b)
+    {
+        return new Logical(Logical.Operator.OR, ImmutableList.of(a, b));
     }
 
     /**

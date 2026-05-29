@@ -136,6 +136,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
@@ -361,6 +362,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
     private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
+    private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
@@ -617,6 +619,11 @@ public class ExpressionAnalyzer
     public List<OperandAndPredicate> getQuantifiedComparisons()
     {
         return unmodifiableList(quantifiedComparisons);
+    }
+
+    public List<OperandAndPredicate> getMatchPredicates()
+    {
+        return ImmutableList.copyOf(matchPredicates);
     }
 
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
@@ -936,6 +943,7 @@ public class ExpressionAnalyzer
                 case InPredicate predicate -> analyzeIn(node.getValue(), predicate, node, context);
                 case IsNullPredicate _ -> analyzeIsNull(node.getValue(), node, context);
                 case LikePredicate predicate -> analyzeLike(node.getValue(), predicate, node, context);
+                case MatchPredicate predicate -> analyzeMatchPredicate(node.getValue(), predicate, node, context);
                 case QuantifiedComparisonPredicate predicate -> analyzeQuantifiedComparison(node.getValue(), predicate, node, context);
             };
         }
@@ -1082,6 +1090,7 @@ public class ExpressionAnalyzer
                         case InPredicate fragment -> analyzeIn(operand, fragment, whenClause, context);
                         case IsNullPredicate _ -> analyzeIsNull(operand, whenClause, context);
                         case LikePredicate fragment -> analyzeLike(operand, fragment, whenClause, context);
+                        case MatchPredicate fragment -> analyzeMatchPredicate(operand, fragment, whenClause, context);
                         case QuantifiedComparisonPredicate fragment -> analyzeQuantifiedComparison(operand, fragment, whenClause, context);
                     }
                 }
@@ -3149,6 +3158,20 @@ public class ExpressionAnalyzer
             return setExpressionType(anchor, BOOLEAN);
         }
 
+        private Type analyzeMatchPredicate(Expression value, MatchPredicate predicate, Expression anchor, Context context)
+        {
+            matchPredicates.add(new OperandAndPredicate(value, predicate));
+
+            Type declaredValueType = process(value, context);
+            Type comparisonType = analyzePredicateWithSubquery(predicate, declaredValueType, (SubqueryExpression) predicate.getSubquery(), context);
+
+            if (!comparisonType.isComparable()) {
+                throw semanticException(TYPE_MISMATCH, anchor, "Type [%s] must be comparable in order to be used in MATCH predicate", comparisonType);
+            }
+
+            return setExpressionType(anchor, BOOLEAN);
+        }
+
         @Override
         public Type visitFieldReference(FieldReference node, Context context)
         {
@@ -4241,6 +4264,7 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4272,6 +4296,7 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4300,6 +4325,7 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
                 analyzer.getWindowFunctions());
     }
 
@@ -4327,6 +4353,7 @@ public class ExpressionAnalyzer
                         analyzer.getExistsSubqueries(),
                         analyzer.getColumnReferences(),
                         analyzer.getQuantifiedComparisons(),
+                        analyzer.getMatchPredicates(),
                         analyzer.getWindowFunctions()));
     }
 
@@ -4355,6 +4382,7 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
                 analyzer.getWindowFunctions()));
     }
 
@@ -4429,6 +4457,7 @@ public class ExpressionAnalyzer
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
                 analyzer.getQuantifiedComparisons(),
+                analyzer.getMatchPredicates(),
                 analyzer.getWindowFunctions());
     }
 

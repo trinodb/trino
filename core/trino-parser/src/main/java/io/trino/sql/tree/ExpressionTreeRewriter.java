@@ -303,6 +303,10 @@ public final class ExpressionTreeRewriter<C>
                             ? predicate
                             : new LikePredicate(predicate.getLocation().orElseThrow(), predicate.isNegated(), pattern, rewrittenEscape);
                 }
+                case MatchPredicate predicate -> {
+                    Expression subquery = rewrite(predicate.getSubquery(), context.get());
+                    yield subquery == predicate.getSubquery() ? predicate : new MatchPredicate(predicate.getLocation().orElseThrow(), predicate.isUnique(), predicate.getType(), subquery);
+                }
                 case QuantifiedComparisonPredicate predicate -> {
                     Expression subquery = rewrite(predicate.getSubquery(), context.get());
                     yield subquery == predicate.getSubquery() ? predicate : new QuantifiedComparisonPredicate(predicate.getLocation().orElseThrow(), predicate.getOperator(), predicate.getQuantifier(), subquery);

@@ -79,6 +79,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MethodCall;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
@@ -614,6 +615,18 @@ public final class ExpressionFormatter
         {
             return (node.isNegated() ? "NOT LIKE " : "LIKE ") + process(node.getPattern(), context)
                     + node.getEscape().map(escape -> " ESCAPE " + process(escape, context)).orElse("");
+        }
+
+        @Override
+        protected String visitMatchPredicate(MatchPredicate node, Void context)
+        {
+            StringBuilder builder = new StringBuilder("MATCH");
+            if (node.isUnique()) {
+                builder.append(" UNIQUE");
+            }
+            builder.append(' ').append(node.getType());
+            builder.append(' ').append(process(node.getSubquery(), context));
+            return builder.toString();
         }
 
         @Override

@@ -472,6 +472,11 @@ public abstract class AstVisitor<R, C>
         return visitPredicate(node, context);
     }
 
+    protected R visitMatchPredicate(MatchPredicate node, C context)
+    {
+        return visitPredicate(node, context);
+    }
+
     protected R visitQuantifiedComparisonPredicate(QuantifiedComparisonPredicate node, C context)
     {
         return visitPredicate(node, context);
