@@ -13,10 +13,10 @@ final aggregation over ()
                                                 partial aggregation over (cr_order_number)
                                                     dynamic filter (cr_order_number::EQUAL)
                                                         scan catalog_returns
-                                    final aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_22, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
+                                    final aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_22, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique_50)
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cs_order_number_22])
-                                                intermediate aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_22, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
+                                                intermediate aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_22, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique_50)
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         partial aggregation over (cs_order_number_22, cs_warehouse_sk_19)
                                                             dynamic filter (cs_order_number_22::EQUAL)

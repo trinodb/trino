@@ -13,10 +13,10 @@ final aggregation over ()
                                                 partial aggregation over (wr_order_number)
                                                     dynamic filter (wr_order_number::EQUAL)
                                                         scan web_returns
-                                    final aggregation over (ws_ship_date_sk, ws_ship_addr_sk, ws_web_site_sk, ws_warehouse_sk, ws_order_number_22, ws_ext_ship_cost, ws_net_profit, d_date, ca_state, web_company_name, unique)
+                                    final aggregation over (ws_ship_date_sk, ws_ship_addr_sk, ws_web_site_sk, ws_warehouse_sk, ws_order_number_22, ws_ext_ship_cost, ws_net_profit, d_date, ca_state, web_company_name, unique_50)
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_order_number_22])
-                                                intermediate aggregation over (ws_ship_date_sk, ws_ship_addr_sk, ws_web_site_sk, ws_warehouse_sk, ws_order_number_22, ws_ext_ship_cost, ws_net_profit, d_date, ca_state, web_company_name, unique)
+                                                intermediate aggregation over (ws_ship_date_sk, ws_ship_addr_sk, ws_web_site_sk, ws_warehouse_sk, ws_order_number_22, ws_ext_ship_cost, ws_net_profit, d_date, ca_state, web_company_name, unique_50)
                                                     join (INNER, REPLICATED, can skip output duplicates):
                                                         partial aggregation over (ws_order_number_22, ws_warehouse_sk_20)
                                                             dynamic filter (ws_order_number_22::EQUAL)
