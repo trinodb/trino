@@ -30,6 +30,7 @@ import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.NodeAndMappings;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -58,6 +59,7 @@ import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
@@ -155,7 +157,31 @@ public class UnaliasSymbolReferences
         return new NodeAndMappings(updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap()), symbolMapper(result.getMappings()).map(fields));
     }
 
-    private PlanNode updateDynamicFilterIds(PlanNode resultNode, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
+    /**
+     * Rewrites every occurrence, reference or definition, of the mapped symbols in a plan that is free of
+     * group references, and replaces every other symbol the plan defines with a new one, so the result
+     * shares no symbols with other plans but the mapped targets and the plan's free symbols. The
+     * returned plan produces the original output symbols. It is used to rebind the correlation
+     * symbols of a correlated subquery onto another relation's symbols.
+     */
+    public static PlanNode rebind(PlanNode plan, Map<Symbol, Symbol> mapping, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        requireNonNull(plan, "plan is null");
+        requireNonNull(mapping, "mapping is null");
+
+        Visitor visitor = new Visitor(symbols -> symbolReallocator(symbols, symbolAllocator));
+        PlanAndMappings result = plan.accept(visitor, new UnaliasContext(mapping));
+        PlanNode root = updateDynamicFilterIds(result.getRoot(), visitor.getDynamicFilterIdMap());
+
+        SymbolMapper mapper = symbolMapper(result.getMappings());
+        Assignments.Builder outputs = Assignments.builder();
+        for (Symbol output : plan.getOutputSymbols()) {
+            outputs.put(output, mapper.map(output).toSymbolReference());
+        }
+        return new ProjectNode(idAllocator.getNextId(), root, outputs.build());
+    }
+
+    private static PlanNode updateDynamicFilterIds(PlanNode resultNode, Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap)
     {
         if (!dynamicFilterIdMap.isEmpty()) {
             resultNode = rewriteWith(new DynamicFilterVisitor(dynamicFilterIdMap), resultNode);
@@ -1055,12 +1081,42 @@ public class UnaliasSymbolReferences
             resultMapping.putAll(rewrittenInput.getMappings());
             resultMapping.putAll(rewrittenSubquery.getMappings());
 
+            // A subquery output that selects an input symbol must not be unaliased to it: the
+            // correlated join would output that symbol from both sides, and the subquery's value
+            // differs from the input's when the subquery side is NULL-extended. Keep the original
+            // output symbol for it on a projection above the subquery.
+            PlanNode subquery = rewrittenSubquery.getRoot();
+            Set<Symbol> inputSymbols = ImmutableSet.copyOf(rewrittenInput.getRoot().getOutputSymbols());
+            Assignments.Builder restored = Assignments.builder();
+            boolean restoredAny = false;
+            SymbolMapper subqueryMapper = SymbolMapper.symbolMapper(rewrittenSubquery.getMappings());
+            // The restored symbol keeps the original name, or gets a new one when reallocating symbols.
+            Map<Symbol, Symbol> restoredMapping = new HashMap<>();
+            SymbolMapper restoredMapper = symbolMapper(restoredMapping);
+            for (Symbol output : ImmutableSet.copyOf(node.getSubquery().getOutputSymbols())) {
+                Symbol rewritten = subqueryMapper.map(output);
+                if (inputSymbols.contains(rewritten) && !node.getInput().getOutputSymbols().contains(output)) {
+                    Symbol restoredSymbol = restoredMapper.map(output);
+                    restored.put(restoredSymbol, rewritten.toSymbolReference());
+                    resultMapping.put(output, restoredSymbol);
+                    restoredAny = true;
+                }
+            }
+            if (restoredAny) {
+                for (Symbol output : subquery.getOutputSymbols()) {
+                    if (!inputSymbols.contains(output)) {
+                        restored.putIdentity(output);
+                    }
+                }
+                subquery = new ProjectNode(new PlanNodeId(node.getId() + "_subquery"), subquery, restored.build());
+            }
+
             // rewrite filter with unified mapping
             mapper = symbolMapper(resultMapping);
             Expression newFilter = mapper.map(node.getFilter());
 
             return new PlanAndMappings(
-                    new CorrelatedJoinNode(node.getId(), rewrittenInput.getRoot(), rewrittenSubquery.getRoot(), rewrittenCorrelation, node.getType(), newFilter, node.getOriginSubquery()),
+                    new CorrelatedJoinNode(node.getId(), rewrittenInput.getRoot(), subquery, rewrittenCorrelation, node.getType(), newFilter, node.getOriginSubquery()),
                     resultMapping);
         }
 

@@ -58,6 +58,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isUseLegacyDecorrelator;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -115,6 +116,13 @@ public class TransformCorrelatedInPredicateToJoin
     public Pattern<ApplyNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        // Part of the legacy decorrelator, which runs only when explicitly re-enabled.
+        return isUseLegacyDecorrelator(session);
     }
 
     @Override
