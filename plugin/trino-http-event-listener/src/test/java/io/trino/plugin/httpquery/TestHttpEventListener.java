@@ -40,6 +40,7 @@ import okhttp3.Handshake;
 import okhttp3.TlsVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -50,6 +51,8 @@ import javax.net.ssl.X509TrustManager;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
@@ -280,6 +283,37 @@ final class TestHttpEventListener
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
                 "Authorization", "Trust Me!",
                 "Cache-Control", "no-cache"), queryCompleteEventJson);
+    }
+
+    @Test
+    void testHttpHeadersFileShouldBePresent(@TempDir Path tempDir)
+            throws Exception
+    {
+        Path httpHeadersFile = tempDir.resolve("http-event-listener-headers.properties");
+        Files.writeString(httpHeadersFile,
+                """
+                Authorization=Trust Me!
+                Cache-Control=no-cache
+                X-List=a,b
+                X-Trace=value:with:colon
+                """);
+
+        EventListener eventListener = createEventListener(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-http-headers", "X-Inline:inline value",
+                "http-event-listener.connect-http-headers-file", httpHeadersFile.toString()));
+
+        server.enqueue(new MockResponse.Builder().code(200).build());
+
+        eventListener.queryCompleted(queryCompleteEvent);
+
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
+                "Authorization", "Trust Me!",
+                "Cache-Control", "no-cache",
+                "X-Inline", "inline value",
+                "X-List", "a,b",
+                "X-Trace", "value:with:colon"), queryCompleteEventJson);
     }
 
     @Test

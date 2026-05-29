@@ -15,7 +15,10 @@ package io.trino.plugin.httpquery;
 
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +35,7 @@ final class TestHttpEventListenerConfig
     {
         assertRecordedDefaults(recordDefaults(HttpEventListenerConfig.class)
                 .setHttpHeaders(List.of())
+                .setHttpHeadersFile(null)
                 .setIngestUri(null)
                 .setRetryCount(0)
                 .setRetryDelay(Duration.succinctDuration(1, TimeUnit.SECONDS))
@@ -43,14 +47,17 @@ final class TestHttpEventListenerConfig
     }
 
     @Test
-    void testExplicitPropertyMappings()
+    void testExplicitPropertyMappings(@TempDir Path tempDir)
             throws Exception
     {
+        Path httpHeadersFile = Files.createFile(tempDir.resolve("http-event-listener-headers.properties"));
+
         Map<String, String> properties = Map.of(
                 "http-event-listener.log-created", "true",
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
                 "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
+                "http-event-listener.connect-http-headers-file", httpHeadersFile.toString(),
                 "http-event-listener.connect-retry-count", "2",
                 "http-event-listener.connect-http-method", "PUT",
                 "http-event-listener.connect-retry-delay", "101s",
@@ -62,6 +69,7 @@ final class TestHttpEventListenerConfig
                 .setLogCreated(true)
                 .setIngestUri("http://example.com:8080/api")
                 .setHttpHeaders(List.of("Authorization: Trust Me", "Cache-Control: no-cache"))
+                .setHttpHeadersFile(httpHeadersFile)
                 .setRetryCount(2)
                 .setHttpMethod(HttpEventListenerHttpMethod.PUT)
                 .setRetryDelay(Duration.succinctDuration(101, TimeUnit.SECONDS))

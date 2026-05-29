@@ -71,6 +71,12 @@ event-listener.config-files=etc/http-event-listener.properties,...
     [](http-event-listener-custom-headers) for more details
   - Empty
 
+* - http-event-listener.connect-http-headers-file
+  - Path to a Java properties file containing custom HTTP headers to be sent
+    along with the events. See [](http-event-listener-custom-headers) for more
+    details
+  - Empty
+
 * - http-event-listener.connect-http-method
   - Specifies the HTTP method to use for the request. Supported values
     are POST and PUT.
@@ -112,11 +118,27 @@ event messages.
 Providing headers follows the pattern of `key:value` pairs separated by commas:
 
 ```text
-http-event-listener.connect-http-headers="Header-Name-1:header value 1,Header-Value-2:header value 2,..."
+http-event-listener.connect-http-headers="Header-Name-1:header value 1,Header-Name-2:header value 2,..."
 ```
 
-If you need to use a comma(`,`) or colon(`:`) in a header name or value,
-escape it using a backslash (`\`).
+The inline property is parsed as a comma-separated list. For header values that
+contain commas, use `http-event-listener.connect-http-headers-file` instead:
+
+```properties
+http-event-listener.connect-http-headers-file=etc/http-event-listener-headers.properties
+```
+
+The file uses Java properties format, where each property name is an HTTP header
+name and each property value is an HTTP header value:
+
+```properties
+Header-Name-1=header value 1
+Header-Name-2=header value with comma, and colon: ok
+```
+
+When both `http-event-listener.connect-http-headers` and
+`http-event-listener.connect-http-headers-file` are configured, headers from both
+sources are sent. Header names must be unique across both properties.
 
 Keep in mind that these are static, so they can not carry information
 taken from the event itself.
