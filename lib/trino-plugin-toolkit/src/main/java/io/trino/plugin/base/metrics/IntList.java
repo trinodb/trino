@@ -13,24 +13,21 @@
  */
 package io.trino.plugin.base.metrics;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.metrics.Metric;
 
 import java.util.List;
-import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-
-public class IntList
+@JsonTypeInfo(use = JsonTypeInfo.Id.NONE) // Do not add @class property
+@JsonSerialize
+public record IntList(List<Integer> integers)
         implements Metric<IntList>
 {
-    private final List<Integer> integers;
-
-    @JsonCreator
-    public IntList(List<Integer> integers)
+    public IntList
     {
-        this.integers = ImmutableList.copyOf(integers);
+        integers = ImmutableList.copyOf(integers);
     }
 
     @Override
@@ -40,32 +37,5 @@ public class IntList
                 .addAll(integers)
                 .addAll(other.integers)
                 .build());
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        IntList count = (IntList) o;
-        return integers.equals(count.integers);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(integers);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("integers", integers)
-                .toString();
     }
 }
