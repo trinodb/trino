@@ -93,6 +93,7 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubsetDefinition;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableFunctionInvocation;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
@@ -547,6 +548,7 @@ public class Analysis
         subqueries.addExistsSubqueries(dereference(expressionAnalysis.getExistsSubqueries()));
         subqueries.addQuantifiedComparisons(expressionAnalysis.getQuantifiedComparisons());
         subqueries.addMatchPredicates(expressionAnalysis.getMatchPredicates());
+        subqueries.addUniquePredicates(dereference(expressionAnalysis.getUniquePredicates()));
     }
 
     private <T extends Node> List<T> dereference(Collection<NodeRef<T>> nodeRefs)
@@ -1825,6 +1827,7 @@ public class Analysis
         private final List<ExistsPredicate> existsSubqueries = new ArrayList<>();
         private final List<OperandAndPredicate> quantifiedComparisons = new ArrayList<>();
         private final List<OperandAndPredicate> matchPredicates = new ArrayList<>();
+        private final List<UniquePredicate> uniquePredicates = new ArrayList<>();
 
         public void addInPredicates(List<OperandAndPredicate> predicates)
         {
@@ -1851,6 +1854,11 @@ public class Analysis
             matchPredicates.addAll(predicates);
         }
 
+        public void addUniquePredicates(List<UniquePredicate> expressions)
+        {
+            uniquePredicates.addAll(expressions);
+        }
+
         public List<OperandAndPredicate> getInPredicates()
         {
             return unmodifiableList(inPredicates);
@@ -1874,6 +1882,11 @@ public class Analysis
         public List<OperandAndPredicate> getMatchPredicates()
         {
             return unmodifiableList(matchPredicates);
+        }
+
+        public List<UniquePredicate> getUniquePredicates()
+        {
+            return unmodifiableList(uniquePredicates);
         }
     }
 

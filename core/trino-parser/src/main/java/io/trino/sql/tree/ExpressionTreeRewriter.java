@@ -765,6 +765,26 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitUniquePredicate(UniquePredicate node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteUniquePredicate(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression subquery = node.getSubquery();
+            subquery = rewrite(subquery, context.get());
+
+            if (subquery != node.getSubquery()) {
+                return new UniquePredicate(node.getLocation().orElseThrow(), subquery);
+            }
+
+            return node;
+        }
+
+        @Override
         public Expression visitSubqueryExpression(SubqueryExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

@@ -106,6 +106,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
+import io.trino.sql.tree.UniquePredicate;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
@@ -438,6 +439,12 @@ public final class ExpressionFormatter
         protected String visitExists(ExistsPredicate node, Void context)
         {
             return "(EXISTS " + formatSql(node.getSubquery()) + ")";
+        }
+
+        @Override
+        protected String visitUniquePredicate(UniquePredicate node, Void context)
+        {
+            return "(UNIQUE " + formatSql(node.getSubquery()) + ")";
         }
 
         @Override

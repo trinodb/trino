@@ -899,6 +899,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitUniquePredicate(UniquePredicate node, C context)
+    {
+        process(node.getSubquery(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitLateral(Lateral node, C context)
     {
         process(node.getQuery(), context);
