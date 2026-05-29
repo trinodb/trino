@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.USE_LEGACY_DECORRELATOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -44,6 +45,7 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
     public void doesNotFireOnUncorrelated()
     {
         tester().assertThat(new TransformCorrelatedDistinctAggregationWithoutProjection(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -55,6 +57,7 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
     public void doesNotFireOnCorrelatedWithNonDistinctAggregation()
     {
         tester().assertThat(new TransformCorrelatedDistinctAggregationWithoutProjection(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -68,6 +71,7 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
     public void rewritesOnSubqueryWithDistinct()
     {
         tester().assertThat(new TransformCorrelatedDistinctAggregationWithoutProjection(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
