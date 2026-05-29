@@ -152,7 +152,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -213,7 +213,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             tableHandle = new TableHandle(
@@ -324,7 +324,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();
@@ -474,7 +474,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     Optional.empty(),
-                    0,
+                    OptionalLong.empty(),
                     OptionalLong.empty());
 
             String tablePath = inputFile.location().fileName();

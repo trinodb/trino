@@ -40,14 +40,13 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.SnapshotUtil;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
@@ -153,15 +152,14 @@ public class IcebergSplitManager
         }
 
         Schema schema = schemaFor(icebergTable, table.getSnapshotId().getAsLong());
-        List<String> names = table.getProjectedColumns().stream()
-                .map(column -> schema.findField(column.getId()))
-                .filter(Objects::nonNull) // Newly added column may not be found in current snapshot schema until new files are added
-                .map(Types.NestedField::name)
-                .collect(toImmutableList());
+        Set<Integer> projectedIds = table.getProjectedColumns().stream()
+                .map(IcebergColumnHandle::getId)
+                .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
+                .collect(toImmutableSet());
 
         return icebergTable.newScan()
                 .useSnapshot(table.getSnapshotId().getAsLong())
-                .project(schema.select(names)) // Using Scan.project method because Scan.select throws an exception for nested variant
+                .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
     }

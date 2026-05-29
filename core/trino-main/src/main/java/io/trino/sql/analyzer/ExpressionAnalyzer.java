@@ -2541,11 +2541,11 @@ public class ExpressionAnalyzer
                     .flatMap(type -> typeCoercion.getCommonSuperType(type, maxType));
 
             if (commonType.isEmpty()) {
-                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
             }
 
             if (!commonType.get().isOrderable()) {
-                semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
+                throw semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
             }
 
             if (!valueType.equals(commonType.get())) {
