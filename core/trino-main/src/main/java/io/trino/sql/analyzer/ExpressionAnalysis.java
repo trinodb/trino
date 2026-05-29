@@ -23,6 +23,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SubqueryExpression;
+import io.trino.sql.tree.UniquePredicate;
 
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ public class ExpressionAnalysis
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
     private final List<OperandAndPredicate> quantifiedComparisons;
     private final List<OperandAndPredicate> matchPredicates;
+    private final Set<NodeRef<UniquePredicate>> uniquePredicates;
     private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
@@ -51,6 +53,7 @@ public class ExpressionAnalysis
             Map<NodeRef<Expression>, ResolvedField> columnReferences,
             List<OperandAndPredicate> quantifiedComparisons,
             List<OperandAndPredicate> matchPredicates,
+            Set<NodeRef<UniquePredicate>> uniquePredicates,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
@@ -61,6 +64,7 @@ public class ExpressionAnalysis
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableList.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
         this.matchPredicates = ImmutableList.copyOf(requireNonNull(matchPredicates, "matchPredicates is null"));
+        this.uniquePredicates = ImmutableSet.copyOf(requireNonNull(uniquePredicates, "uniquePredicates is null"));
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
     }
 
@@ -107,6 +111,11 @@ public class ExpressionAnalysis
     public List<OperandAndPredicate> getMatchPredicates()
     {
         return matchPredicates;
+    }
+
+    public Set<NodeRef<UniquePredicate>> getUniquePredicates()
+    {
+        return uniquePredicates;
     }
 
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
