@@ -1183,8 +1183,8 @@ public abstract class BaseIcebergMaterializedViewTest
 
         String matViewDef =
                 """
-                SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
-                SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
+                        SELECT a, b FROM %s a WHERE a.a < 3 UNION ALL
+                        SELECT * FROM %s b WHERE b.a > 5""".formatted(sourceTableName, sourceTableName);
 
         // create source table and two identical MVs
         assertUpdate("CREATE TABLE %s (a int, b varchar)".formatted(sourceTableName));
