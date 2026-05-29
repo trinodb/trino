@@ -92,7 +92,7 @@ public class MysqlEventListenerFactory
         @Provides
         public ConnectionFactory createConnectionFactory(MysqlEventListenerConfig config)
         {
-            return () -> new Driver().connect(config.getUrl(), new Properties());
+            return () -> new Driver().connect(config.getUrl(), connectionProperties(config));
         }
 
         @Singleton
@@ -102,6 +102,14 @@ public class MysqlEventListenerFactory
             return Jdbi.create(connectionFactory)
                     .installPlugin(new SqlObjectPlugin())
                     .installPlugin(new JdbiOpenTelemetryPlugin(openTelemetry));
+        }
+
+        private static Properties connectionProperties(MysqlEventListenerConfig config)
+        {
+            Properties properties = new Properties();
+            config.getUser().ifPresent(user -> properties.setProperty("user", user));
+            config.getPassword().ifPresent(password -> properties.setProperty("password", password));
+            return properties;
         }
     }
 

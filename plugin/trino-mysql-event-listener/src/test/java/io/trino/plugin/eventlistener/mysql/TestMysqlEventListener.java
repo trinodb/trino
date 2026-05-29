@@ -243,23 +243,6 @@ final class TestMysqlEventListener
             Instant.now(),
             Instant.now());
 
-    private static final QueryMetadata MINIMAL_QUERY_METADATA = new QueryMetadata(
-            "minimal_query",
-            Optional.empty(),
-            Optional.empty(),
-            "query",
-            Optional.empty(),
-            Optional.empty(),
-            "queryState",
-            // not stored
-            List.of(),
-            // not stored
-            List.of(),
-            URI.create("http://localhost"),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty());
-
     private static final QueryStatistics MINIMAL_QUERY_STATISTICS = new QueryStatistics(
             ofMillis(101),
             ofMillis(102),
@@ -346,17 +329,7 @@ final class TestMysqlEventListener
 
     private static final QueryIOMetadata MINIMAL_QUERY_IO_METADATA = new QueryIOMetadata(List.of(), Optional.empty());
 
-    private static final QueryCompletedEvent MINIMAL_QUERY_COMPLETED_EVENT = new QueryCompletedEvent(
-            MINIMAL_QUERY_METADATA,
-            MINIMAL_QUERY_STATISTICS,
-            MINIMAL_QUERY_CONTEXT,
-            MINIMAL_QUERY_IO_METADATA,
-            Optional.empty(),
-            Optional.empty(),
-            List.of(),
-            Instant.now(),
-            Instant.now(),
-            Instant.now());
+    private static final QueryCompletedEvent MINIMAL_QUERY_COMPLETED_EVENT = minimalQueryCompletedEvent("minimal_query");
 
     private MySQLContainer mysqlContainer;
     private String mysqlContainerUrl;
@@ -393,6 +366,48 @@ final class TestMysqlEventListener
                 container.getJdbcUrl(),
                 container.getUsername(),
                 container.getPassword());
+    }
+
+    private static String getJdbcUrlWithoutCredentials(MySQLContainer container)
+    {
+        return format(
+                "%s?useSSL=false&allowPublicKeyRetrieval=true",
+                container.getJdbcUrl());
+    }
+
+    private static QueryCompletedEvent minimalQueryCompletedEvent(String queryId)
+    {
+        return new QueryCompletedEvent(
+                minimalQueryMetadata(queryId),
+                MINIMAL_QUERY_STATISTICS,
+                MINIMAL_QUERY_CONTEXT,
+                MINIMAL_QUERY_IO_METADATA,
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                Instant.now(),
+                Instant.now(),
+                Instant.now());
+    }
+
+    private static QueryMetadata minimalQueryMetadata(String queryId)
+    {
+        return new QueryMetadata(
+                queryId,
+                Optional.empty(),
+                Optional.empty(),
+                "query",
+                Optional.empty(),
+                Optional.empty(),
+                "queryState",
+                // not stored
+                List.of(),
+                // not stored
+                List.of(),
+                URI.create("http://localhost"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     @Test
@@ -474,6 +489,33 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("completed_splits")).isEqualTo(130);
                     assertThat(resultSet.getString("retry_policy")).isEqualTo("TASK");
                     assertThat(resultSet.getString("operator_summaries_json")).isEqualTo("[{operator: \"operator1\"},{operator: \"operator2\"}]");
+                    assertThat(resultSet.next()).isFalse();
+                }
+            }
+        }
+    }
+
+    @Test
+    void testConnectionCredentials()
+            throws SQLException
+    {
+        EventListener credentialsEventListener = new MysqlEventListenerFactory()
+                .create(
+                        Map.of(
+                                "mysql-event-listener.db.url", getJdbcUrlWithoutCredentials(mysqlContainer),
+                                "mysql-event-listener.db.user", mysqlContainer.getUsername(),
+                                "mysql-event-listener.db.password", mysqlContainer.getPassword()),
+                        new TestingEventListenerContext());
+
+        credentialsEventListener.queryCompleted(minimalQueryCompletedEvent("connection_credentials_query"));
+
+        try (Connection connection = DriverManager.getConnection(mysqlContainerUrl)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SELECT * FROM trino_queries WHERE query_id = 'connection_credentials_query'");
+                try (ResultSet resultSet = statement.getResultSet()) {
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("query_id")).isEqualTo("connection_credentials_query");
+                    assertThat(resultSet.getString("query")).isEqualTo("query");
                     assertThat(resultSet.next()).isFalse();
                 }
             }
