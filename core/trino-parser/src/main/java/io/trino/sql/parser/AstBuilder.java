@@ -180,6 +180,7 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -2397,6 +2398,25 @@ class AstBuilder
                 getLocation(context.comparisonOperator()),
                 getComparisonOperator(((TerminalNode) context.comparisonOperator().getChild(0)).getSymbol()),
                 getComparisonQuantifier(((TerminalNode) context.comparisonQuantifier().getChild(0)).getSymbol()),
+                new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
+    }
+
+    @Override
+    public Node visitMatch(SqlBaseParser.MatchContext context)
+    {
+        MatchPredicate.Type type = MatchPredicate.Type.SIMPLE;
+        if (context.matchType != null) {
+            type = switch (context.matchType.getType()) {
+                case SqlBaseLexer.SIMPLE -> MatchPredicate.Type.SIMPLE;
+                case SqlBaseLexer.PARTIAL -> MatchPredicate.Type.PARTIAL;
+                case SqlBaseLexer.FULL -> MatchPredicate.Type.FULL;
+                default -> throw new IllegalArgumentException("Unsupported MATCH type: " + context.matchType.getText());
+            };
+        }
+        return new MatchPredicate(
+                getLocation(context),
+                context.UNIQUE() != null,
+                type,
                 new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
     }
 
