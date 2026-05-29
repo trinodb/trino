@@ -4356,6 +4356,19 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testUniquePredicate()
+    {
+        // Comparable scalar/row types
+        analyze("SELECT UNIQUE (SELECT a FROM t1)");
+        analyze("SELECT UNIQUE (SELECT a, b FROM t1)");
+        analyze("SELECT * FROM t1 WHERE NOT UNIQUE (SELECT a FROM t1)");
+
+        // Non-comparable type rejected
+        assertFails("SELECT UNIQUE (SELECT cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
     public void testJoinUnnest()
     {
         // Lateral references are only allowed in INNER and LEFT join.
