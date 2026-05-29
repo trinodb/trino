@@ -42,7 +42,11 @@ import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
 import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DecorrelateLeftUnnestWithGlobalAggregation;
+import io.trino.sql.planner.iterative.rule.DecorrelateScalarAggregationViaDependentJoin;
+import io.trino.sql.planner.iterative.rule.DecorrelateScalarSubqueryViaDependentJoin;
 import io.trino.sql.planner.iterative.rule.DecorrelateUnnest;
+import io.trino.sql.planner.iterative.rule.DecorrelateViaMagicSet;
+import io.trino.sql.planner.iterative.rule.DecorrelateViaPlainJoinForms;
 import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -50,6 +54,7 @@ import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
+import io.trino.sql.planner.iterative.rule.ExtractCorrelatedJoinFilter;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
@@ -141,6 +146,7 @@ import io.trino.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.trino.sql.planner.iterative.rule.PushCastIntoRow;
 import io.trino.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
+import io.trino.sql.planner.iterative.rule.PushDownDependentJoin;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughJoin;
 import io.trino.sql.planner.iterative.rule.PushDownDereferenceThroughProject;
@@ -221,6 +227,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
+import io.trino.sql.planner.iterative.rule.RewriteCorrelatedInPredicateToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
@@ -536,6 +543,19 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(
+                                // The dependent-join decorrelation framework (disabled by
+                                // `use-legacy-decorrelator`, which re-enables the TransformCorrelated* rules
+                                // below instead). Registration order is firing priority: the IN rule lowers
+                                // correlated IN to a CorrelatedJoinNode, the filter normalization and the
+                                // specialized single-join forms go before the generic single-step pushdown, and
+                                // the magic-set is the LEFT fallback of last resort.
+                                new RewriteCorrelatedInPredicateToCorrelatedJoin(metadata),
+                                new ExtractCorrelatedJoinFilter(),
+                                new DecorrelateScalarSubqueryViaDependentJoin(plannerContext),
+                                new DecorrelateScalarAggregationViaDependentJoin(plannerContext),
+                                new DecorrelateViaPlainJoinForms(plannerContext),
+                                new PushDownDependentJoin(plannerContext),
+                                new DecorrelateViaMagicSet(plannerContext),
                                 new RemoveRedundantEnforceSingleRowNode(),
                                 new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),

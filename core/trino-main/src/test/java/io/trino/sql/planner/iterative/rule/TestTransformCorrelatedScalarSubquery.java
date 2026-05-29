@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.SystemSessionProperties.USE_LEGACY_DECORRELATOR;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -71,6 +72,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void doesNotFireOnPlanWithoutCorrelatedJoinlNode()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -79,6 +81,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void doesNotFireOnCorrelatedNonScalar()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -90,6 +93,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void doesNotFireOnUncorrelated()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.<Symbol>of(),
                         p.values(p.symbol("a")),
@@ -101,6 +105,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithoutProjection()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -129,6 +134,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithProjection()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -160,6 +166,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesOnSubqueryWithProjectionOnTopEnforceSingleNode()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -196,6 +203,7 @@ public class TestTransformCorrelatedScalarSubquery
     public void rewritesScalarSubquery()
     {
         tester().assertThat(rule)
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
