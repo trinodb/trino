@@ -133,6 +133,7 @@ import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -6045,6 +6046,55 @@ public class TestSqlParser
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty())))));
+    }
+
+    @Test
+    public void testMatchPredicate()
+    {
+        // Regular `ROW(...) MATCH ...` form parses as Predicated(Row(...), MatchPredicate(...)).
+        SqlParser parser = new SqlParser();
+        MatchPredicate simpleDefault = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a, b) MATCH (SELECT x, y FROM t)")).getPredicate();
+        assertThat(simpleDefault.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+        assertThat(simpleDefault.isUnique()).isFalse();
+
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH SIMPLE (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.SIMPLE);
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH PARTIAL (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.PARTIAL);
+        assertThat(((MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH FULL (SELECT x FROM t)")).getPredicate()).getType())
+                .isEqualTo(MatchPredicate.Type.FULL);
+
+        MatchPredicate uniqueSimple = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a) MATCH UNIQUE (SELECT x FROM t)")).getPredicate();
+        assertThat(uniqueSimple.isUnique()).isTrue();
+        assertThat(uniqueSimple.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+
+        MatchPredicate uniqueFull = (MatchPredicate) ((Predicated) parser.createExpression("ROW(a, b) MATCH UNIQUE FULL (SELECT x, y FROM t)")).getPredicate();
+        assertThat(uniqueFull.isUnique()).isTrue();
+        assertThat(uniqueFull.getType()).isEqualTo(MatchPredicate.Type.FULL);
+    }
+
+    @Test
+    public void testMatchPredicateInExtendedCaseWhen()
+    {
+        // MATCH as a fragment in extended SIMPLE CASE WHEN (SQL:2023 F262): the case operand is
+        // the implicit LHS of the MATCH predicate.
+        SqlParser parser = new SqlParser();
+        SimpleCaseExpression simpleCase = (SimpleCaseExpression) parser.createExpression(
+                "CASE ROW(a, b) " +
+                        "  WHEN MATCH (SELECT x, y FROM t) THEN 'match' " +
+                        "  WHEN MATCH UNIQUE PARTIAL (SELECT x, y FROM u) THEN 'unique partial' " +
+                        "  ELSE 'none' " +
+                        "END");
+        WhenClause firstClause = simpleCase.getWhenClauses().get(0);
+        assertThat(firstClause.getMatch()).isInstanceOf(WhenClause.Partial.class);
+        MatchPredicate firstFragment = (MatchPredicate) ((WhenClause.Partial) firstClause.getMatch()).predicate();
+        assertThat(firstFragment.isUnique()).isFalse();
+        assertThat(firstFragment.getType()).isEqualTo(MatchPredicate.Type.SIMPLE);
+
+        WhenClause secondClause = simpleCase.getWhenClauses().get(1);
+        MatchPredicate secondFragment = (MatchPredicate) ((WhenClause.Partial) secondClause.getMatch()).predicate();
+        assertThat(secondFragment.isUnique()).isTrue();
+        assertThat(secondFragment.getType()).isEqualTo(MatchPredicate.Type.PARTIAL);
     }
 
     @Test

@@ -39,6 +39,7 @@ public class ExpressionAnalysis
     private final Set<NodeRef<SubqueryExpression>> subqueries;
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries;
     private final List<OperandAndPredicate> quantifiedComparisons;
+    private final List<OperandAndPredicate> matchPredicates;
     private final Set<NodeRef<FunctionCall>> windowFunctions;
 
     public ExpressionAnalysis(
@@ -49,6 +50,7 @@ public class ExpressionAnalysis
             Set<NodeRef<ExistsPredicate>> existsSubqueries,
             Map<NodeRef<Expression>, ResolvedField> columnReferences,
             List<OperandAndPredicate> quantifiedComparisons,
+            List<OperandAndPredicate> matchPredicates,
             Set<NodeRef<FunctionCall>> windowFunctions)
     {
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
@@ -58,6 +60,7 @@ public class ExpressionAnalysis
         this.subqueries = ImmutableSet.copyOf(requireNonNull(subqueries, "subqueries is null"));
         this.existsSubqueries = ImmutableSet.copyOf(requireNonNull(existsSubqueries, "existsSubqueries is null"));
         this.quantifiedComparisons = ImmutableList.copyOf(requireNonNull(quantifiedComparisons, "quantifiedComparisons is null"));
+        this.matchPredicates = ImmutableList.copyOf(requireNonNull(matchPredicates, "matchPredicates is null"));
         this.windowFunctions = ImmutableSet.copyOf(requireNonNull(windowFunctions, "windowFunctions is null"));
     }
 
@@ -99,6 +102,11 @@ public class ExpressionAnalysis
     public List<OperandAndPredicate> getQuantifiedComparisons()
     {
         return quantifiedComparisons;
+    }
+
+    public List<OperandAndPredicate> getMatchPredicates()
+    {
+        return matchPredicates;
     }
 
     public Set<NodeRef<FunctionCall>> getWindowFunctions()
